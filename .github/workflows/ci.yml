@@ -1,6 +1,7 @@
 name: Phase 1 Foundation Checks
 
 on:
+  workflow_dispatch:
   push:
   pull_request:
 
