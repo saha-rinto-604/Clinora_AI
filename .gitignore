@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+target/
+out/
+.vite/
+
+# Java / Maven
+*.class
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+**/.venv/
+**/venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+application-local.yml
+
+# Local governing source documents
+Documents/
+
+# IDE and OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Docker/runtime data
+postgres-data/
+rabbitmq-data/
+redis-data/
+minio-data/
