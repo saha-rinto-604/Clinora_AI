@@ -20,8 +20,10 @@ describe('Phase 2A design-system foundation', () => {
   it('renders the non-production component showcase without accessibility violations', async () => {
     const { container } = render(<App />);
 
-    expect(screen.getByRole('heading', { name: /navigation, overlays, data shells/i })).toBeInTheDocument();
-    expect(screen.getByText(/no domain data is rendered in phase 2b/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /clinical intelligence, built around human judgment/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/human-in-the-loop ai/i)).toBeInTheDocument();
 
     const results = await axe(container);
     expect(results).toHaveNoViolations();
