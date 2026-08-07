@@ -15,15 +15,6 @@ import {
   UsersRound,
 } from 'lucide-react';
 
-export const navItems = [
-  { label: 'Platform', href: '#platform' },
-  { label: 'AI & OCR', href: '#ai-ocr' },
-  { label: 'Emergency Assistance', href: '#emergency-assistance' },
-  { label: 'Research', href: '#research' },
-  { label: 'Security', href: '#security' },
-  { label: 'FAQ', href: '#faq' },
-];
-
 export const trustSignals = ['Human-in-the-loop AI', 'Privacy-conscious architecture', 'Explainable clinical support'];
 
 export const ecosystemCards = [
@@ -192,5 +183,3 @@ export const proofBadges = [
   'Protected service boundaries',
   'Privacy-conscious data flow',
 ];
-
-export const footerLinks = [...navItems, { label: 'Workflow', href: '#workflow' }];
