@@ -45,8 +45,10 @@ describe('Phase 2B shared components', () => {
   it('renders the polished shared-component showcase without accessibility violations', async () => {
     const { container } = render(<App />);
 
-    expect(screen.getByRole('heading', { name: /navigation, overlays, data shells/i })).toBeInTheDocument();
-    expect(screen.getByText(/no domain data is rendered in phase 2b/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /clinical intelligence, built around human judgment/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/human-in-the-loop ai/i)).toBeInTheDocument();
 
     const results = await axe(container);
     expect(results).toHaveNoViolations();
@@ -166,12 +168,12 @@ describe('Phase 2B shared components', () => {
     expect(within(screen.getByRole('navigation', { name: 'Pagination' })).getByText('Page 1 of 1')).toBeInTheDocument();
   });
 
-  it('keeps the showcase responsive with mobile and overflow-safe structures', () => {
+  it('keeps the landing composition responsive with mobile and overflow-safe structures', () => {
     render(<App />);
 
-    expect(screen.getByRole('button', { name: 'Open mobile preview menu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('overflow-x-hidden');
-    expect(screen.getByRole('table').parentElement).toHaveClass('overflow-x-auto');
+    expect(screen.getByRole('list', { name: 'AI and OCR workflow' })).toHaveClass('md:grid-cols-5');
   });
 
   it('renders toast messages through accessible status semantics', () => {

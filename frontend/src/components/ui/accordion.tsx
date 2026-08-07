@@ -15,7 +15,7 @@ export function AccordionTrigger({
     <AccordionPrimitive.Header>
       <AccordionPrimitive.Trigger
         className={cn(
-          'flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-sm font-semibold text-slate-100 transition hover:bg-white/10 data-[state=open]:bg-white/10',
+          'group flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-sm font-semibold text-slate-100 transition hover:bg-white/10 data-[state=open]:bg-white/10',
           className,
         )}
         {...props}
@@ -33,7 +33,10 @@ export function AccordionTrigger({
 export function AccordionContent({ className, ...props }: ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>) {
   return (
     <AccordionPrimitive.Content
-      className={cn('overflow-hidden px-4 pb-4 pt-1 text-sm leading-6 text-slate-300', className)}
+      className={cn(
+        'overflow-hidden px-4 pb-4 pt-1 text-sm leading-6 text-slate-300 data-[state=closed]:animate-[accordion-up_260ms_ease-in] data-[state=open]:animate-[accordion-down_320ms_ease-out]',
+        className,
+      )}
       {...props}
     />
   );
