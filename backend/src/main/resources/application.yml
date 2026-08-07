@@ -38,6 +38,20 @@ management:
         enabled: true
 
 clinora:
+  auth:
+    issuer: ${AUTH_JWT_ISSUER:clinora-ai}
+    access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${AUTH_REFRESH_TOKEN_TTL:7d}
+    jwt-secret: ${JWT_SECRET:dev-only-clinora-jwt-secret-change-me-32-bytes}
+    rate-limit-key-secret: ${RATE_LIMIT_KEY_SECRET:dev-only-clinora-rate-limit-key-change-me}
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  email:
+    provider: ${EMAIL_PROVIDER:unconfigured}
+    frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+    from: ${MAIL_FROM:Clinora AI <noreply@example.invalid>}
   services:
     ocr-url: ${OCR_SERVICE_URL:http://localhost:8000}
     ai-url: ${AI_SERVICE_URL:http://localhost:8001}
