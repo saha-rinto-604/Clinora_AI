@@ -5,6 +5,11 @@ import { afterEach, expect } from 'vitest';
 
 expect.extend(toHaveNoViolations);
 
+Object.defineProperty(window, 'scrollTo', {
+  writable: true,
+  value: () => undefined,
+});
+
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

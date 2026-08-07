@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, CheckCircle2, FileScan, ShieldCheck, Sparkles, Stethoscope } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Link } from 'react-router';
 import { Badge, GlassPanel } from '../ui';
 import { buttonVariants } from '../ui/button-variants';
 import { BiomedicalBackground } from './biomedical-background';
@@ -59,10 +60,10 @@ export function LandingHero() {
             transition={heroTransition(0.28)}
             className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
           >
-            <a href="#platform" className={buttonVariants({ size: 'lg' })}>
+            <Link to="/features" className={buttonVariants({ size: 'lg' })}>
               Explore Platform
               <ArrowRight aria-hidden="true" size={18} />
-            </a>
+            </Link>
             <a href="#workflow" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
               See How It Works
               <ArrowDown aria-hidden="true" size={18} />

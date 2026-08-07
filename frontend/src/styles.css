@@ -246,3 +246,95 @@ html {
     scroll-behavior: auto;
   }
 }
+.public-page-grid {
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.025) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.68) 70%, transparent);
+}
+
+.public-orbit {
+  border: 1px solid rgba(56, 189, 248, 0.1);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.06), transparent 45%),
+    radial-gradient(circle at 28% 30%, rgba(45, 212, 191, 0.55) 0 3px, transparent 4px),
+    radial-gradient(circle at 76% 26%, rgba(56, 189, 248, 0.5) 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 73%, rgba(45, 212, 191, 0.4) 0 3px, transparent 4px),
+    radial-gradient(circle at 34% 76%, rgba(56, 189, 248, 0.4) 0 3px, transparent 4px);
+  box-shadow:
+    0 0 0 54px rgba(14, 165, 233, 0.012),
+    0 0 0 108px rgba(20, 184, 166, 0.008);
+}
+
+.public-orbit-emergency {
+  border-color: rgba(251, 113, 133, 0.1);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.05), transparent 45%),
+    radial-gradient(circle at 28% 30%, rgba(251, 113, 133, 0.5) 0 3px, transparent 4px),
+    radial-gradient(circle at 76% 26%, rgba(56, 189, 248, 0.36) 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 73%, rgba(251, 113, 133, 0.34) 0 3px, transparent 4px),
+    radial-gradient(circle at 34% 76%, rgba(45, 212, 191, 0.34) 0 3px, transparent 4px);
+}
+
+.public-orbit-ocr {
+  border-radius: 28px;
+  transform: rotate(8deg);
+}
+
+.public-orbit-security {
+  border-radius: 36px;
+  transform: rotate(45deg) scale(0.82);
+}
+
+.blood-cell-page {
+  right: 18%;
+  bottom: 13%;
+  width: 88px;
+  height: 66px;
+  opacity: 0.32;
+}
+
+@keyframes ocr-scan {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translateY(9rem);
+    opacity: 0.8;
+  }
+}
+
+.ocr-scan-line {
+  animation: ocr-scan 5.5s ease-in-out infinite;
+}
+
+@media (max-width: 767px) {
+  .public-page-grid {
+    background-size: 40px 40px;
+  }
+
+  .public-orbit {
+    right: -5rem;
+    top: 7rem;
+    width: 12rem;
+    height: 12rem;
+    opacity: 0.36;
+  }
+
+  .blood-cell-page {
+    right: -1rem;
+    bottom: 8%;
+    width: 54px;
+    height: 42px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocr-scan-line {
+    animation: none;
+  }
+}

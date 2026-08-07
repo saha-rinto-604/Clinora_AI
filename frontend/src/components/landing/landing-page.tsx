@@ -18,6 +18,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Link } from 'react-router';
 import {
   Accordion,
   AccordionContent,
@@ -28,7 +29,6 @@ import {
   Container,
   GlassPanel,
   Grid,
-  SkipLink,
 } from '../ui';
 import { buttonVariants } from '../ui/button-variants';
 import {
@@ -42,9 +42,8 @@ import {
   workflowSteps,
 } from './landing-data';
 import { LandingHero } from './landing-hero';
-import { PublicFooter } from './public-footer';
-import { PublicNavbar } from './public-navbar';
 import { SectionHeader } from './section-header';
+import { PageMeta } from '../public/page-meta';
 
 function Reveal({
   children,
@@ -93,9 +92,11 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#020617] text-slate-50">
-      <SkipLink>Skip to main content</SkipLink>
-      <PublicNavbar />
       <main id="main-content" className="overflow-x-hidden">
+        <PageMeta
+          title="Clinora AI — Clinical Intelligence Platform"
+          description="Clinora AI is a human-centered clinical intelligence platform connecting AI-assisted healthcare workflows, emergency coordination, and privacy-conscious research."
+        />
         <LandingHero />
 
         <section id="platform" className="relative scroll-mt-24 border-b border-white/5 py-24 lg:py-32">
@@ -587,12 +588,12 @@ export function LandingPage() {
                     AI assistance remains anchored to professional review.
                   </p>
                   <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <a href="#ai-ocr" className={buttonVariants({ size: 'lg' })}>
-                      Review AI & OCR <ArrowRight aria-hidden="true" size={18} />
-                    </a>
-                    <a href="#workflow" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
-                      How Clinora Works
-                    </a>
+                    <Link to="/ai-clinical-intelligence" className={buttonVariants({ size: 'lg' })}>
+                      Explore AI Intelligence <ArrowRight aria-hidden="true" size={18} />
+                    </Link>
+                    <Link to="/features" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
+                      Explore Platform
+                    </Link>
                   </div>
                 </div>
               </GlassPanel>
@@ -600,7 +601,6 @@ export function LandingPage() {
           </Container>
         </section>
       </main>
-      <PublicFooter />
     </div>
   );
 }
