@@ -1,0 +1,11 @@
+package com.clinora.access.domain;
+
+public enum ApplicationStatus {
+    EMAIL_PENDING, DRAFT, SUBMITTED, UNDER_REVIEW, MORE_INFO_REQUIRED,
+    INTERVIEW_REQUIRED, INTERVIEW_SCHEDULED, INTERVIEW_COMPLETED,
+    APPROVED, REJECTED, ACTIVATION_PENDING, ACTIVATED, WITHDRAWN;
+
+    public boolean isInterviewState() {
+        return this == INTERVIEW_REQUIRED || this == INTERVIEW_SCHEDULED || this == INTERVIEW_COMPLETED;
+    }
+}
