@@ -58,6 +58,13 @@ clinora:
     from: ${MAIL_FROM:Clinora AI <noreply@example.invalid>}
     api-base-url: ${EMAIL_API_BASE_URL:https://api.resend.com}
     api-key: ${RESEND_API_KEY:}
+  access-applications:
+    email-verification-ttl: ${APPLICATION_EMAIL_VERIFICATION_TTL:24h}
+    portal-link-ttl: ${APPLICATION_PORTAL_LINK_TTL:30m}
+    session-ttl: ${APPLICATION_SESSION_TTL:24h}
+    cookie-secure: ${APPLICATION_COOKIE_SECURE:false}
+    cookie-same-site: ${APPLICATION_COOKIE_SAME_SITE:Lax}
+    max-document-size: ${APPLICATION_MAX_DOCUMENT_SIZE:10MB}
   services:
     ocr-url: ${OCR_SERVICE_URL:http://localhost:8000}
     ai-url: ${AI_SERVICE_URL:http://localhost:8001}
@@ -65,6 +72,14 @@ clinora:
     endpoint: ${S3_ENDPOINT:http://object-storage-placeholder}
     region: ${S3_REGION:local}
     bucket: ${S3_BUCKET:clinora-medical-reports}
+    application:
+      endpoint: ${S3_APPLICATION_ENDPOINT:http://localhost:9000}
+      region: ${S3_APPLICATION_REGION:us-east-1}
+      bucket: ${S3_APPLICATION_BUCKET:clinora-access-documents}
+      access-key: ${S3_APPLICATION_ACCESS_KEY:clinora-minio}
+      secret-key: ${S3_APPLICATION_SECRET_KEY:change-me-minio}
+      path-style: ${S3_APPLICATION_PATH_STYLE:true}
+      auto-create-bucket: ${S3_APPLICATION_AUTO_CREATE_BUCKET:true}
   ai:
     hf-token: ${HF_TOKEN:}
     hf-model: ${HF_MODEL:}

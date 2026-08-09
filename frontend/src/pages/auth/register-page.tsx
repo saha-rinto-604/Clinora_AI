@@ -101,6 +101,16 @@ export function RegisterPage() {
           Sign in
         </Link>
       </p>
+      <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
+        Doctors and Researchers do not self-register as Patients for professional access.{' '}
+        <Link to="/apply/doctor" className="font-semibold text-cyan-300 hover:text-cyan-200">
+          Doctor application
+        </Link>{' '}
+        <span aria-hidden="true">·</span>{' '}
+        <Link to="/apply/researcher" className="font-semibold text-cyan-300 hover:text-cyan-200">
+          Researcher application
+        </Link>
+      </div>
     </AuthCard>
   );
 }

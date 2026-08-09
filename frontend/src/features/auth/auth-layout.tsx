@@ -17,9 +17,9 @@ export function AuthLayout() {
               <Dna size={32} className="text-cyan-200" aria-hidden="true" />
             </div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">Secure patient identity</p>
-            <h1 className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-white xl:text-5xl">
+            <div className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-white xl:text-5xl">
               Protected access before clinical intelligence.
-            </h1>
+            </div>
             <p className="mt-6 text-lg leading-8 text-slate-300">
               Clinora verifies identity and protects sessions before any future medical workflow becomes available.
             </p>

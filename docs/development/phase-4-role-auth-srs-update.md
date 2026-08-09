@@ -1413,6 +1413,7 @@ For future owner changes:
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-08-07 | Establishes Clinora-independent care model; Patient direct registration; Doctor/Researcher application + approval; Doctor interview scheduler; System Admin access review; hospital-independent role/access rules; localhost real-email/activation direction. |
+| 1.1 | 2026-08-10 | Owner override recorded during Phase 4C remediation: Doctor retains mandatory onboarding interview for Phase 4D; Researcher applications have no interview process. Researcher review proceeds through professional review, more information if needed, decision, activation, and account creation without Researcher interview states, meeting links, reminders, or interview UI. |
 
 ---
 

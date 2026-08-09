@@ -38,7 +38,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({AuthProperties.class, CorsProperties.class, EmailProperties.class})
+@EnableConfigurationProperties({AuthProperties.class, CorsProperties.class, EmailProperties.class, AccessApplicationProperties.class, ApplicationStorageProperties.class})
 public class SecurityFoundationConfig {
 
     @Bean
@@ -114,6 +114,22 @@ public class SecurityFoundationConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**")
                 .permitAll()
+                .requestMatchers(
+                    "/api/v1/access-applications/doctor",
+                    "/api/v1/access-applications/researcher",
+                    "/api/v1/access-applications/verify-email",
+                    "/api/v1/access-applications/verify-email/resend",
+                    "/api/v1/access-applications/access-link",
+                    "/api/v1/access-applications/session",
+                    "/api/v1/access-applications/logout",
+                    "/api/v1/access-applications/me",
+                    "/api/v1/access-applications/me/events",
+                    "/api/v1/access-applications/me/submit",
+                    "/api/v1/access-applications/me/withdraw",
+                    "/api/v1/access-applications/me/documents",
+                    "/api/v1/access-applications/me/documents/*",
+                    "/api/v1/access-applications/me/documents/*/content")
+                .permitAll()
                 .requestMatchers(HttpMethod.POST,
                     "/api/v1/auth/register",
                     "/api/v1/auth/verify-email",
@@ -122,11 +138,7 @@ public class SecurityFoundationConfig {
                     "/api/v1/auth/refresh-token",
                     "/api/v1/auth/forgot-password",
                     "/api/v1/auth/reset-password",
-                    "/api/v1/auth/activate-account",
-                    "/api/v1/access-applications/doctor",
-                    "/api/v1/access-applications/researcher",
-                    "/api/v1/access-applications/verify-email",
-                    "/api/v1/access-applications/access-link")
+                    "/api/v1/auth/activate-account")
                 .permitAll()
                 .requestMatchers("/api/v1/admin/**")
                 .hasRole("SYSTEM_ADMIN")

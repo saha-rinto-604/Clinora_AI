@@ -1,7 +1,7 @@
 # Clinora AI — Phase 4 Authentication & Access Governance Planning Gate
 
 **Status:** PLANNING ONLY — NO IMPLEMENTATION AUTHORIZED BY THIS DOCUMENT
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2026-08-07
 **Governing update:** `Clinora_AI_Phase4_Role_Auth_SRS_Update.md`
 
@@ -22,6 +22,12 @@ This plan follows the owner-directed Phase 4 Role/Auth SRS Update as the highest
 - hospital independence for the Clinora core.
 
 Older SRS/User Manual/Codex rules remain useful only where they do not conflict with the update or later owner architecture decisions.
+
+### Owner override recorded during Phase 4C remediation
+
+Doctor access review keeps the mandatory Phase 4D onboarding interview.
+
+Researcher access review has no interview process. Researcher applications proceed through professional review, more information when needed, decision, activation, and Researcher account creation without Researcher interview states, meeting links, reminders, or interview UI.
 
 ### Binding architecture
 
@@ -70,7 +76,6 @@ Researcher
   -> email verification
   -> institutional/research information
   -> Clinora review
-  -> optional interview
   -> approval/rejection
   -> one-time activation
   -> chooses password
@@ -225,7 +230,6 @@ Deliverables:
 - reschedule/cancel/complete/no-show;
 - reviewer notes;
 - Doctor mandatory interview enforcement;
-- Researcher optional interview;
 - approve/reject;
 - one-time account activation email;
 - applicant chooses password;
@@ -421,7 +425,7 @@ ethics/approval reference when relevant
 Researcher interview:
 
 ```text
-OPTIONAL
+NONE
 ```
 
 Researcher account approval does not grant research datasets.
@@ -461,8 +465,7 @@ Recommended scoped capabilities:
 - submit application;
 - see status;
 - see information requests;
-- see Doctor interview details;
-- request interview reschedule;
+- see Doctor interview details and request interview reschedule only for Doctor applications after Phase 4D enables them;
 - withdraw where allowed.
 
 The applicant session has no RBAC role and cannot access `/auth/me` or protected user APIs.
@@ -1256,7 +1259,7 @@ Recommended stages:
 
 Status page mirrors the common application system.
 
-Researcher interview UI appears only if an authorized reviewer requires one.
+Researcher interview UI is not part of the Clinora access lifecycle. Reviewers may request more information, approve, or reject according to the authorized Researcher flow.
 
 ---
 
@@ -1575,7 +1578,7 @@ Avoid introducing an email SDK if the provider REST API can be called using exis
 - session rotation;
 - application state transitions;
 - Doctor mandatory interview rule;
-- Researcher optional interview rule;
+- Researcher no-interview rule;
 - activation eligibility;
 - admin-only decision rules.
 

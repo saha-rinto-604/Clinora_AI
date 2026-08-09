@@ -3,6 +3,7 @@ import { LandingPage } from './components/landing/landing-page';
 import { PublicLayout } from './components/public/public-layout';
 import { AuthLayout } from './features/auth/auth-layout';
 import { AuthProvider } from './features/auth/auth-provider';
+import { ApplicationLayout } from './features/access-applications/application-layout';
 import { ProtectedRoute } from './features/auth/protected-route';
 import { AccountPage } from './pages/auth/account-page';
 import { ForgotPasswordPage } from './pages/auth/forgot-password-page';
@@ -10,6 +11,9 @@ import { LoginPage } from './pages/auth/login-page';
 import { RegisterPage } from './pages/auth/register-page';
 import { ResetPasswordPage } from './pages/auth/reset-password-page';
 import { VerifyEmailPage } from './pages/auth/verify-email-page';
+import { ApplicationEmailVerificationPage } from './pages/applications/application-email-verification-page';
+import { ApplicationStatusPage } from './pages/applications/application-status-page';
+import { ProfessionalApplicationPage } from './pages/applications/professional-application-page';
 import { AboutPage } from './pages/public/about-page';
 import { AiClinicalIntelligencePage } from './pages/public/ai-clinical-intelligence-page';
 import { ContactPage } from './pages/public/contact-page';
@@ -45,6 +49,13 @@ export function AppRoutes() {
         <Route path="verify-email" element={<VerifyEmailPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="reset-password" element={<ResetPasswordPage />} />
+      </Route>
+
+      <Route element={<ApplicationLayout />}>
+        <Route path="apply/doctor" element={<ProfessionalApplicationPage type="DOCTOR" />} />
+        <Route path="apply/researcher" element={<ProfessionalApplicationPage type="RESEARCHER" />} />
+        <Route path="application/email-verification" element={<ApplicationEmailVerificationPage />} />
+        <Route path="application/status" element={<ApplicationStatusPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
