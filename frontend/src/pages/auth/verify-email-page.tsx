@@ -13,7 +13,8 @@ export function VerifyEmailPage() {
   useEffect(() => {
     if (!token || started.current) return;
     started.current = true;
-    authApi.verifyEmail(token)
+    authApi
+      .verifyEmail(token)
       .then((response) => {
         setTone('success');
         setMessage(response.data.message);
@@ -33,8 +34,15 @@ export function VerifyEmailPage() {
       />
       <FormNotice tone={tone}>{message}</FormNotice>
       <div className="mt-6 flex flex-wrap gap-3">
-        <Link to="/login" className="min-h-11 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950">Go to sign in</Link>
-        <Link to="/" className="min-h-11 rounded-2xl border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200">Return home</Link>
+        <Link to="/login" className="min-h-11 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950">
+          Go to sign in
+        </Link>
+        <Link
+          to="/"
+          className="min-h-11 rounded-2xl border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200"
+        >
+          Return home
+        </Link>
       </div>
     </AuthCard>
   );

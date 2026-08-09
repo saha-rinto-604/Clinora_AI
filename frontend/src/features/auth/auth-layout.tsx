@@ -40,7 +40,9 @@ export function AuthLayout() {
         <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
           <div className="w-full max-w-xl">
             <div className="mb-8 flex items-center justify-between lg:hidden">
-              <Link to="/" className="text-sm font-semibold text-slate-300 hover:text-white">Clinora AI</Link>
+              <Link to="/" className="text-sm font-semibold text-slate-300 hover:text-white">
+                Clinora AI
+              </Link>
               <span className="rounded-full border border-cyan-300/15 bg-cyan-300/5 px-3 py-1 text-xs text-cyan-200">
                 Secure access
               </span>

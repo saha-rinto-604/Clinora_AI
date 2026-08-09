@@ -16,8 +16,11 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState('');
-  const { register, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm<FormValues>({ resolver: zodResolver(schema) });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = handleSubmit(async (values) => {
     setError('');
@@ -40,7 +43,12 @@ export function LoginPage() {
       <form onSubmit={onSubmit} className="grid gap-5">
         {error ? <FormNotice tone="error">{error}</FormNotice> : null}
         <Field label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
-        <PasswordField label="Password" autoComplete="current-password" error={errors.password?.message} {...register('password')} />
+        <PasswordField
+          label="Password"
+          autoComplete="current-password"
+          error={errors.password?.message}
+          {...register('password')}
+        />
         <div className="flex justify-end">
           <Link to="/forgot-password" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">
             Forgot password?
@@ -50,7 +58,9 @@ export function LoginPage() {
       </form>
       <p className="mt-6 text-center text-sm text-slate-400">
         New Patient?{' '}
-        <Link to="/register" className="font-semibold text-cyan-300 hover:text-cyan-200">Create an account</Link>
+        <Link to="/register" className="font-semibold text-cyan-300 hover:text-cyan-200">
+          Create an account
+        </Link>
       </p>
     </AuthCard>
   );

@@ -12,8 +12,11 @@ type FormValues = z.infer<typeof schema>;
 export function ForgotPasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const { register, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm<FormValues>({ resolver: zodResolver(schema) });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = handleSubmit(async ({ email }) => {
     setError('');

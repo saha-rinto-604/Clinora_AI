@@ -36,7 +36,10 @@ export function PublicNavbar() {
         </nav>
 
         <div className="hidden items-center gap-2 xl:flex">
-          <Link to="/login" className="min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white">
+          <Link
+            to="/login"
+            className="min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white"
+          >
             Login
           </Link>
           <Link to="/register" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
@@ -80,7 +83,10 @@ export function PublicNavbar() {
               </nav>
               <div className="grid gap-2">
                 <DrawerClose asChild>
-                  <Link to="/login" className="min-h-12 rounded-2xl px-4 py-3 text-center text-base font-semibold text-slate-200 hover:bg-white/5">
+                  <Link
+                    to="/login"
+                    className="min-h-12 rounded-2xl px-4 py-3 text-center text-base font-semibold text-slate-200 hover:bg-white/5"
+                  >
                     Login
                   </Link>
                 </DrawerClose>

@@ -75,7 +75,9 @@ export function SubmitButton({ loading, children }: PropsWithChildren<{ loading?
       disabled={loading}
       className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 px-5 font-bold text-slate-950 shadow-[0_10px_32px_rgba(14,165,233,.18)] transition duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none"
     >
-      {loading ? <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+      {loading ? (
+        <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      ) : null}
       {children}
     </button>
   );
@@ -90,7 +92,10 @@ export function FormNotice({ tone = 'info', children }: PropsWithChildren<{ tone
         : 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100';
 
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${classes}`}>
+    <div
+      role={tone === 'error' ? 'alert' : 'status'}
+      className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${classes}`}
+    >
       {children}
     </div>
   );

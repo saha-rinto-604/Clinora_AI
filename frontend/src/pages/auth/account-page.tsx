@@ -11,7 +11,8 @@ import type { AuthSessionItem } from '../../features/auth/auth-types';
 
 const schema = z.object({
   currentPassword: z.string().min(1, 'Enter your current password.'),
-  newPassword: z.string()
+  newPassword: z
+    .string()
     .min(8, 'Use at least 8 characters.')
     .regex(/[A-Z]/, 'Add an uppercase letter.')
     .regex(/[a-z]/, 'Add a lowercase letter.')
@@ -27,8 +28,12 @@ export function AccountPage() {
   const [sessionError, setSessionError] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const { register, reset, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm<FormValues>({ resolver: zodResolver(schema) });
+  const {
+    register,
+    reset,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const loadSessions = async () => {
     try {
@@ -67,10 +72,16 @@ export function AccountPage() {
         <header className="mb-8 flex flex-col gap-5 rounded-[32px] border border-white/10 bg-white/[0.055] p-6 backdrop-blur-[18px] sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">Authenticated account</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em]">{user?.firstName} {user?.lastName}</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em]">
+              {user?.firstName} {user?.lastName}
+            </h1>
             <p className="mt-2 text-slate-400">{user?.email}</p>
           </div>
-          <button type="button" onClick={logout} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/15 px-4 text-sm font-semibold text-slate-200 hover:bg-white/5">
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/15 px-4 text-sm font-semibold text-slate-200 hover:bg-white/5"
+          >
             <LogOut size={17} aria-hidden="true" /> Sign out
           </button>
         </header>
@@ -81,13 +92,24 @@ export function AccountPage() {
               <ShieldCheck className="mt-1 text-teal-300" size={22} aria-hidden="true" />
               <div>
                 <h2 className="text-xl font-semibold">Identity status</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">Account security only; this is not a clinical dashboard.</p>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  Account security only; this is not a clinical dashboard.
+                </p>
               </div>
             </div>
             <dl className="grid gap-4 text-sm">
-              <div className="flex justify-between gap-4 border-b border-white/10 pb-4"><dt className="text-slate-400">Role</dt><dd className="font-semibold">{user?.role}</dd></div>
-              <div className="flex justify-between gap-4 border-b border-white/10 pb-4"><dt className="text-slate-400">Account status</dt><dd className="font-semibold">{user?.accountStatus}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-slate-400">Email</dt><dd className="font-semibold">{user?.emailVerified ? 'Verified' : 'Pending'}</dd></div>
+              <div className="flex justify-between gap-4 border-b border-white/10 pb-4">
+                <dt className="text-slate-400">Role</dt>
+                <dd className="font-semibold">{user?.role}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-white/10 pb-4">
+                <dt className="text-slate-400">Account status</dt>
+                <dd className="font-semibold">{user?.accountStatus}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-400">Email</dt>
+                <dd className="font-semibold">{user?.emailVerified ? 'Verified' : 'Pending'}</dd>
+              </div>
             </dl>
           </section>
 
@@ -102,8 +124,18 @@ export function AccountPage() {
             <form onSubmit={changePassword} className="grid gap-4">
               {passwordMessage ? <FormNotice tone="success">{passwordMessage}</FormNotice> : null}
               {passwordError ? <FormNotice tone="error">{passwordError}</FormNotice> : null}
-              <PasswordField label="Current password" autoComplete="current-password" error={errors.currentPassword?.message} {...register('currentPassword')} />
-              <PasswordField label="New password" autoComplete="new-password" error={errors.newPassword?.message} {...register('newPassword')} />
+              <PasswordField
+                label="Current password"
+                autoComplete="current-password"
+                error={errors.currentPassword?.message}
+                {...register('currentPassword')}
+              />
+              <PasswordField
+                label="New password"
+                autoComplete="new-password"
+                error={errors.newPassword?.message}
+                {...register('newPassword')}
+              />
               <SubmitButton loading={isSubmitting}>Update password</SubmitButton>
             </form>
           </section>
@@ -118,14 +150,18 @@ export function AccountPage() {
                 <p className="mt-1 text-sm text-slate-400">Review and revoke browser sessions tied to your account.</p>
               </div>
             </div>
-            <button type="button" onClick={async () => {
-              try {
-                await authApi.revokeOtherSessions();
-                await loadSessions();
-              } catch (error) {
-                setSessionError(apiErrorMessage(error, 'Unable to revoke other sessions.'));
-              }
-            }} className="min-h-11 rounded-2xl border border-white/15 px-4 text-sm font-semibold text-slate-200 hover:bg-white/5">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await authApi.revokeOtherSessions();
+                  await loadSessions();
+                } catch (error) {
+                  setSessionError(apiErrorMessage(error, 'Unable to revoke other sessions.'));
+                }
+              }}
+              className="min-h-11 rounded-2xl border border-white/15 px-4 text-sm font-semibold text-slate-200 hover:bg-white/5"
+            >
               Revoke other sessions
             </button>
           </div>
@@ -133,25 +169,37 @@ export function AccountPage() {
           {sessionError ? <FormNotice tone="error">{sessionError}</FormNotice> : null}
           <div className="mt-4 grid gap-3">
             {sessions.map((session) => (
-              <article key={session.id} className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/45 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <article
+                key={session.id}
+                className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/45 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-semibold">{session.userAgent || 'Unknown browser'}</p>
-                    {session.current ? <span className="rounded-full bg-teal-300/10 px-2 py-1 text-[11px] font-bold text-teal-200">CURRENT</span> : null}
+                    {session.current ? (
+                      <span className="rounded-full bg-teal-300/10 px-2 py-1 text-[11px] font-bold text-teal-200">
+                        CURRENT
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
                     {session.ipAddress || 'Unknown IP'} · Last used {new Date(session.lastUsedAt).toLocaleString()}
                   </p>
                 </div>
                 {!session.current ? (
-                  <button type="button" aria-label="Revoke session" onClick={async () => {
-                    try {
-                      await authApi.revokeSession(session.id);
-                      await loadSessions();
-                    } catch (error) {
-                      setSessionError(apiErrorMessage(error, 'Unable to revoke the session.'));
-                    }
-                  }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-300/20 px-4 text-sm font-semibold text-rose-200 hover:bg-rose-300/10">
+                  <button
+                    type="button"
+                    aria-label="Revoke session"
+                    onClick={async () => {
+                      try {
+                        await authApi.revokeSession(session.id);
+                        await loadSessions();
+                      } catch (error) {
+                        setSessionError(apiErrorMessage(error, 'Unable to revoke the session.'));
+                      }
+                    }}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-300/20 px-4 text-sm font-semibold text-rose-200 hover:bg-rose-300/10"
+                  >
                     <Trash2 size={16} aria-hidden="true" /> Revoke
                   </button>
                 ) : null}
