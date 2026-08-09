@@ -6,6 +6,8 @@ import com.clinora.security.token.SecureTokenService;
 import com.clinora.users.domain.UserAccount;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +55,7 @@ public class RefreshSessionService {
         return new IssuedRefreshSession(sessionId, formatToken(sessionId, 0, token.rawToken()), expiresAt);
     }
 
-    @Transactional(noRollbackFor = RefreshTokenReuseDetectedException.class)
+    @Transactional(noRollbackFor = {RefreshTokenReuseDetectedException.class, RefreshSessionException.class})
     public IssuedRefreshSession rotate(String presentedToken) {
         ParsedRefreshToken parsed = parse(presentedToken);
         AuthSession session = repository.findById(parsed.sessionId())
@@ -62,6 +64,10 @@ public class RefreshSessionService {
         Instant now = clock.instant();
         if (!session.isActiveAt(now)) {
             throw new RefreshSessionException("Refresh session is expired or revoked");
+        }
+        if (!session.getUser().isLoginAllowed()) {
+            session.revoke("ACCOUNT_NOT_ACTIVE", now);
+            throw new RefreshSessionException("Account is not eligible for refresh");
         }
 
         if (parsed.rotation() < session.getRotation()) {
@@ -86,11 +92,51 @@ public class RefreshSessionService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public UserAccount userForSession(UUID sessionId) {
+        return repository.findById(sessionId)
+            .map(AuthSession::getUser)
+            .orElseThrow(() -> new RefreshSessionException("Refresh session not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuthSession> list(UUID userId) {
+        return repository.findAllByUser_IdAndRevokedAtIsNull(userId).stream()
+            .sorted(Comparator.comparing(AuthSession::getCreatedAt).reversed())
+            .toList();
+    }
+
     @Transactional
     public void revoke(String presentedToken, String reason) {
         ParsedRefreshToken parsed = parse(presentedToken);
         repository.findById(parsed.sessionId())
             .ifPresent(session -> session.revoke(reason, clock.instant()));
+    }
+
+    @Transactional
+    public void revokeSession(UUID userId, UUID sessionId, String reason) {
+        AuthSession session = repository.findByIdAndUser_Id(sessionId, userId)
+            .orElseThrow(() -> new RefreshSessionException("Refresh session not found"));
+        session.revoke(reason, clock.instant());
+    }
+
+    @Transactional
+    public void revokeAll(UUID userId, String reason) {
+        Instant now = clock.instant();
+        repository.findAllByUser_IdAndRevokedAtIsNull(userId)
+            .forEach(session -> session.revoke(reason, now));
+    }
+
+    @Transactional
+    public void revokeAllExcept(UUID userId, UUID keepSessionId, String reason) {
+        Instant now = clock.instant();
+        repository.findAllByUser_IdAndRevokedAtIsNull(userId).stream()
+            .filter(session -> !session.getId().equals(keepSessionId))
+            .forEach(session -> session.revoke(reason, now));
+    }
+
+    public UUID sessionId(String rawToken) {
+        return parse(rawToken).sessionId();
     }
 
     private String formatToken(UUID sessionId, long rotation, String secret) {
