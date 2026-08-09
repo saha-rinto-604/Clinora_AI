@@ -33,6 +33,7 @@ class RefreshSessionServiceTest {
         UserAccount user = mock(UserAccount.class);
         AtomicReference<AuthSession> persisted = new AtomicReference<>();
 
+        when(user.isLoginAllowed()).thenReturn(true);
         when(repository.save(any(AuthSession.class))).thenAnswer(invocation -> {
             AuthSession session = invocation.getArgument(0);
             persisted.set(session);

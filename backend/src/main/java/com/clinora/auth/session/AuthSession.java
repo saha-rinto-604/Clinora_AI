@@ -104,8 +104,24 @@ public class AuthSession {
         return rotation;
     }
 
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getLastUsedAt() {
+        return lastUsedAt;
+    }
+
     public Instant getExpiresAt() {
         return expiresAt;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
     }
 
     public Instant getRevokedAt() {

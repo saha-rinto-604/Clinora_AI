@@ -42,6 +42,10 @@ clinora:
     issuer: ${AUTH_JWT_ISSUER:clinora-ai}
     access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${AUTH_REFRESH_TOKEN_TTL:7d}
+    email-verification-ttl: ${AUTH_EMAIL_VERIFICATION_TTL:24h}
+    password-reset-ttl: ${AUTH_PASSWORD_RESET_TTL:30m}
+    refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
+    refresh-cookie-same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
     jwt-secret: ${JWT_SECRET:dev-only-clinora-jwt-secret-change-me-32-bytes}
     rate-limit-key-secret: ${RATE_LIMIT_KEY_SECRET:dev-only-clinora-rate-limit-key-change-me}
     bcrypt-strength: ${BCRYPT_STRENGTH:12}
@@ -52,6 +56,8 @@ clinora:
     provider: ${EMAIL_PROVIDER:unconfigured}
     frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
     from: ${MAIL_FROM:Clinora AI <noreply@example.invalid>}
+    api-base-url: ${EMAIL_API_BASE_URL:https://api.resend.com}
+    api-key: ${RESEND_API_KEY:}
   services:
     ocr-url: ${OCR_SERVICE_URL:http://localhost:8000}
     ai-url: ${AI_SERVICE_URL:http://localhost:8001}

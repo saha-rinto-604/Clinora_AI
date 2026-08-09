@@ -35,9 +35,12 @@ export function PublicNavbar() {
           ))}
         </nav>
 
-        <div className="hidden xl:block">
-          <Link to="/contact" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
-            Contact
+        <div className="hidden items-center gap-2 xl:flex">
+          <Link to="/login" className="min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white">
+            Login
+          </Link>
+          <Link to="/register" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            Create account
             <ArrowRight aria-hidden="true" size={16} />
           </Link>
         </div>
@@ -75,12 +78,19 @@ export function PublicNavbar() {
                   </DrawerClose>
                 ))}
               </nav>
-              <DrawerClose asChild>
-                <Link to="/contact" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
-                  Contact Clinora
-                  <ArrowRight aria-hidden="true" size={17} />
-                </Link>
-              </DrawerClose>
+              <div className="grid gap-2">
+                <DrawerClose asChild>
+                  <Link to="/login" className="min-h-12 rounded-2xl px-4 py-3 text-center text-base font-semibold text-slate-200 hover:bg-white/5">
+                    Login
+                  </Link>
+                </DrawerClose>
+                <DrawerClose asChild>
+                  <Link to="/register" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
+                    Create Patient account
+                    <ArrowRight aria-hidden="true" size={17} />
+                  </Link>
+                </DrawerClose>
+              </div>
             </DrawerContent>
           </Drawer>
         </div>
