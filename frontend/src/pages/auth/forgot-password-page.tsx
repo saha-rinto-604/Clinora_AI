@@ -33,15 +33,15 @@ export function ForgotPasswordPage() {
       <AuthHeading
         eyebrow="Account recovery"
         title="Reset your password"
-        description="Clinora gives the same recovery response whether or not an eligible account exists."
+        description="Enter your account email. If it is eligible, we’ll send a secure reset link."
       />
-      <form onSubmit={onSubmit} className="grid gap-5">
+      <form onSubmit={onSubmit} className="grid gap-4">
         {message ? <FormNotice tone="success">{message}</FormNotice> : null}
         {error ? <FormNotice tone="error">{error}</FormNotice> : null}
         <Field label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
         <SubmitButton loading={isSubmitting}>Send reset link</SubmitButton>
       </form>
-      <Link to="/login" className="mt-6 block text-center text-sm font-semibold text-cyan-300 hover:text-cyan-200">
+      <Link to="/login" className="mt-5 block text-center text-sm font-medium text-cyan-300 hover:text-cyan-200">
         Back to sign in
       </Link>
     </AuthCard>

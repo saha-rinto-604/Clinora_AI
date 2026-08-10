@@ -1,40 +1,43 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, CheckCircle2, FileCheck2, MailCheck, Save, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, MailCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { z } from 'zod';
 import { applicationApi, applicationErrorMessage } from '../../features/access-applications/application-api';
 import type { ApplicationType } from '../../features/access-applications/application-types';
-import { AuthCard, Field, FormNotice, SubmitButton } from '../../features/auth/auth-ui';
+import {
+  ApplicationField,
+  ApplicationNotice,
+  ApplicationPanel,
+  ApplicationPrimaryButton,
+} from '../../features/access-applications/application-ui';
 
 const schema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required.'),
-  lastName: z.string().trim().min(1, 'Last name is required.'),
+  firstName: z.string().trim().min(1, 'Enter your first name.'),
+  lastName: z.string().trim().min(1, 'Enter your last name.'),
   email: z.string().trim().email('Enter a valid email address.'),
-  phone: z.string().trim().min(5, 'Enter a phone or contact number.'),
-  countryCode: z.string().trim().min(2, 'Enter your country or jurisdiction.'),
-  consentToApplicationProcessing: z
-    .boolean()
-    .refine(Boolean, 'Consent is required to start a professional application.'),
+  phone: z.string().trim().min(5, 'Enter a phone number.'),
+  countryCode: z.string().trim().min(2, 'Enter your country.'),
+  consentToApplicationProcessing: z.boolean().refine(Boolean, 'Please confirm before continuing.'),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 const doctorRequirements = [
-  'Professional practice and specialization details',
-  'Registration authority and license / registration number',
-  'At least one structured qualification',
-  'CV, registration evidence, and qualification evidence',
-  'Mandatory onboarding interview later in the review process',
+  'Professional role and specialization',
+  'Medical registration details',
+  'At least one qualification',
+  'CV, registration, and qualification documents',
+  'Mandatory onboarding interview during the later review process',
 ];
 
 const researcherRequirements = [
   'Institution / organization and professional role',
-  'Research field, purpose, and supporting context',
-  'Institutional or project evidence when relevant',
-  'Optional ORCID and professional / publication profile links',
-  'Professional review, decision, and activation path',
+  'Research field and intended use of Clinora',
+  'Optional ORCID and professional profile links',
+  'Supporting institutional or project documents when relevant',
+  'Professional review before account activation',
 ];
 
 export function ProfessionalApplicationPage({ type }: { type: ApplicationType }) {
@@ -54,115 +57,129 @@ export function ProfessionalApplicationPage({ type }: { type: ApplicationType })
       await applicationApi.create(type, values);
       setSubmittedEmail(values.email);
     } catch (caught) {
-      setError(applicationErrorMessage(caught, 'The application could not be started.'));
+      setError(applicationErrorMessage(caught, 'We could not start your application. Please try again.'));
     }
   }
 
   if (submittedEmail) {
     return (
-      <AuthCard>
-        <div className="grid gap-6 text-center">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-emerald-300/20 bg-emerald-300/10">
-            <MailCheck className="text-emerald-200" aria-hidden="true" />
+      <div className="mx-auto max-w-lg pt-6 sm:pt-10">
+        <ApplicationPanel className="text-center">
+          <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl border border-emerald-300/[0.18] bg-emerald-300/[0.07]">
+            <MailCheck size={20} className="text-emerald-200" aria-hidden="true" />
           </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Email verification</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em]">Check your inbox</h1>
-            <p className="mt-3 leading-7 text-slate-300">
-              We sent a single-use verification link to <strong className="text-white">{submittedEmail}</strong>.
-              Professional information and documents are collected only after email ownership is verified.
-            </p>
-          </div>
-          <FormNotice>
-            Verification confirms control of the email address only. It does not approve professional credentials or
-            grant a Clinora role.
-          </FormNotice>
-          <Link className="font-semibold text-cyan-300 hover:text-cyan-200" to="/application/status">
+          <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Email verification</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">Check your inbox</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+            We sent a single-use verification link to{' '}
+            <strong className="font-medium text-slate-200">{submittedEmail}</strong>. Once your email is verified, you
+            can continue your private {roleName.toLowerCase()} application.
+          </p>
+          <ApplicationNotice className="mt-5 text-left">
+            Verifying your email confirms that you control the address. Professional access is granted only after review
+            and activation.
+          </ApplicationNotice>
+          <Link
+            className="mt-5 inline-flex text-sm font-medium text-cyan-300 transition hover:text-cyan-200"
+            to="/application/status"
+          >
             Already verified? Resume your application
           </Link>
-        </div>
-      </AuthCard>
+        </ApplicationPanel>
+      </div>
     );
   }
 
   return (
-    <div className="grid gap-7 xl:grid-cols-[0.88fr_1.12fr]">
-      <section className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 sm:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Before you begin</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Apply for {roleName} access</h1>
-        <p className="mt-4 leading-7 text-slate-300">
-          Start with contact ownership. After verification, Clinora opens a private, resumable professional application
-          workspace.
+    <div className="mx-auto grid max-w-[1080px] gap-10 py-3 lg:grid-cols-[0.78fr_1.22fr] lg:items-start lg:gap-14 lg:py-7">
+      <section className="pt-2 lg:sticky lg:top-24">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.17em] text-cyan-300">Professional access</p>
+        <h1 className="mt-3 max-w-md text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
+          Apply for {roleName} access
+        </h1>
+        <p className="mt-4 max-w-md text-sm leading-7 text-slate-400">
+          Start with your contact details. We’ll verify your email before asking for professional information or
+          documents.
         </p>
-        <div className="mt-7 grid gap-3">
+
+        <div className="mt-7 border-y border-white/[0.08] py-2">
           {requirements.map((item) => (
             <div
               key={item}
-              className="flex gap-3 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-sm text-slate-300"
+              className="flex gap-3 border-b border-white/[0.06] py-3 text-sm leading-6 text-slate-400 last:border-b-0"
             >
-              <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-teal-300" aria-hidden="true" />
-              {item}
+              <Check size={15} className="mt-1 shrink-0 text-teal-300" aria-hidden="true" />
+              <span>{item}</span>
             </div>
           ))}
         </div>
-        <div className="mt-7 grid gap-3 text-sm text-slate-400">
-          <span className="flex gap-3">
-            <Save size={17} className="text-cyan-300" />
-            Save and resume later
-          </span>
-          <span className="flex gap-3">
-            <FileCheck2 size={17} className="text-cyan-300" />
-            Private evidence upload after verification
-          </span>
-          <span className="flex gap-3">
-            <ShieldCheck size={17} className="text-cyan-300" />
-            No professional role before review and activation
-          </span>
-        </div>
+
+        <p className="mt-5 max-w-md text-xs leading-5 text-slate-500">
+          You can save and resume later. Submitting an application does not create or activate a professional Clinora
+          role.
+        </p>
       </section>
 
-      <AuthCard>
-        <header className="mb-7">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Step 1 · Identity & contact</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em]">Start your application</h2>
-          <p className="mt-3 leading-7 text-slate-300">
-            Use an email address you control. Researchers should prefer an institutional address when available.
+      <ApplicationPanel>
+        <header className="mb-6 border-b border-white/[0.08] pb-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Start application</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">Identity & contact</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Use an email address you can access. Researchers may use an institutional address when available.
           </p>
         </header>
-        <form className="grid gap-5" onSubmit={handleSubmit(onSubmit)} noValidate>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field
+
+        <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ApplicationField
               label="First name"
+              required
               autoComplete="given-name"
               {...register('firstName')}
               error={errors.firstName?.message}
             />
-            <Field
+            <ApplicationField
               label="Last name"
+              required
               autoComplete="family-name"
               {...register('lastName')}
               error={errors.lastName?.message}
             />
           </div>
-          <Field label="Email" type="email" autoComplete="email" {...register('email')} error={errors.email?.message} />
-          <Field
-            label="Phone / contact number"
-            type="tel"
-            autoComplete="tel"
-            {...register('phone')}
-            error={errors.phone?.message}
+          <ApplicationField
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            {...register('email')}
+            error={errors.email?.message}
           />
-          <Field
-            label="Country / jurisdiction"
-            {...register('countryCode')}
-            error={errors.countryCode?.message}
-            placeholder="Bangladesh"
-          />
-          <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/35 p-4 text-sm leading-6 text-slate-300">
-            <input className="mt-1" type="checkbox" {...register('consentToApplicationProcessing')} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ApplicationField
+              label="Phone number"
+              type="tel"
+              required
+              autoComplete="tel"
+              {...register('phone')}
+              error={errors.phone?.message}
+            />
+            <ApplicationField
+              label="Country"
+              required
+              {...register('countryCode')}
+              error={errors.countryCode?.message}
+              placeholder="Bangladesh"
+            />
+          </div>
+
+          <label className="flex items-start gap-3 border-t border-white/[0.08] pt-4 text-sm leading-6 text-slate-400">
+            <input
+              className="mt-1 h-4 w-4 shrink-0 accent-cyan-400"
+              type="checkbox"
+              {...register('consentToApplicationProcessing')}
+            />
             <span>
-              I agree that Clinora may process the information I submit for professional access review. This does not
-              grant or certify a professional role.
+              I agree that Clinora may use the information I submit to review this professional access application.
               {errors.consentToApplicationProcessing?.message ? (
                 <span className="mt-1 block text-xs font-medium text-rose-300">
                   {errors.consentToApplicationProcessing.message}
@@ -170,12 +187,16 @@ export function ProfessionalApplicationPage({ type }: { type: ApplicationType })
               ) : null}
             </span>
           </label>
-          {error ? <FormNotice tone="error">{error}</FormNotice> : null}
-          <SubmitButton loading={isSubmitting}>
-            Verify email and continue <ArrowRight size={17} aria-hidden="true" />
-          </SubmitButton>
+
+          {error ? <ApplicationNotice tone="error">{error}</ApplicationNotice> : null}
+
+          <div className="flex justify-end pt-1">
+            <ApplicationPrimaryButton loading={isSubmitting} type="submit" className="w-full sm:w-auto sm:min-w-48">
+              Verify email <ArrowRight size={15} aria-hidden="true" />
+            </ApplicationPrimaryButton>
+          </div>
         </form>
-      </AuthCard>
+      </ApplicationPanel>
     </div>
   );
 }

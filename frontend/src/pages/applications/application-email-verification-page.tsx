@@ -6,7 +6,12 @@ import {
   applicationErrorCode,
   applicationErrorMessage,
 } from '../../features/access-applications/application-api';
-import { AuthCard, FormNotice, SubmitButton } from '../../features/auth/auth-ui';
+import {
+  ApplicationNotice,
+  ApplicationPanel,
+  ApplicationPrimaryButton,
+  ApplicationSecondaryButton,
+} from '../../features/access-applications/application-ui';
 
 type VerificationState = 'loading' | 'verified' | 'expired' | 'reused' | 'error';
 
@@ -15,7 +20,7 @@ export function ApplicationEmailVerificationPage() {
   const navigate = useNavigate();
   const started = useRef(false);
   const [state, setState] = useState<VerificationState>('loading');
-  const [message, setMessage] = useState('Verifying your professional application email...');
+  const [message, setMessage] = useState('Verifying your email…');
   const [continuationToken, setContinuationToken] = useState('');
   const [continuing, setContinuing] = useState(false);
   const [resending, setResending] = useState(false);
@@ -29,13 +34,14 @@ export function ApplicationEmailVerificationPage() {
     }
     if (started.current) return;
     started.current = true;
+    window.history.replaceState(window.history.state, document.title, '/application/email-verification');
 
     applicationApi
       .verifyEmail(token)
       .then((result) => {
         setContinuationToken(result.continuationToken);
         setState('verified');
-        setMessage('Your professional application email has been confirmed.');
+        setMessage('Your email has been verified.');
       })
       .catch((error) => {
         const code = applicationErrorCode(error);
@@ -59,7 +65,7 @@ export function ApplicationEmailVerificationPage() {
       navigate('/application/status', { replace: true });
     } catch (error) {
       setState('error');
-      setMessage(applicationErrorMessage(error, 'Secure applicant access could not be established.'));
+      setMessage(applicationErrorMessage(error, 'We could not open your secure application session.'));
     } finally {
       setContinuing(false);
     }
@@ -74,7 +80,7 @@ export function ApplicationEmailVerificationPage() {
       setMessage('A new verification email has been sent. Use the newest link in your inbox.');
     } catch (error) {
       setState('error');
-      setMessage(applicationErrorMessage(error, 'A new verification email could not be sent for this link.'));
+      setMessage(applicationErrorMessage(error, 'We could not send a new verification email for this link.'));
     } finally {
       setResending(false);
     }
@@ -85,55 +91,81 @@ export function ApplicationEmailVerificationPage() {
   const canResume = state === 'reused';
 
   return (
-    <div className="mx-auto max-w-xl">
-      <AuthCard>
-        <div className="grid gap-6 text-center">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10">
-            {state === 'loading' ? (
-              <LoaderCircle className="animate-spin text-cyan-200 motion-reduce:animate-none" aria-hidden="true" />
-            ) : success ? (
-              <CheckCircle2 className="text-emerald-200" aria-hidden="true" />
-            ) : (
-              <AlertTriangle className="text-amber-200" aria-hidden="true" />
-            )}
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Professional application</p>
-            <h1 className="mt-3 text-3xl font-semibold">{success ? 'Email verified' : 'Email verification'}</h1>
-            {success ? (
-              <p className="mt-3 leading-7 text-slate-300">Your professional application email has been confirmed.</p>
-            ) : null}
-          </div>
-          {message ? (
-            <FormNotice tone={success ? 'success' : state === 'loading' ? 'info' : 'error'}>{message}</FormNotice>
-          ) : null}
+    <div className="mx-auto max-w-lg pt-6 sm:pt-10">
+      <ApplicationPanel className="text-center">
+        <div
+          className={`mx-auto grid h-11 w-11 place-items-center rounded-xl border ${success ? 'border-emerald-300/[0.18] bg-emerald-300/[0.07]' : 'border-cyan-300/[0.15] bg-cyan-300/[0.06]'}`}
+        >
+          {state === 'loading' ? (
+            <LoaderCircle
+              size={20}
+              className="animate-spin text-cyan-200 motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          ) : success ? (
+            <CheckCircle2 size={20} className="text-emerald-200" aria-hidden="true" />
+          ) : (
+            <AlertTriangle size={20} className="text-amber-200" aria-hidden="true" />
+          )}
+        </div>
+
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">
+          Professional application
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">
+          {success ? 'Email verified' : 'Email verification'}
+        </h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
+          {success
+            ? 'Your email is confirmed. Continue when you’re ready to open your private application workspace.'
+            : 'We’re checking the single-use link from your email.'}
+        </p>
+
+        {message ? (
+          <ApplicationNotice
+            tone={success ? 'success' : state === 'loading' ? 'info' : 'error'}
+            className="mt-5 text-left"
+          >
+            {message}
+          </ApplicationNotice>
+        ) : null}
+
+        <div className="mt-5 flex flex-col gap-3 sm:items-center">
           {success ? (
-            <SubmitButton loading={continuing} onClick={() => void continueApplication()} type="button">
+            <ApplicationPrimaryButton
+              loading={continuing}
+              onClick={() => void continueApplication()}
+              type="button"
+              className="w-full sm:w-auto sm:min-w-48"
+            >
               Continue application
-            </SubmitButton>
+            </ApplicationPrimaryButton>
           ) : null}
+
           {canResend ? (
-            <button
+            <ApplicationSecondaryButton
               type="button"
               onClick={() => void resendVerification()}
               disabled={resending}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-cyan-300/20 px-4 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/10 disabled:opacity-60"
+              className="w-full sm:w-auto"
             >
-              {resending ? 'Sending...' : 'Send a new verification email'}
-            </button>
+              {resending ? 'Sending…' : 'Send a new verification email'}
+            </ApplicationSecondaryButton>
           ) : null}
+
           {canResume ? (
-            <Link className="font-semibold text-cyan-300 hover:text-cyan-200" to="/application/status">
+            <Link className="text-sm font-medium text-cyan-300 transition hover:text-cyan-200" to="/application/status">
               Resume application
             </Link>
           ) : null}
+
           {state === 'error' ? (
-            <Link className="font-semibold text-cyan-300 hover:text-cyan-200" to="/application/status">
-              Return to your saved application
+            <Link className="text-sm font-medium text-cyan-300 transition hover:text-cyan-200" to="/application/status">
+              Return to application access
             </Link>
           ) : null}
         </div>
-      </AuthCard>
+      </ApplicationPanel>
     </div>
   );
 }

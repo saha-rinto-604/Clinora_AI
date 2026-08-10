@@ -13,6 +13,7 @@ export function VerifyEmailPage() {
   useEffect(() => {
     if (!token || started.current) return;
     started.current = true;
+    window.history.replaceState(window.history.state, document.title, '/verify-email');
     authApi
       .verifyEmail(token)
       .then((response) => {
@@ -30,16 +31,19 @@ export function VerifyEmailPage() {
       <AuthHeading
         eyebrow="Email ownership"
         title="Verify your email"
-        description="Email verification confirms ownership of your address; it does not grant privileged roles."
+        description="Confirm your email to finish setting up your patient account."
       />
       <FormNotice tone={tone}>{message}</FormNotice>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link to="/login" className="min-h-11 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950">
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Link
+          to="/login"
+          className="inline-flex min-h-10 items-center rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950"
+        >
           Go to sign in
         </Link>
         <Link
           to="/"
-          className="min-h-11 rounded-2xl border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200"
+          className="inline-flex min-h-10 items-center rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-slate-200"
         >
           Return home
         </Link>

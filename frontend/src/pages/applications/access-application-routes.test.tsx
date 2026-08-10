@@ -101,7 +101,7 @@ describe('Phase 4C professional application routes', () => {
     renderRoute('/application/email-verification?token=bad-token');
 
     expect(await screen.findByText(/verification link could not be used/i)).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /application in progress/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /researcher application/i })).not.toBeInTheDocument();
     expect(accessLink).not.toHaveBeenCalled();
     expect(me).not.toHaveBeenCalled();
   });
@@ -145,12 +145,13 @@ describe('Phase 4C professional application routes', () => {
 
     renderRoute('/application/status');
 
-    expect(await screen.findByRole('heading', { name: /application in progress/i })).toBeInTheDocument();
-    expect(screen.getByText(/draft saved/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /researcher application/i })).toBeInTheDocument();
+    expect(screen.getByText(/^draft$/i)).toBeInTheDocument();
     expect(screen.queryByText(/interview/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /withdraw application/i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /save & exit/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /save & exit/i })).toHaveLength(1);
     expect(screen.getAllByText(/step 1 of 6/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/policy-dependent/i)).not.toBeInTheDocument();
   });
 
   it('uses confirmation dialog before withdrawing a submitted application', async () => {

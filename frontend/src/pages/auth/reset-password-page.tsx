@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useSearchParams } from 'react-router';
 import { z } from 'zod';
@@ -27,9 +27,14 @@ type FormValues = z.infer<typeof schema>;
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
-  const token = params.get('token') ?? '';
+  const tokenRef = useRef(params.get('token') ?? '');
+  const token = tokenRef.current;
   const [message, setMessage] = useState('');
   const [error, setError] = useState(token ? '' : 'The password-reset token is missing.');
+  useEffect(() => {
+    if (token) window.history.replaceState(window.history.state, document.title, '/reset-password');
+  }, [token]);
+
   const {
     register,
     handleSubmit,
@@ -52,9 +57,9 @@ export function ResetPasswordPage() {
       <AuthHeading
         eyebrow="Secure reset"
         title="Choose a new password"
-        description="A successful reset revokes existing sessions for the account."
+        description="Choose a strong new password for your Clinora account."
       />
-      <form onSubmit={onSubmit} className="grid gap-5">
+      <form onSubmit={onSubmit} className="grid gap-4">
         {message ? <FormNotice tone="success">{message}</FormNotice> : null}
         {error ? <FormNotice tone="error">{error}</FormNotice> : null}
         <PasswordField
@@ -72,7 +77,7 @@ export function ResetPasswordPage() {
         <SubmitButton loading={isSubmitting}>Reset password</SubmitButton>
       </form>
       {message ? (
-        <Link to="/login" className="mt-6 block text-center text-sm font-semibold text-cyan-300">
+        <Link to="/login" className="mt-5 block text-center text-sm font-medium text-cyan-300">
           Sign in with the new password
         </Link>
       ) : null}

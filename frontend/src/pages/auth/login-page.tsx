@@ -38,9 +38,9 @@ export function LoginPage() {
       <AuthHeading
         eyebrow="Welcome back"
         title="Sign in to Clinora"
-        description="Use the email and password attached to your active Clinora account."
+        description="Use your account email and password to continue."
       />
-      <form onSubmit={onSubmit} className="grid gap-5">
+      <form onSubmit={onSubmit} className="grid gap-4">
         {error ? <FormNotice tone="error">{error}</FormNotice> : null}
         <Field label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
         <PasswordField
@@ -56,20 +56,20 @@ export function LoginPage() {
         </div>
         <SubmitButton loading={isSubmitting}>Sign in</SubmitButton>
       </form>
-      <p className="mt-6 text-center text-sm text-slate-400">
-        New Patient?{' '}
+      <p className="mt-5 text-center text-sm text-slate-400">
+        New to Clinora?{' '}
         <Link to="/register" className="font-semibold text-cyan-300 hover:text-cyan-200">
           Create an account
         </Link>
       </p>
-      <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
-        Applying for professional access?{' '}
+      <div className="mt-5 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
+        Doctor or researcher?{' '}
         <Link to="/apply/doctor" className="font-semibold text-cyan-300 hover:text-cyan-200">
-          Doctor
+          Apply as a Doctor
         </Link>{' '}
         <span aria-hidden="true">·</span>{' '}
         <Link to="/apply/researcher" className="font-semibold text-cyan-300 hover:text-cyan-200">
-          Researcher
+          Apply as a Researcher
         </Link>
       </div>
     </AuthCard>

@@ -58,12 +58,12 @@ export function RegisterPage() {
       <AuthHeading
         eyebrow="Patient account"
         title="Create your Clinora account"
-        description="Public registration creates a Patient identity only. Medical profile information comes later."
+        description="Set up your patient account to securely access Clinora."
       />
-      <form onSubmit={onSubmit} className="grid gap-5">
+      <form onSubmit={onSubmit} className="grid gap-4">
         {message ? <FormNotice tone="success">{message}</FormNotice> : null}
         {error ? <FormNotice tone="error">{error}</FormNotice> : null}
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="First name"
             autoComplete="given-name"
@@ -93,22 +93,22 @@ export function RegisterPage() {
         <p className="text-xs leading-5 text-slate-500">
           Use 8+ characters with uppercase, lowercase, a number, and a special character.
         </p>
-        <SubmitButton loading={isSubmitting}>Create Patient account</SubmitButton>
+        <SubmitButton loading={isSubmitting}>Create patient account</SubmitButton>
       </form>
-      <p className="mt-6 text-center text-sm text-slate-400">
-        Already activated?{' '}
+      <p className="mt-5 text-center text-sm text-slate-400">
+        Already have an account?{' '}
         <Link to="/login" className="font-semibold text-cyan-300 hover:text-cyan-200">
           Sign in
         </Link>
       </p>
-      <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
-        Doctors and Researchers do not self-register as Patients for professional access.{' '}
+      <div className="mt-5 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
+        Doctor or researcher? Apply for professional access:{' '}
         <Link to="/apply/doctor" className="font-semibold text-cyan-300 hover:text-cyan-200">
-          Doctor application
+          Doctor
         </Link>{' '}
         <span aria-hidden="true">·</span>{' '}
         <Link to="/apply/researcher" className="font-semibold text-cyan-300 hover:text-cyan-200">
-          Researcher application
+          Researcher
         </Link>
       </div>
     </AuthCard>
