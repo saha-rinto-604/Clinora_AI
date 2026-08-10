@@ -149,7 +149,7 @@ describe('Phase 4C professional application routes', () => {
     expect(screen.getByText(/^draft$/i)).toBeInTheDocument();
     expect(screen.queryByText(/interview/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /withdraw application/i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /save & exit/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /save & sign out/i })).toHaveLength(1);
     expect(screen.getAllByText(/step 1 of 6/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/policy-dependent/i)).not.toBeInTheDocument();
   });

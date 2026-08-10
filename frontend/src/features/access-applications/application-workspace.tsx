@@ -78,6 +78,7 @@ export function ApplicationWorkspace({
   const [error, setError] = useState('');
   const [attested, setAttested] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState<'current' | 'all' | ''>('');
   const [qualifications, setQualifications] = useState<Qualification[]>(application.qualifications);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const reduceMotion = useReducedMotion();
@@ -174,13 +175,28 @@ export function ApplicationWorkspace({
     }
   }
 
-  async function saveAndExit() {
-    if (editable) {
-      const saved = await save(getValues());
-      if (!saved) return;
+  async function prepareToSignOut() {
+    if (!editable) return true;
+    return save(getValues());
+  }
+
+  async function signOut(scope: 'current' | 'all') {
+    setError('');
+    setSigningOut(scope);
+    try {
+      const ready = await prepareToSignOut();
+      if (!ready) return;
+      if (scope === 'all') {
+        await applicationApi.logoutAll();
+      } else {
+        await applicationApi.logout();
+      }
+      window.location.assign('/professional-access');
+    } catch (caught) {
+      setError(applicationErrorMessage(caught, 'We could not end your application session. Please try again.'));
+    } finally {
+      setSigningOut('');
     }
-    await applicationApi.logout();
-    window.location.assign('/application/status');
   }
 
   return (
@@ -205,14 +221,40 @@ export function ApplicationWorkspace({
             {editable ? <SaveIndicator state={saveState} /> : <span>{application.email}</span>}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void saveAndExit()}
-          className="inline-flex min-h-10 items-center gap-2 self-start rounded-xl px-3 text-sm font-medium text-slate-400 transition hover:bg-white/[0.04] hover:text-white sm:self-auto"
-        >
-          <LogOut size={15} aria-hidden="true" /> {editable ? 'Save & exit' : 'Exit application'}
-        </button>
+        <div className="flex max-w-xs flex-col items-start gap-1.5 sm:items-end">
+          <button
+            type="button"
+            disabled={Boolean(signingOut)}
+            onClick={() => void signOut('current')}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-slate-300 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {signingOut === 'current' ? (
+              <LoaderCircle size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            ) : (
+              <LogOut size={15} aria-hidden="true" />
+            )}
+            {editable ? 'Save & sign out' : 'Sign out'}
+          </button>
+          <button
+            type="button"
+            disabled={Boolean(signingOut)}
+            onClick={() => void signOut('all')}
+            className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {signingOut === 'all' ? 'Signing out everywhere…' : 'Sign out all devices'}
+          </button>
+          <p className="text-left text-[11px] leading-4 text-slate-600 sm:text-right">
+            Using a shared device? Sign out when you&apos;re finished.
+          </p>
+        </div>
       </header>
+
+      {application.status === 'MORE_INFO_REQUIRED' ? (
+        <ApplicationNotice className="mb-1">
+          Additional information is required before review can continue. Update the requested details, save your
+          changes, and resubmit when the application is ready.
+        </ApplicationNotice>
+      ) : null}
 
       {editable ? (
         <div className="grid gap-7 lg:grid-cols-[184px_minmax(0,760px)] lg:justify-center lg:gap-9">

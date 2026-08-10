@@ -118,6 +118,15 @@ export function ProfessionalApplicationPage({ type }: { type: ApplicationType })
           You can save and resume later. Submitting an application does not create or activate a professional Clinora
           role.
         </p>
+        <div className="mt-5 border-t border-white/[0.08] pt-4">
+          <p className="text-xs text-slate-500">Already started or submitted an application?</p>
+          <Link
+            to="/application/status"
+            className="mt-1 inline-flex text-sm font-medium text-cyan-300 transition hover:text-cyan-200"
+          >
+            Continue your application
+          </Link>
+        </div>
       </section>
 
       <ApplicationPanel>

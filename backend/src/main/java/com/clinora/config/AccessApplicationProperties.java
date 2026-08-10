@@ -8,7 +8,7 @@ import org.springframework.util.unit.DataSize;
 public class AccessApplicationProperties {
     private Duration emailVerificationTtl = Duration.ofHours(24);
     private Duration portalLinkTtl = Duration.ofMinutes(30);
-    private Duration sessionTtl = Duration.ofHours(24);
+    private Duration sessionTtl = Duration.ofHours(8);
     private boolean cookieSecure;
     private String cookieSameSite = "Lax";
     private DataSize maxDocumentSize = DataSize.ofMegabytes(10);

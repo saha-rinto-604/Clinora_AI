@@ -31,6 +31,15 @@ export const footerGroups = [
     links: [{ label: 'FAQ', to: '/faq' }],
   },
   {
+    label: 'For Professionals',
+    links: [
+      { label: 'Professional Access', to: '/professional-access' },
+      { label: 'Doctor application', to: '/apply/doctor' },
+      { label: 'Researcher application', to: '/apply/researcher' },
+      { label: 'Continue application', to: '/application/status' },
+    ],
+  },
+  {
     label: 'Legal',
     links: [
       { label: 'Privacy', to: '/privacy' },

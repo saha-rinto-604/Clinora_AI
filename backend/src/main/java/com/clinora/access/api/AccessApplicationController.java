@@ -229,6 +229,20 @@ public class AccessApplicationController {
     ) {
         originGuard.requireAllowed(origin);
         sessions.revoke(cookie);
+        return withClearedApplicantCookie("Applicant session ended.");
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<ApiResponse<Void>> logoutAll(
+        @CookieValue(name = ApplicantSessionService.COOKIE_NAME, required = false) String cookie,
+        @RequestHeader(name = HttpHeaders.ORIGIN, required = false) String origin
+    ) {
+        originGuard.requireAllowed(origin);
+        sessions.revokeAll(cookie);
+        return withClearedApplicantCookie("All applicant sessions ended.");
+    }
+
+    private ResponseEntity<ApiResponse<Void>> withClearedApplicantCookie(String message) {
         ResponseCookie cleared = ResponseCookie.from(ApplicantSessionService.COOKIE_NAME, "")
             .httpOnly(true)
             .secure(properties.isCookieSecure())
@@ -238,7 +252,7 @@ public class AccessApplicationController {
             .build();
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, cleared.toString())
-            .body(ApiResponse.success("Applicant session ended.", null));
+            .body(ApiResponse.success(message, null));
     }
 
     private ResponseEntity<ApiResponse<Void>> withApplicantCookie(

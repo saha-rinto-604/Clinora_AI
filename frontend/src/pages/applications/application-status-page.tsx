@@ -11,7 +11,7 @@ import {
 } from '../../features/access-applications/application-ui';
 import { ApplicationWorkspace } from '../../features/access-applications/application-workspace';
 
-function ResumeApplication({ onReady }: { onReady: () => Promise<void> }) {
+function ApplicationSignIn() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'info' | 'error'>('info');
@@ -24,10 +24,10 @@ function ResumeApplication({ onReady }: { onReady: () => Promise<void> }) {
     setMessageTone('info');
     try {
       await applicationApi.requestAccessLink(email);
-      setMessage('If a verified application exists for this email, we’ve sent a secure link to resume it.');
+      setMessage('If an eligible professional application exists for this email, we’ve sent a secure sign-in link.');
     } catch (error) {
       setMessageTone('error');
-      setMessage(applicationErrorMessage(error, 'We could not send a resume link. Please try again.'));
+      setMessage(applicationErrorMessage(error, 'We could not send a secure sign-in link. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -40,12 +40,11 @@ function ResumeApplication({ onReady }: { onReady: () => Promise<void> }) {
           <Mail size={18} aria-hidden="true" />
         </div>
         <header className="mb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">
-            Professional application
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">Resume your application</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Applicant portal</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">Sign in to your application</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Enter the email you verified when you started your Doctor or Researcher application.
+            Enter the email you verified when you started your Doctor or Researcher application. We’ll send a single-use
+            secure sign-in link.
           </p>
         </header>
         <form onSubmit={sendLink} className="grid gap-4">
@@ -59,18 +58,15 @@ function ResumeApplication({ onReady }: { onReady: () => Promise<void> }) {
           />
           {message ? <ApplicationNotice tone={messageTone}>{message}</ApplicationNotice> : null}
           <div className="flex justify-end">
-            <ApplicationPrimaryButton loading={loading} type="submit" className="w-full sm:w-auto sm:min-w-44">
-              Send resume link
+            <ApplicationPrimaryButton loading={loading} type="submit" className="w-full sm:w-auto sm:min-w-52">
+              Email secure sign-in link
             </ApplicationPrimaryButton>
           </div>
         </form>
-        <button
-          className="mt-5 text-sm font-medium text-slate-500 transition hover:text-slate-200"
-          type="button"
-          onClick={() => void onReady()}
-        >
-          I already have an active application session
-        </button>
+        <p className="mt-5 text-xs leading-5 text-slate-500">
+          Applicant access is separate from Clinora account login. The link is short-lived and becomes unusable after it
+          establishes your private application session.
+        </p>
       </ApplicationPanel>
     </div>
   );
@@ -96,6 +92,7 @@ export function ApplicationStatusPage() {
     } catch {
       setNeedsAccess(true);
       setApplication(null);
+      setEvents([]);
     }
   }
 
@@ -119,7 +116,7 @@ export function ApplicationStatusPage() {
           await applicationApi.establishSession(token);
           navigate('/application/status', { replace: true });
         } catch (caught) {
-          setError(applicationErrorMessage(caught, 'This secure resume link could not be used.'));
+          setError(applicationErrorMessage(caught, 'This secure sign-in link could not be used.'));
           setNeedsAccess(true);
           setLoading(false);
           return;
@@ -128,7 +125,7 @@ export function ApplicationStatusPage() {
       await load();
     }
     void boot();
-    // The one-time token is consumed once and then removed from the URL.
+    // The one-time token is consumed once and removed from the visible URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,7 +140,7 @@ export function ApplicationStatusPage() {
   if (needsAccess || !application) {
     return (
       <>
-        <ResumeApplication onReady={load} />
+        <ApplicationSignIn />
         {error ? (
           <div className="mx-auto mt-4 max-w-lg">
             <ApplicationNotice tone="error">{error}</ApplicationNotice>

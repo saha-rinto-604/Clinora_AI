@@ -24,7 +24,7 @@ export function PublicFooter() {
             </p>
           </div>
 
-          <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-8 sm:grid-cols-3 xl:grid-cols-5">
             {footerGroups.map((group) => (
               <div key={group.label}>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{group.label}</p>

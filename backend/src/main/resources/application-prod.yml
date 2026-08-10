@@ -16,3 +16,5 @@ clinora:
     frontend-url: ${APP_FRONTEND_URL}
     from: ${MAIL_FROM}
     api-key: ${RESEND_API_KEY:}
+  access-applications:
+    cookie-secure: ${APPLICATION_COOKIE_SECURE:true}

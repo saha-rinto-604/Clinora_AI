@@ -187,7 +187,7 @@ public class AccessApplicationService {
         events.save(new ApplicationEvent(app.getId(),ApplicationEventType.ACCESS_LINK_REQUESTED,"A secure resume link was requested.",now));
         audit.record(null,AuthAuditAction.ACCESS_APPLICATION_ACCESS_LINK_REQUESTED,AuthAuditOutcome.SUCCESS,ip,userAgent,app.getId().toString(),"type="+app.getApplicationType());
     }
-    private boolean isApplicantFacing(ApplicationEventType type){return type==ApplicationEventType.APPLICATION_CREATED||type==ApplicationEventType.EMAIL_VERIFIED||type==ApplicationEventType.PROFILE_UPDATED||type==ApplicationEventType.DOCUMENT_UPLOADED||type==ApplicationEventType.DOCUMENT_DELETED||type==ApplicationEventType.SUBMITTED||type==ApplicationEventType.WITHDRAWN;}
+    private boolean isApplicantFacing(ApplicationEventType type){return type==ApplicationEventType.APPLICATION_CREATED||type==ApplicationEventType.EMAIL_VERIFIED||type==ApplicationEventType.DOCUMENT_UPLOADED||type==ApplicationEventType.SUBMITTED||type==ApplicationEventType.WITHDRAWN;}
     private ApplicationToken verificationToken(String raw,java.time.Instant now){
         var token=findStoredToken(raw,ApplicationTokenType.EMAIL_VERIFICATION);
         if(token.usableAt(now)) return token;

@@ -102,14 +102,25 @@ export function RegisterPage() {
         </Link>
       </p>
       <div className="mt-5 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
-        Doctor or researcher? Apply for professional access:{' '}
-        <Link to="/apply/doctor" className="font-semibold text-cyan-300 hover:text-cyan-200">
-          Doctor
-        </Link>{' '}
-        <span aria-hidden="true">·</span>{' '}
-        <Link to="/apply/researcher" className="font-semibold text-cyan-300 hover:text-cyan-200">
-          Researcher
-        </Link>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Professional access</p>
+        <p className="mt-2">
+          Doctors and Researchers do not create a Patient account to apply for professional access.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
+          <Link to="/apply/doctor" className="font-semibold text-cyan-300 hover:text-cyan-200">
+            Doctor application
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/apply/researcher" className="font-semibold text-cyan-300 hover:text-cyan-200">
+            Researcher application
+          </Link>
+        </div>
+        <p className="mt-3">
+          Already applied?{' '}
+          <Link to="/application/status" className="font-semibold text-cyan-300 hover:text-cyan-200">
+            Continue your application
+          </Link>
+        </p>
       </div>
     </AuthCard>
   );

@@ -23,6 +23,7 @@ import { FeaturesPage } from './pages/public/features-page';
 import { LaboratoryOcrPage } from './pages/public/laboratory-ocr-page';
 import { NotFoundPage } from './pages/public/not-found-page';
 import { PrivacyPage } from './pages/public/privacy-page';
+import { ProfessionalAccessPage } from './pages/public/professional-access-page';
 import { ResearchPage } from './pages/public/research-page';
 import { TermsPage } from './pages/public/terms-page';
 
@@ -41,6 +42,7 @@ export function AppRoutes() {
         <Route path="faq" element={<FaqPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />
+        <Route path="professional-access" element={<ProfessionalAccessPage />} />
       </Route>
 
       <Route element={<AuthLayout />}>

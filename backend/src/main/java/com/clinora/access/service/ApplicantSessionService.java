@@ -48,6 +48,15 @@ public class ApplicantSessionService {
         repository.findById(parsed.sessionId()).ifPresent(session->session.revoke(clock.instant()));
     }
 
+    @Transactional
+    public void revokeAll(String rawCookie) {
+        UUID applicationId=requireApplication(rawCookie);
+        var now=clock.instant();
+        repository.findAllByApplicationId(applicationId).stream()
+            .filter(session->session.activeAt(now))
+            .forEach(session->session.revoke(now));
+    }
+
     private Parsed parse(String raw) {
         if(raw==null) throw AccessApplicationException.sessionInvalid();
         int dot=raw.indexOf('.');

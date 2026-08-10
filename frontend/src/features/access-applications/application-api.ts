@@ -126,6 +126,9 @@ export const applicationApi = {
   logout() {
     return applicantClient.post<ApiEnvelope<null>>('/access-applications/logout');
   },
+  logoutAll() {
+    return applicantClient.post<ApiEnvelope<null>>('/access-applications/logout-all');
+  },
 };
 
 export function applicationErrorMessage(error: unknown, fallback: string) {
