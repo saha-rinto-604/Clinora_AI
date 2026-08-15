@@ -44,8 +44,14 @@ public class AccessApplicationException extends RuntimeException {
     public static AccessApplicationException documentNotFound() {
         return new AccessApplicationException(HttpStatus.NOT_FOUND, "APPLICATION_DOCUMENT_NOT_FOUND", "The requested document was not found.");
     }
+    public static AccessApplicationException interviewNotFound() {
+        return new AccessApplicationException(HttpStatus.NOT_FOUND, "DOCTOR_INTERVIEW_NOT_FOUND", "The requested Doctor interview was not found.");
+    }
     public static AccessApplicationException invalidReviewTransition(String message) {
         return new AccessApplicationException(HttpStatus.CONFLICT, "APPLICATION_REVIEW_TRANSITION_INVALID", message);
+    }
+    public static AccessApplicationException invalidInterviewTransition(String message) {
+        return new AccessApplicationException(HttpStatus.CONFLICT, "DOCTOR_INTERVIEW_TRANSITION_INVALID", message);
     }
     public static AccessApplicationException validation(String message) {
         return new AccessApplicationException(HttpStatus.BAD_REQUEST, "APPLICATION_NOT_READY_FOR_REVIEW", message);

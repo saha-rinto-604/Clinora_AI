@@ -15,6 +15,13 @@ const mocks = vi.hoisted(() => ({
   addNote: vi.fn(),
   requestMoreInformation: vi.fn(),
   downloadDocument: vi.fn(),
+  interview: vi.fn(),
+  requireInterview: vi.fn(),
+  scheduleInterview: vi.fn(),
+  rescheduleInterview: vi.fn(),
+  cancelInterview: vi.fn(),
+  completeInterview: vi.fn(),
+  markInterviewNoShow: vi.fn(),
 }));
 
 vi.mock('../../features/admin-access-reviews/admin-access-review-api', () => ({
@@ -138,6 +145,13 @@ describe('System Admin access review workbench', () => {
       ],
     });
     mocks.downloadDocument.mockResolvedValue(new Blob(['pdf']));
+    mocks.interview.mockResolvedValue(null);
+    mocks.requireInterview.mockResolvedValue({});
+    mocks.scheduleInterview.mockResolvedValue({});
+    mocks.rescheduleInterview.mockResolvedValue({});
+    mocks.cancelInterview.mockResolvedValue({});
+    mocks.completeInterview.mockResolvedValue({});
+    mocks.markInterviewNoShow.mockResolvedValue({});
   });
 
   it('allows System Admin to access the route and load review detail', async () => {
@@ -216,6 +230,17 @@ describe('System Admin access review workbench', () => {
     await user.click(screen.getByRole('button', { name: /cv.pdf/i }));
     expect(await screen.findByText('Document retrieved securely.')).toBeInTheDocument();
     expect(mocks.downloadDocument).toHaveBeenCalledWith(queueItem.id, '22222222-2222-2222-2222-222222222222');
+  });
+
+  it('exposes Doctor interview requirement only after review starts', async () => {
+    const user = userEvent.setup();
+    renderRoute();
+
+    await screen.findByText('Internal Medicine');
+    expect(screen.queryByRole('button', { name: /require interview/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /start review/i }));
+    expect(await screen.findByRole('button', { name: /require interview/i })).toBeInTheDocument();
   });
 
   it('validates and sends request-more-information without deferred actions', async () => {

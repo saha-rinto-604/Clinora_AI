@@ -33,7 +33,10 @@ public class AdminAccessReviewService {
     private static final List<ApplicationStatus> REVIEW_QUEUE_STATUSES = List.of(
         ApplicationStatus.SUBMITTED,
         ApplicationStatus.UNDER_REVIEW,
-        ApplicationStatus.MORE_INFO_REQUIRED
+        ApplicationStatus.MORE_INFO_REQUIRED,
+        ApplicationStatus.INTERVIEW_REQUIRED,
+        ApplicationStatus.INTERVIEW_SCHEDULED,
+        ApplicationStatus.INTERVIEW_COMPLETED
     );
 
     private final AccessApplicationRepository applications;
@@ -275,7 +278,7 @@ public class AdminAccessReviewService {
                 documentViews,
                 eventViews,
                 noteViews,
-                allowedNextStatuses(app.getStatus())
+                allowedNextStatuses(app)
             );
         }
 
@@ -311,15 +314,18 @@ public class AdminAccessReviewService {
             documentViews,
             eventViews,
             noteViews,
-            allowedNextStatuses(app.getStatus())
+            allowedNextStatuses(app)
         );
     }
 
-    private List<ApplicationStatus> allowedNextStatuses(ApplicationStatus status) {
-        if (status == ApplicationStatus.SUBMITTED) {
+    private List<ApplicationStatus> allowedNextStatuses(AccessApplication app) {
+        if (app.getStatus() == ApplicationStatus.SUBMITTED) {
             return List.of(ApplicationStatus.UNDER_REVIEW, ApplicationStatus.MORE_INFO_REQUIRED);
         }
-        if (status == ApplicationStatus.UNDER_REVIEW) {
+        if (app.getStatus() == ApplicationStatus.UNDER_REVIEW) {
+            if (app.getApplicationType() == ApplicationType.DOCTOR) {
+                return List.of(ApplicationStatus.MORE_INFO_REQUIRED, ApplicationStatus.INTERVIEW_REQUIRED);
+            }
             return List.of(ApplicationStatus.MORE_INFO_REQUIRED);
         }
         return List.of();

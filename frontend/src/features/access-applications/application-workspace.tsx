@@ -14,6 +14,7 @@ import {
   type ProfileValues,
 } from './application-form-fields';
 import { ApplicationStatusTimeline } from './application-status';
+import { DoctorInterviewApplicantPanel } from './doctor-interview-applicant-panel';
 import type { AccessApplication, ApplicationEvent, ApplicationStatus, Qualification } from './application-types';
 import {
   ApplicationNotice,
@@ -351,7 +352,10 @@ export function ApplicationWorkspace({
           </ApplicationPanel>
         </div>
       ) : (
-        <ApplicationStatusTimeline application={application} events={events} />
+        <>
+          <DoctorInterviewApplicantPanel application={application} />
+          <ApplicationStatusTimeline application={application} events={events} />
+        </>
       )}
 
       {canWithdraw ? (

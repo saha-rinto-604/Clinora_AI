@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { FormField, Label, Select, Textarea } from '../../components/ui/form';
 import { adminAccessReviewApi, reviewErrorMessage } from '../../features/admin-access-reviews/admin-access-review-api';
+import { DoctorInterviewAdminPanel } from '../../features/admin-access-reviews/doctor-interview-admin-panel';
 import type {
   AccessReviewDetail,
   AccessReviewQueueItem,
@@ -13,7 +14,14 @@ import type {
 import type { ApplicationStatus, ApplicationType } from '../../features/access-applications/application-types';
 import { cn } from '../../lib/cn';
 
-const reviewStatuses: ApplicationStatus[] = ['SUBMITTED', 'UNDER_REVIEW', 'MORE_INFO_REQUIRED'];
+const reviewStatuses: ApplicationStatus[] = [
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'MORE_INFO_REQUIRED',
+  'INTERVIEW_REQUIRED',
+  'INTERVIEW_SCHEDULED',
+  'INTERVIEW_COMPLETED',
+];
 const applicationTypes: ApplicationType[] = ['DOCTOR', 'RESEARCHER'];
 
 export function AccessReviewsPage() {
@@ -261,6 +269,16 @@ export function AccessReviewsPage() {
               </header>
 
               <DetailGrid detail={detail} onDownload={(documentId) => void downloadDocument(documentId)} />
+
+              {detail.applicationType === 'DOCTOR' ? (
+                <DoctorInterviewAdminPanel
+                  applicationId={detail.id}
+                  applicationStatus={detail.status}
+                  onChanged={async () => {
+                    await Promise.all([loadQueue(), loadDetail(detail.id)]);
+                  }}
+                />
+              ) : null}
 
               <section className="grid gap-3">
                 <h3 className="text-lg font-semibold text-white">Internal Reviewer Notes</h3>

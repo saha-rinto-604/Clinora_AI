@@ -50,6 +50,13 @@ class SecurityFoundationConfigTest {
             .andExpect(content().string("applicant-logout-all-ok"));
     }
 
+    @Test
+    void applicantInterviewMatcherDoesNotRequireJwt() throws Exception {
+        mvc.perform(get("/api/v1/access-applications/me/interview"))
+            .andExpect(status().isOk())
+            .andExpect(content().string("applicant-interview-ok"));
+    }
+
     private static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor roleJwt(
         String role
     ) {
@@ -73,6 +80,11 @@ class SecurityFoundationConfigTest {
         @PostMapping(value = "/api/v1/access-applications/logout-all", produces = MediaType.TEXT_PLAIN_VALUE)
         String applicantLogoutAllProbe() {
             return "applicant-logout-all-ok";
+        }
+
+        @GetMapping(value = "/api/v1/access-applications/me/interview", produces = MediaType.TEXT_PLAIN_VALUE)
+        String applicantInterviewProbe() {
+            return "applicant-interview-ok";
         }
     }
 }

@@ -154,6 +154,43 @@ describe('Phase 4C professional application routes', () => {
     expect(screen.queryByText(/policy-dependent/i)).not.toBeInTheDocument();
   });
 
+  it('shows private scheduled interview details only for Doctor applicant sessions', async () => {
+    const doctor: AccessApplication = {
+      ...draftResearcher,
+      id: 'doctor-app-1',
+      applicationType: 'DOCTOR',
+      firstName: 'Dora',
+      lastName: 'Doctor',
+      email: 'dora@example.test',
+      status: 'INTERVIEW_SCHEDULED',
+      doctor: { professionalTitle: 'Consultant', specialization: 'Internal Medicine' },
+      researcher: null,
+      submittedAt: '2026-08-10T01:00:00Z',
+    };
+    vi.spyOn(applicationApi, 'me').mockResolvedValue(doctor);
+    vi.spyOn(applicationApi, 'events').mockResolvedValue([]);
+    vi.spyOn(applicationApi, 'interview').mockResolvedValue({
+      id: 'interview-1',
+      status: 'SCHEDULED',
+      scheduledStartUtc: '2026-08-20T10:00:00Z',
+      timezone: 'Asia/Dhaka',
+      durationMinutes: 30,
+      meetingProvider: 'GOOGLE_MEET',
+      meetingUrl: 'https://meet.google.com/private-test',
+      instructions: 'Join five minutes early.',
+      updatedAt: '2026-08-15T12:00:00Z',
+    });
+
+    renderRoute('/application/status');
+
+    expect(await screen.findByRole('heading', { name: /mandatory onboarding interview/i })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /join interview/i })).toHaveAttribute(
+      'href',
+      'https://meet.google.com/private-test',
+    );
+    expect(screen.getByText('Asia/Dhaka')).toBeInTheDocument();
+  });
+
   it('uses confirmation dialog before withdrawing a submitted application', async () => {
     const submitted = { ...draftResearcher, status: 'SUBMITTED' as const, submittedAt: '2026-08-10T01:00:00Z' };
     vi.spyOn(applicationApi, 'me').mockResolvedValue(submitted);

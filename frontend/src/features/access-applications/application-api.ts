@@ -8,6 +8,7 @@ import type {
   ApplicationType,
   Qualification,
 } from './application-types';
+import type { DoctorInterview } from './doctor-interview-types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1';
 
@@ -95,6 +96,19 @@ export const applicationApi = {
   },
   async events() {
     const response = await applicantClient.get<ApiEnvelope<ApplicationEvent[]>>('/access-applications/me/events');
+    return response.data.data;
+  },
+  async interview() {
+    const response = await applicantClient.get<ApiEnvelope<DoctorInterview | null>>(
+      '/access-applications/me/interview',
+    );
+    return response.data.data;
+  },
+  async requestInterviewReschedule(message: string) {
+    const response = await applicantClient.post<ApiEnvelope<DoctorInterview>>(
+      '/access-applications/me/interview/reschedule-request',
+      { message },
+    );
     return response.data.data;
   },
   async upload(documentType: ApplicationDocumentType, file: File) {

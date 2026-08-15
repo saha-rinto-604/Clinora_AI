@@ -1,6 +1,7 @@
 import { apiClient, apiErrorMessage } from '../auth/auth-api';
 import type { AccessReviewDetail, AccessReviewQueueItem, PageView } from './admin-access-review-types';
 import type { ApplicationStatus, ApplicationType } from '../access-applications/application-types';
+import type { DoctorInterview, DoctorInterviewScheduleInput } from '../access-applications/doctor-interview-types';
 import type { ApiEnvelope } from '../auth/auth-types';
 
 export interface ReviewQueueParams {
@@ -49,6 +50,48 @@ export const adminAccessReviewApi = {
       { responseType: 'blob' },
     );
     return response.data;
+  },
+  async interview(applicationId: string) {
+    const response = await apiClient.get<ApiEnvelope<DoctorInterview | null>>(
+      `/admin/access-applications/${applicationId}/interview`,
+    );
+    return response.data.data;
+  },
+  requireInterview(applicationId: string) {
+    return apiClient.post<ApiEnvelope<null>>(`/admin/access-applications/${applicationId}/interview/require`);
+  },
+  async scheduleInterview(applicationId: string, input: DoctorInterviewScheduleInput) {
+    const response = await apiClient.post<ApiEnvelope<DoctorInterview>>(
+      `/admin/access-applications/${applicationId}/interview/schedule`,
+      input,
+    );
+    return response.data.data;
+  },
+  async rescheduleInterview(applicationId: string, input: DoctorInterviewScheduleInput) {
+    const response = await apiClient.put<ApiEnvelope<DoctorInterview>>(
+      `/admin/access-applications/${applicationId}/interview/reschedule`,
+      input,
+    );
+    return response.data.data;
+  },
+  async cancelInterview(applicationId: string, reason?: string) {
+    const response = await apiClient.post<ApiEnvelope<DoctorInterview>>(
+      `/admin/access-applications/${applicationId}/interview/cancel`,
+      { reason },
+    );
+    return response.data.data;
+  },
+  async completeInterview(applicationId: string) {
+    const response = await apiClient.post<ApiEnvelope<DoctorInterview>>(
+      `/admin/access-applications/${applicationId}/interview/complete`,
+    );
+    return response.data.data;
+  },
+  async markInterviewNoShow(applicationId: string) {
+    const response = await apiClient.post<ApiEnvelope<DoctorInterview>>(
+      `/admin/access-applications/${applicationId}/interview/no-show`,
+    );
+    return response.data.data;
   },
 };
 

@@ -136,7 +136,9 @@ public class SecurityFoundationConfig {
                     "/api/v1/access-applications/me/withdraw",
                     "/api/v1/access-applications/me/documents",
                     "/api/v1/access-applications/me/documents/*",
-                    "/api/v1/access-applications/me/documents/*/content")
+                    "/api/v1/access-applications/me/documents/*/content",
+                    "/api/v1/access-applications/me/interview",
+                    "/api/v1/access-applications/me/interview/reschedule-request")
                 .permitAll()
                 .requestMatchers(HttpMethod.POST,
                     "/api/v1/auth/register",

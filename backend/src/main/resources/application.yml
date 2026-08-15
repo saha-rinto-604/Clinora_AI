@@ -70,6 +70,9 @@ clinora:
     cookie-secure: ${APPLICATION_COOKIE_SECURE:false}
     cookie-same-site: ${APPLICATION_COOKIE_SAME_SITE:Lax}
     max-document-size: ${APPLICATION_MAX_DOCUMENT_SIZE:10MB}
+    interview-default-duration: ${APPLICATION_INTERVIEW_DEFAULT_DURATION:30m}
+    interview-reminder-offsets: ${APPLICATION_INTERVIEW_REMINDER_OFFSETS:24h,1h}
+    interview-reminder-scan-delay-ms: ${APPLICATION_INTERVIEW_REMINDER_SCAN_DELAY_MS:60000}
   services:
     ocr-url: ${OCR_SERVICE_URL:http://localhost:8000}
     ai-url: ${AI_SERVICE_URL:http://localhost:8001}
