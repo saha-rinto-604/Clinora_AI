@@ -38,6 +38,15 @@ public class AccessApplicationException extends RuntimeException {
     public static AccessApplicationException notEditable() {
         return new AccessApplicationException(HttpStatus.CONFLICT, "APPLICATION_NOT_EDITABLE", "This application is no longer editable.");
     }
+    public static AccessApplicationException notFound() {
+        return new AccessApplicationException(HttpStatus.NOT_FOUND, "APPLICATION_NOT_FOUND", "The requested application was not found.");
+    }
+    public static AccessApplicationException documentNotFound() {
+        return new AccessApplicationException(HttpStatus.NOT_FOUND, "APPLICATION_DOCUMENT_NOT_FOUND", "The requested document was not found.");
+    }
+    public static AccessApplicationException invalidReviewTransition(String message) {
+        return new AccessApplicationException(HttpStatus.CONFLICT, "APPLICATION_REVIEW_TRANSITION_INVALID", message);
+    }
     public static AccessApplicationException validation(String message) {
         return new AccessApplicationException(HttpStatus.BAD_REQUEST, "APPLICATION_NOT_READY_FOR_REVIEW", message);
     }

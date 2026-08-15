@@ -14,6 +14,7 @@ import { VerifyEmailPage } from './pages/auth/verify-email-page';
 import { ApplicationEmailVerificationPage } from './pages/applications/application-email-verification-page';
 import { ApplicationStatusPage } from './pages/applications/application-status-page';
 import { ProfessionalApplicationPage } from './pages/applications/professional-application-page';
+import { AccessReviewsPage } from './pages/admin/access-reviews-page';
 import { AboutPage } from './pages/public/about-page';
 import { AiClinicalIntelligencePage } from './pages/public/ai-clinical-intelligence-page';
 import { ContactPage } from './pages/public/contact-page';
@@ -62,6 +63,10 @@ export function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="account" element={<AccountPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
+        <Route path="admin/access-reviews" element={<AccessReviewsPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
