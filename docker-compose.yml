@@ -98,6 +98,8 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_API_BASE_URL: ${EMAIL_API_BASE_URL:-https://api.resend.com}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://object-storage-placeholder}
       S3_REGION: ${S3_REGION:-local}
       S3_BUCKET: ${S3_BUCKET:-clinora-medical-reports}
