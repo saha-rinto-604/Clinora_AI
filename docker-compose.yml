@@ -138,7 +138,9 @@ services:
     build:
       context: ./frontend
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+      # Local Compose always routes browser API calls through Vite's relative /api proxy.
+      VITE_API_BASE_URL: /api/v1
+      DEV_API_PROXY_TARGET: ${DEV_API_PROXY_TARGET:-http://backend:8080}
       VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080/ws}
     ports:
       - "5173:5173"
