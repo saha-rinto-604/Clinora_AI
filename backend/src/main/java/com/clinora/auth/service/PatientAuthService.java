@@ -196,6 +196,7 @@ public class PatientAuthService {
         return sessionResult(user, access, refresh);
     }
 
+    @Transactional(noRollbackFor = AuthApiException.class)
     public SessionResult refresh(String refreshToken, RequestContext context) {
         limits.refresh(context.ipAddress());
         try {
