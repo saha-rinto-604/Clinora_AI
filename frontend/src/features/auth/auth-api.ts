@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from './auth-store';
 import type { ApiEnvelope, AuthenticatedSession, AuthSessionItem } from './auth-types';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1';
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
 export const apiClient = axios.create({
   baseURL,

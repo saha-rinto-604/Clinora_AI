@@ -10,7 +10,7 @@ import type {
 } from './application-types';
 import type { DoctorInterview } from './doctor-interview-types';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1';
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
 // Applicant access deliberately uses its own cookie-scoped client. It does not
 // share the normal User JWT/refresh interceptor from Phase 4B.
