@@ -12,5 +12,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Proxy API calls to the backend during development so cookies remain same-site.
+    // This avoids cross-origin Set-Cookie issues for the refresh cookie in dev.
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
   },
 });
