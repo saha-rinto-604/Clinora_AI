@@ -124,12 +124,12 @@ public class AccessApplicationService {
 
     @Transactional
     public void activateAccount(String rawToken,String password,String ip,String userAgent){
-        passwordPolicy.validate(password);
         var now=clock.instant();
         var token=usableToken(rawToken,ApplicationTokenType.ACCOUNT_ACTIVATION,now);
         var app=applications.findById(token.getApplicationId()).orElseThrow(AccessApplicationException::invalidToken);
         if(app.getStatus()!=ApplicationStatus.ACTIVATION_PENDING) throw AccessApplicationException.invalidToken();
         if(app.getEmailVerifiedAt()==null) throw AccessApplicationException.invalidToken();
+        passwordPolicy.validate(password);
         if(users.existsByNormalizedEmail(app.getNormalizedEmail())){
             throw new AccessApplicationException(HttpStatus.CONFLICT,"APPLICATION_EMAIL_UNAVAILABLE","This email can no longer be used for a professional account.");
         }

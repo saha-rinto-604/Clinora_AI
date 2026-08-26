@@ -202,8 +202,13 @@ class AdminAccessReviewServiceTest {
 
         assertEquals(ApplicationStatus.ACTIVATION_PENDING, result.status());
         verify(fixture.tokens).deleteAllByApplicationIdAndTokenType(app.getId(), com.clinora.access.domain.ApplicationTokenType.ACCOUNT_ACTIVATION);
-        verify(fixture.tokens).save(any());
-        verify(fixture.mail).sendApprovedActivation(eq(app.getEmail()), eq(app.getFirstName()), any());
+        ArgumentCaptor<com.clinora.access.domain.ApplicationToken> token = ArgumentCaptor.forClass(com.clinora.access.domain.ApplicationToken.class);
+        ArgumentCaptor<String> rawToken = ArgumentCaptor.forClass(String.class);
+        verify(fixture.tokens).save(token.capture());
+        verify(fixture.mail).sendApprovedActivation(eq(app.getEmail()), eq(app.getFirstName()), rawToken.capture());
+        assertEquals(com.clinora.access.domain.ApplicationTokenType.ACCOUNT_ACTIVATION, token.getValue().getTokenType());
+        assertFalse(token.getValue().getTokenHash().equals(rawToken.getValue()));
+        assertEquals(fixture.secureTokenService.hash(rawToken.getValue()), token.getValue().getTokenHash());
         verify(fixture.audit).record(
             eq(REVIEWER_ID),
             eq(AuthAuditAction.APPLICATION_APPROVED),

@@ -167,6 +167,17 @@ describe('Phase 4C professional application routes', () => {
     expect(activate).not.toHaveBeenCalled();
   });
 
+  it('blocks activation when the one-time token is missing', async () => {
+    const activate = vi.spyOn(applicationApi, 'activate').mockResolvedValue({} as never);
+
+    renderRoute('/application/activate');
+
+    expect(await screen.findByText(/activation link is incomplete/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /return to application access/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /activate account/i })).not.toBeInTheDocument();
+    expect(activate).not.toHaveBeenCalled();
+  });
+
   it('shows server activation failures without creating a logged-in account state', async () => {
     vi.spyOn(applicationApi, 'activate').mockRejectedValue({
       response: {

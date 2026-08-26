@@ -49,6 +49,34 @@ clinora:
     jwt-secret: ${JWT_SECRET:dev-only-clinora-jwt-secret-change-me-32-bytes}
     rate-limit-key-secret: ${RATE_LIMIT_KEY_SECRET:dev-only-clinora-rate-limit-key-change-me}
     bcrypt-strength: ${BCRYPT_STRENGTH:12}
+    rate-limits:
+      registration-ip:
+        limit: ${AUTH_RATE_LIMIT_REGISTRATION_IP_LIMIT:5}
+        window: ${AUTH_RATE_LIMIT_REGISTRATION_IP_WINDOW:1h}
+      registration-email:
+        limit: ${AUTH_RATE_LIMIT_REGISTRATION_EMAIL_LIMIT:3}
+        window: ${AUTH_RATE_LIMIT_REGISTRATION_EMAIL_WINDOW:1h}
+      login-ip:
+        limit: ${AUTH_RATE_LIMIT_LOGIN_IP_LIMIT:5}
+        window: ${AUTH_RATE_LIMIT_LOGIN_IP_WINDOW:1m}
+      login-email:
+        limit: ${AUTH_RATE_LIMIT_LOGIN_EMAIL_LIMIT:10}
+        window: ${AUTH_RATE_LIMIT_LOGIN_EMAIL_WINDOW:15m}
+      forgot-password-ip:
+        limit: ${AUTH_RATE_LIMIT_FORGOT_PASSWORD_IP_LIMIT:10}
+        window: ${AUTH_RATE_LIMIT_FORGOT_PASSWORD_IP_WINDOW:1h}
+      forgot-password-email:
+        limit: ${AUTH_RATE_LIMIT_FORGOT_PASSWORD_EMAIL_LIMIT:3}
+        window: ${AUTH_RATE_LIMIT_FORGOT_PASSWORD_EMAIL_WINDOW:1h}
+      resend-verification-ip:
+        limit: ${AUTH_RATE_LIMIT_RESEND_VERIFICATION_IP_LIMIT:10}
+        window: ${AUTH_RATE_LIMIT_RESEND_VERIFICATION_IP_WINDOW:1h}
+      resend-verification-email:
+        limit: ${AUTH_RATE_LIMIT_RESEND_VERIFICATION_EMAIL_LIMIT:3}
+        window: ${AUTH_RATE_LIMIT_RESEND_VERIFICATION_EMAIL_WINDOW:1h}
+      refresh-ip:
+        limit: ${AUTH_RATE_LIMIT_REFRESH_IP_LIMIT:120}
+        window: ${AUTH_RATE_LIMIT_REFRESH_IP_WINDOW:1h}
   system-admin:
     email: ${SYSTEM_ADMIN_EMAIL:}
     password: ${SYSTEM_ADMIN_PASSWORD:}
@@ -74,6 +102,31 @@ clinora:
     interview-default-duration: ${APPLICATION_INTERVIEW_DEFAULT_DURATION:30m}
     interview-reminder-offsets: ${APPLICATION_INTERVIEW_REMINDER_OFFSETS:24h,1h}
     interview-reminder-scan-delay-ms: ${APPLICATION_INTERVIEW_REMINDER_SCAN_DELAY_MS:60000}
+    rate-limits:
+      create-ip:
+        limit: ${APPLICATION_RATE_LIMIT_CREATE_IP_LIMIT:10}
+        window: ${APPLICATION_RATE_LIMIT_CREATE_IP_WINDOW:1h}
+      create-email:
+        limit: ${APPLICATION_RATE_LIMIT_CREATE_EMAIL_LIMIT:4}
+        window: ${APPLICATION_RATE_LIMIT_CREATE_EMAIL_WINDOW:1h}
+      verify-ip:
+        limit: ${APPLICATION_RATE_LIMIT_VERIFY_IP_LIMIT:30}
+        window: ${APPLICATION_RATE_LIMIT_VERIFY_IP_WINDOW:1h}
+      access-link-ip:
+        limit: ${APPLICATION_RATE_LIMIT_ACCESS_LINK_IP_LIMIT:10}
+        window: ${APPLICATION_RATE_LIMIT_ACCESS_LINK_IP_WINDOW:1h}
+      access-link-email:
+        limit: ${APPLICATION_RATE_LIMIT_ACCESS_LINK_EMAIL_LIMIT:8}
+        window: ${APPLICATION_RATE_LIMIT_ACCESS_LINK_EMAIL_WINDOW:1h}
+      session-ip:
+        limit: ${APPLICATION_RATE_LIMIT_SESSION_IP_LIMIT:30}
+        window: ${APPLICATION_RATE_LIMIT_SESSION_IP_WINDOW:1h}
+      upload-application:
+        limit: ${APPLICATION_RATE_LIMIT_UPLOAD_APPLICATION_LIMIT:30}
+        window: ${APPLICATION_RATE_LIMIT_UPLOAD_APPLICATION_WINDOW:1h}
+      submit-application:
+        limit: ${APPLICATION_RATE_LIMIT_SUBMIT_APPLICATION_LIMIT:10}
+        window: ${APPLICATION_RATE_LIMIT_SUBMIT_APPLICATION_WINDOW:1h}
   services:
     ocr-url: ${OCR_SERVICE_URL:http://localhost:8000}
     ai-url: ${AI_SERVICE_URL:http://localhost:8001}

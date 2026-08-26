@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,6 +42,32 @@ class SecurityFoundationConfigTest {
     void nonAdminRolesCannotReachAdminMatcher(String role) throws Exception {
         mvc.perform(get("/api/v1/admin/probe").with(roleJwt(role)))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anonymousCallersCannotReachAdminMatchers() throws Exception {
+        mvc.perform(get("/api/v1/admin/probe"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonDoctorRoles")
+    void patientResearcherAndSystemAdminDoNotBypassDoctorClinicalBoundary(String role) throws Exception {
+        mvc.perform(get("/api/v1/doctor/clinical-probe").with(roleJwt(role)))
+            .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonPatientIdentifiableRecordRoles")
+    void researcherAndSystemAdminDoNotReceiveIdentifiablePatientAccessByRoleAlone(String role) throws Exception {
+        mvc.perform(get("/api/v1/patient-records/identifiable-probe").with(roleJwt(role)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void applicantCookieWithoutRbacJwtCannotReachAuthenticatedUserApis() throws Exception {
+        mvc.perform(get("/api/v1/auth/me").cookie(new jakarta.servlet.http.Cookie("clinora_applicant", "session.raw")))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -76,6 +103,14 @@ class SecurityFoundationConfigTest {
         return Stream.of("PATIENT", "DOCTOR", "RESEARCHER", "HOSPITAL_ADMIN", "BLOOD_BANK_STAFF");
     }
 
+    private static Stream<String> nonDoctorRoles() {
+        return Stream.of("PATIENT", "RESEARCHER", "SYSTEM_ADMIN", "HOSPITAL_ADMIN", "BLOOD_BANK_STAFF");
+    }
+
+    private static Stream<String> nonPatientIdentifiableRecordRoles() {
+        return Stream.of("DOCTOR", "RESEARCHER", "SYSTEM_ADMIN", "HOSPITAL_ADMIN", "BLOOD_BANK_STAFF");
+    }
+
     @RestController
     static class SecurityProbeController {
 
@@ -97,6 +132,18 @@ class SecurityFoundationConfigTest {
         @PostMapping(value = "/api/v1/access-applications/activate", produces = MediaType.TEXT_PLAIN_VALUE)
         String applicantActivationProbe() {
             return "applicant-activation-ok";
+        }
+
+        @GetMapping(value = "/api/v1/doctor/clinical-probe", produces = MediaType.TEXT_PLAIN_VALUE)
+        @PreAuthorize("hasRole('DOCTOR')")
+        String doctorClinicalProbe() {
+            return "doctor-clinical-ok";
+        }
+
+        @GetMapping(value = "/api/v1/patient-records/identifiable-probe", produces = MediaType.TEXT_PLAIN_VALUE)
+        @PreAuthorize("hasRole('PATIENT')")
+        String identifiablePatientRecordProbe() {
+            return "identifiable-patient-record-ok";
         }
     }
 }

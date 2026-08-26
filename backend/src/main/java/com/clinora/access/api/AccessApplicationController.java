@@ -99,7 +99,7 @@ public class AccessApplicationController {
 
     @PostMapping("/access-link")
     public ApiResponse<Void> requestAccessLink(@Valid @RequestBody AccessLinkRequest body, HttpServletRequest request) {
-        rateLimits.accessLink(body.email().trim().toLowerCase(java.util.Locale.ROOT));
+        rateLimits.accessLink(ip(request), body.email().trim().toLowerCase(java.util.Locale.ROOT));
         applications.requestAccessLink(body.email(), ip(request), userAgent(request));
         return ApiResponse.success(
             "If an eligible application exists for that email, a secure resume link has been sent.",
