@@ -44,6 +44,19 @@ export const adminAccessReviewApi = {
     );
     return response.data.data;
   },
+  async approve(applicationId: string) {
+    const response = await apiClient.post<ApiEnvelope<AccessReviewDetail>>(
+      `/admin/access-applications/${applicationId}/approve`,
+    );
+    return response.data.data;
+  },
+  async reject(applicationId: string, reason: string) {
+    const response = await apiClient.post<ApiEnvelope<AccessReviewDetail>>(
+      `/admin/access-applications/${applicationId}/reject`,
+      { reason },
+    );
+    return response.data.data;
+  },
   async downloadDocument(applicationId: string, documentId: string) {
     const response = await apiClient.get<Blob>(
       `/admin/access-applications/${applicationId}/documents/${documentId}/content`,

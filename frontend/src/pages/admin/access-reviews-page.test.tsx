@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   startReview: vi.fn(),
   addNote: vi.fn(),
   requestMoreInformation: vi.fn(),
+  approve: vi.fn(),
+  reject: vi.fn(),
   downloadDocument: vi.fn(),
   interview: vi.fn(),
   requireInterview: vi.fn(),
@@ -144,6 +146,16 @@ describe('System Admin access review workbench', () => {
         },
       ],
     });
+    mocks.approve.mockResolvedValue({
+      ...detail,
+      status: 'ACTIVATION_PENDING',
+      allowedNextStatuses: [],
+    });
+    mocks.reject.mockResolvedValue({
+      ...detail,
+      status: 'REJECTED',
+      allowedNextStatuses: [],
+    });
     mocks.downloadDocument.mockResolvedValue(new Blob(['pdf']));
     mocks.interview.mockResolvedValue(null);
     mocks.requireInterview.mockResolvedValue({});
@@ -265,5 +277,38 @@ describe('System Admin access review workbench', () => {
       queueItem.id,
       'Please provide updated qualification evidence.',
     );
+  });
+
+  it('supports final approval and rejection when review transitions allow them', async () => {
+    const user = userEvent.setup();
+    mocks.detail.mockResolvedValueOnce({
+      ...detail,
+      status: 'INTERVIEW_COMPLETED',
+      allowedNextStatuses: ['ACTIVATION_PENDING', 'REJECTED'],
+    });
+    const { unmount } = renderRoute();
+
+    await screen.findByText('Internal Medicine');
+    await user.click(screen.getByRole('button', { name: /^approve$/i }));
+
+    expect(await screen.findByText('Application approved. Activation link sent.')).toBeInTheDocument();
+    expect(mocks.approve).toHaveBeenCalledWith(queueItem.id);
+
+    unmount();
+    mocks.detail.mockResolvedValueOnce({
+      ...detail,
+      status: 'INTERVIEW_COMPLETED',
+      allowedNextStatuses: ['ACTIVATION_PENDING', 'REJECTED'],
+    });
+    renderRoute();
+
+    await screen.findByText('Internal Medicine');
+    await user.click(screen.getByRole('button', { name: /^reject$/i }));
+    expect(screen.getByRole('button', { name: /reject application/i })).toBeDisabled();
+    await user.type(screen.getByLabelText('Applicant-facing rejection reason'), 'Credential evidence is insufficient.');
+    await user.click(screen.getByRole('button', { name: /reject application/i }));
+
+    expect(await screen.findByText('Application rejected.')).toBeInTheDocument();
+    expect(mocks.reject).toHaveBeenCalledWith(queueItem.id, 'Credential evidence is insufficient.');
   });
 });

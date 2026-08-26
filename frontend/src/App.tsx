@@ -12,6 +12,7 @@ import { RegisterPage } from './pages/auth/register-page';
 import { ResetPasswordPage } from './pages/auth/reset-password-page';
 import { VerifyEmailPage } from './pages/auth/verify-email-page';
 import { ApplicationEmailVerificationPage } from './pages/applications/application-email-verification-page';
+import { ApplicationActivationPage } from './pages/applications/application-activation-page';
 import { ApplicationStatusPage } from './pages/applications/application-status-page';
 import { ProfessionalApplicationPage } from './pages/applications/professional-application-page';
 import { AccessReviewsPage } from './pages/admin/access-reviews-page';
@@ -58,6 +59,7 @@ export function AppRoutes() {
         <Route path="apply/doctor" element={<ProfessionalApplicationPage type="DOCTOR" />} />
         <Route path="apply/researcher" element={<ProfessionalApplicationPage type="RESEARCHER" />} />
         <Route path="application/email-verification" element={<ApplicationEmailVerificationPage />} />
+        <Route path="application/activate" element={<ApplicationActivationPage />} />
         <Route path="application/status" element={<ApplicationStatusPage />} />
       </Route>
 

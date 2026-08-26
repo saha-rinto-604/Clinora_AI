@@ -90,6 +90,31 @@ public class AdminAccessReviewController {
         );
     }
 
+    @PostMapping("/{applicationId}/approve")
+    public ApiResponse<AdminAccessReviewModels.DetailView> approve(
+        @PathVariable UUID applicationId,
+        @AuthenticationPrincipal Jwt jwt,
+        HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+            "Application approved. Account activation link sent.",
+            reviews.approve(applicationId, userId(jwt), ip(request), userAgent(request))
+        );
+    }
+
+    @PostMapping("/{applicationId}/reject")
+    public ApiResponse<AdminAccessReviewModels.DetailView> reject(
+        @PathVariable UUID applicationId,
+        @AuthenticationPrincipal Jwt jwt,
+        @Valid @RequestBody RejectRequest body,
+        HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+            "Application rejected.",
+            reviews.reject(applicationId, userId(jwt), body.reason(), ip(request), userAgent(request))
+        );
+    }
+
     @GetMapping("/{applicationId}/documents/{documentId}/content")
     public ResponseEntity<byte[]> documentContent(
         @PathVariable UUID applicationId,
@@ -131,5 +156,8 @@ public class AdminAccessReviewController {
     }
 
     public record MoreInformationRequest(@NotBlank @Size(max = 500) String message) {
+    }
+
+    public record RejectRequest(@NotBlank @Size(max = 500) String reason) {
     }
 }

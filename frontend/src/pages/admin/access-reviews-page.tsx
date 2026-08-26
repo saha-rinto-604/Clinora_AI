@@ -1,4 +1,4 @@
-import { FileText, LoaderCircle, MessageSquarePlus, PlayCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, FileText, LoaderCircle, MessageSquarePlus, PlayCircle, RefreshCw, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -39,6 +39,10 @@ export function AccessReviewsPage() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoMessage, setInfoMessage] = useState('');
   const [infoSaving, setInfoSaving] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectSaving, setRejectSaving] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
   const loadQueue = useCallback(async () => {
@@ -129,6 +133,40 @@ export function AccessReviewsPage() {
       setDetailError(reviewErrorMessage(error, 'Information request could not be sent.'));
     } finally {
       setInfoSaving(false);
+    }
+  }
+
+  async function approveApplication() {
+    if (!detail) return;
+    setApproving(true);
+    setActionMessage('');
+    try {
+      const next = await adminAccessReviewApi.approve(detail.id);
+      setDetail(next);
+      setActionMessage('Application approved. Activation link sent.');
+      await loadQueue();
+    } catch (error) {
+      setDetailError(reviewErrorMessage(error, 'Application could not be approved.'));
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  async function rejectApplication() {
+    if (!detail || !rejectReason.trim()) return;
+    setRejectSaving(true);
+    setActionMessage('');
+    try {
+      const next = await adminAccessReviewApi.reject(detail.id, rejectReason);
+      setDetail(next);
+      setRejectReason('');
+      setRejectOpen(false);
+      setActionMessage('Application rejected.');
+      await loadQueue();
+    } catch (error) {
+      setDetailError(reviewErrorMessage(error, 'Application could not be rejected.'));
+    } finally {
+      setRejectSaving(false);
     }
   }
 
@@ -265,6 +303,22 @@ export function AccessReviewsPage() {
                       Request More Information
                     </Button>
                   ) : null}
+                  {detail.allowedNextStatuses.includes('ACTIVATION_PENDING') ? (
+                    <Button onClick={() => void approveApplication()} disabled={approving}>
+                      {approving ? (
+                        <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+                      ) : (
+                        <CheckCircle2 size={16} aria-hidden="true" />
+                      )}
+                      Approve
+                    </Button>
+                  ) : null}
+                  {detail.allowedNextStatuses.includes('REJECTED') ? (
+                    <Button variant="secondary" onClick={() => setRejectOpen(true)}>
+                      <XCircle size={16} aria-hidden="true" />
+                      Reject
+                    </Button>
+                  ) : null}
                 </div>
               </header>
 
@@ -338,6 +392,31 @@ export function AccessReviewsPage() {
             <Button onClick={() => void requestMoreInformation()} disabled={!infoMessage.trim() || infoSaving}>
               {infoSaving ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : null}
               Send Request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <DialogTitle>Reject Application</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-slate-400">
+            This reason is visible to the applicant and included in the decision email.
+          </DialogDescription>
+          <Textarea
+            value={rejectReason}
+            onChange={(event) => setRejectReason(event.target.value)}
+            maxLength={500}
+            placeholder="Explain why this professional application is not approved."
+            aria-label="Applicant-facing rejection reason"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setRejectOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void rejectApplication()} disabled={!rejectReason.trim() || rejectSaving}>
+              {rejectSaving ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : null}
+              Reject Application
             </Button>
           </div>
         </DialogContent>

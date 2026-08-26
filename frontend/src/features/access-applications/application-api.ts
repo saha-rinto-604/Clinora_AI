@@ -86,6 +86,9 @@ export const applicationApi = {
   establishSession(token: string) {
     return applicantClient.post<ApiEnvelope<null>>('/access-applications/session', { token });
   },
+  activate(token: string, password: string) {
+    return applicantClient.post<ApiEnvelope<null>>('/access-applications/activate', { token, password });
+  },
   async me() {
     const response = await applicantClient.get<ApiEnvelope<AccessApplication>>('/access-applications/me');
     return response.data.data;

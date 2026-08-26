@@ -51,6 +51,11 @@ public class ApplicantSessionService {
     @Transactional
     public void revokeAll(String rawCookie) {
         UUID applicationId=requireApplication(rawCookie);
+        revokeAllForApplication(applicationId);
+    }
+
+    @Transactional
+    public void revokeAllForApplication(UUID applicationId) {
         var now=clock.instant();
         repository.findAllByApplicationId(applicationId).stream()
             .filter(session->session.activeAt(now))

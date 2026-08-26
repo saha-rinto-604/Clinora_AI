@@ -128,6 +128,7 @@ public class SecurityFoundationConfig {
                     "/api/v1/access-applications/verify-email/resend",
                     "/api/v1/access-applications/access-link",
                     "/api/v1/access-applications/session",
+                    "/api/v1/access-applications/activate",
                     "/api/v1/access-applications/logout",
                     "/api/v1/access-applications/logout-all",
                     "/api/v1/access-applications/me",

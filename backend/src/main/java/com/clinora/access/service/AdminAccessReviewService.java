@@ -6,17 +6,22 @@ import com.clinora.access.domain.ApplicationEvent;
 import com.clinora.access.domain.ApplicationEventType;
 import com.clinora.access.domain.ApplicationReviewNote;
 import com.clinora.access.domain.ApplicationStatus;
+import com.clinora.access.domain.ApplicationToken;
+import com.clinora.access.domain.ApplicationTokenType;
 import com.clinora.access.domain.ApplicationType;
 import com.clinora.access.repository.AccessApplicationRepository;
 import com.clinora.access.repository.ApplicationDocumentRepository;
 import com.clinora.access.repository.ApplicationEventRepository;
 import com.clinora.access.repository.ApplicationReviewNoteRepository;
+import com.clinora.access.repository.ApplicationTokenRepository;
 import com.clinora.access.repository.DoctorApplicationDetailRepository;
 import com.clinora.access.repository.DoctorQualificationRepository;
 import com.clinora.access.repository.ResearcherApplicationDetailRepository;
 import com.clinora.audit.AuthAuditAction;
 import com.clinora.audit.AuthAuditOutcome;
 import com.clinora.audit.AuthAuditService;
+import com.clinora.config.AccessApplicationProperties;
+import com.clinora.security.token.SecureTokenService;
 import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +35,7 @@ public class AdminAccessReviewService {
     private static final int MAX_PAGE_SIZE = 50;
     private static final int MAX_NOTE_LENGTH = 2000;
     private static final int MAX_REQUEST_MESSAGE_LENGTH = 500;
+    private static final int MAX_REJECTION_REASON_LENGTH = 500;
     private static final List<ApplicationStatus> REVIEW_QUEUE_STATUSES = List.of(
         ApplicationStatus.SUBMITTED,
         ApplicationStatus.UNDER_REVIEW,
@@ -46,6 +52,10 @@ public class AdminAccessReviewService {
     private final ApplicationDocumentRepository documents;
     private final ApplicationEventRepository events;
     private final ApplicationReviewNoteRepository notes;
+    private final ApplicationTokenRepository tokens;
+    private final SecureTokenService secureTokenService;
+    private final AccessApplicationMailService mail;
+    private final AccessApplicationProperties properties;
     private final AuthAuditService audit;
     private final Clock clock;
 
@@ -57,6 +67,10 @@ public class AdminAccessReviewService {
         ApplicationDocumentRepository documents,
         ApplicationEventRepository events,
         ApplicationReviewNoteRepository notes,
+        ApplicationTokenRepository tokens,
+        SecureTokenService secureTokenService,
+        AccessApplicationMailService mail,
+        AccessApplicationProperties properties,
         AuthAuditService audit,
         Clock clock
     ) {
@@ -67,6 +81,10 @@ public class AdminAccessReviewService {
         this.documents = documents;
         this.events = events;
         this.notes = notes;
+        this.tokens = tokens;
+        this.secureTokenService = secureTokenService;
+        this.mail = mail;
+        this.properties = properties;
         this.audit = audit;
         this.clock = clock;
     }
@@ -184,6 +202,83 @@ public class AdminAccessReviewService {
         return detailView(app);
     }
 
+    @Transactional
+    public AdminAccessReviewModels.DetailView approve(UUID applicationId, UUID reviewerUserId, String ip, String userAgent) {
+        AccessApplication app = applications.findByIdForReviewUpdate(applicationId)
+            .orElseThrow(AccessApplicationException::notFound);
+        if (!canApprove(app)) {
+            throw AccessApplicationException.invalidReviewTransition(
+                "This application is not ready for approval."
+            );
+        }
+        var now = clock.instant();
+        app.approveForActivation(now);
+        tokens.deleteAllByApplicationIdAndTokenType(applicationId, ApplicationTokenType.ACCOUNT_ACTIVATION);
+        var activation = secureTokenService.generate();
+        tokens.save(new ApplicationToken(
+            applicationId,
+            ApplicationTokenType.ACCOUNT_ACTIVATION,
+            activation.tokenHash(),
+            now.plus(properties.getAccountActivationTtl()),
+            now
+        ));
+        events.save(new ApplicationEvent(applicationId, ApplicationEventType.APPLICATION_APPROVED, "Application approved.", now));
+        events.save(new ApplicationEvent(applicationId, ApplicationEventType.ACCOUNT_ACTIVATION_SENT, "Professional account activation link sent.", now));
+        mail.sendApprovedActivation(app.getEmail(), app.getFirstName(), activation.rawToken());
+        audit.record(
+            reviewerUserId,
+            AuthAuditAction.APPLICATION_APPROVED,
+            AuthAuditOutcome.SUCCESS,
+            ip,
+            userAgent,
+            applicationId.toString(),
+            "type=" + app.getApplicationType()
+        );
+        audit.record(
+            reviewerUserId,
+            AuthAuditAction.APPLICATION_ACCOUNT_ACTIVATION_SENT,
+            AuthAuditOutcome.SUCCESS,
+            ip,
+            userAgent,
+            applicationId.toString(),
+            "type=" + app.getApplicationType()
+        );
+        return detailView(app);
+    }
+
+    @Transactional
+    public AdminAccessReviewModels.DetailView reject(
+        UUID applicationId,
+        UUID reviewerUserId,
+        String reason,
+        String ip,
+        String userAgent
+    ) {
+        AccessApplication app = applications.findByIdForReviewUpdate(applicationId)
+            .orElseThrow(AccessApplicationException::notFound);
+        if (!canReject(app)) {
+            throw AccessApplicationException.invalidReviewTransition(
+                "This application can no longer be rejected."
+            );
+        }
+        String publicReason = requireText(reason, MAX_REJECTION_REASON_LENGTH, "Rejection reason");
+        var now = clock.instant();
+        app.reject(now);
+        tokens.deleteAllByApplicationIdAndTokenType(applicationId, ApplicationTokenType.ACCOUNT_ACTIVATION);
+        events.save(new ApplicationEvent(applicationId, ApplicationEventType.APPLICATION_REJECTED, publicReason, now));
+        mail.sendRejected(app.getEmail(), app.getFirstName(), publicReason);
+        audit.record(
+            reviewerUserId,
+            AuthAuditAction.APPLICATION_REJECTED,
+            AuthAuditOutcome.SUCCESS,
+            ip,
+            userAgent,
+            applicationId.toString(),
+            "type=" + app.getApplicationType()
+        );
+        return detailView(app);
+    }
+
     private String requireText(String text, int maxLength, String label) {
         if (text == null || text.isBlank()) {
             throw AccessApplicationException.validation(label + " is required.");
@@ -193,6 +288,17 @@ public class AdminAccessReviewService {
             throw AccessApplicationException.validation(label + " exceeds the maximum supported length.");
         }
         return trimmed;
+    }
+
+    private boolean canApprove(AccessApplication app) {
+        if (app.getApplicationType() == ApplicationType.DOCTOR) {
+            return app.getStatus() == ApplicationStatus.INTERVIEW_COMPLETED;
+        }
+        return app.getStatus() == ApplicationStatus.UNDER_REVIEW;
+    }
+
+    private boolean canReject(AccessApplication app) {
+        return REVIEW_QUEUE_STATUSES.contains(app.getStatus());
     }
 
     private AdminAccessReviewModels.QueueItem queueItem(AccessApplication app) {
@@ -324,9 +430,15 @@ public class AdminAccessReviewService {
         }
         if (app.getStatus() == ApplicationStatus.UNDER_REVIEW) {
             if (app.getApplicationType() == ApplicationType.DOCTOR) {
-                return List.of(ApplicationStatus.MORE_INFO_REQUIRED, ApplicationStatus.INTERVIEW_REQUIRED);
+                return List.of(ApplicationStatus.MORE_INFO_REQUIRED, ApplicationStatus.INTERVIEW_REQUIRED, ApplicationStatus.REJECTED);
             }
-            return List.of(ApplicationStatus.MORE_INFO_REQUIRED);
+            return List.of(ApplicationStatus.MORE_INFO_REQUIRED, ApplicationStatus.ACTIVATION_PENDING, ApplicationStatus.REJECTED);
+        }
+        if (app.getStatus() == ApplicationStatus.INTERVIEW_COMPLETED) {
+            return List.of(ApplicationStatus.ACTIVATION_PENDING, ApplicationStatus.REJECTED);
+        }
+        if (REVIEW_QUEUE_STATUSES.contains(app.getStatus())) {
+            return List.of(ApplicationStatus.REJECTED);
         }
         return List.of();
     }

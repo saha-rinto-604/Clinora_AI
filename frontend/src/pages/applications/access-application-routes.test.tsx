@@ -139,6 +139,54 @@ describe('Phase 4C professional application routes', () => {
     expect(await screen.findByRole('link', { name: /resume application/i })).toBeInTheDocument();
   });
 
+  it('activates an approved professional account through a single-use link', async () => {
+    const activate = vi.spyOn(applicationApi, 'activate').mockResolvedValue({} as never);
+
+    renderRoute('/application/activate?token=activate-1');
+
+    expect(await screen.findByRole('heading', { name: /set your account password/i })).toBeInTheDocument();
+    expect(window.location.search).toBe('');
+    await userEvent.type(screen.getByLabelText(/^password$/i), 'ValidPass1!');
+    await userEvent.type(screen.getByLabelText(/confirm password/i), 'ValidPass1!');
+    await userEvent.click(screen.getByRole('button', { name: /activate account/i }));
+
+    await waitFor(() => expect(activate).toHaveBeenCalledWith('activate-1', 'ValidPass1!'));
+    expect(await screen.findByRole('link', { name: /continue to login/i })).toBeInTheDocument();
+  });
+
+  it('validates matching passwords before activation', async () => {
+    const activate = vi.spyOn(applicationApi, 'activate').mockResolvedValue({} as never);
+
+    renderRoute('/application/activate?token=activate-2');
+
+    await userEvent.type(await screen.findByLabelText(/^password$/i), 'ValidPass1!');
+    await userEvent.type(screen.getByLabelText(/confirm password/i), 'Different1!');
+    await userEvent.click(screen.getByRole('button', { name: /activate account/i }));
+
+    expect(await screen.findByText(/passwords must match/i)).toBeInTheDocument();
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('shows server activation failures without creating a logged-in account state', async () => {
+    vi.spyOn(applicationApi, 'activate').mockRejectedValue({
+      response: {
+        data: {
+          message: 'The application link is invalid, expired, or has already been used.',
+        },
+      },
+      isAxiosError: true,
+    });
+
+    renderRoute('/application/activate?token=used-token');
+
+    await userEvent.type(await screen.findByLabelText(/^password$/i), 'ValidPass1!');
+    await userEvent.type(screen.getByLabelText(/confirm password/i), 'ValidPass1!');
+    await userEvent.click(screen.getByRole('button', { name: /activate account/i }));
+
+    expect(await screen.findByText(/invalid, expired, or has already been used/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /continue to login/i })).not.toBeInTheDocument();
+  });
+
   it('shows role-specific Researcher progress and draft-safe actions', async () => {
     vi.spyOn(applicationApi, 'me').mockResolvedValue(draftResearcher);
     vi.spyOn(applicationApi, 'events').mockResolvedValue([]);

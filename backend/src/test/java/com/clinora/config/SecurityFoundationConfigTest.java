@@ -57,6 +57,13 @@ class SecurityFoundationConfigTest {
             .andExpect(content().string("applicant-interview-ok"));
     }
 
+    @Test
+    void applicantActivationMatcherDoesNotRequireJwt() throws Exception {
+        mvc.perform(post("/api/v1/access-applications/activate"))
+            .andExpect(status().isOk())
+            .andExpect(content().string("applicant-activation-ok"));
+    }
+
     private static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor roleJwt(
         String role
     ) {
@@ -85,6 +92,11 @@ class SecurityFoundationConfigTest {
         @GetMapping(value = "/api/v1/access-applications/me/interview", produces = MediaType.TEXT_PLAIN_VALUE)
         String applicantInterviewProbe() {
             return "applicant-interview-ok";
+        }
+
+        @PostMapping(value = "/api/v1/access-applications/activate", produces = MediaType.TEXT_PLAIN_VALUE)
+        String applicantActivationProbe() {
+            return "applicant-activation-ok";
         }
     }
 }

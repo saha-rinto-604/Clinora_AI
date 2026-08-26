@@ -27,12 +27,15 @@ import com.clinora.access.repository.AccessApplicationRepository;
 import com.clinora.access.repository.ApplicationDocumentRepository;
 import com.clinora.access.repository.ApplicationEventRepository;
 import com.clinora.access.repository.ApplicationReviewNoteRepository;
+import com.clinora.access.repository.ApplicationTokenRepository;
 import com.clinora.access.repository.DoctorApplicationDetailRepository;
 import com.clinora.access.repository.DoctorQualificationRepository;
 import com.clinora.access.repository.ResearcherApplicationDetailRepository;
 import com.clinora.audit.AuthAuditAction;
 import com.clinora.audit.AuthAuditOutcome;
 import com.clinora.audit.AuthAuditService;
+import com.clinora.config.AccessApplicationProperties;
+import com.clinora.security.token.SecureTokenService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -189,6 +192,78 @@ class AdminAccessReviewServiceTest {
     }
 
     @Test
+    void approveDoctorRequiresCompletedInterviewAndSendsActivation() {
+        Fixture fixture = new Fixture();
+        AccessApplication app = application(ApplicationType.DOCTOR, ApplicationStatus.INTERVIEW_COMPLETED);
+        when(fixture.applications.findByIdForReviewUpdate(app.getId())).thenReturn(Optional.of(app));
+        when(fixture.doctorDetails.findById(app.getId())).thenReturn(Optional.of(new DoctorApplicationDetail(app.getId())));
+
+        var result = fixture.service.approve(app.getId(), REVIEWER_ID, "127.0.0.1", "JUnit");
+
+        assertEquals(ApplicationStatus.ACTIVATION_PENDING, result.status());
+        verify(fixture.tokens).deleteAllByApplicationIdAndTokenType(app.getId(), com.clinora.access.domain.ApplicationTokenType.ACCOUNT_ACTIVATION);
+        verify(fixture.tokens).save(any());
+        verify(fixture.mail).sendApprovedActivation(eq(app.getEmail()), eq(app.getFirstName()), any());
+        verify(fixture.audit).record(
+            eq(REVIEWER_ID),
+            eq(AuthAuditAction.APPLICATION_APPROVED),
+            eq(AuthAuditOutcome.SUCCESS),
+            eq("127.0.0.1"),
+            eq("JUnit"),
+            eq(app.getId().toString()),
+            eq("type=DOCTOR")
+        );
+    }
+
+    @Test
+    void approveDoctorRejectsBeforeCompletedInterview() {
+        Fixture fixture = new Fixture();
+        AccessApplication app = application(ApplicationType.DOCTOR, ApplicationStatus.UNDER_REVIEW);
+        when(fixture.applications.findByIdForReviewUpdate(app.getId())).thenReturn(Optional.of(app));
+
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.approve(app.getId(), REVIEWER_ID, null, null)
+        );
+        verify(fixture.tokens, never()).save(any());
+    }
+
+    @Test
+    void approveResearcherRequiresUnderReviewState() {
+        Fixture fixture = new Fixture();
+        AccessApplication underReview = application(ApplicationType.RESEARCHER, ApplicationStatus.UNDER_REVIEW);
+        AccessApplication waitingForInfo = application(ApplicationType.RESEARCHER, ApplicationStatus.MORE_INFO_REQUIRED);
+        when(fixture.applications.findByIdForReviewUpdate(underReview.getId())).thenReturn(Optional.of(underReview));
+        when(fixture.applications.findByIdForReviewUpdate(waitingForInfo.getId())).thenReturn(Optional.of(waitingForInfo));
+        when(fixture.researcherDetails.findById(underReview.getId())).thenReturn(Optional.of(new ResearcherApplicationDetail(underReview.getId())));
+
+        var result = fixture.service.approve(underReview.getId(), REVIEWER_ID, null, null);
+
+        assertEquals(ApplicationStatus.ACTIVATION_PENDING, result.status());
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.approve(waitingForInfo.getId(), REVIEWER_ID, null, null)
+        );
+    }
+
+    @Test
+    void rejectApplicationRecordsApplicantVisibleReason() {
+        Fixture fixture = new Fixture();
+        AccessApplication app = application(ApplicationType.RESEARCHER, ApplicationStatus.UNDER_REVIEW);
+        when(fixture.applications.findByIdForReviewUpdate(app.getId())).thenReturn(Optional.of(app));
+        when(fixture.researcherDetails.findById(app.getId())).thenReturn(Optional.of(new ResearcherApplicationDetail(app.getId())));
+
+        var result = fixture.service.reject(app.getId(), REVIEWER_ID, "Scope is not eligible.", null, null);
+
+        assertEquals(ApplicationStatus.REJECTED, result.status());
+        ArgumentCaptor<ApplicationEvent> event = ArgumentCaptor.forClass(ApplicationEvent.class);
+        verify(fixture.events).save(event.capture());
+        assertEquals(ApplicationEventType.APPLICATION_REJECTED, event.getValue().getEventType());
+        assertEquals("Scope is not eligible.", event.getValue().getPublicMessage());
+        verify(fixture.mail).sendRejected(app.getEmail(), app.getFirstName(), "Scope is not eligible.");
+    }
+
+    @Test
     void detailExposesDocumentMetadataWithoutStorageKeys() {
         Fixture fixture = new Fixture();
         AccessApplication app = application(ApplicationType.DOCTOR, ApplicationStatus.SUBMITTED);
@@ -239,6 +314,10 @@ class AdminAccessReviewServiceTest {
         ApplicationDocumentRepository documents = mock(ApplicationDocumentRepository.class);
         ApplicationEventRepository events = mock(ApplicationEventRepository.class);
         ApplicationReviewNoteRepository notes = mock(ApplicationReviewNoteRepository.class);
+        ApplicationTokenRepository tokens = mock(ApplicationTokenRepository.class);
+        SecureTokenService secureTokenService = new SecureTokenService();
+        AccessApplicationMailService mail = mock(AccessApplicationMailService.class);
+        AccessApplicationProperties properties = new AccessApplicationProperties();
         AuthAuditService audit = mock(AuthAuditService.class);
         AdminAccessReviewService service = new AdminAccessReviewService(
             applications,
@@ -248,6 +327,10 @@ class AdminAccessReviewServiceTest {
             documents,
             events,
             notes,
+            tokens,
+            secureTokenService,
+            mail,
+            properties,
             audit,
             Clock.fixed(NOW, ZoneOffset.UTC)
         );

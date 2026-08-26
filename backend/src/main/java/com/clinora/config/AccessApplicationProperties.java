@@ -9,6 +9,7 @@ import org.springframework.util.unit.DataSize;
 public class AccessApplicationProperties {
     private Duration emailVerificationTtl = Duration.ofHours(24);
     private Duration portalLinkTtl = Duration.ofMinutes(30);
+    private Duration accountActivationTtl = Duration.ofHours(48);
     private Duration sessionTtl = Duration.ofHours(8);
     private boolean cookieSecure;
     private String cookieSameSite = "Lax";
@@ -21,6 +22,8 @@ public class AccessApplicationProperties {
     public void setEmailVerificationTtl(Duration value) { this.emailVerificationTtl = value; }
     public Duration getPortalLinkTtl() { return portalLinkTtl; }
     public void setPortalLinkTtl(Duration value) { this.portalLinkTtl = value; }
+    public Duration getAccountActivationTtl() { return accountActivationTtl; }
+    public void setAccountActivationTtl(Duration value) { this.accountActivationTtl = value; }
     public Duration getSessionTtl() { return sessionTtl; }
     public void setSessionTtl(Duration value) { this.sessionTtl = value; }
     public boolean isCookieSecure() { return cookieSecure; }

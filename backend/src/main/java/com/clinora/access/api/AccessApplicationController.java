@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
@@ -114,6 +115,18 @@ public class AccessApplicationController {
         rateLimits.session(ip(request));
         var issued = applications.establishSession(body.token(), ip(request), userAgent(request));
         return withApplicantCookie("Secure applicant session established.", issued);
+    }
+
+    @PostMapping("/activate")
+    public ApiResponse<Void> activate(
+        @Valid @RequestBody ActivateAccountRequest body,
+        @RequestHeader(name = HttpHeaders.ORIGIN, required = false) String origin,
+        HttpServletRequest request
+    ) {
+        originGuard.requireAllowed(origin);
+        rateLimits.verify(ip(request));
+        applications.activateAccount(body.token(), body.password(), ip(request), userAgent(request));
+        return ApiResponse.success("Professional account activated. You can now sign in.", null);
     }
 
     @GetMapping("/me")
@@ -293,6 +306,12 @@ public class AccessApplicationController {
     }
 
     public record TokenRequest(@NotBlank String token) {
+    }
+
+    public record ActivateAccountRequest(
+        @NotBlank @Size(max = 512) String token,
+        @NotBlank @Size(min = 8, max = 128) String password
+    ) {
     }
 
     public record AccessLinkRequest(@NotBlank @Email String email) {
