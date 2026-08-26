@@ -65,18 +65,19 @@ Phase 4E hardens and validates the Phase 4 authentication, RBAC, professional ac
 - Frontend tests: `npm.cmd run test:run` passed with 76 tests.
 - Frontend build: `npm.cmd run build` passed with the existing Vite chunk-size warning.
 - Git whitespace: `git diff --check` passed.
-- CI: local CI-equivalent commands matching `.github/workflows/ci.yml` passed. Remote GitHub CI result should be checked on the pushed branch before owner merge acceptance.
+- CI: GitHub Actions `Foundation Checks` passed on `phase-4e-auth-security-publication-gate` for push run `32934666619`.
 
 ## Accepted Warnings
 
 - Frontend lint retains the existing 6 `react-refresh/only-export-components` warnings.
 - Frontend build retains the existing Vite `>500 kB` chunk warning.
 - Backend local Maven output retains the existing Mockito inline self-attachment warning on this JDK.
+- GitHub Actions reports deprecation annotations for `actions/checkout@v4`, `actions/setup-java@v4`, and `actions/setup-node@v4` running under newer runner Node behavior; checks still passed.
 
 ## Non-Blocking Technical Debt
 
 - Phase 4 still awaits owner policy locks for production token lifetimes and rate-limit thresholds.
-- Remote CI status must be observed after branch publication.
+- CI action-version deprecation annotations should be addressed in a later CI maintenance pass.
 - Future clinical/research modules must add resource-level privacy authorization before exposing real Patient records or datasets.
 
 ## Final Phase 4 Status
