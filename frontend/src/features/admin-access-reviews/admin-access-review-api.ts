@@ -62,7 +62,11 @@ export const adminAccessReviewApi = {
       `/admin/access-applications/${applicationId}/documents/${documentId}/content`,
       { responseType: 'blob' },
     );
-    return response.data;
+    return {
+      blob: response.data,
+      contentType: stringHeader(response.headers['content-type']) ?? response.data.type,
+      filename: filenameFromContentDisposition(stringHeader(response.headers['content-disposition'])),
+    };
   },
   async interview(applicationId: string) {
     const response = await apiClient.get<ApiEnvelope<DoctorInterview | null>>(
@@ -107,6 +111,20 @@ export const adminAccessReviewApi = {
     return response.data.data;
   },
 };
+
+function stringHeader(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function filenameFromContentDisposition(value?: string) {
+  if (!value) return null;
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1].replace(/^"|"$/g, ''));
+  const quotedMatch = /filename="([^"]+)"/i.exec(value);
+  if (quotedMatch?.[1]) return quotedMatch[1];
+  const plainMatch = /filename=([^;]+)/i.exec(value);
+  return plainMatch?.[1]?.trim() ?? null;
+}
 
 export function reviewErrorMessage(error: unknown, fallback: string) {
   return apiErrorMessage(error, fallback);

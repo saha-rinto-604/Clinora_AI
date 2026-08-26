@@ -118,26 +118,21 @@ public class AdminAccessReviewController {
     @GetMapping("/{applicationId}/documents/{documentId}/content")
     public ResponseEntity<byte[]> documentContent(
         @PathVariable UUID applicationId,
-        @PathVariable UUID documentId
+        @PathVariable UUID documentId,
+        @AuthenticationPrincipal Jwt jwt,
+        HttpServletRequest request
     ) {
-        try {
-            var download = documents.download(applicationId, documentId);
-            return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(download.contentType()))
-                .header(
-                    HttpHeaders.CONTENT_DISPOSITION,
-                    ContentDisposition.attachment()
-                        .filename(download.filename(), StandardCharsets.UTF_8)
-                        .build()
-                        .toString()
-                )
-                .body(download.bytes());
-        } catch (AccessApplicationException exception) {
-            if ("APPLICANT_SESSION_INVALID".equals(exception.getErrorCode())) {
-                throw AccessApplicationException.documentNotFound();
-            }
-            throw exception;
-        }
+        var download = documents.downloadForAdmin(applicationId, documentId, userId(jwt), ip(request), userAgent(request));
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(download.contentType()))
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment()
+                    .filename(download.filename(), StandardCharsets.UTF_8)
+                    .build()
+                    .toString()
+            )
+            .body(download.bytes());
     }
 
     private UUID userId(Jwt jwt) {

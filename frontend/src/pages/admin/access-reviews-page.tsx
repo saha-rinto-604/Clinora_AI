@@ -1,4 +1,14 @@
-import { CheckCircle2, FileText, LoaderCircle, MessageSquarePlus, PlayCircle, RefreshCw, XCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  Download,
+  Eye,
+  FileText,
+  LoaderCircle,
+  MessageSquarePlus,
+  PlayCircle,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -11,7 +21,11 @@ import type {
   AccessReviewQueueItem,
   PageView,
 } from '../../features/admin-access-reviews/admin-access-review-types';
-import type { ApplicationStatus, ApplicationType } from '../../features/access-applications/application-types';
+import type {
+  ApplicationDocument,
+  ApplicationStatus,
+  ApplicationType,
+} from '../../features/access-applications/application-types';
 import { cn } from '../../lib/cn';
 
 const reviewStatuses: ApplicationStatus[] = [
@@ -23,6 +37,15 @@ const reviewStatuses: ApplicationStatus[] = [
   'INTERVIEW_COMPLETED',
 ];
 const applicationTypes: ApplicationType[] = ['DOCTOR', 'RESEARCHER'];
+
+interface DocumentPreviewState {
+  document: ApplicationDocument;
+  url: string | null;
+  contentType: string;
+  filename: string;
+  loading: boolean;
+  error: string;
+}
 
 export function AccessReviewsPage() {
   const [applicationType, setApplicationType] = useState<ApplicationType | ''>('');
@@ -44,6 +67,7 @@ export function AccessReviewsPage() {
   const [rejectSaving, setRejectSaving] = useState(false);
   const [approving, setApproving] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+  const [preview, setPreview] = useState<DocumentPreviewState | null>(null);
 
   const loadQueue = useCallback(async () => {
     setLoadingQueue(true);
@@ -170,14 +194,83 @@ export function AccessReviewsPage() {
     }
   }
 
-  async function downloadDocument(documentId: string) {
+  const closePreview = useCallback(() => {
+    setPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    const url = preview?.url;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [preview?.url]);
+
+  async function openDocument(document: ApplicationDocument) {
     if (!detail) return;
+    closePreview();
+    setDetailError('');
+    setActionMessage('');
+    setPreview({
+      document,
+      url: null,
+      contentType: document.mimeType,
+      filename: document.originalFilename,
+      loading: true,
+      error: '',
+    });
     try {
-      await adminAccessReviewApi.downloadDocument(detail.id, documentId);
-      setActionMessage('Document retrieved securely.');
+      const file = await adminAccessReviewApi.downloadDocument(detail.id, document.id);
+      const url = URL.createObjectURL(file.blob);
+      setPreview({
+        document,
+        url,
+        contentType: file.contentType || document.mimeType,
+        filename: file.filename || document.originalFilename,
+        loading: false,
+        error: '',
+      });
     } catch (error) {
-      setDetailError(reviewErrorMessage(error, 'Document could not be retrieved.'));
+      setPreview((current) =>
+        current?.document.id === document.id
+          ? {
+              ...current,
+              loading: false,
+              error: reviewErrorMessage(error, 'Document could not be retrieved securely.'),
+            }
+          : current,
+      );
     }
+  }
+
+  async function downloadDocument(document: ApplicationDocument) {
+    if (!detail) return;
+    setDetailError('');
+    setActionMessage('');
+    try {
+      const file = await adminAccessReviewApi.downloadDocument(detail.id, document.id);
+      const url = URL.createObjectURL(file.blob);
+      const anchor = window.document.createElement('a');
+      anchor.href = url;
+      anchor.download = file.filename || document.originalFilename;
+      anchor.rel = 'noopener';
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setActionMessage('Document downloaded securely.');
+    } catch (error) {
+      setDetailError(reviewErrorMessage(error, 'Document could not be downloaded securely.'));
+    }
+  }
+
+  function downloadPreview() {
+    if (!preview?.url) return;
+    const anchor = window.document.createElement('a');
+    anchor.href = preview.url;
+    anchor.download = preview.filename;
+    anchor.rel = 'noopener';
+    anchor.click();
   }
 
   return (
@@ -322,7 +415,11 @@ export function AccessReviewsPage() {
                 </div>
               </header>
 
-              <DetailGrid detail={detail} onDownload={(documentId) => void downloadDocument(documentId)} />
+              <DetailGrid
+                detail={detail}
+                onView={(document) => void openDocument(document)}
+                onDownload={(document) => void downloadDocument(document)}
+              />
 
               {detail.applicationType === 'DOCTOR' ? (
                 <DoctorInterviewAdminPanel
@@ -421,11 +518,56 @@ export function AccessReviewsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={preview !== null} onOpenChange={(open) => (!open ? closePreview() : undefined)}>
+        <DialogContent className="max-w-4xl">
+          <DialogTitle>Review Document</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-slate-400">
+            {preview?.filename ?? 'Secure application document'}
+          </DialogDescription>
+          {preview?.loading ? <StateMessage text="Loading document securely..." /> : null}
+          {preview?.error ? <StateMessage tone="error" text={preview.error} /> : null}
+          {preview?.url && isPdf(preview.contentType) ? (
+            <iframe
+              title={`Preview ${preview.filename}`}
+              src={preview.url}
+              className="h-[70vh] w-full rounded-xl border border-white/10 bg-slate-950"
+            />
+          ) : null}
+          {preview?.url && isImage(preview.contentType) ? (
+            <img
+              src={preview.url}
+              alt={`Preview of ${preview.filename}`}
+              className="max-h-[70vh] w-full rounded-xl border border-white/10 object-contain"
+            />
+          ) : null}
+          {preview?.url && !isPdf(preview.contentType) && !isImage(preview.contentType) ? (
+            <StateMessage text="This file type cannot be previewed in the browser." />
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={closePreview}>
+              Close
+            </Button>
+            <Button onClick={downloadPreview} disabled={!preview?.url}>
+              <Download size={16} aria-hidden="true" />
+              Download
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
 
-function DetailGrid({ detail, onDownload }: { detail: AccessReviewDetail; onDownload: (documentId: string) => void }) {
+function DetailGrid({
+  detail,
+  onView,
+  onDownload,
+}: {
+  detail: AccessReviewDetail;
+  onView: (document: ApplicationDocument) => void;
+  onDownload: (document: ApplicationDocument) => void;
+}) {
   const professionalRows: Array<[string, string | null | undefined]> =
     detail.applicationType === 'DOCTOR'
       ? [
@@ -461,18 +603,32 @@ function DetailGrid({ detail, onDownload }: { detail: AccessReviewDetail; onDown
       <Panel title="Documents">
         {detail.documents.length === 0 ? <p className="text-sm text-slate-400">No supporting documents.</p> : null}
         {detail.documents.map((document) => (
-          <button
+          <div
             key={document.id}
-            type="button"
-            onClick={() => onDownload(document.id)}
-            className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2 text-left text-sm text-slate-200 hover:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+            className="grid gap-3 rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2 text-sm text-slate-200 sm:grid-cols-[minmax(0,1fr)_auto]"
           >
-            <span className="inline-flex items-center gap-2">
-              <FileText size={16} aria-hidden="true" />
-              {document.originalFilename}
-            </span>
-            <span className="text-xs text-slate-500">{label(document.documentType)}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onView(document)}
+              className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+            >
+              <span className="inline-flex max-w-full items-center gap-2">
+                <FileText size={16} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">{document.originalFilename}</span>
+              </span>
+              <span className="mt-1 block text-xs text-slate-500">{label(document.documentType)}</span>
+            </button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => onView(document)}>
+                <Eye size={14} aria-hidden="true" />
+                View
+              </Button>
+              <Button size="sm" onClick={() => onDownload(document)}>
+                <Download size={14} aria-hidden="true" />
+                Download
+              </Button>
+            </div>
+          </div>
         ))}
       </Panel>
       <Panel title="Applicant Timeline">
@@ -490,6 +646,14 @@ function DetailGrid({ detail, onDownload }: { detail: AccessReviewDetail; onDown
       </Panel>
     </div>
   );
+}
+
+function isPdf(contentType: string) {
+  return contentType.toLowerCase().includes('application/pdf');
+}
+
+function isImage(contentType: string) {
+  return ['image/jpeg', 'image/jpg', 'image/png'].some((type) => contentType.toLowerCase().includes(type));
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {

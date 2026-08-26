@@ -37,6 +37,13 @@ class SecurityFoundationConfigTest {
             .andExpect(content().string("admin-ok"));
     }
 
+    @Test
+    void systemAdminRoleCanReachAdminDocumentContent() throws Exception {
+        mvc.perform(get("/api/v1/admin/access-applications/11111111-1111-1111-1111-111111111111/documents/22222222-2222-2222-2222-222222222222/content").with(roleJwt("SYSTEM_ADMIN")))
+            .andExpect(status().isOk())
+            .andExpect(content().string("admin-document-ok"));
+    }
+
     @ParameterizedTest
     @MethodSource("nonAdminRoles")
     void nonAdminRolesCannotReachAdminMatcher(String role) throws Exception {
@@ -44,9 +51,22 @@ class SecurityFoundationConfigTest {
             .andExpect(status().isForbidden());
     }
 
+    @ParameterizedTest
+    @MethodSource("nonAdminRoles")
+    void nonAdminRolesCannotReachAdminDocumentContent(String role) throws Exception {
+        mvc.perform(get("/api/v1/admin/access-applications/11111111-1111-1111-1111-111111111111/documents/22222222-2222-2222-2222-222222222222/content").with(roleJwt(role)))
+            .andExpect(status().isForbidden());
+    }
+
     @Test
     void anonymousCallersCannotReachAdminMatchers() throws Exception {
         mvc.perform(get("/api/v1/admin/probe"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void anonymousCallersCannotReachAdminDocumentContent() throws Exception {
+        mvc.perform(get("/api/v1/admin/access-applications/11111111-1111-1111-1111-111111111111/documents/22222222-2222-2222-2222-222222222222/content"))
             .andExpect(status().isUnauthorized());
     }
 
@@ -117,6 +137,11 @@ class SecurityFoundationConfigTest {
         @GetMapping(value = "/api/v1/admin/probe", produces = MediaType.TEXT_PLAIN_VALUE)
         String adminProbe() {
             return "admin-ok";
+        }
+
+        @GetMapping(value = "/api/v1/admin/access-applications/{applicationId}/documents/{documentId}/content", produces = MediaType.TEXT_PLAIN_VALUE)
+        String adminDocumentProbe() {
+            return "admin-document-ok";
         }
 
         @PostMapping(value = "/api/v1/access-applications/logout-all", produces = MediaType.TEXT_PLAIN_VALUE)

@@ -114,6 +114,14 @@ function renderRoute(user: typeof adminUser | null = adminUser, status?: 'unknow
 describe('System Admin access review workbench', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:admin-document-preview'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
     useAuthStore.setState({ status: 'anonymous', accessToken: null, user: null });
     mocks.queue.mockResolvedValue(page([queueItem]));
     mocks.detail.mockResolvedValue(detail);
@@ -156,7 +164,11 @@ describe('System Admin access review workbench', () => {
       status: 'REJECTED',
       allowedNextStatuses: [],
     });
-    mocks.downloadDocument.mockResolvedValue(new Blob(['pdf']));
+    mocks.downloadDocument.mockResolvedValue({
+      blob: new Blob(['pdf'], { type: 'application/pdf' }),
+      contentType: 'application/pdf',
+      filename: 'cv.pdf',
+    });
     mocks.interview.mockResolvedValue(null);
     mocks.requireInterview.mockResolvedValue({});
     mocks.scheduleInterview.mockResolvedValue({});
@@ -226,7 +238,7 @@ describe('System Admin access review workbench', () => {
     });
   });
 
-  it('supports start review, internal note submission, and document retrieval', async () => {
+  it('supports start review, internal note submission, and document preview', async () => {
     const user = userEvent.setup();
     renderRoute();
 
@@ -240,8 +252,22 @@ describe('System Admin access review workbench', () => {
     expect(mocks.addNote).toHaveBeenCalledWith(queueItem.id, 'Verify registration evidence.');
 
     await user.click(screen.getByRole('button', { name: /cv.pdf/i }));
-    expect(await screen.findByText('Document retrieved securely.')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: /review document/i })).toBeInTheDocument();
+    expect(await screen.findByTitle('Preview cv.pdf')).toHaveAttribute('src', 'blob:admin-document-preview');
     expect(mocks.downloadDocument).toHaveBeenCalledWith(queueItem.id, '22222222-2222-2222-2222-222222222222');
+  });
+
+  it('shows a friendly document preview failure', async () => {
+    const user = userEvent.setup();
+    mocks.downloadDocument.mockRejectedValueOnce(new Error('Document preview failed.'));
+    renderRoute();
+
+    await screen.findByText('Internal Medicine');
+    await user.click(screen.getByRole('button', { name: /cv.pdf/i }));
+
+    expect(await screen.findByRole('dialog', { name: /review document/i })).toBeInTheDocument();
+    expect(await screen.findByText('Document preview failed.')).toBeInTheDocument();
+    expect(screen.queryByTitle('Preview cv.pdf')).not.toBeInTheDocument();
   });
 
   it('exposes Doctor interview requirement only after review starts', async () => {
