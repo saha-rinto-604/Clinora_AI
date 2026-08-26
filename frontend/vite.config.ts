@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 
+const devApiProxyTarget = process.env.DEV_API_PROXY_TARGET || 'http://localhost:8080';
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -12,5 +14,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Keep browser-facing API calls on the Vite origin in development.
+    // Host development defaults to localhost; Docker Compose overrides the target to the backend service.
+    proxy: {
+      '/api': devApiProxyTarget,
+    },
   },
 });

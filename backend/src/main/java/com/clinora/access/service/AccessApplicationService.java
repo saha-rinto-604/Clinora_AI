@@ -3,17 +3,23 @@ package com.clinora.access.service;
 import com.clinora.access.api.AccessApplicationException;
 import com.clinora.access.domain.*;
 import com.clinora.access.repository.*;
+import com.clinora.auth.service.PasswordPolicy;
 import com.clinora.audit.AuthAuditAction;
 import com.clinora.audit.AuthAuditOutcome;
 import com.clinora.audit.AuthAuditService;
 import com.clinora.config.AccessApplicationProperties;
+import com.clinora.security.PasswordService;
 import com.clinora.security.token.GeneratedSecureToken;
 import com.clinora.security.token.SecureTokenService;
+import com.clinora.users.domain.AccountStatus;
+import com.clinora.users.domain.UserAccount;
+import com.clinora.users.domain.UserRole;
 import com.clinora.users.repository.UserAccountRepository;
 import com.clinora.users.service.EmailAddressNormalizer;
 import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,14 +37,16 @@ public class AccessApplicationService {
     private final UserAccountRepository users;
     private final EmailAddressNormalizer emailNormalizer;
     private final SecureTokenService secureTokenService;
+    private final PasswordService passwordService;
+    private final PasswordPolicy passwordPolicy;
     private final ApplicantSessionService sessions;
     private final AccessApplicationMailService mail;
     private final AccessApplicationProperties properties;
     private final AuthAuditService audit;
     private final Clock clock;
 
-    public AccessApplicationService(AccessApplicationRepository applications,DoctorApplicationDetailRepository doctorDetails,ResearcherApplicationDetailRepository researcherDetails,DoctorQualificationRepository qualifications,ApplicationDocumentRepository documents,ApplicationTokenRepository tokens,ApplicationEventRepository events,UserAccountRepository users,EmailAddressNormalizer emailNormalizer,SecureTokenService secureTokenService,ApplicantSessionService sessions,AccessApplicationMailService mail,AccessApplicationProperties properties,AuthAuditService audit,Clock clock){
-        this.applications=applications;this.doctorDetails=doctorDetails;this.researcherDetails=researcherDetails;this.qualifications=qualifications;this.documents=documents;this.tokens=tokens;this.events=events;this.users=users;this.emailNormalizer=emailNormalizer;this.secureTokenService=secureTokenService;this.sessions=sessions;this.mail=mail;this.properties=properties;this.audit=audit;this.clock=clock;
+    public AccessApplicationService(AccessApplicationRepository applications,DoctorApplicationDetailRepository doctorDetails,ResearcherApplicationDetailRepository researcherDetails,DoctorQualificationRepository qualifications,ApplicationDocumentRepository documents,ApplicationTokenRepository tokens,ApplicationEventRepository events,UserAccountRepository users,EmailAddressNormalizer emailNormalizer,SecureTokenService secureTokenService,PasswordService passwordService,PasswordPolicy passwordPolicy,ApplicantSessionService sessions,AccessApplicationMailService mail,AccessApplicationProperties properties,AuthAuditService audit,Clock clock){
+        this.applications=applications;this.doctorDetails=doctorDetails;this.researcherDetails=researcherDetails;this.qualifications=qualifications;this.documents=documents;this.tokens=tokens;this.events=events;this.users=users;this.emailNormalizer=emailNormalizer;this.secureTokenService=secureTokenService;this.passwordService=passwordService;this.passwordPolicy=passwordPolicy;this.sessions=sessions;this.mail=mail;this.properties=properties;this.audit=audit;this.clock=clock;
     }
 
     @Transactional
@@ -114,6 +122,32 @@ public class AccessApplicationService {
         return issued;
     }
 
+    @Transactional
+    public void activateAccount(String rawToken,String password,String ip,String userAgent){
+        var now=clock.instant();
+        var token=usableToken(rawToken,ApplicationTokenType.ACCOUNT_ACTIVATION,now);
+        var app=applications.findById(token.getApplicationId()).orElseThrow(AccessApplicationException::invalidToken);
+        if(app.getStatus()!=ApplicationStatus.ACTIVATION_PENDING) throw AccessApplicationException.invalidToken();
+        if(app.getEmailVerifiedAt()==null) throw AccessApplicationException.invalidToken();
+        passwordPolicy.validate(password);
+        if(users.existsByNormalizedEmail(app.getNormalizedEmail())){
+            throw new AccessApplicationException(HttpStatus.CONFLICT,"APPLICATION_EMAIL_UNAVAILABLE","This email can no longer be used for a professional account.");
+        }
+        UserRole role=app.getApplicationType()==ApplicationType.DOCTOR?UserRole.DOCTOR:UserRole.RESEARCHER;
+        var user=new UserAccount(app.getFirstName(),app.getLastName(),app.getEmail(),app.getNormalizedEmail(),passwordService.hash(password),role,AccountStatus.ACTIVE,now);
+        user.markEmailVerified(now);
+        try{
+            users.save(user);
+        }catch(DataIntegrityViolationException exception){
+            throw new AccessApplicationException(HttpStatus.CONFLICT,"APPLICATION_EMAIL_UNAVAILABLE","This email can no longer be used for a professional account.");
+        }
+        token.consume(now);
+        app.activate(now);
+        events.save(new ApplicationEvent(app.getId(),ApplicationEventType.ACCOUNT_ACTIVATED,"Professional account activated.",now));
+        sessions.revokeAllForApplication(app.getId());
+        audit.record(null,AuthAuditAction.APPLICATION_ACCOUNT_ACTIVATED,AuthAuditOutcome.SUCCESS,ip,userAgent,app.getId().toString(),"type="+app.getApplicationType());
+    }
+
     @Transactional(readOnly=true)
     public AccessApplicationModels.ApplicationView get(UUID applicationId){return view(applications.findById(applicationId).orElseThrow(AccessApplicationException::sessionInvalid));}
 
@@ -187,7 +221,7 @@ public class AccessApplicationService {
         events.save(new ApplicationEvent(app.getId(),ApplicationEventType.ACCESS_LINK_REQUESTED,"A secure resume link was requested.",now));
         audit.record(null,AuthAuditAction.ACCESS_APPLICATION_ACCESS_LINK_REQUESTED,AuthAuditOutcome.SUCCESS,ip,userAgent,app.getId().toString(),"type="+app.getApplicationType());
     }
-    private boolean isApplicantFacing(ApplicationEventType type){return type==ApplicationEventType.APPLICATION_CREATED||type==ApplicationEventType.EMAIL_VERIFIED||type==ApplicationEventType.DOCUMENT_UPLOADED||type==ApplicationEventType.SUBMITTED||type==ApplicationEventType.WITHDRAWN;}
+    private boolean isApplicantFacing(ApplicationEventType type){return type==ApplicationEventType.APPLICATION_CREATED||type==ApplicationEventType.EMAIL_VERIFIED||type==ApplicationEventType.DOCUMENT_UPLOADED||type==ApplicationEventType.SUBMITTED||type==ApplicationEventType.WITHDRAWN||type==ApplicationEventType.REVIEW_STARTED||type==ApplicationEventType.MORE_INFO_REQUESTED||type==ApplicationEventType.APPLICATION_APPROVED||type==ApplicationEventType.APPLICATION_REJECTED||type==ApplicationEventType.ACCOUNT_ACTIVATION_SENT||type==ApplicationEventType.ACCOUNT_ACTIVATED;}
     private ApplicationToken verificationToken(String raw,java.time.Instant now){
         var token=findStoredToken(raw,ApplicationTokenType.EMAIL_VERIFICATION);
         if(token.usableAt(now)) return token;

@@ -40,6 +40,21 @@ public class AccessApplicationMailService {
             "<p>Hi "+escape(firstName)+",</p><p>Your professional access application has been withdrawn.</p>");
     }
 
+    public void sendApprovedActivation(String to,String firstName,String rawToken) {
+        String link=link("/application/activate",rawToken);
+        send(to,"Activate your Clinora professional account",
+            "Hi "+firstName+", your professional access application has been approved. Activate your account: "+link,
+            "<p>Hi "+escape(firstName)+",</p><p>Your professional access application has been approved.</p><p><a href=\""+link+"\">Activate your professional account</a></p><p>This link is single-use and expires automatically. Clinora never emails account passwords.</p>");
+    }
+
+    public void sendRejected(String to,String firstName,String reason) {
+        String suffix=reason==null||reason.isBlank()?"":" Reason: "+reason.trim();
+        String htmlReason=reason==null||reason.isBlank()?"":"<p>"+escape(reason.trim())+"</p>";
+        send(to,"Clinora professional application decision",
+            "Hi "+firstName+", your professional access application was not approved."+suffix,
+            "<p>Hi "+escape(firstName)+",</p><p>Your professional access application was not approved.</p>"+htmlReason);
+    }
+
     private void send(String to,String subject,String text,String html){ emailDeliveryPort.send(new TransactionalEmail(to,subject,text,html)); }
     private String link(String path,String token){String base=emailProperties.getFrontendUrl().replaceAll("/+$","");return base+path+"?token="+URLEncoder.encode(token, StandardCharsets.UTF_8);}
     private String escape(String value){return value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}

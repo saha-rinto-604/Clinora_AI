@@ -1,8 +1,8 @@
 # Clinora AI — Phase 4 Authentication, Access Applications & Role Model SRS Update
 
 **Document status:** OWNER-DIRECTED SRS UPDATE
-**Version:** 1.0
-**Date:** 2026-08-07
+**Version:** 1.2
+**Date:** 2026-08-14
 **Applies to:** Phase 4 authentication/access-control implementation and all future role/onboarding decisions that depend on it
 **Intended repository path:** `docs/development/phase-4-role-auth-srs-update.md`
 
@@ -37,6 +37,17 @@ Before changing authentication, registration, Doctor onboarding, Researcher onbo
 - Do not make Hospitals mandatory for Doctor accounts, patient care, appointments, report sharing, OCR review, or AI review.
 - Do not allow privileged roles to become active merely through email verification.
 - Do not create new role/onboarding assumptions without explicit owner approval.
+
+### 1.3 Owner overrides locked for Phase 4D — 2026-08-14
+
+The following later owner decisions are binding and supersede any stale wording that remains elsewhere in this document or lower-authority planning material:
+
+- **Researcher applications have no interview process.** Reviewers may request more information, approve, or reject, but must not create Researcher interview states, meeting links, reminders, or interview UI. This supersedes the older optional-interview wording in Section 9.
+- **Initial `SYSTEM_ADMIN` provisioning uses one-time environment bootstrap.** Configure `SYSTEM_ADMIN_EMAIL`, `SYSTEM_ADMIN_PASSWORD`, `SYSTEM_ADMIN_FIRST_NAME`, and `SYSTEM_ADMIN_LAST_NAME`. If an admin already exists, startup is a no-op. Otherwise the backend validates and normalizes the values, applies the existing password policy, BCrypt-hashes the password, creates an `ACTIVE` email-verified `SYSTEM_ADMIN`, and uses the normal `/login` flow thereafter.
+- There is **no** public admin signup, admin verification email, admin activation email, admin activation/bootstrap token, or password comparison against environment configuration during login. Later environment password changes must never overwrite an existing admin password.
+- If the configured normalized admin email already belongs to a non-admin account, bootstrap must fail safely rather than promoting that account. Secrets must never be committed, logged, returned, or written to audit metadata; `.env.example` contains empty placeholders only.
+
+**Change note (v1.2):** locks the Phase 4D System Admin environment-bootstrap mechanism and makes the existing Researcher no-interview owner override explicit at the highest Phase 4 authority level.
 
 ---
 

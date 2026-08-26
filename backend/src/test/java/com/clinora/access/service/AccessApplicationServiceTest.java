@@ -21,10 +21,13 @@ import com.clinora.access.repository.ApplicationTokenRepository;
 import com.clinora.access.repository.DoctorApplicationDetailRepository;
 import com.clinora.access.repository.DoctorQualificationRepository;
 import com.clinora.access.repository.ResearcherApplicationDetailRepository;
+import com.clinora.auth.service.PasswordPolicy;
 import com.clinora.audit.AuthAuditService;
 import com.clinora.config.AccessApplicationProperties;
+import com.clinora.security.PasswordService;
 import com.clinora.security.token.SecureTokenService;
 import com.clinora.users.domain.UserAccount;
+import com.clinora.users.domain.UserRole;
 import com.clinora.users.repository.UserAccountRepository;
 import com.clinora.users.service.EmailAddressNormalizer;
 import java.lang.reflect.Field;
@@ -36,6 +39,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class AccessApplicationServiceTest {
 
@@ -153,6 +158,139 @@ class AccessApplicationServiceTest {
         verify(fixture.sessions, never()).issue(any(), any(), any());
     }
 
+    @Test
+    void activationCreatesProfessionalUserAndConsumesToken() throws Exception {
+        ServiceFixture fixture = new ServiceFixture();
+        UUID applicationId = UUID.randomUUID();
+        AccessApplication application = doctorApplication(applicationId);
+        setStatus(application, ApplicationStatus.ACTIVATION_PENDING);
+        ReflectionTestUtils.setField(application, "emailVerifiedAt", NOW.minusSeconds(300));
+        String rawActivation = "activation-token";
+        ApplicationToken activationToken = new ApplicationToken(
+            applicationId,
+            ApplicationTokenType.ACCOUNT_ACTIVATION,
+            fixture.tokens.hash(rawActivation),
+            NOW.plusSeconds(3600),
+            NOW
+        );
+
+        when(fixture.applicationTokens.findByTokenHashAndTokenType(
+            fixture.tokens.hash(rawActivation),
+            ApplicationTokenType.ACCOUNT_ACTIVATION
+        )).thenReturn(Optional.of(activationToken));
+        when(fixture.applications.findById(applicationId)).thenReturn(Optional.of(application));
+        when(fixture.users.existsByNormalizedEmail("doctor@example.com")).thenReturn(false);
+        when(fixture.passwords.hash("ValidPass1!")).thenReturn("encoded-password");
+
+        fixture.service.activateAccount(rawActivation, "ValidPass1!", "127.0.0.1", "test-agent");
+
+        assertEquals(ApplicationStatus.ACTIVATED, application.getStatus());
+        assertNotNull(activationToken.getConsumedAt());
+        ArgumentCaptor<UserAccount> user = ArgumentCaptor.forClass(UserAccount.class);
+        verify(fixture.users).save(user.capture());
+        assertEquals(UserRole.DOCTOR, user.getValue().getRole());
+        assertEquals("encoded-password", user.getValue().getPasswordHash());
+        assertNotNull(user.getValue().getEmailVerifiedAt());
+        verify(fixture.sessions).revokeAllForApplication(applicationId);
+    }
+
+    @Test
+    void activationRejectsDuplicateAccountEmail() throws Exception {
+        ServiceFixture fixture = new ServiceFixture();
+        UUID applicationId = UUID.randomUUID();
+        AccessApplication application = doctorApplication(applicationId);
+        setStatus(application, ApplicationStatus.ACTIVATION_PENDING);
+        ReflectionTestUtils.setField(application, "emailVerifiedAt", NOW.minusSeconds(300));
+        String rawActivation = "activation-token";
+        ApplicationToken activationToken = new ApplicationToken(
+            applicationId,
+            ApplicationTokenType.ACCOUNT_ACTIVATION,
+            fixture.tokens.hash(rawActivation),
+            NOW.plusSeconds(3600),
+            NOW
+        );
+
+        when(fixture.applicationTokens.findByTokenHashAndTokenType(
+            fixture.tokens.hash(rawActivation),
+            ApplicationTokenType.ACCOUNT_ACTIVATION
+        )).thenReturn(Optional.of(activationToken));
+        when(fixture.applications.findById(applicationId)).thenReturn(Optional.of(application));
+        when(fixture.users.existsByNormalizedEmail("doctor@example.com")).thenReturn(true);
+
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.activateAccount(rawActivation, "ValidPass1!", null, null)
+        );
+
+        verify(fixture.users, never()).save(any(UserAccount.class));
+    }
+
+    @Test
+    void activationHandlesConcurrentDuplicateUserCreation() throws Exception {
+        ServiceFixture fixture = new ServiceFixture();
+        UUID applicationId = UUID.randomUUID();
+        AccessApplication application = doctorApplication(applicationId);
+        setStatus(application, ApplicationStatus.ACTIVATION_PENDING);
+        ReflectionTestUtils.setField(application, "emailVerifiedAt", NOW.minusSeconds(300));
+        String rawActivation = "activation-token";
+        ApplicationToken activationToken = activationToken(applicationId, fixture, rawActivation, NOW.plusSeconds(3600));
+
+        when(fixture.applicationTokens.findByTokenHashAndTokenType(
+            fixture.tokens.hash(rawActivation),
+            ApplicationTokenType.ACCOUNT_ACTIVATION
+        )).thenReturn(Optional.of(activationToken));
+        when(fixture.applications.findById(applicationId)).thenReturn(Optional.of(application));
+        when(fixture.users.existsByNormalizedEmail("doctor@example.com")).thenReturn(false);
+        when(fixture.passwords.hash("ValidPass1!")).thenReturn("encoded-password");
+        when(fixture.users.save(any(UserAccount.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.activateAccount(rawActivation, "ValidPass1!", null, null)
+        );
+
+        assertEquals(ApplicationStatus.ACTIVATION_PENDING, application.getStatus());
+    }
+
+    @Test
+    void activationRejectsUsedExpiredOrWrongPurposeTokens() throws Exception {
+        ServiceFixture fixture = new ServiceFixture();
+        UUID applicationId = UUID.randomUUID();
+        AccessApplication application = doctorApplication(applicationId);
+        setStatus(application, ApplicationStatus.ACTIVATION_PENDING);
+        ReflectionTestUtils.setField(application, "emailVerifiedAt", NOW.minusSeconds(300));
+
+        ApplicationToken used = activationToken(applicationId, fixture, "used-token", NOW.plusSeconds(3600));
+        used.consume(NOW.minusSeconds(60));
+        when(fixture.applicationTokens.findByTokenHashAndTokenType(
+            fixture.tokens.hash("used-token"),
+            ApplicationTokenType.ACCOUNT_ACTIVATION
+        )).thenReturn(Optional.of(used));
+
+        ApplicationToken expired = activationToken(applicationId, fixture, "expired-token", NOW.minusSeconds(1));
+        when(fixture.applicationTokens.findByTokenHashAndTokenType(
+            fixture.tokens.hash("expired-token"),
+            ApplicationTokenType.ACCOUNT_ACTIVATION
+        )).thenReturn(Optional.of(expired));
+
+        when(fixture.applications.findById(applicationId)).thenReturn(Optional.of(application));
+
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.activateAccount("used-token", "ValidPass1!", null, null)
+        );
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.activateAccount("expired-token", "ValidPass1!", null, null)
+        );
+        assertThrows(
+            AccessApplicationException.class,
+            () -> fixture.service.activateAccount("portal-token", "ValidPass1!", null, null)
+        );
+
+        verify(fixture.users, never()).save(any(UserAccount.class));
+    }
+
     private static AccessApplication doctorApplication(UUID applicationId) throws Exception {
         AccessApplication application = new AccessApplication(
             ApplicationType.DOCTOR,
@@ -174,6 +312,25 @@ class AccessApplicationServiceTest {
         field.set(application, id);
     }
 
+    private static void setStatus(AccessApplication application, ApplicationStatus status) {
+        ReflectionTestUtils.setField(application, "status", status);
+    }
+
+    private static ApplicationToken activationToken(
+        UUID applicationId,
+        ServiceFixture fixture,
+        String rawToken,
+        Instant expiresAt
+    ) {
+        return new ApplicationToken(
+            applicationId,
+            ApplicationTokenType.ACCOUNT_ACTIVATION,
+            fixture.tokens.hash(rawToken),
+            expiresAt,
+            NOW
+        );
+    }
+
     private static class ServiceFixture {
         final AccessApplicationRepository applications = Mockito.mock(AccessApplicationRepository.class);
         final DoctorApplicationDetailRepository doctorDetails = Mockito.mock(DoctorApplicationDetailRepository.class);
@@ -185,6 +342,8 @@ class AccessApplicationServiceTest {
         final UserAccountRepository users = Mockito.mock(UserAccountRepository.class);
         final EmailAddressNormalizer normalizer = Mockito.mock(EmailAddressNormalizer.class);
         final SecureTokenService tokens = new SecureTokenService();
+        final PasswordService passwords = Mockito.mock(PasswordService.class);
+        final PasswordPolicy passwordPolicy = new PasswordPolicy();
         final ApplicantSessionService sessions = Mockito.mock(ApplicantSessionService.class);
         final AccessApplicationMailService mail = Mockito.mock(AccessApplicationMailService.class);
         final AccessApplicationProperties properties = new AccessApplicationProperties();
@@ -200,6 +359,8 @@ class AccessApplicationServiceTest {
             users,
             normalizer,
             tokens,
+            passwords,
+            passwordPolicy,
             sessions,
             mail,
             properties,

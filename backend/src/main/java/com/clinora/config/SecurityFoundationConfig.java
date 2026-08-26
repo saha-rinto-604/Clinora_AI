@@ -38,7 +38,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({AuthProperties.class, CorsProperties.class, EmailProperties.class, AccessApplicationProperties.class, ApplicationStorageProperties.class})
+@EnableConfigurationProperties({
+    AuthProperties.class,
+    CorsProperties.class,
+    EmailProperties.class,
+    AccessApplicationProperties.class,
+    ApplicationStorageProperties.class,
+    SystemAdminProperties.class
+})
 public class SecurityFoundationConfig {
 
     @Bean
@@ -121,14 +128,18 @@ public class SecurityFoundationConfig {
                     "/api/v1/access-applications/verify-email/resend",
                     "/api/v1/access-applications/access-link",
                     "/api/v1/access-applications/session",
+                    "/api/v1/access-applications/activate",
                     "/api/v1/access-applications/logout",
+                    "/api/v1/access-applications/logout-all",
                     "/api/v1/access-applications/me",
                     "/api/v1/access-applications/me/events",
                     "/api/v1/access-applications/me/submit",
                     "/api/v1/access-applications/me/withdraw",
                     "/api/v1/access-applications/me/documents",
                     "/api/v1/access-applications/me/documents/*",
-                    "/api/v1/access-applications/me/documents/*/content")
+                    "/api/v1/access-applications/me/documents/*/content",
+                    "/api/v1/access-applications/me/interview",
+                    "/api/v1/access-applications/me/interview/reschedule-request")
                 .permitAll()
                 .requestMatchers(HttpMethod.POST,
                     "/api/v1/auth/register",

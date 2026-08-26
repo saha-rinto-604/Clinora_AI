@@ -11,6 +11,7 @@ import com.clinora.access.repository.ApplicantSessionRepository;
 import com.clinora.config.AccessApplicationProperties;
 import com.clinora.security.token.SecureTokenService;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -30,6 +31,8 @@ class ApplicantSessionServiceTest {
         UUID applicationId = UUID.randomUUID();
 
         var issued = service.issue(applicationId, "test-agent", "127.0.0.1");
+
+        assertTrue(Duration.ofHours(8).equals(issued.ttl()));
 
         ArgumentCaptor<ApplicantSession> captor = ArgumentCaptor.forClass(ApplicantSession.class);
         verify(repository).save(captor.capture());

@@ -1,8 +1,8 @@
 # Clinora AI — Phase 4 Authentication & Access Governance Planning Gate
 
 **Status:** PLANNING ONLY — NO IMPLEMENTATION AUTHORIZED BY THIS DOCUMENT
-**Version:** 1.1
-**Date:** 2026-08-07
+**Version:** 1.2
+**Date:** 2026-08-14
 **Governing update:** `Clinora_AI_Phase4_Role_Auth_SRS_Update.md`
 
 ---
@@ -28,6 +28,12 @@ Older SRS/User Manual/Codex rules remain useful only where they do not conflict 
 Doctor access review keeps the mandatory Phase 4D onboarding interview.
 
 Researcher access review has no interview process. Researcher applications proceed through professional review, more information when needed, decision, activation, and Researcher account creation without Researcher interview states, meeting links, reminders, or interview UI.
+
+### Owner override locked for Phase 4D implementation — 2026-08-14
+
+The initial `SYSTEM_ADMIN` is provisioned from `SYSTEM_ADMIN_EMAIL`, `SYSTEM_ADMIN_PASSWORD`, `SYSTEM_ADMIN_FIRST_NAME`, and `SYSTEM_ADMIN_LAST_NAME` at Spring Boot startup. Existing admin => no-op. No existing admin => validate/normalize, enforce the existing password policy, BCrypt once, create `ACTIVE` + email-verified `SYSTEM_ADMIN`, then authenticate through the common `/login`. A normalized-email collision with a non-admin account fails safely. No admin verification email, activation email, activation token, or bootstrap link is used. Environment password changes never reset an existing admin.
+
+This override **supersedes Section 29 and Decision F** wherever they still describe command/profile + activation-email bootstrap. The approved applicant scoped-session baseline is **8 hours**, superseding the older 24-hour value in Decision C. Researcher remains **NO INTERVIEW**, superseding any remaining optional-interview wording such as Decision K.
 
 ### Binding architecture
 

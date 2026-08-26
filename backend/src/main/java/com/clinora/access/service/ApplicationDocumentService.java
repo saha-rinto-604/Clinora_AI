@@ -66,6 +66,9 @@ public class ApplicationDocumentService {
     @Transactional(readOnly=true)
     public Download download(UUID applicationId,UUID documentId){var doc=documents.findByIdAndApplicationId(documentId,applicationId).orElseThrow(AccessApplicationException::sessionInvalid);var stored=storage.get(doc.getObjectKey());return new Download(doc.getOriginalFilename(),stored.contentType(),stored.bytes());}
 
+    @Transactional(readOnly=true)
+    public Download downloadForAdmin(UUID applicationId,UUID documentId,UUID reviewerUserId,String ip,String userAgent){var doc=documents.findByIdAndApplicationId(documentId,applicationId).orElseThrow(AccessApplicationException::documentNotFound);var stored=storage.get(doc.getObjectKey());audit.record(reviewerUserId,AuthAuditAction.ACCESS_APPLICATION_DOCUMENT_VIEWED,AuthAuditOutcome.SUCCESS,ip,userAgent,applicationId.toString(),"documentId="+documentId+";type="+doc.getDocumentType());return new Download(doc.getOriginalFilename(),stored.contentType(),stored.bytes());}
+
     @Transactional
     public void delete(UUID applicationId,UUID documentId,String ip,String userAgent){
         AccessApplication app=applications.findById(applicationId).orElseThrow(AccessApplicationException::sessionInvalid); if(!app.isEditable())throw AccessApplicationException.notEditable();

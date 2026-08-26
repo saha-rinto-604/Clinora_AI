@@ -47,6 +47,9 @@ public class AccessApplication {
     }
     public void submit(Instant now){ status=ApplicationStatus.SUBMITTED; submittedAt=now; attestedAt=now; touch(now); }
     public void withdraw(Instant now){ status=ApplicationStatus.WITHDRAWN; touch(now); }
+    public void approveForActivation(Instant now){ status=ApplicationStatus.ACTIVATION_PENDING; touch(now); }
+    public void reject(Instant now){ status=ApplicationStatus.REJECTED; touch(now); }
+    public void activate(Instant now){ status=ApplicationStatus.ACTIVATED; touch(now); }
     public void moveToReviewStatus(ApplicationStatus nextStatus, Instant now){
         if(applicationType==ApplicationType.RESEARCHER && nextStatus.isInterviewState())
             throw new IllegalStateException("Researcher applications do not use interview states.");

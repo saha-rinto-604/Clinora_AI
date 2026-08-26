@@ -139,6 +139,65 @@ describe('Phase 4C professional application routes', () => {
     expect(await screen.findByRole('link', { name: /resume application/i })).toBeInTheDocument();
   });
 
+  it('activates an approved professional account through a single-use link', async () => {
+    const activate = vi.spyOn(applicationApi, 'activate').mockResolvedValue({} as never);
+
+    renderRoute('/application/activate?token=activate-1');
+
+    expect(await screen.findByRole('heading', { name: /set your account password/i })).toBeInTheDocument();
+    expect(window.location.search).toBe('');
+    await userEvent.type(screen.getByLabelText(/^password$/i), 'ValidPass1!');
+    await userEvent.type(screen.getByLabelText(/confirm password/i), 'ValidPass1!');
+    await userEvent.click(screen.getByRole('button', { name: /activate account/i }));
+
+    await waitFor(() => expect(activate).toHaveBeenCalledWith('activate-1', 'ValidPass1!'));
+    expect(await screen.findByRole('link', { name: /continue to login/i })).toBeInTheDocument();
+  });
+
+  it('validates matching passwords before activation', async () => {
+    const activate = vi.spyOn(applicationApi, 'activate').mockResolvedValue({} as never);
+
+    renderRoute('/application/activate?token=activate-2');
+
+    await userEvent.type(await screen.findByLabelText(/^password$/i), 'ValidPass1!');
+    await userEvent.type(screen.getByLabelText(/confirm password/i), 'Different1!');
+    await userEvent.click(screen.getByRole('button', { name: /activate account/i }));
+
+    expect(await screen.findByText(/passwords must match/i)).toBeInTheDocument();
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('blocks activation when the one-time token is missing', async () => {
+    const activate = vi.spyOn(applicationApi, 'activate').mockResolvedValue({} as never);
+
+    renderRoute('/application/activate');
+
+    expect(await screen.findByText(/activation link is incomplete/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /return to application access/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /activate account/i })).not.toBeInTheDocument();
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('shows server activation failures without creating a logged-in account state', async () => {
+    vi.spyOn(applicationApi, 'activate').mockRejectedValue({
+      response: {
+        data: {
+          message: 'The application link is invalid, expired, or has already been used.',
+        },
+      },
+      isAxiosError: true,
+    });
+
+    renderRoute('/application/activate?token=used-token');
+
+    await userEvent.type(await screen.findByLabelText(/^password$/i), 'ValidPass1!');
+    await userEvent.type(screen.getByLabelText(/confirm password/i), 'ValidPass1!');
+    await userEvent.click(screen.getByRole('button', { name: /activate account/i }));
+
+    expect(await screen.findByText(/invalid, expired, or has already been used/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /continue to login/i })).not.toBeInTheDocument();
+  });
+
   it('shows role-specific Researcher progress and draft-safe actions', async () => {
     vi.spyOn(applicationApi, 'me').mockResolvedValue(draftResearcher);
     vi.spyOn(applicationApi, 'events').mockResolvedValue([]);
@@ -152,6 +211,43 @@ describe('Phase 4C professional application routes', () => {
     expect(screen.getAllByRole('button', { name: /save & sign out/i })).toHaveLength(1);
     expect(screen.getAllByText(/step 1 of 6/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/policy-dependent/i)).not.toBeInTheDocument();
+  });
+
+  it('shows private scheduled interview details only for Doctor applicant sessions', async () => {
+    const doctor: AccessApplication = {
+      ...draftResearcher,
+      id: 'doctor-app-1',
+      applicationType: 'DOCTOR',
+      firstName: 'Dora',
+      lastName: 'Doctor',
+      email: 'dora@example.test',
+      status: 'INTERVIEW_SCHEDULED',
+      doctor: { professionalTitle: 'Consultant', specialization: 'Internal Medicine' },
+      researcher: null,
+      submittedAt: '2026-08-10T01:00:00Z',
+    };
+    vi.spyOn(applicationApi, 'me').mockResolvedValue(doctor);
+    vi.spyOn(applicationApi, 'events').mockResolvedValue([]);
+    vi.spyOn(applicationApi, 'interview').mockResolvedValue({
+      id: 'interview-1',
+      status: 'SCHEDULED',
+      scheduledStartUtc: '2026-08-20T10:00:00Z',
+      timezone: 'Asia/Dhaka',
+      durationMinutes: 30,
+      meetingProvider: 'GOOGLE_MEET',
+      meetingUrl: 'https://meet.google.com/private-test',
+      instructions: 'Join five minutes early.',
+      updatedAt: '2026-08-15T12:00:00Z',
+    });
+
+    renderRoute('/application/status');
+
+    expect(await screen.findByRole('heading', { name: /mandatory onboarding interview/i })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /join interview/i })).toHaveAttribute(
+      'href',
+      'https://meet.google.com/private-test',
+    );
+    expect(screen.getByText('Asia/Dhaka')).toBeInTheDocument();
   });
 
   it('uses confirmation dialog before withdrawing a submitted application', async () => {
