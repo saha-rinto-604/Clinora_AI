@@ -1,6 +1,14 @@
 # Clinora AI
 
-Phase 1 initializes the approved project foundation only.
+Clinora AI is a role-aware healthcare platform under phased development. The repository now includes the completed authentication/security foundation and the completed Phase 5A Patient Foundation.
+
+## Current Development Status
+
+- Phase 4: identity, authentication, RBAC, privileged onboarding, access review, professional activation, and security publication gate completed.
+- Phase 5A: Patient Foundation completed and merged to `main` on 2026-08-30.
+- Next: Phase 5B — private Patient Medical Report Vault.
+
+Phase 5A establishes the Patient-owned clinical profile, Patient dashboard foundation, Health Profile experience, Patient account/security integration, and Patient-only authorization boundaries. Later Phase 5 slices extend this foundation with real report, history, appointment, notification, and related workflows rather than fabricating unavailable data.
 
 ## Approved Baseline
 
@@ -11,46 +19,21 @@ Phase 1 initializes the approved project foundation only.
 - Real time: Spring WebSocket with STOMP broker relay through RabbitMQ
 - Cache/rate limits: Redis
 - OCR: Python 3.12, FastAPI
-- AI: Python 3.12, FastAPI, hosted Hugging Face inference placeholders
+- AI: Python 3.12, FastAPI
 
 ## Local Startup
 
-1. Copy `.env.example` to `.env` and keep placeholder values for Phase 1.
-2. Start infrastructure and services:
+1. Copy `.env.example` to `.env` and configure the local development values required by the current stack.
+2. Build and start the Docker Compose stack:
 
 ```powershell
-docker compose up --build
+docker compose up --build -d
 ```
 
-3. Frontend:
+3. Check service status:
 
 ```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-4. Backend:
-
-```powershell
-cd backend
-mvn spring-boot:run
-```
-
-5. OCR service:
-
-```powershell
-cd ocr-service
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-6. AI service:
-
-```powershell
-cd ai-service
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8001
+docker compose ps
 ```
 
 ## Health Checks
@@ -61,4 +44,6 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001
 - AI: `http://localhost:8001/health`
 - RabbitMQ Management: `http://localhost:15672`
 
-No domain modules, authentication flows, clinical schemas, OCR processing, AI inference, business WebSocket events, or production pages are implemented in Phase 1.
+## Development Documentation
+
+Detailed phase implementation records live under `docs/development/`. Phase-specific security and architecture boundaries documented there remain authoritative for their respective scopes.

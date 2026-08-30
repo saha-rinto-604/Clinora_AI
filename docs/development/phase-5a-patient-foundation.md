@@ -1,6 +1,6 @@
 # Clinora AI — Phase 5A Patient Foundation
 
-**Status:** implementation patch prepared for review
+**Status:** complete — merged to `main` on 2026-08-30
 **Scope:** Patient-owned clinical profile and first Patient dashboard foundation
 
 ## Purpose
@@ -55,6 +55,10 @@ The dashboard intentionally does **not** fabricate reports, appointments, OCR re
 - no public clinical profile lookup by user ID
 - no clinical profile fields are written to audit metadata
 
+## Phase 5A closure
+
+Phase 5A is closed as the Patient foundation milestone. Its responsibility is the Patient-owned profile, dashboard foundation, account/security integration, and associated Patient-only security boundaries. Medical-report storage, OCR/AI processing, longitudinal report history, appointments, notifications, and later Patient workflows belong to subsequent Phase 5 slices and should not be backfilled into Phase 5A.
+
 ## Follow-on dependency
 
-Phase 5B should add the private Patient medical-report vault and reuse the private object-storage/security patterns already established by Phase 4 application documents. OCR/AI processing remains outside Phase 5A.
+Phase 5B adds the private Patient medical-report vault and should reuse the private object-storage/security patterns already established by Phase 4 application documents. OCR/AI processing remains outside Phase 5A.
