@@ -44,6 +44,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
     EmailProperties.class,
     AccessApplicationProperties.class,
     ApplicationStorageProperties.class,
+    PatientReportStorageProperties.class,
     SystemAdminProperties.class
 })
 public class SecurityFoundationConfig {

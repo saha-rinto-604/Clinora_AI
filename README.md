@@ -1,14 +1,14 @@
 # Clinora AI
 
-Clinora AI is a role-aware healthcare platform under phased development. The repository now includes the completed authentication/security foundation and the completed Phase 5A Patient Foundation.
+Clinora AI is a role-aware healthcare platform under phased development. The repository includes the completed authentication/security foundation, the completed Phase 5A Patient Foundation, and the Phase 5B private Patient Medical Report Vault implementation.
 
 ## Current Development Status
 
 - Phase 4: identity, authentication, RBAC, privileged onboarding, access review, professional activation, and security publication gate completed.
 - Phase 5A: Patient Foundation completed and merged to `main` on 2026-08-30.
-- Next: Phase 5B — private Patient Medical Report Vault.
+- Phase 5B: private Patient Medical Report Vault completed and publication-verified on 2026-08-31.
 
-Phase 5A establishes the Patient-owned clinical profile, Patient dashboard foundation, Health Profile experience, Patient account/security integration, and Patient-only authorization boundaries. Later Phase 5 slices extend this foundation with real report, history, appointment, notification, and related workflows rather than fabricating unavailable data.
+Phase 5B extends the existing Patient workspace with real private report upload, organization, authenticated viewing and download, metadata editing, archive/restore, and Patient Home summary data. OCR, AI interpretation, Doctor access, sharing, and fake processing states remain outside this phase.
 
 ## Approved Baseline
 

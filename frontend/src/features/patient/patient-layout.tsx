@@ -1,4 +1,4 @@
-import { ChevronDown, HeartPulse, Home, LockKeyhole, LogOut, UserRound } from 'lucide-react';
+import { ChevronDown, FileText, HeartPulse, Home, LockKeyhole, LogOut, UserRound } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
@@ -15,7 +15,8 @@ import { useAuthStore } from '../auth/auth-store';
 
 const navigation = [
   { to: '/patient', label: 'Home', shortLabel: 'Home', icon: Home, end: true },
-  { to: '/patient/profile', label: 'Health Profile', shortLabel: 'Health Profile', icon: HeartPulse },
+  { to: '/patient/reports', label: 'Medical Reports', shortLabel: 'Reports', icon: FileText },
+  { to: '/patient/profile', label: 'Health Profile', shortLabel: 'Profile', icon: HeartPulse },
   { to: '/account', label: 'Account & Security', shortLabel: 'Security', icon: LockKeyhole },
 ];
 
@@ -33,6 +34,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const reducedMotion = useReducedMotion();
   const clinicalHome = location.pathname === '/patient' || location.pathname === '/patient/';
+  const reportWorkspace = location.pathname.startsWith('/patient/reports');
   const [signingOut, setSigningOut] = useState(false);
 
   const signOut = async () => {
@@ -156,7 +158,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
           transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             'mx-auto w-full px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-7 sm:pt-8 lg:px-8 lg:pb-12 lg:pt-10',
-            clinicalHome ? 'max-w-[1480px]' : 'max-w-[1224px]',
+            clinicalHome ? 'max-w-[1480px]' : reportWorkspace ? 'max-w-[1360px]' : 'max-w-[1224px]',
           )}
         >
           {children}
@@ -166,7 +168,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
           aria-label="Patient mobile navigation"
           className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
         >
-          <div className="mx-auto grid max-w-md grid-cols-3">
+          <div className="mx-auto grid max-w-lg grid-cols-4">
             {navigation.map(({ to, shortLabel, icon: Icon, end }) => (
               <NavLink
                 key={to}

@@ -26,6 +26,10 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  servlet:
+    multipart:
+      max-file-size: ${PATIENT_REPORT_MAX_FILE_SIZE:20MB}
+      max-request-size: ${PATIENT_REPORT_MAX_REQUEST_SIZE:21MB}
 
 management:
   endpoints:
@@ -131,9 +135,14 @@ clinora:
     ocr-url: ${OCR_SERVICE_URL:http://localhost:8000}
     ai-url: ${AI_SERVICE_URL:http://localhost:8001}
   storage:
-    endpoint: ${S3_ENDPOINT:http://object-storage-placeholder}
-    region: ${S3_REGION:local}
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    region: ${S3_REGION:us-east-1}
     bucket: ${S3_BUCKET:clinora-medical-reports}
+    access-key: ${S3_ACCESS_KEY:clinora-minio}
+    secret-key: ${S3_SECRET_KEY:change-me-minio}
+    path-style: ${S3_PATH_STYLE:true}
+    auto-create-bucket: ${S3_AUTO_CREATE_BUCKET:true}
+    max-file-size: ${PATIENT_REPORT_MAX_FILE_SIZE:20MB}
     application:
       endpoint: ${S3_APPLICATION_ENDPOINT:http://localhost:9000}
       region: ${S3_APPLICATION_REGION:us-east-1}

@@ -13,6 +13,7 @@ import com.clinora.patients.domain.PatientProfile;
 import com.clinora.patients.repository.PatientAllergyRepository;
 import com.clinora.patients.repository.PatientChronicConditionRepository;
 import com.clinora.patients.repository.PatientMedicationRepository;
+import com.clinora.patients.repository.PatientMedicalReportRepository;
 import com.clinora.patients.repository.PatientProfileRepository;
 import com.clinora.users.domain.UserAccount;
 import com.clinora.users.domain.UserRole;
@@ -40,6 +41,7 @@ public class PatientProfileService {
     private final PatientAllergyRepository allergies;
     private final PatientChronicConditionRepository conditions;
     private final PatientMedicationRepository medications;
+    private final PatientMedicalReportRepository reports;
     private final AuthAuditService audit;
     private final Clock clock;
 
@@ -49,6 +51,7 @@ public class PatientProfileService {
         PatientAllergyRepository allergies,
         PatientChronicConditionRepository conditions,
         PatientMedicationRepository medications,
+        PatientMedicalReportRepository reports,
         AuthAuditService audit,
         Clock clock
     ) {
@@ -57,6 +60,7 @@ public class PatientProfileService {
         this.allergies = allergies;
         this.conditions = conditions;
         this.medications = medications;
+        this.reports = reports;
         this.audit = audit;
         this.clock = clock;
     }
@@ -72,6 +76,18 @@ public class PatientProfileService {
     @Transactional(readOnly = true)
     public PatientDashboardView dashboard(UUID userId) {
         PatientProfileView profile = profile(userId);
+        long activeReportCount = reports.countByPatientUserIdAndArchivedAtIsNull(userId);
+        DashboardReportView latestReport = reports
+            .findFirstByPatientUserIdAndArchivedAtIsNullOrderByCreatedAtDesc(userId)
+            .map(report -> new DashboardReportView(
+                report.getId(),
+                report.getReportName(),
+                report.getReportType(),
+                report.getReportDate(),
+                report.getProviderLaboratory(),
+                report.getCreatedAt()
+            ))
+            .orElse(null);
         return new PatientDashboardView(
             profile.firstName(),
             profile.lastName(),
@@ -87,7 +103,9 @@ public class PatientProfileService {
             profile.chronicConditions().size(),
             profile.currentMedications().size(),
             profile.emergencyContact().configured(),
-            profile.updatedAt()
+            profile.updatedAt(),
+            activeReportCount,
+            latestReport
         );
     }
 
@@ -368,7 +386,19 @@ public class PatientProfileService {
         int chronicConditionCount,
         int medicationCount,
         boolean emergencyContactConfigured,
-        Instant profileUpdatedAt
+        Instant profileUpdatedAt,
+        long activeReportCount,
+        DashboardReportView latestReport
+    ) {
+    }
+
+    public record DashboardReportView(
+        UUID id,
+        String reportName,
+        com.clinora.patients.domain.PatientReportType reportType,
+        LocalDate reportDate,
+        String providerLaboratory,
+        Instant uploadedAt
     ) {
     }
 }

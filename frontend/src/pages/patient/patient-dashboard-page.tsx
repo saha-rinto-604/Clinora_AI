@@ -33,6 +33,9 @@ import { buttonVariants } from '../../components/ui/button-variants';
 import { Skeleton } from '../../components/ui/feedback';
 import { useAuthStore } from '../../features/auth/auth-store';
 import { patientApi, patientErrorMessage } from '../../features/patient/patient-api';
+import { formatReportDate } from '../../features/patient-reports/patient-report-format';
+import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
+import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
 import {
   completedSectionCount,
   profileSections,
@@ -112,7 +115,28 @@ export function PatientDashboardPage() {
       />
 
       <div className="mt-9 space-y-9 sm:mt-10 sm:space-y-10">
-        <MedicalReportsSection reducedMotion={Boolean(reducedMotion)} />
+        <MedicalReportsSection
+          dashboard={dashboard}
+          reducedMotion={Boolean(reducedMotion)}
+          onUploaded={(report) => {
+            setDashboard((current) =>
+              current
+                ? {
+                    ...current,
+                    activeReportCount: current.activeReportCount + 1,
+                    latestReport: {
+                      id: report.id,
+                      reportName: report.reportName,
+                      reportType: report.reportType,
+                      reportDate: report.reportDate,
+                      providerLaboratory: report.providerLaboratory,
+                      uploadedAt: report.createdAt,
+                    },
+                  }
+                : current,
+            );
+          }}
+        />
 
         <div className="grid items-start gap-5 lg:grid-cols-12 lg:gap-6">
           <PatientRecord
@@ -174,62 +198,98 @@ function DashboardHeader({
   );
 }
 
-function MedicalReportsSection({ reducedMotion }: { reducedMotion: boolean }) {
+function MedicalReportsSection({
+  dashboard,
+  reducedMotion,
+  onUploaded,
+}: {
+  dashboard: PatientDashboard;
+  reducedMotion: boolean;
+  onUploaded: (report: PatientReport) => void;
+}) {
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const latest = dashboard.latestReport;
   return (
-    <motion.div
-      initial={reducedMotion ? false : { opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reducedMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <AppSurface
-        as="section"
-        id="patient-medical-reports"
-        variant="hero"
-        aria-labelledby="medical-reports-title"
-        className="relative overflow-hidden"
+    <>
+      <motion.div
+        initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reducedMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="relative grid items-stretch gap-7 lg:grid-cols-[minmax(0,0.95fr)_minmax(22rem,1.05fr)] lg:gap-6">
-          <div className="relative z-10 flex min-w-0 flex-col justify-center py-1">
-            <IconWell className="mb-5 h-12 w-12" tone="info">
-              <FileText size={21} aria-hidden="true" />
-            </IconWell>
-            <AppSectionHeader
-              eyebrow="Secure health records"
-              title="Medical reports"
-              titleId="medical-reports-title"
-              copy="Keep your laboratory and diagnostic reports together in one secure health record."
-            />
+        <AppSurface
+          as="section"
+          id="patient-medical-reports"
+          variant="hero"
+          aria-labelledby="medical-reports-title"
+          className="relative overflow-hidden"
+        >
+          <div className="relative grid items-stretch gap-7 lg:grid-cols-[minmax(0,0.95fr)_minmax(22rem,1.05fr)] lg:gap-6">
+            <div className="relative z-10 flex min-w-0 flex-col justify-center py-1">
+              <div className="mb-5 flex items-center gap-3">
+                <IconWell className="h-12 w-12" tone="info">
+                  <FileText size={21} aria-hidden="true" />
+                </IconWell>
+                {dashboard.activeReportCount > 0 ? (
+                  <StatusPill tone="info">{dashboard.activeReportCount} current</StatusPill>
+                ) : null}
+              </div>
+              <AppSectionHeader
+                eyebrow="Secure health records"
+                title="Medical reports"
+                titleId="medical-reports-title"
+                copy={
+                  latest
+                    ? 'Return to your latest document or open the complete report history.'
+                    : 'Keep laboratory and diagnostic documents available in your private Patient record.'
+                }
+              />
 
-            <div className="mt-6 max-w-xl border-t border-[var(--clinora-border-subtle)] pt-5">
-              <p className="text-sm font-semibold text-[var(--clinora-text-primary)]">
-                Upload your first medical report to start your record.
-              </p>
-              <p className="mt-2 text-xs leading-5 text-[var(--clinora-text-muted)]">
-                PDF, JPG, JPEG or PNG · up to 50 MB
-              </p>
-              <div className="mt-4">
-                <Button variant="appSecondary" disabled aria-describedby="report-upload-availability">
-                  <UploadCloud size={16} aria-hidden="true" /> Upload report
-                </Button>
-                <p
-                  id="report-upload-availability"
-                  className="mt-3 max-w-md text-xs leading-5 text-[var(--clinora-text-faint)]"
-                >
-                  Secure report upload will become available when report storage is enabled.
-                </p>
+              <div className="mt-6 max-w-xl border-t border-[var(--clinora-border-subtle)] pt-5">
+                {latest ? (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--clinora-text-faint)]">
+                      Latest report
+                    </p>
+                    <p className="mt-2 truncate text-sm font-semibold text-[var(--clinora-text-primary)]">
+                      {latest.reportName}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                      {patientReportTypeLabels[latest.reportType]} · {formatReportDate(latest.reportDate)}
+                      {latest.providerLaboratory ? ` · ${latest.providerLaboratory}` : ''}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--clinora-text-primary)]">Add your first report</p>
+                    <p className="mt-2 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                      Start with a PDF or image from a laboratory, clinic, or hospital.
+                    </p>
+                  </div>
+                )}
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button variant="appPrimary" onClick={() => setUploadOpen(true)}>
+                    <UploadCloud size={16} aria-hidden="true" /> {latest ? 'Upload report' : 'Choose a report'}
+                  </Button>
+                  {latest ? (
+                    <Link to="/patient/reports" className={buttonVariants({ variant: 'appSecondary' })}>
+                      View all reports <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div
-            className="relative min-h-[11rem] overflow-hidden sm:min-h-[13rem] md:min-h-[14rem] lg:-my-7 lg:-mr-7 lg:min-h-[20rem]"
-            data-medical-reports-visual="clinical-ambient"
-          >
-            <BiomedicalBackground variant="patient-report" />
+            <div
+              className="relative min-h-[11rem] overflow-hidden sm:min-h-[13rem] md:min-h-[14rem] lg:-my-7 lg:-mr-7 lg:min-h-[20rem]"
+              data-medical-reports-visual="clinical-ambient"
+            >
+              <BiomedicalBackground variant="patient-report" />
+            </div>
           </div>
-        </div>
-      </AppSurface>
-    </motion.div>
+        </AppSurface>
+      </motion.div>
+      <PatientReportUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} onUploaded={onUploaded} />
+    </>
   );
 }
 

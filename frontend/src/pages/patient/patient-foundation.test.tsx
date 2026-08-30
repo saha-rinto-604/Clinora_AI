@@ -68,6 +68,8 @@ const dashboard: PatientDashboard = {
   medicationCount: 1,
   emergencyContactConfigured: true,
   profileUpdatedAt: '2026-08-26T12:00:00Z',
+  activeReportCount: 0,
+  latestReport: null,
 };
 const newProfile: PatientProfile = {
   ...profile,
@@ -128,7 +130,7 @@ describe('Phase 5A Patient experience', () => {
     expect(navs.some((nav) => within(nav).getAllByText('Home').length > 0)).toBe(true);
     expect(screen.getAllByText('Health Profile').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Security/).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Reports/).length).toBeGreaterThan(0);
     expect(screen.queryByText('Appointments')).not.toBeInTheDocument();
   });
 
@@ -184,12 +186,10 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.queryByRole('region', { name: 'Care overview' })).not.toBeInTheDocument();
     expect(screen.queryByText(/needs attention/i)).not.toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Upload report' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Upload report' })).toHaveAccessibleDescription(
-      /secure report upload will become available/i,
-    );
-    expect(screen.getByText('Upload your first medical report to start your record.')).toBeInTheDocument();
-    expect(screen.getByText(/secure report upload will become available/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose a report' })).toBeEnabled();
+    expect(screen.queryByRole('link', { name: /view all reports/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Add your first report')).toBeInTheDocument();
+    expect(screen.getByText(/start with a pdf or image from a laboratory, clinic, or hospital/i)).toBeInTheDocument();
     expect(
       screen.getByText(/health trends will appear here once clinora has comparable measurements/i),
     ).toBeInTheDocument();
@@ -242,7 +242,7 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getByRole('heading', { name: 'Recent health activity' })).toBeInTheDocument();
     expect(screen.getByText(/health profile updated/i)).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Upload report' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Choose a report' })).toBeEnabled();
     expect(screen.getAllByText('No appointments scheduled.')).toHaveLength(1);
     expect(screen.queryByRole('link', { name: /find a doctor/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/hemoglobin|glucose|blood pressure|cholesterol|prescription/i)).not.toBeInTheDocument();
@@ -251,6 +251,27 @@ describe('Phase 5A Patient experience', () => {
       1,
     );
     expect(screen.queryByText(/private by design/i)).not.toBeInTheDocument();
+  });
+
+  it('turns the Home report hero into a concise real-data summary after upload', async () => {
+    mocks.dashboard.mockResolvedValueOnce({
+      ...dashboard,
+      activeReportCount: 2,
+      latestReport: {
+        id: '33333333-3333-3333-3333-333333333333',
+        reportName: 'Annual blood panel',
+        reportType: 'LAB_RESULTS',
+        reportDate: '2026-08-25',
+        providerLaboratory: 'City Diagnostic Centre',
+        uploadedAt: '2026-08-30T08:00:00Z',
+      },
+    });
+    renderPatientRoute();
+
+    expect(await screen.findByText('Annual blood panel')).toBeInTheDocument();
+    expect(screen.getByText('2 current')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload report' })).toBeEnabled();
+    expect(screen.getByRole('link', { name: /view all reports/i })).toHaveAttribute('href', '/patient/reports');
   });
 
   it('renders the Patient Home without automated accessibility violations', async () => {
