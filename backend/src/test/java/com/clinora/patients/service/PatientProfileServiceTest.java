@@ -26,6 +26,7 @@ import com.clinora.patients.domain.PatientProfile;
 import com.clinora.patients.repository.PatientAllergyRepository;
 import com.clinora.patients.repository.PatientChronicConditionRepository;
 import com.clinora.patients.repository.PatientMedicationRepository;
+import com.clinora.patients.repository.PatientMedicalReportRepository;
 import com.clinora.patients.repository.PatientProfileRepository;
 import com.clinora.users.domain.AccountStatus;
 import com.clinora.users.domain.UserAccount;
@@ -192,6 +193,8 @@ class PatientProfileServiceTest {
             .thenReturn(List.of(new PatientChronicCondition(PROFILE_ID, "Asthma", NOW)));
         when(fixture.medications.findAllByPatientProfileIdOrderByNameAsc(PROFILE_ID))
             .thenReturn(List.of(new PatientMedication(PROFILE_ID, "Inhaler", NOW)));
+        when(fixture.reports.findFirstByPatientUserIdAndArchivedAtIsNullOrderByCreatedAtDesc(USER_ID))
+            .thenReturn(Optional.empty());
 
         var dashboard = fixture.service.dashboard(USER_ID);
 
@@ -296,6 +299,7 @@ class PatientProfileServiceTest {
         private final PatientAllergyRepository allergies = mock(PatientAllergyRepository.class);
         private final PatientChronicConditionRepository conditions = mock(PatientChronicConditionRepository.class);
         private final PatientMedicationRepository medications = mock(PatientMedicationRepository.class);
+        private final PatientMedicalReportRepository reports = mock(PatientMedicalReportRepository.class);
         private final AuthAuditService audit = mock(AuthAuditService.class);
         private final PatientProfileService service = new PatientProfileService(
             users,
@@ -303,6 +307,7 @@ class PatientProfileServiceTest {
             allergies,
             conditions,
             medications,
+            reports,
             audit,
             CLOCK
         );

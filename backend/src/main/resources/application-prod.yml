@@ -18,3 +18,12 @@ clinora:
     api-key: ${RESEND_API_KEY:}
   access-applications:
     cookie-secure: ${APPLICATION_COOKIE_SECURE:true}
+  storage:
+    endpoint: ${S3_ENDPOINT}
+    region: ${S3_REGION}
+    bucket: ${S3_BUCKET}
+    access-key: ${S3_ACCESS_KEY}
+    secret-key: ${S3_SECRET_KEY}
+    path-style: ${S3_PATH_STYLE:false}
+    auto-create-bucket: ${S3_AUTO_CREATE_BUCKET:false}
+    max-file-size: ${PATIENT_REPORT_MAX_FILE_SIZE:20MB}

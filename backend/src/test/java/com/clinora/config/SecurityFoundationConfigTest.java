@@ -91,6 +91,20 @@ class SecurityFoundationConfigTest {
             .andExpect(content().string("patient-profile-ok"));
     }
 
+    @Test
+    void patientCanReachOwnMedicalReportVault() throws Exception {
+        mvc.perform(get("/api/v1/patient/reports-probe").with(roleJwt("PATIENT")))
+            .andExpect(status().isOk())
+            .andExpect(content().string("patient-reports-ok"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonPatientRoles")
+    void nonPatientRolesCannotReachPatientMedicalReportVault(String role) throws Exception {
+        mvc.perform(get("/api/v1/patient/reports-probe").with(roleJwt(role)))
+            .andExpect(status().isForbidden());
+    }
+
     @ParameterizedTest
     @MethodSource("nonPatientRoles")
     void nonPatientRolesCannotReachPatientClinicalFoundation(String role) throws Exception {
@@ -193,6 +207,12 @@ class SecurityFoundationConfigTest {
         @PreAuthorize("hasRole('PATIENT')")
         String patientProfileProbe() {
             return "patient-profile-ok";
+        }
+
+        @GetMapping(value = "/api/v1/patient/reports-probe", produces = MediaType.TEXT_PLAIN_VALUE)
+        @PreAuthorize("hasRole('PATIENT')")
+        String patientReportsProbe() {
+            return "patient-reports-ok";
         }
 
         @GetMapping(value = "/api/v1/patient-records/identifiable-probe", produces = MediaType.TEXT_PLAIN_VALUE)

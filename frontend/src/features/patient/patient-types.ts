@@ -74,6 +74,17 @@ export interface PatientDashboard {
   medicationCount: number;
   emergencyContactConfigured: boolean;
   profileUpdatedAt: string | null;
+  activeReportCount: number;
+  latestReport: PatientDashboardReport | null;
+}
+
+export interface PatientDashboardReport {
+  id: string;
+  reportName: string;
+  reportType: import('../patient-reports/patient-report-types').PatientReportType;
+  reportDate: string | null;
+  providerLaboratory: string | null;
+  uploadedAt: string;
 }
 
 export const bloodGroupLabels: Record<BloodGroup, string> = {

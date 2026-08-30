@@ -33,6 +33,8 @@ import { PatientShell } from './features/patient/patient-layout';
 import { useAuthStore } from './features/auth/auth-store';
 import { PatientDashboardPage } from './pages/patient/patient-dashboard-page';
 import { PatientProfilePage } from './pages/patient/patient-profile-page';
+import { PatientReportDetailPage } from './pages/patient/patient-report-detail-page';
+import { PatientReportsPage } from './pages/patient/patient-reports-page';
 
 export function AppRoutes() {
   return (
@@ -76,6 +78,8 @@ export function AppRoutes() {
         <Route element={<PatientLayout />}>
           <Route path="patient" element={<PatientDashboardPage />} />
           <Route path="patient/profile" element={<PatientProfilePage />} />
+          <Route path="patient/reports" element={<PatientReportsPage />} />
+          <Route path="patient/reports/:reportId" element={<PatientReportDetailPage />} />
         </Route>
       </Route>
 
