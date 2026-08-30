@@ -41,6 +41,10 @@ Thumbs.db
 *.log
 tmp/
 temp/
+/.archive-temp/
+/*.patch
+/*.zip
+/clinora-*-contact-sheet.png
 
 # Docker/runtime data
 postgres-data/

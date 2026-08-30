@@ -25,9 +25,10 @@ export function LoginPage() {
   const onSubmit = handleSubmit(async (values) => {
     setError('');
     try {
-      await authApi.login(values.email, values.password);
+      const session = await authApi.login(values.email, values.password);
       const state = location.state as { from?: string } | null;
-      navigate(state?.from ?? '/account', { replace: true });
+      const defaultRoute = session.user.role === 'PATIENT' ? '/patient' : '/account';
+      navigate(state?.from ?? defaultRoute, { replace: true });
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to sign in. Please try again.'));
     }
