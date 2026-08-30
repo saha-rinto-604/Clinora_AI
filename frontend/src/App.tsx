@@ -28,6 +28,11 @@ import { PrivacyPage } from './pages/public/privacy-page';
 import { ProfessionalAccessPage } from './pages/public/professional-access-page';
 import { ResearchPage } from './pages/public/research-page';
 import { TermsPage } from './pages/public/terms-page';
+import { PatientLayout } from './features/patient/patient-layout';
+import { PatientShell } from './features/patient/patient-layout';
+import { useAuthStore } from './features/auth/auth-store';
+import { PatientDashboardPage } from './pages/patient/patient-dashboard-page';
+import { PatientProfilePage } from './pages/patient/patient-profile-page';
 
 export function AppRoutes() {
   return (
@@ -64,7 +69,14 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        <Route path="account" element={<AccountPage />} />
+        <Route path="account" element={<RoleAwareAccountPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>
+        <Route element={<PatientLayout />}>
+          <Route path="patient" element={<PatientDashboardPage />} />
+          <Route path="patient/profile" element={<PatientProfilePage />} />
+        </Route>
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
@@ -73,6 +85,17 @@ export function AppRoutes() {
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+  );
+}
+
+function RoleAwareAccountPage() {
+  const role = useAuthStore((state) => state.user?.role);
+  return role === 'PATIENT' ? (
+    <PatientShell>
+      <AccountPage embedded />
+    </PatientShell>
+  ) : (
+    <AccountPage />
   );
 }
 

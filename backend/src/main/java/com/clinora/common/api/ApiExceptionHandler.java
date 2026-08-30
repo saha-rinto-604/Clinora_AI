@@ -2,6 +2,7 @@ package com.clinora.common.api;
 
 import com.clinora.access.api.AccessApplicationException;
 import com.clinora.auth.api.AuthApiException;
+import com.clinora.patients.api.PatientApiException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -25,6 +26,13 @@ public class ApiExceptionHandler {
         return ResponseEntity
             .status(exception.getStatus())
             .headers(headers)
+            .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
+    }
+
+
+    @ExceptionHandler(PatientApiException.class)
+    public ResponseEntity<ApiError> handlePatient(PatientApiException exception) {
+        return ResponseEntity.status(exception.getStatus())
             .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
     }
 

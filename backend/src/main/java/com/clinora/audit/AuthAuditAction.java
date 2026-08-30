@@ -2,6 +2,8 @@ package com.clinora.audit;
 
 public enum AuthAuditAction {
     PATIENT_REGISTERED,
+    PATIENT_PROFILE_CREATED,
+    PATIENT_PROFILE_UPDATED,
     EMAIL_VERIFICATION_SENT,
     EMAIL_VERIFIED,
     LOGIN_SUCCEEDED,

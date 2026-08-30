@@ -85,6 +85,26 @@ class SecurityFoundationConfigTest {
     }
 
     @Test
+    void patientCanReachPatientClinicalFoundation() throws Exception {
+        mvc.perform(get("/api/v1/patient/profile-probe").with(roleJwt("PATIENT")))
+            .andExpect(status().isOk())
+            .andExpect(content().string("patient-profile-ok"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonPatientRoles")
+    void nonPatientRolesCannotReachPatientClinicalFoundation(String role) throws Exception {
+        mvc.perform(get("/api/v1/patient/profile-probe").with(roleJwt(role)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anonymousCallerCannotReachPatientClinicalFoundation() throws Exception {
+        mvc.perform(get("/api/v1/patient/profile-probe"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void applicantCookieWithoutRbacJwtCannotReachAuthenticatedUserApis() throws Exception {
         mvc.perform(get("/api/v1/auth/me").cookie(new jakarta.servlet.http.Cookie("clinora_applicant", "session.raw")))
             .andExpect(status().isUnauthorized());
@@ -131,6 +151,10 @@ class SecurityFoundationConfigTest {
         return Stream.of("DOCTOR", "RESEARCHER", "SYSTEM_ADMIN", "HOSPITAL_ADMIN", "BLOOD_BANK_STAFF");
     }
 
+    private static Stream<String> nonPatientRoles() {
+        return Stream.of("DOCTOR", "RESEARCHER", "SYSTEM_ADMIN", "HOSPITAL_ADMIN", "BLOOD_BANK_STAFF");
+    }
+
     @RestController
     static class SecurityProbeController {
 
@@ -163,6 +187,12 @@ class SecurityFoundationConfigTest {
         @PreAuthorize("hasRole('DOCTOR')")
         String doctorClinicalProbe() {
             return "doctor-clinical-ok";
+        }
+
+        @GetMapping(value = "/api/v1/patient/profile-probe", produces = MediaType.TEXT_PLAIN_VALUE)
+        @PreAuthorize("hasRole('PATIENT')")
+        String patientProfileProbe() {
+            return "patient-profile-ok";
         }
 
         @GetMapping(value = "/api/v1/patient-records/identifiable-probe", produces = MediaType.TEXT_PLAIN_VALUE)

@@ -15,10 +15,92 @@
   --color-text-secondary: #cbd5e1;
   --color-text-muted: #94a3b8;
   --color-focus: #38bdf8;
+  /* Shared Clinora authenticated-application theme. */
+  --clinora-bg-canvas: var(--color-background);
+  --clinora-bg-chrome: #04121c;
+  --clinora-surface-1: #0b0f22;
+  --clinora-surface-2: var(--color-primary);
+  --clinora-surface-hero: #082b30;
+  --clinora-surface-nested: rgba(255, 255, 255, 0.035);
+  --clinora-surface-hover: rgba(255, 255, 255, 0.055);
+  --clinora-border-subtle: rgba(255, 255, 255, 0.08);
+  --clinora-border-interactive: rgba(14, 165, 233, 0.24);
+  --clinora-text-primary: var(--color-text-primary);
+  --clinora-text-muted: var(--color-text-muted);
+  --clinora-text-faint: #64748b;
+  --clinora-accent-cyan: var(--color-medical-cyan);
+  --clinora-accent-teal: var(--color-medical-teal);
+  --clinora-primary-gradient: linear-gradient(90deg, var(--clinora-accent-cyan), var(--clinora-accent-teal));
+  --clinora-success: var(--color-success);
+  --clinora-warning: var(--color-warning);
+  --clinora-danger: var(--color-danger);
+  --clinora-neutral-soft: rgba(255, 255, 255, 0.055);
+  --clinora-info-soft: rgba(14, 165, 233, 0.085);
+  --clinora-success-soft: rgba(20, 184, 166, 0.085);
+  --clinora-warning-soft: rgba(245, 158, 11, 0.1);
+  --clinora-danger-soft: rgba(239, 68, 68, 0.11);
+  --clinora-info-foreground: color-mix(in srgb, var(--clinora-accent-cyan) 72%, white);
+  --clinora-success-foreground: color-mix(in srgb, var(--clinora-accent-teal) 72%, white);
+  --clinora-warning-foreground: color-mix(in srgb, var(--clinora-warning) 72%, white);
+  --clinora-danger-foreground: color-mix(in srgb, var(--clinora-danger) 72%, white);
+  --clinora-border-success: color-mix(in srgb, var(--clinora-accent-teal) 30%, transparent);
+  --clinora-border-warning: color-mix(in srgb, var(--clinora-warning) 24%, transparent);
+  --clinora-focus-ring-soft: color-mix(in srgb, var(--clinora-accent-cyan) 6%, transparent);
+  --clinora-accent-cyan-strong: color-mix(in srgb, var(--clinora-accent-cyan) 70%, transparent);
+  --clinora-radius-sm: 12px;
+  --clinora-radius-md: 16px;
+  --clinora-radius-lg: var(--radius-component);
+  --clinora-radius-pill: 999px;
+  --clinora-space-section: 3rem;
+  --clinora-space-group: 1.75rem;
+  --clinora-space-card: 1.5rem;
+  --clinora-motion-hover: 180ms;
+  --clinora-motion-panel: 240ms;
+  --clinora-motion-page: 300ms;
+  --clinora-motion-slow: 500ms;
+  --clinora-ambient-cyan: color-mix(in srgb, var(--clinora-accent-cyan) 9%, transparent);
+  --clinora-ambient-teal: color-mix(in srgb, var(--clinora-accent-teal) 6%, transparent);
+  --clinora-ambient-cyan-soft: color-mix(in srgb, var(--clinora-accent-cyan) 5%, transparent);
+  --clinora-motif-primary-ambient: 0.14;
+  --clinora-motif-secondary-ambient: 0.1;
+  --clinora-motif-marks-ambient: 0.075;
+  --clinora-motif-primary-supporting: 0.17;
+  --clinora-motif-secondary-supporting: 0.135;
+  --clinora-motif-marks-supporting: 0.1;
+  --clinora-motif-primary-focused: 0.25;
+  --clinora-motif-secondary-focused: 0.19;
+  --clinora-motif-marks-focused: 0.14;
+  --clinora-schematic-opacity: 0.48;
+  --clinora-schematic-axis-opacity: 0.22;
+  --clinora-schematic-grid-opacity: 0.14;
+  --clinora-schematic-point-opacity: 0.55;
+  --clinora-texture-dot: color-mix(in srgb, var(--clinora-accent-cyan) 14%, transparent);
+  --clinora-texture-opacity: 0.1;
+
+  /* Compatibility aliases keep existing authenticated screens on one theme. */
+  --color-app-canvas: var(--clinora-bg-canvas);
+  --color-app-shell: var(--clinora-bg-chrome);
+  --color-app-surface: var(--clinora-surface-1);
+  --color-app-surface-elevated: var(--clinora-surface-2);
+  --color-app-surface-hero: var(--clinora-surface-hero);
+  --color-app-surface-nested: var(--clinora-surface-nested);
+  --color-app-surface-hover: var(--clinora-surface-hover);
+  --color-app-border: var(--clinora-border-subtle);
+  --color-app-border-strong: var(--clinora-border-interactive);
+  --color-app-text-faint: var(--clinora-text-faint);
+  --color-app-neutral-soft: var(--clinora-neutral-soft);
+  --color-app-info-soft: var(--clinora-info-soft);
+  --color-app-success-soft: var(--clinora-success-soft);
+  --color-app-warning-soft: var(--clinora-warning-soft);
+  --color-app-danger-soft: var(--clinora-danger-soft);
   --shadow-glass: 0 20px 50px rgba(0, 0, 0, 0.35);
   --blur-glass: 18px;
   --radius-component: 24px;
   --radius-card-large: 32px;
+  --radius-app-card: var(--clinora-radius-lg);
+  --radius-app-compact: var(--clinora-radius-md);
+  --radius-app-icon: var(--clinora-radius-sm);
+  --radius-pill: var(--clinora-radius-pill);
   --container-max: 1400px;
   --container-padding: 32px;
   font-family:
@@ -56,6 +138,178 @@ textarea {
   font: inherit;
 }
 
+.clinical-ambient--balanced {
+  background:
+    radial-gradient(ellipse at 86% 13%, var(--clinora-ambient-cyan), transparent 40%),
+    radial-gradient(ellipse at 72% 35%, var(--clinora-ambient-teal), transparent 38%),
+    radial-gradient(ellipse at 24% 68%, var(--clinora-ambient-cyan-soft), transparent 40%);
+}
+
+.clinical-ambient--cyan {
+  background: radial-gradient(ellipse at 78% 22%, var(--clinora-ambient-cyan), transparent 46%);
+}
+
+.clinical-ambient--reports {
+  background:
+    radial-gradient(ellipse at 82% 20%, var(--clinora-ambient-cyan), transparent 48%),
+    radial-gradient(ellipse at 67% 86%, var(--clinora-ambient-teal), transparent 44%);
+}
+
+.clinical-technical-texture {
+  background-image: radial-gradient(circle, var(--clinora-texture-dot) 0 0.7px, transparent 0.85px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.55) 62%, transparent 96%);
+  opacity: var(--clinora-texture-opacity);
+}
+
+.clinical-motif {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: center;
+}
+
+.clinical-motif--ambient {
+  --clinical-motif-primary-opacity: var(--clinora-motif-primary-ambient);
+  --clinical-motif-secondary-opacity: var(--clinora-motif-secondary-ambient);
+  --clinical-motif-marks-opacity: var(--clinora-motif-marks-ambient);
+}
+
+.clinical-motif--supporting {
+  --clinical-motif-primary-opacity: var(--clinora-motif-primary-supporting);
+  --clinical-motif-secondary-opacity: var(--clinora-motif-secondary-supporting);
+  --clinical-motif-marks-opacity: var(--clinora-motif-marks-supporting);
+}
+
+.clinical-motif--focused {
+  --clinical-motif-primary-opacity: var(--clinora-motif-primary-focused);
+  --clinical-motif-secondary-opacity: var(--clinora-motif-secondary-focused);
+  --clinical-motif-marks-opacity: var(--clinora-motif-marks-focused);
+}
+
+.clinical-motif-layer--primary {
+  opacity: var(--clinical-motif-primary-opacity);
+}
+
+.clinical-motif-layer--secondary {
+  opacity: var(--clinical-motif-secondary-opacity);
+}
+
+.clinical-motif-layer--marks {
+  opacity: var(--clinical-motif-marks-opacity);
+}
+
+.clinical-schematic-axis {
+  opacity: var(--clinora-schematic-axis-opacity);
+}
+
+.clinical-schematic-grid {
+  opacity: var(--clinora-schematic-grid-opacity);
+}
+
+.clinical-schematic-point {
+  opacity: var(--clinora-schematic-point-opacity);
+}
+
+.clinical-placement--top-right {
+  -webkit-mask-image: linear-gradient(to right, transparent 2%, black 34%);
+  mask-image: linear-gradient(to right, transparent 2%, black 34%);
+}
+
+.clinical-placement--surface-right {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 28%);
+  mask-image: linear-gradient(to right, transparent 0%, black 28%);
+}
+
+.clinical-placement--fill .clinical-motif {
+  height: 100%;
+}
+
+@keyframes clinical-organic-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(var(--clinical-drift-x), var(--clinical-drift-y), 0);
+  }
+}
+
+.clinical-motif-motion--drift {
+  animation: clinical-organic-drift var(--clinical-drift-duration, 22s) ease-in-out infinite;
+  will-change: transform;
+}
+
+.clinical-motif-motion--hematology {
+  --clinical-drift-x: 8px;
+  --clinical-drift-y: -5px;
+  --clinical-drift-duration: 22s;
+}
+
+.clinical-motif-motion--document-scan {
+  --clinical-drift-x: -5px;
+  --clinical-drift-y: 4px;
+  --clinical-drift-duration: 19s;
+  animation-delay: -7s;
+}
+
+.clinical-motif-motion--biomarker {
+  --clinical-drift-x: 4px;
+  --clinical-drift-y: -4px;
+  --clinical-drift-duration: 24s;
+  animation-delay: -11s;
+}
+
+.clinical-motif-motion--radiology,
+.clinical-motif-motion--neural,
+.clinical-motif-motion--molecular {
+  --clinical-drift-x: 5px;
+  --clinical-drift-y: -3px;
+  --clinical-drift-duration: 21s;
+}
+
+@media (max-width: 1023px) {
+  .clinical-cell--desktop-only {
+    display: none;
+  }
+
+  .clinical-motif-motion--hematology {
+    --clinical-drift-x: 5px;
+    --clinical-drift-y: -3px;
+  }
+
+  .clinical-motif-motion--document-scan,
+  .clinical-motif-motion--biomarker {
+    --clinical-drift-x: 3px;
+    --clinical-drift-y: -2px;
+  }
+}
+
+@media (max-width: 767px) {
+  .clinical-ambient--balanced {
+    background: radial-gradient(ellipse at 92% 10%, var(--clinora-ambient-cyan-soft), transparent 44%);
+  }
+
+  .clinical-technical-texture {
+    background-size: 36px 36px;
+    opacity: calc(var(--clinora-texture-opacity) * 0.55);
+  }
+
+  .clinical-cell--tablet {
+    display: none;
+  }
+
+  .clinical-placement--top-right {
+    -webkit-mask-image: linear-gradient(to right, transparent 18%, black 62%);
+    mask-image: linear-gradient(to right, transparent 18%, black 62%);
+  }
+
+  .clinical-motif-motion--drift {
+    animation: none;
+    will-change: auto;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 3px;
@@ -69,6 +323,11 @@ textarea {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .clinical-motif-motion--drift {
+    animation: none !important;
+    will-change: auto;
   }
 }
 
@@ -241,11 +500,264 @@ html {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
+.patient-report-biomedical {
+  isolation: isolate;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 7%, black 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 7%, black 100%);
+}
+
+.patient-report-ambient {
+  pointer-events: none;
+}
+
+.patient-report-ambient--cyan {
+  background: radial-gradient(
+    ellipse at 64% 52%,
+    color-mix(in srgb, var(--clinora-accent-cyan) 22%, transparent),
+    transparent 60%
+  );
+  opacity: 0.95;
+}
+
+.patient-report-ambient--teal {
+  background: radial-gradient(
+    circle at 80% 22%,
+    color-mix(in srgb, var(--clinora-accent-teal) 18%, transparent),
+    transparent 46%
+  );
+  filter: blur(18px);
+  opacity: 0.82;
+}
+
+.patient-report-ambient--blood {
+  background:
+    radial-gradient(circle at 82% 72%, color-mix(in srgb, var(--clinora-danger) 10%, transparent), transparent 30%),
+    radial-gradient(circle at 32% 56%, color-mix(in srgb, var(--clinora-danger) 6%, transparent), transparent 24%);
+  filter: blur(16px);
+  opacity: 0.72;
+}
+
+.patient-report-microtexture {
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--clinora-accent-cyan) 48%, transparent) 0 1px, transparent 1.5px),
+    radial-gradient(circle, color-mix(in srgb, var(--clinora-accent-teal) 30%, transparent) 0 1px, transparent 1.5px);
+  background-position:
+    0 0,
+    29px 21px;
+  background-size:
+    54px 54px,
+    82px 82px;
+  mask-image: radial-gradient(ellipse at 66% 52%, black 10%, transparent 74%);
+  opacity: 0.17;
+}
+
+.patient-report-neural-layer {
+  z-index: 1;
+  inset: -16% -12% -18% -2%;
+  width: 118%;
+  height: 134%;
+  transform-origin: 58% 52%;
+  will-change: transform;
+}
+
+.patient-report-neural-model {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 56% 50%;
+  opacity: 0.62;
+  filter: saturate(0.88) brightness(0.84) contrast(1.12)
+    drop-shadow(0 0 18px color-mix(in srgb, var(--clinora-accent-cyan) 26%, transparent));
+  -webkit-mask-image: radial-gradient(ellipse at 58% 50%, black 26%, rgba(0, 0, 0, 0.9) 58%, transparent 91%);
+  mask-image: radial-gradient(ellipse at 58% 50%, black 26%, rgba(0, 0, 0, 0.9) 58%, transparent 91%);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.patient-report-neural-sparkles {
+  z-index: 2;
+  fill: var(--clinora-accent-cyan);
+  opacity: 0.58;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--clinora-accent-cyan) 68%, transparent));
+}
+
+.patient-report-neural-sparkles circle:nth-child(3n) {
+  fill: var(--clinora-accent-teal);
+  opacity: 0.74;
+}
+
+.patient-report-rbc-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.patient-report-rbc-layer--far {
+  z-index: 2;
+}
+
+.patient-report-rbc-layer--mid {
+  z-index: 3;
+}
+
+.patient-report-rbc-layer--foreground {
+  z-index: 4;
+}
+
+.patient-report-rbc {
+  position: absolute;
+  display: block;
+  height: auto;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.patient-report-rbc--far {
+  top: -5%;
+  right: -4%;
+  width: 29%;
+  opacity: 0.74;
+  filter: saturate(0.78) brightness(0.86) contrast(1.03)
+    drop-shadow(0 0 11px color-mix(in srgb, var(--clinora-danger) 20%, transparent))
+    drop-shadow(-2px -1px 8px color-mix(in srgb, var(--clinora-accent-cyan) 30%, transparent));
+}
+
+.patient-report-rbc--mid {
+  top: 39%;
+  left: 14%;
+  width: 23%;
+  opacity: 0.84;
+  filter: saturate(0.8) brightness(0.88) contrast(1.04) drop-shadow(0 8px 16px rgba(2, 6, 23, 0.46))
+    drop-shadow(-2px -2px 8px color-mix(in srgb, var(--clinora-accent-cyan) 30%, transparent));
+}
+
+.patient-report-rbc--foreground {
+  right: 3%;
+  bottom: -6%;
+  width: 34%;
+  opacity: 0.92;
+  filter: saturate(0.82) brightness(0.9) contrast(1.04) drop-shadow(0 13px 20px rgba(2, 6, 23, 0.54))
+    drop-shadow(-3px -2px 10px color-mix(in srgb, var(--clinora-accent-cyan) 36%, transparent))
+    drop-shadow(1px 2px 10px color-mix(in srgb, var(--clinora-danger) 18%, transparent));
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .patient-report-neural-layer {
+    inset: -17% -14% -18% -4%;
+    width: 120%;
+    height: 136%;
+  }
+
+  .patient-report-rbc--far {
+    right: -3%;
+    width: 27%;
+  }
+
+  .patient-report-rbc--mid {
+    left: 13%;
+    width: 22%;
+  }
+
+  .patient-report-rbc--foreground {
+    right: 3%;
+    width: 33%;
   }
 }
+
+@media (max-width: 1023px) {
+  .patient-report-biomedical {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 6%, black 100%);
+  }
+
+  .patient-report-neural-layer {
+    inset: -14% -9% -16% 0;
+    width: 112%;
+    height: 130%;
+  }
+
+  .patient-report-neural-model {
+    opacity: 0.54;
+    object-position: 60% 51%;
+  }
+
+  .patient-report-rbc--far {
+    top: -7%;
+    right: -3%;
+    width: 26%;
+  }
+
+  .patient-report-rbc--mid {
+    top: 40%;
+    left: 17%;
+    width: 21%;
+  }
+
+  .patient-report-rbc--foreground {
+    right: 4%;
+    bottom: -8%;
+    width: 31%;
+  }
+}
+
+@media (max-width: 767px) {
+  .patient-report-biomedical {
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 86%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0%, black 86%, transparent 100%);
+  }
+
+  .patient-report-neural-layer {
+    inset: -12% -24% -18% 8%;
+    width: 122%;
+    height: 134%;
+    opacity: 0.72;
+  }
+
+  .patient-report-neural-model {
+    opacity: 0.48;
+    object-position: 62% 48%;
+  }
+
+  .patient-report-neural-sparkles circle:nth-child(n + 7) {
+    display: none;
+  }
+
+  .patient-report-rbc--far {
+    top: -10%;
+    right: -5%;
+    width: 29%;
+    opacity: 0.68;
+  }
+
+  .patient-report-rbc--mid {
+    display: none;
+  }
+
+  .patient-report-rbc--foreground {
+    right: 4%;
+    bottom: -17%;
+    width: 38%;
+    opacity: 0.86;
+  }
+
+  .patient-report-microtexture {
+    opacity: 0.1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patient-report-rbc,
+  .patient-report-neural-layer {
+    will-change: auto;
+  }
+}
+
 .public-page-grid {
   background-image:
     linear-gradient(rgba(56, 189, 248, 0.025) 1px, transparent 1px),
