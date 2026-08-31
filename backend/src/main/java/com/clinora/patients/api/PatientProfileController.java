@@ -3,6 +3,7 @@ package com.clinora.patients.api;
 import com.clinora.common.api.ApiResponse;
 import com.clinora.patients.domain.BloodGroup;
 import com.clinora.patients.domain.PatientGender;
+import com.clinora.patients.service.PatientProfileMutationService;
 import com.clinora.patients.service.PatientProfileService;
 import com.clinora.patients.service.PatientProfileService.PatientDashboardView;
 import com.clinora.patients.service.PatientProfileService.PatientProfileView;
@@ -36,9 +37,11 @@ public class PatientProfileController {
     private static final String PHONE_PATTERN = "^[+0-9() .-]{7,32}$";
 
     private final PatientProfileService profiles;
+    private final PatientProfileMutationService mutations;
 
-    public PatientProfileController(PatientProfileService profiles) {
+    public PatientProfileController(PatientProfileService profiles, PatientProfileMutationService mutations) {
         this.profiles = profiles;
+        this.mutations = mutations;
     }
 
     @GetMapping("/profile")
@@ -52,7 +55,7 @@ public class PatientProfileController {
         @Valid @RequestBody UpdatePatientProfileRequest request,
         HttpServletRequest http
     ) {
-        PatientProfileView profile = profiles.update(
+        PatientProfileView profile = mutations.update(
             userId(jwt),
             request.toCommand(),
             http.getRemoteAddr(),

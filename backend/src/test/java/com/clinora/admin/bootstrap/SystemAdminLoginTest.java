@@ -15,6 +15,7 @@ import com.clinora.auth.session.RefreshSessionService;
 import com.clinora.auth.token.EmailVerificationTokenRepository;
 import com.clinora.auth.token.PasswordResetTokenRepository;
 import com.clinora.config.AuthProperties;
+import com.clinora.notifications.service.PatientNotificationService;
 import com.clinora.security.PasswordService;
 import com.clinora.security.jwt.AccessTokenService;
 import com.clinora.security.jwt.AccessTokenService.IssuedAccessToken;
@@ -74,6 +75,7 @@ class SystemAdminLoginTest {
             mock(AuthMailService.class),
             mock(AuthRateLimitGuard.class),
             mock(AuthAuditService.class),
+            mock(PatientNotificationService.class),
             new AuthProperties(),
             Clock.fixed(now, ZoneOffset.UTC)
         );

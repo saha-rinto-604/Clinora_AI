@@ -1,16 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  CircleHelp,
-  LoaderCircle,
-  Pencil,
-  Plus,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react';
+import { Check, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -31,7 +21,7 @@ import {
   sectionCompletion,
   type ProfileSectionId,
 } from '../../features/patient/patient-profile-state';
-import { ProfileSignalRail, formatDate, listValue } from '../../features/patient/patient-profile-ui';
+import { ProfileSignalRail } from '../../features/patient/patient-profile-ui';
 import {
   bloodGroupLabels,
   genderLabels,
@@ -76,7 +66,7 @@ const schema = z.object({
   emergencyContactRelationship: z.string().max(100),
 });
 type FormValues = z.infer<typeof schema>;
-type ProfileView = ProfileSectionId | 'review';
+type ProfileView = ProfileSectionId;
 
 const emptyValues: FormValues = {
   dateOfBirth: '',
@@ -96,49 +86,6 @@ const emptyValues: FormValues = {
   emergencyContactRelationship: '',
 };
 
-const contextCopy: Record<ProfileView, { title: string; copy: string; points: string[] }> = {
-  personal: {
-    title: 'Why we ask',
-    copy: 'These details keep your Patient record tied to the right person and give Clinora reliable contact information.',
-    points: [
-      'Name and email stay managed by your account.',
-      'Your health profile remains separate from sign-in credentials.',
-    ],
-  },
-  basic: {
-    title: 'Why we ask',
-    copy: 'Blood group and basic measurements can provide useful context in future authorized healthcare workflows.',
-    points: [
-      'BMI is calculated only from height and weight.',
-      'Clinora does not treat these values as a diagnosis or health score.',
-    ],
-  },
-  medical: {
-    title: 'Why we ask',
-    copy: 'A current medical history can help reduce missing context when you later choose to use Clinora care services.',
-    points: [
-      'Add one clear allergy, condition, or medication per item.',
-      'You can edit or remove an item whenever your information changes.',
-    ],
-  },
-  emergency: {
-    title: 'Why we ask',
-    copy: 'An emergency contact gives your Patient record a trusted person to reference in future authorized care workflows.',
-    points: [
-      'This information is private.',
-      'It is not displayed publicly or shared merely because someone has a privileged role.',
-    ],
-  },
-  review: {
-    title: 'Before you finish',
-    copy: 'Review the information exactly as it is currently saved in your Patient record.',
-    points: [
-      'Use Edit to return to any section.',
-      'Update the profile whenever your health or contact information changes.',
-    ],
-  },
-};
-
 export function PatientProfilePage() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -147,10 +94,9 @@ export function PatientProfilePage() {
   const [pendingView, setPendingView] = useState<ProfileView | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('section');
-  const initialView: ProfileView =
-    requested === 'review' || profileSections.some(({ id }) => id === requested)
-      ? (requested as ProfileView)
-      : 'personal';
+  const initialView: ProfileView = profileSections.some(({ id }) => id === requested)
+    ? (requested as ProfileView)
+    : 'personal';
   const [activeView, setActiveView] = useState<ProfileView>(initialView);
   const reducedMotion = useReducedMotion();
   const {
@@ -211,31 +157,29 @@ export function PatientProfilePage() {
     applyView(view);
   };
 
-  const persist = async (formValues: FormValues, next?: ProfileView) => {
+  const persist = async (formValues: FormValues) => {
     setSaveError('');
     setSaveMessage('');
     try {
+      const nextHeight = numberOrNull(formValues.heightCm);
+      const nextWeight = numberOrNull(formValues.weightKg);
+      const measurementRecorded =
+        (profile?.heightCm !== nextHeight || profile?.weightKg !== nextWeight) &&
+        (nextHeight !== null || nextWeight !== null);
       const updated = await patientApi.updateProfile(toApiInput(formValues));
       setProfile(updated);
       reset(toFormValues(updated));
-      setSaveMessage('Your health profile has been saved.');
-      if (next) applyView(next);
+      setSaveMessage(
+        measurementRecorded
+          ? 'Health Profile updated. Your latest measurement was added to Health Trends.'
+          : 'Health Profile updated.',
+      );
     } catch (error) {
       setSaveError(patientErrorMessage(error, 'Unable to save your Patient profile. Your changes are still here.'));
     }
   };
 
   const saveCurrent = handleSubmit((formValues) => persist(formValues));
-  const saveAndContinue = handleSubmit(async (formValues) => {
-    const next = nextView(activeView);
-    if (!next) return;
-    if (!isDirty) {
-      applyView(next);
-      return;
-    }
-    await persist(formValues, next);
-  });
-
   if (!profile && !loadError)
     return (
       <div className="mx-auto w-full max-w-[1120px]" role="status" aria-label="Loading Patient profile">
@@ -251,22 +195,27 @@ export function PatientProfilePage() {
   if (!profile) return null;
 
   const completion = sectionCompletion(profile);
-  const currentStepIndex =
-    activeView === 'review' ? profileSections.length : profileSections.findIndex(({ id }) => id === activeView);
+  const currentStepIndex = profileSections.findIndex(({ id }) => id === activeView);
 
   return (
     <div className="mx-auto w-full max-w-[1120px]">
       <header>
         <h1 className="text-3xl font-semibold tracking-[-0.045em] sm:text-[2.4rem]">Health Profile</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-[15px]">
-          Build and maintain the personal and health information in your private Patient record.
+          Keep the information you manage in Clinora accurate and up to date.
+        </p>
+        <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
+          Changes to your health information are reflected in your{' '}
+          <Link to="/patient/history" className="font-semibold text-[var(--clinora-info-foreground)]">
+            Health Record
+          </Link>
+          .
         </p>
       </header>
 
-      <ProfileSignalRail profile={profile} active={activeView} onSelect={(section) => requestView(section)} />
-
-      <div className="mt-6 grid items-start gap-5 lg:grid-cols-12 lg:gap-6">
-        <section className="min-w-0 overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0b1424]/95 lg:col-span-8">
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
+        <ProfileSignalRail profile={profile} active={activeView} onSelect={(section) => requestView(section)} />
+        <section className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0b1424]/95 lg:col-span-9">
           {saveMessage ? (
             <div className="px-5 pt-5 sm:px-7 sm:pt-7" role="status" aria-live="polite">
               <FormNotice tone="success">{saveMessage}</FormNotice>
@@ -286,101 +235,63 @@ export function PatientProfilePage() {
               exit={{ opacity: 0, x: reducedMotion ? 0 : -4 }}
               transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
-              {activeView === 'review' ? (
-                <ReviewProfile profile={profile} onEdit={(section) => requestView(section)} />
-              ) : (
-                <form onSubmit={saveCurrent}>
-                  <div className="p-5 sm:p-7">
-                    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-6">
-                      <div>
-                        <p className="text-xs font-medium text-cyan-200">Step {currentStepIndex + 1} of 4</p>
-                        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">{sectionTitle(activeView)}</h2>
-                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                          {sectionDescription(activeView)}
-                        </p>
-                      </div>
-                      {completion[activeView] ? (
-                        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-teal-300/16 bg-teal-300/[0.06] px-3 text-xs font-medium text-teal-100">
-                          <Check size={13} aria-hidden="true" /> Saved section
-                        </span>
-                      ) : null}
+              <form onSubmit={saveCurrent}>
+                <div className="p-5 sm:p-7">
+                  <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-6">
+                    <div>
+                      <p className="text-xs font-medium text-cyan-200">Step {currentStepIndex + 1} of 4</p>
+                      <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">{sectionTitle(activeView)}</h2>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">{sectionDescription(activeView)}</p>
                     </div>
-
-                    <div className="mt-7 grid gap-6">
-                      {activeView === 'personal' ? (
-                        <PersonalSection profile={profile} register={register} errors={errors} />
-                      ) : null}
-                      {activeView === 'basic' ? <BasicSection register={register} errors={errors} bmi={bmi} /> : null}
-                      {activeView === 'medical' ? (
-                        <MedicalSection values={values} register={register} errors={errors} setValue={setValue} />
-                      ) : null}
-                      {activeView === 'emergency' ? <EmergencySection register={register} errors={errors} /> : null}
-                    </div>
+                    {completion[activeView] ? (
+                      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-teal-300/16 bg-teal-300/[0.06] px-3 text-xs font-medium text-teal-100">
+                        <Check size={13} aria-hidden="true" /> Saved section
+                      </span>
+                    ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-3 border-t border-white/[0.07] bg-slate-950/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-                    <div className="flex items-center gap-2">
-                      {previousView(activeView) ? (
-                        <button
-                          type="button"
-                          onClick={() => requestView(previousView(activeView)!)}
-                          className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-400 transition hover:bg-white/[0.04] hover:text-white"
-                        >
-                          <ArrowLeft size={16} aria-hidden="true" /> Back
-                        </button>
-                      ) : (
-                        <Link
-                          to="/patient"
-                          className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-400 transition hover:bg-white/[0.04] hover:text-white"
-                        >
-                          <ArrowLeft size={16} aria-hidden="true" /> Back to Home
-                        </Link>
-                      )}
-                      {isDirty ? (
-                        <span className="hidden text-xs text-amber-200/80 sm:inline">Unsaved changes</span>
-                      ) : null}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        disabled={!isDirty || isSubmitting}
-                        className="min-h-11 rounded-xl border border-white/10 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-35"
-                      >
-                        {isSubmitting ? 'Saving…' : 'Save changes'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => void saveAndContinue()}
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 px-5 text-sm font-semibold text-slate-950 shadow-[0_10px_28px_rgba(14,165,233,.12)] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transform-none sm:flex-none"
-                      >
-                        {isSubmitting ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : null}
-                        {activeView === 'emergency' ? 'Save & review' : 'Save & continue'}
-                        {!isSubmitting ? <ArrowRight size={16} aria-hidden="true" /> : null}
-                      </button>
-                    </div>
+                  <div className="mt-7 grid gap-6">
+                    {activeView === 'personal' ? (
+                      <PersonalSection profile={profile} register={register} errors={errors} />
+                    ) : null}
+                    {activeView === 'basic' ? <BasicSection register={register} errors={errors} bmi={bmi} /> : null}
+                    {activeView === 'medical' ? (
+                      <MedicalSection values={values} register={register} errors={errors} setValue={setValue} />
+                    ) : null}
+                    {activeView === 'emergency' ? <EmergencySection register={register} errors={errors} /> : null}
                   </div>
-                </form>
-              )}
+                </div>
+
+                <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-white/[0.09] bg-[#091321]/95 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                  <p className={cn('text-sm', isDirty ? 'font-medium text-amber-100' : 'text-slate-500')}>
+                    {isDirty ? 'You have unsaved changes.' : 'All changes saved.'}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={!isDirty || isSubmitting}
+                      onClick={() => {
+                        reset(toFormValues(profile));
+                        setSaveError('');
+                        setSaveMessage('');
+                      }}
+                      className="min-h-11 rounded-xl border border-white/10 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!isDirty || isSubmitting}
+                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 px-5 text-sm font-semibold text-slate-950 shadow-[0_10px_28px_rgba(14,165,233,.12)] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transform-none sm:flex-none"
+                    >
+                      {isSubmitting ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
+              </form>
             </motion.div>
           </AnimatePresence>
         </section>
-
-        <aside className="rounded-[26px] border border-white/[0.08] bg-[#081221]/92 p-5 sm:p-6 lg:sticky lg:top-6 lg:col-span-4">
-          <span className="grid h-10 w-10 place-items-center rounded-xl border border-cyan-300/10 bg-cyan-300/[0.055] text-cyan-200">
-            <CircleHelp size={18} aria-hidden="true" />
-          </span>
-          <h2 className="mt-5 text-lg font-semibold">{contextCopy[activeView].title}</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-400">{contextCopy[activeView].copy}</p>
-          <ul className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07] text-xs leading-5 text-slate-500">
-            {contextCopy[activeView].points.map((point) => (
-              <li key={point} className="flex gap-2.5 py-3">
-                <Check size={14} className="mt-0.5 shrink-0 text-teal-300" aria-hidden="true" />
-                {point}
-              </li>
-            ))}
-          </ul>
-        </aside>
       </div>
 
       <Dialog open={pendingView !== null} onOpenChange={(open) => !open && setPendingView(null)}>
@@ -520,7 +431,7 @@ function MedicalSection({
         onChange={(items) => setValue('allergies', items, { shouldDirty: true })}
       />
       <MedicalList
-        label="Chronic conditions"
+        label="Health conditions"
         singular="condition"
         addLabel="Add condition"
         items={values.chronicConditions}
@@ -588,105 +499,12 @@ type SectionProps = {
   errors: FieldErrors<FormValues>;
 };
 
-function ReviewProfile({ profile, onEdit }: { profile: PatientProfile; onEdit: (section: ProfileSectionId) => void }) {
-  return (
-    <div className="p-5 sm:p-7">
-      <div className="border-b border-white/[0.07] pb-6">
-        <p className="text-xs font-medium text-cyan-200">Review</p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">Review your health profile</h2>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-          This is the information currently saved in your Patient record. Edit any section that needs attention.
-        </p>
-      </div>
-      <div className="divide-y divide-white/[0.07]">
-        <ReviewGroup
-          title="Personal details"
-          onEdit={() => onEdit('personal')}
-          rows={[
-            ['Full name', `${profile.firstName} ${profile.lastName}`],
-            ['Email', profile.email],
-            ['Date of birth', formatDate(profile.dateOfBirth)],
-            ['Gender', profile.gender ? genderLabels[profile.gender] : 'Not added'],
-            ['Phone', profile.phone ?? 'Not added'],
-            ['Address', profile.address ?? 'Not added'],
-          ]}
-        />
-        <ReviewGroup
-          title="Basic health"
-          onEdit={() => onEdit('basic')}
-          rows={[
-            ['Blood group', profile.bloodGroup ? bloodGroupLabels[profile.bloodGroup] : 'Not added'],
-            ['Height', profile.heightCm ? `${profile.heightCm} cm` : 'Not added'],
-            ['Weight', profile.weightKg ? `${profile.weightKg} kg` : 'Not added'],
-          ]}
-        />
-        <ReviewGroup
-          title="Medical history"
-          onEdit={() => onEdit('medical')}
-          rows={[
-            ['Allergies', listValue(profile.allergies, profile.profileCreated)],
-            ['Chronic conditions', listValue(profile.chronicConditions, profile.profileCreated)],
-            ['Current medications', listValue(profile.currentMedications, profile.profileCreated)],
-            ['Family medical history', profile.familyMedicalHistory ?? 'Not added'],
-            ['Lifestyle information', profile.lifestyleInformation ?? 'Not added'],
-          ]}
-        />
-        <ReviewGroup
-          title="Emergency contact"
-          onEdit={() => onEdit('emergency')}
-          rows={[
-            ['Contact name', profile.emergencyContact.name ?? 'Not added'],
-            ['Relationship', profile.emergencyContact.relationship ?? 'Not added'],
-            ['Phone number', profile.emergencyContact.phone ?? 'Not added'],
-          ]}
-        />
-      </div>
-      <div className="mt-3 flex justify-end border-t border-white/[0.07] pt-5">
-        <Link
-          to="/patient"
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 px-5 text-sm font-semibold text-slate-950"
-        >
-          Return to Home <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function ReviewGroup({ title, rows, onEdit }: { title: string; rows: [string, string][]; onEdit: () => void }) {
-  return (
-    <section className="py-6">
-      <div className="flex items-center justify-between gap-4">
-        <h3 className="text-base font-semibold text-slate-100">{title}</h3>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-300/[0.05]"
-        >
-          <Pencil size={14} aria-hidden="true" /> Edit
-        </button>
-      </div>
-      <dl className="mt-4 grid gap-x-8 sm:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="grid gap-1 border-t border-white/[0.06] py-3 first:border-t-0 sm:first:border-t sm:[&:nth-child(2)]:border-t-0"
-          >
-            <dt className="text-xs text-slate-500">{label}</dt>
-            <dd className="break-words text-sm leading-6 text-slate-200">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
 function ReadOnlyIdentity({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className="mt-1.5 break-words text-sm font-medium text-slate-100">{value}</p>
-      <p className="mt-1 text-[11px] text-slate-600">Managed from your Clinora account</p>
+      <p className="mt-1 text-[11px] text-slate-600">Managed through your Clinora account.</p>
     </div>
   );
 }
@@ -772,7 +590,15 @@ function MedicalList({
             </motion.div>
           ))}
         </AnimatePresence>
-        {items.length === 0 ? <p className="py-3 text-sm text-slate-600">None recorded</p> : null}
+        {items.length === 0 ? (
+          <p className="py-3 text-sm text-slate-600">
+            {label === 'Allergies'
+              ? 'No allergies recorded.'
+              : label === 'Health conditions'
+                ? 'No health conditions recorded.'
+                : 'No current medications recorded.'}
+          </p>
+        ) : null}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -928,16 +754,6 @@ function sectionDescription(section: ProfileSectionId) {
     medical: 'Allergies, conditions, medications, and relevant background information.',
     emergency: 'A trusted contact stored with your private Patient record.',
   }[section];
-}
-function nextView(view: ProfileView): ProfileView | null {
-  if (view === 'review') return null;
-  const index = profileSections.findIndex(({ id }) => id === view);
-  return index === profileSections.length - 1 ? 'review' : profileSections[index + 1].id;
-}
-function previousView(view: ProfileView): ProfileSectionId | null {
-  if (view === 'review') return 'emergency';
-  const index = profileSections.findIndex(({ id }) => id === view);
-  return index > 0 ? profileSections[index - 1].id : null;
 }
 function toFormValues(profile: PatientProfile): FormValues {
   return {

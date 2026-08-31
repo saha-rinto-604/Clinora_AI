@@ -2,6 +2,7 @@ package com.clinora.patients.api;
 
 import com.clinora.common.api.ApiResponse;
 import com.clinora.patients.domain.PatientReportType;
+import com.clinora.patients.service.PatientReportMutationService;
 import com.clinora.patients.service.PatientReportService;
 import com.clinora.patients.service.PatientReportService.ContentAccess;
 import com.clinora.patients.service.PatientReportService.ReportCollection;
@@ -46,9 +47,11 @@ import org.springframework.web.multipart.MultipartFile;
 @PreAuthorize("hasRole('PATIENT')")
 public class PatientReportController {
     private final PatientReportService reports;
+    private final PatientReportMutationService mutations;
 
-    public PatientReportController(PatientReportService reports) {
+    public PatientReportController(PatientReportService reports, PatientReportMutationService mutations) {
         this.reports = reports;
+        this.mutations = mutations;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -61,7 +64,7 @@ public class PatientReportController {
         @RequestPart("file") MultipartFile file,
         HttpServletRequest request
     ) {
-        ReportView report = reports.upload(
+        ReportView report = mutations.upload(
             userId(jwt),
             new UploadReportCommand(reportName, reportType, reportDate, providerLaboratory),
             file,
@@ -98,7 +101,7 @@ public class PatientReportController {
         @Valid @RequestBody UpdateReportRequest body,
         HttpServletRequest request
     ) {
-        ReportView report = reports.updateMetadata(
+        ReportView report = mutations.updateMetadata(
             userId(jwt),
             reportId,
             body.toCommand(),
@@ -116,7 +119,7 @@ public class PatientReportController {
     ) {
         return ApiResponse.success(
             "Medical report archived.",
-            reports.archive(userId(jwt), reportId, ip(request), userAgent(request))
+            mutations.archive(userId(jwt), reportId, ip(request), userAgent(request))
         );
     }
 
@@ -128,7 +131,7 @@ public class PatientReportController {
     ) {
         return ApiResponse.success(
             "Medical report restored.",
-            reports.restore(userId(jwt), reportId, ip(request), userAgent(request))
+            mutations.restore(userId(jwt), reportId, ip(request), userAgent(request))
         );
     }
 

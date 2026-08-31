@@ -31,10 +31,18 @@ import { TermsPage } from './pages/public/terms-page';
 import { PatientLayout } from './features/patient/patient-layout';
 import { PatientShell } from './features/patient/patient-layout';
 import { useAuthStore } from './features/auth/auth-store';
-import { PatientDashboardPage } from './pages/patient/patient-dashboard-page';
 import { PatientProfilePage } from './pages/patient/patient-profile-page';
 import { PatientReportDetailPage } from './pages/patient/patient-report-detail-page';
 import { PatientReportsPage } from './pages/patient/patient-reports-page';
+import { PatientPortalPage } from './pages/patient/patient-portal-page';
+import { PatientHealthRecordPage } from './pages/patient/patient-health-record-page';
+import { PatientTimelinePage } from './pages/patient/patient-timeline-page';
+import { PatientDoctorsPage } from './pages/patient/patient-doctors-page';
+import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-page';
+import { PatientAppointmentsPage } from './pages/patient/patient-appointments-page';
+import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
+import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
+import { DoctorAvailabilityPage } from './pages/doctor/doctor-availability-page';
 
 export function AppRoutes() {
   return (
@@ -76,11 +84,22 @@ export function AppRoutes() {
 
       <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>
         <Route element={<PatientLayout />}>
-          <Route path="patient" element={<PatientDashboardPage />} />
+          <Route path="patient" element={<PatientPortalPage />} />
           <Route path="patient/profile" element={<PatientProfilePage />} />
           <Route path="patient/reports" element={<PatientReportsPage />} />
           <Route path="patient/reports/:reportId" element={<PatientReportDetailPage />} />
+          <Route path="patient/history" element={<PatientHealthRecordPage />} />
+          <Route path="patient/timeline" element={<PatientTimelinePage />} />
+          <Route path="patient/doctors" element={<PatientDoctorsPage />} />
+          <Route path="patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
+          <Route path="patient/appointments" element={<PatientAppointmentsPage />} />
+          <Route path="patient/appointments/:appointmentId" element={<PatientAppointmentDetailPage />} />
+          <Route path="patient/notifications" element={<PatientNotificationsPage />} />
         </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['DOCTOR']} />}>
+        <Route path="doctor/availability" element={<DoctorAvailabilityPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
