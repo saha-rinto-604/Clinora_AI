@@ -1,6 +1,6 @@
-import { Activity, ArrowUp } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { Link } from 'react-router';
-import { Separator } from '../ui';
+import { ClinoraBrandMark, Separator } from '../ui';
 import { footerGroups } from './public-data';
 
 export function PublicFooter() {
@@ -10,9 +10,7 @@ export function PublicFooter() {
         <div className="grid gap-12 lg:grid-cols-[1.15fr_1.85fr]">
           <div className="max-w-xl">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/8 text-cyan-200">
-                <Activity aria-hidden="true" size={19} />
-              </span>
+              <ClinoraBrandMark />
               <div>
                 <p className="font-semibold text-white">Clinora AI</p>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Clinical Intelligence Platform</p>
