@@ -1,7 +1,8 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, Dna, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { BiomedicalBackground } from '../../components/landing/biomedical-background';
+import { ClinoraBrandMark } from '../../components/ui/clinora-brand-mark';
 
 export function AuthLayout() {
   const location = useLocation();
@@ -31,9 +32,7 @@ export function AuthLayout() {
           </Link>
 
           <div className="max-w-md">
-            <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/[0.16] bg-cyan-300/[0.07] shadow-[0_0_44px_rgba(14,165,233,.12)]">
-              <Dna size={24} className="text-cyan-200" aria-hidden="true" />
-            </div>
+            <ClinoraBrandMark size="lg" className="mb-6" />
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Secure access</p>
             <div className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-white xl:text-4xl">
               Your Clinora account, protected from the start.
@@ -59,8 +58,12 @@ export function AuthLayout() {
         <section className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-8 lg:px-10 xl:px-12">
           <div className="w-full max-w-lg">
             <div className="mb-6 flex items-center justify-between lg:hidden">
-              <Link to="/" className="text-sm font-semibold text-slate-300 transition hover:text-white">
-                Clinora AI
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2.5 text-sm font-semibold text-slate-300 transition hover:text-white"
+              >
+                <ClinoraBrandMark size="sm" />
+                <span>Clinora AI</span>
               </Link>
               <span className="rounded-full border border-cyan-300/[0.12] bg-cyan-300/[0.05] px-2.5 py-1 text-[11px] font-medium text-cyan-200">
                 Secure access
