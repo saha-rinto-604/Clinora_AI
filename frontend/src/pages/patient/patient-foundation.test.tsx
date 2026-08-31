@@ -7,10 +7,19 @@ import { ProtectedRoute } from '../../features/auth/protected-route';
 import { useAuthStore } from '../../features/auth/auth-store';
 import { PatientLayout } from '../../features/patient/patient-layout';
 import type { PatientDashboard, PatientProfile } from '../../features/patient/patient-types';
-import { PatientDashboardPage } from './patient-dashboard-page';
+import { PatientPortalPage } from './patient-portal-page';
 import { PatientProfilePage } from './patient-profile-page';
 
-const mocks = vi.hoisted(() => ({ dashboard: vi.fn(), profile: vi.fn(), updateProfile: vi.fn(), logout: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  dashboard: vi.fn(),
+  profile: vi.fn(),
+  updateProfile: vi.fn(),
+  appointments: vi.fn(),
+  timeline: vi.fn(),
+  history: vi.fn(),
+  portal: vi.fn(),
+  logout: vi.fn(),
+}));
 vi.mock('../../features/patient/patient-api', () => ({
   patientApi: { dashboard: mocks.dashboard, profile: mocks.profile, updateProfile: mocks.updateProfile },
   patientErrorMessage: (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
@@ -19,6 +28,15 @@ vi.mock('../../features/auth/auth-api', async () => {
   const actual = await vi.importActual<typeof import('../../features/auth/auth-api')>('../../features/auth/auth-api');
   return { ...actual, authApi: { ...actual.authApi, logout: mocks.logout } };
 });
+vi.mock('../../features/appointments/appointment-api', () => ({
+  appointmentApi: { list: mocks.appointments },
+}));
+vi.mock('../../features/patient-record/patient-record-api', () => ({
+  patientRecordApi: { timeline: mocks.timeline, history: mocks.history },
+}));
+vi.mock('../../features/patient/patient-portal-api', () => ({
+  patientPortalApi: { summary: mocks.portal },
+}));
 
 const patientUser = {
   id: '11111111-1111-1111-1111-111111111111',
@@ -101,7 +119,7 @@ function renderPatientRoute(path: string = '/patient') {
       <Routes>
         <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>
           <Route element={<PatientLayout />}>
-            <Route path="/patient" element={<PatientDashboardPage />} />
+            <Route path="/patient" element={<PatientPortalPage />} />
             <Route path="/patient/profile" element={<PatientProfilePage />} />
           </Route>
         </Route>
@@ -120,18 +138,32 @@ describe('Phase 5A Patient experience', () => {
     mocks.dashboard.mockResolvedValue(dashboard);
     mocks.profile.mockResolvedValue(profile);
     mocks.updateProfile.mockResolvedValue(profile);
+    mocks.appointments.mockResolvedValue([]);
+    mocks.timeline.mockResolvedValue({ items: [], hasMore: false, nextBefore: null, nextBeforeId: null });
+    mocks.history.mockResolvedValue({ profile, recentReports: [], lastUpdatedAt: profile.updatedAt });
+    mocks.portal.mockResolvedValue({
+      care: { nextAppointment: null, activeReportShareCount: 0, doctorCount: 0 },
+      recentHealthActivity: [],
+      unreadNotifications: 0,
+    });
     mocks.logout.mockResolvedValue(undefined);
   });
 
-  it('shows only the approved Patient shell navigation', async () => {
+  it('shows the final Patient shell navigation with security kept in the account utility', async () => {
+    const user = userEvent.setup();
     renderPatientRoute();
     await screen.findByRole('heading', { name: /good (morning|afternoon|evening), pia/i });
     const navs = screen.getAllByRole('navigation', { name: /patient/i });
     expect(navs.some((nav) => within(nav).getAllByText('Home').length > 0)).toBe(true);
     expect(screen.getAllByText('Health Profile').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Security/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Reports/).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Appointments')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Health Record').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Appointments').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Find a Doctor').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Notifications').length).toBeGreaterThan(0);
+
+    await user.click(screen.getAllByRole('button', { name: 'Open Patient account menu' })[0]);
+    expect((await screen.findAllByText('Account & Security')).length).toBeGreaterThan(1);
   });
 
   it('gives a new Patient the final one-owner Home architecture without implementation copy', async () => {
@@ -139,22 +171,23 @@ describe('Phase 5A Patient experience', () => {
     const { container } = renderPatientRoute();
 
     expect(await screen.findByRole('heading', { name: 'Medical reports' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Patient record' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your Health Profile' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Upcoming care' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Health insights' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent health activity' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Privacy & sharing' })).toBeInTheDocument();
     expect(Array.from(container.querySelectorAll('main h2')).map((heading) => heading.textContent)).toEqual([
       'Medical reports',
-      'Patient record',
+      'Your Health Profile',
       'Upcoming care',
       'Health insights',
       'Recent health activity',
+      'Your current clinical essentials',
       'Privacy & sharing',
     ]);
 
     expect(screen.getByText('0 of 4 complete')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /start with personal details/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /continue profile/i })).toHaveAttribute(
       'href',
       '/patient/profile?section=personal',
     );
@@ -164,10 +197,10 @@ describe('Phase 5A Patient experience', () => {
     expect(container.querySelector('[data-clinical-ambient-visual="patient-report"]')).toBeInTheDocument();
     expect(container.querySelectorAll('[data-clinical-backdrop="true"]')).toHaveLength(0);
     expect(container.querySelectorAll('[data-clinical-motif="hematology"]')).toHaveLength(0);
-    expect(container.querySelectorAll('[data-clinical-motif="biomarker"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-clinical-motif="biomarker"]')).toHaveLength(0);
     expect(container.querySelectorAll('[data-clinical-motif="document-scan"]')).toHaveLength(0);
-    expect(container.querySelector('[data-health-insight-visual="biomarker-trend"]')).toBeInTheDocument();
-    expect(container.querySelectorAll('[data-motif-motion="parallax-drift"]')).toHaveLength(1);
+    expect(container.querySelector('[data-health-insight-visual="biomarker-trend"]')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-motif-motion="parallax-drift"]')).toHaveLength(0);
     expect(container.querySelector('[data-clinical-motif="radiology"]')).not.toBeInTheDocument();
     expect(container.querySelector('[data-clinical-motif="neural"]')).not.toBeInTheDocument();
     expect(container.querySelector('[data-clinical-motif="molecular"]')).not.toBeInTheDocument();
@@ -186,14 +219,12 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.queryByRole('region', { name: 'Care overview' })).not.toBeInTheDocument();
     expect(screen.queryByText(/needs attention/i)).not.toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Choose a report' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Upload report' })).toBeEnabled();
     expect(screen.queryByRole('link', { name: /view all reports/i })).not.toBeInTheDocument();
-    expect(screen.getByText('Add your first report')).toBeInTheDocument();
-    expect(screen.getByText(/start with a pdf or image from a laboratory, clinic, or hospital/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/health trends will appear here once clinora has comparable measurements/i),
+      screen.getByText(/upload your first medical report to begin building your health record/i),
     ).toBeInTheDocument();
-    expect(screen.getByText('Patient account verified')).toBeInTheDocument();
+    expect(screen.getByText(/add your height and weight in health profile/i)).toBeInTheDocument();
     expect(screen.queryByText('Health profile updated')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /add basic health/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/uploaded|extracted|analysed|reviewed/i)).not.toBeInTheDocument();
@@ -202,7 +233,7 @@ describe('Phase 5A Patient experience', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps partial profile progress and its only next action inside Patient record', async () => {
+  it('keeps partial profile progress and its only next action inside Your Health Profile', async () => {
     mocks.profile.mockResolvedValueOnce({
       ...profile,
       familyMedicalHistory: null,
@@ -211,11 +242,11 @@ describe('Phase 5A Patient experience', () => {
     });
     renderPatientRoute();
 
-    await screen.findByRole('heading', { name: 'Patient record' });
+    await screen.findByRole('heading', { name: 'Your Health Profile' });
     expect(screen.getByText('2 of 4 complete')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Health insights' })).toBeInTheDocument();
 
-    const nextAction = screen.getByRole('link', { name: /start with medical history/i });
+    const nextAction = screen.getByRole('link', { name: /continue profile/i });
     expect(nextAction).toHaveAttribute('href', '/patient/profile?section=medical');
     expect(screen.getAllByRole('link', { name: /start with|continue profile|complete health profile/i })).toHaveLength(
       1,
@@ -224,15 +255,15 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.queryByRole('heading', { name: /complete your health profile/i })).not.toBeInTheDocument();
   });
 
-  it('collapses a complete Patient record and shows only real baseline and activity data', async () => {
+  it('collapses a complete Health Profile and shows only real baseline and activity data', async () => {
     renderPatientRoute();
 
-    const recordHeading = await screen.findByRole('heading', { name: 'Patient record' });
+    const recordHeading = await screen.findByRole('heading', { name: 'Your Health Profile' });
     const recordSection = recordHeading.closest('section')!;
     expect(within(recordSection).getByText('Complete')).toBeInTheDocument();
     expect(within(recordSection).getByRole('link', { name: /view profile/i })).toHaveAttribute(
       'href',
-      '/patient/profile?section=review',
+      '/patient/profile?section=personal',
     );
     expect(within(recordSection).queryByText('4 of 4 complete')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Health insights' })).toBeInTheDocument();
@@ -240,16 +271,16 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getByText('60 kg')).toBeInTheDocument();
     expect(screen.getByText('22.0')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent health activity' })).toBeInTheDocument();
-    expect(screen.getByText(/health profile updated/i)).toBeInTheDocument();
+    expect(screen.getByText(/recent health activity will appear here/i)).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Choose a report' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Upload report' })).toBeEnabled();
     expect(screen.getAllByText('No appointments scheduled.')).toHaveLength(1);
-    expect(screen.queryByRole('link', { name: /find a doctor/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /find a doctor/i })).toEqual(
+      expect.arrayContaining([expect.objectContaining({ pathname: '/patient/doctors' })]),
+    );
     expect(screen.queryByText(/hemoglobin|glucose|blood pressure|cholesterol|prescription/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Complete your health profile' })).not.toBeInTheDocument();
-    expect(screen.getAllByText(/clinical access is granted only through authorized clinora workflows/i)).toHaveLength(
-      1,
-    );
+    expect(screen.getAllByText(/shared only through authorized clinora workflows/i)).toHaveLength(1);
     expect(screen.queryByText(/private by design/i)).not.toBeInTheDocument();
   });
 
@@ -269,7 +300,7 @@ describe('Phase 5A Patient experience', () => {
     renderPatientRoute();
 
     expect(await screen.findByText('Annual blood panel')).toBeInTheDocument();
-    expect(screen.getByText('2 current')).toBeInTheDocument();
+    expect(screen.getByText('2 active reports')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload report' })).toBeEnabled();
     expect(screen.getByRole('link', { name: /view all reports/i })).toHaveAttribute('href', '/patient/reports');
   });
@@ -283,8 +314,8 @@ describe('Phase 5A Patient experience', () => {
   it('switches profile steps and manages structured medical lists', async () => {
     const user = userEvent.setup();
     renderPatientRoute('/patient/profile');
-    await user.click(await screen.findByRole('button', { name: /medical history/i }));
-    expect(await screen.findByRole('heading', { name: 'Medical history', level: 2 })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /medical background/i }));
+    expect(await screen.findByRole('heading', { name: 'Medical background', level: 2 })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Add allergy' }));
     await user.type(screen.getByRole('textbox', { name: 'Allergy' }), 'Latex');
     await user.click(screen.getByRole('button', { name: 'Add item' }));
@@ -308,7 +339,7 @@ describe('Phase 5A Patient experience', () => {
     expect(await screen.findByRole('heading', { name: 'Basic health' })).toBeInTheDocument();
   });
 
-  it('saves through the existing contract, preserves values after failure, and supports save-and-continue', async () => {
+  it('saves through the existing contract and preserves values after failure', async () => {
     const user = userEvent.setup();
     mocks.updateProfile.mockRejectedValueOnce(new Error('Save unavailable.'));
     renderPatientRoute('/patient/profile');
@@ -319,22 +350,18 @@ describe('Phase 5A Patient experience', () => {
     expect(await screen.findByText('Save unavailable.')).toBeInTheDocument();
     expect(address).toHaveValue('Chattogram, Bangladesh');
     mocks.updateProfile.mockResolvedValueOnce({ ...profile, address: 'Chattogram, Bangladesh' });
-    await user.click(screen.getByRole('button', { name: 'Save & continue' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(mocks.updateProfile).toHaveBeenCalledTimes(2));
     expect(mocks.updateProfile).toHaveBeenLastCalledWith(
       expect.objectContaining({ address: 'Chattogram, Bangladesh', allergies: ['Penicillin'] }),
     );
-    expect(await screen.findByRole('heading', { name: 'Basic health' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Personal details' })).toBeInTheDocument();
   });
 
-  it('provides a final saved-profile review with edit actions', async () => {
-    const user = userEvent.setup();
-    renderPatientRoute('/patient/profile?section=review');
-    expect(await screen.findByRole('heading', { name: 'Review your health profile' })).toBeInTheDocument();
-    expect(screen.getByText('Rina Patient')).toBeInTheDocument();
-    const medicalSection = screen.getByRole('heading', { name: 'Medical history' }).closest('section')!;
-    await user.click(within(medicalSection).getByRole('button', { name: 'Edit' }));
-    expect(await screen.findByRole('heading', { name: 'Medical history', level: 2 })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Add allergy' })).toBeInTheDocument();
+  it('deep-links directly to a focused editable Health Profile section', async () => {
+    renderPatientRoute('/patient/profile?section=medical');
+    expect(await screen.findByRole('heading', { name: 'Medical background', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add allergy' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Review your health profile' })).not.toBeInTheDocument();
   });
 });

@@ -27,3 +27,9 @@ clinora:
     path-style: ${S3_PATH_STYLE:false}
     auto-create-bucket: ${S3_AUTO_CREATE_BUCKET:false}
     max-file-size: ${PATIENT_REPORT_MAX_FILE_SIZE:20MB}
+    malware:
+      enabled: ${PATIENT_REPORT_MALWARE_SCAN_ENABLED:true}
+      fail-closed: ${PATIENT_REPORT_MALWARE_FAIL_CLOSED:true}
+      host: ${PATIENT_REPORT_MALWARE_HOST:clamav}
+      port: ${PATIENT_REPORT_MALWARE_PORT:3310}
+      timeout-ms: ${PATIENT_REPORT_MALWARE_TIMEOUT_MS:5000}

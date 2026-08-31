@@ -138,7 +138,7 @@ public class PatientProfileService {
         );
         profiles.save(profile);
 
-        replaceClinicalLists(
+        reconcileClinicalLists(
             profile.getId(),
             cleanItems(command.allergies()),
             cleanItems(command.chronicConditions()),
@@ -159,24 +159,64 @@ public class PatientProfileService {
         return view(user, profile);
     }
 
-    private void replaceClinicalLists(
+    private void reconcileClinicalLists(
         UUID profileId,
         List<String> allergyNames,
         List<String> conditionNames,
         List<String> medicationNames,
         Instant now
     ) {
-        allergies.deleteAllByPatientProfileId(profileId);
-        conditions.deleteAllByPatientProfileId(profileId);
-        medications.deleteAllByPatientProfileId(profileId);
+        Map<String, String> desiredAllergies = normalizedItems(allergyNames);
+        List<PatientAllergy> existingAllergies = allergies.findAllByPatientProfileIdOrderByNameAsc(profileId);
+        List<PatientAllergy> removedAllergies = existingAllergies.stream()
+            .filter(item -> !desiredAllergies.containsKey(normalizedKey(item.getName())))
+            .toList();
+        if (!removedAllergies.isEmpty()) allergies.deleteAll(removedAllergies);
+        Map<String, PatientAllergy> allergiesByName = new LinkedHashMap<>();
+        existingAllergies.forEach(item -> allergiesByName.put(normalizedKey(item.getName()), item));
+        List<PatientAllergy> addedAllergies = desiredAllergies.entrySet().stream()
+            .filter(item -> !allergiesByName.containsKey(item.getKey()))
+            .map(item -> new PatientAllergy(profileId, item.getValue(), now))
+            .toList();
+        if (!addedAllergies.isEmpty()) allergies.saveAll(addedAllergies);
 
-        // Derived deletes are scheduled in the persistence context. Flush them before
-        // inserting replacements so unchanged normalized names cannot hit the unique indexes.
-        allergies.flush();
+        Map<String, String> desiredConditions = normalizedItems(conditionNames);
+        List<PatientChronicCondition> existingConditions = conditions.findAllByPatientProfileIdOrderByNameAsc(profileId);
+        List<PatientChronicCondition> removedConditions = existingConditions.stream()
+            .filter(item -> !desiredConditions.containsKey(normalizedKey(item.getName())))
+            .toList();
+        if (!removedConditions.isEmpty()) conditions.deleteAll(removedConditions);
+        Map<String, PatientChronicCondition> conditionsByName = new LinkedHashMap<>();
+        existingConditions.forEach(item -> conditionsByName.put(normalizedKey(item.getName()), item));
+        List<PatientChronicCondition> addedConditions = desiredConditions.entrySet().stream()
+            .filter(item -> !conditionsByName.containsKey(item.getKey()))
+            .map(item -> new PatientChronicCondition(profileId, item.getValue(), now))
+            .toList();
+        if (!addedConditions.isEmpty()) conditions.saveAll(addedConditions);
 
-        allergies.saveAll(allergyNames.stream().map(name -> new PatientAllergy(profileId, name, now)).toList());
-        conditions.saveAll(conditionNames.stream().map(name -> new PatientChronicCondition(profileId, name, now)).toList());
-        medications.saveAll(medicationNames.stream().map(name -> new PatientMedication(profileId, name, now)).toList());
+        Map<String, String> desiredMedications = normalizedItems(medicationNames);
+        List<PatientMedication> existingMedications = medications.findAllByPatientProfileIdOrderByNameAsc(profileId);
+        List<PatientMedication> removedMedications = existingMedications.stream()
+            .filter(item -> !desiredMedications.containsKey(normalizedKey(item.getName())))
+            .toList();
+        if (!removedMedications.isEmpty()) medications.deleteAll(removedMedications);
+        Map<String, PatientMedication> medicationsByName = new LinkedHashMap<>();
+        existingMedications.forEach(item -> medicationsByName.put(normalizedKey(item.getName()), item));
+        List<PatientMedication> addedMedications = desiredMedications.entrySet().stream()
+            .filter(item -> !medicationsByName.containsKey(item.getKey()))
+            .map(item -> new PatientMedication(profileId, item.getValue(), now))
+            .toList();
+        if (!addedMedications.isEmpty()) medications.saveAll(addedMedications);
+    }
+
+    private Map<String, String> normalizedItems(List<String> names) {
+        Map<String, String> normalized = new LinkedHashMap<>();
+        names.forEach(name -> normalized.put(normalizedKey(name), name));
+        return normalized;
+    }
+
+    private String normalizedKey(String value) {
+        return value.toLowerCase(Locale.ROOT);
     }
 
     private PatientProfileView view(UserAccount user, PatientProfile profile) {

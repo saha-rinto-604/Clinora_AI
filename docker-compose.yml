@@ -6,7 +6,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-clinora}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      - "5432:5432"
+      - "55432:5432"
+    volumes:
+      - clinora-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -23,6 +25,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clinora}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change-me}
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-clinora-local-erlang-cookie-change-me}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -59,6 +62,13 @@ services:
       - "9001:9001"
     volumes:
       - clinora-minio-data:/data
+    networks:
+      - clinora-private
+
+  clamav:
+    image: clamav/clamav:1.4
+    volumes:
+      - clinora-clamav-data:/var/lib/clamav
     networks:
       - clinora-private
 
@@ -109,6 +119,11 @@ services:
       S3_AUTO_CREATE_BUCKET: true
       PATIENT_REPORT_MAX_FILE_SIZE: ${PATIENT_REPORT_MAX_FILE_SIZE:-20MB}
       PATIENT_REPORT_MAX_REQUEST_SIZE: ${PATIENT_REPORT_MAX_REQUEST_SIZE:-21MB}
+      CLINORA_STORAGE_MALWARE_ENABLED: ${PATIENT_REPORT_MALWARE_SCAN_ENABLED:-true}
+      CLINORA_STORAGE_MALWARE_FAIL_CLOSED: ${PATIENT_REPORT_MALWARE_FAIL_CLOSED:-true}
+      CLINORA_STORAGE_MALWARE_HOST: ${PATIENT_REPORT_MALWARE_HOST:-clamav}
+      CLINORA_STORAGE_MALWARE_PORT: ${PATIENT_REPORT_MALWARE_PORT:-3310}
+      CLINORA_STORAGE_MALWARE_TIMEOUT_MS: ${PATIENT_REPORT_MALWARE_TIMEOUT_MS:-5000}
       S3_APPLICATION_ENDPOINT: http://minio:9000
       S3_APPLICATION_REGION: ${S3_APPLICATION_REGION:-us-east-1}
       S3_APPLICATION_BUCKET: ${S3_APPLICATION_BUCKET:-clinora-access-documents}
@@ -131,6 +146,8 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_started
+      clamav:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
@@ -206,4 +223,6 @@ networks:
     driver: bridge
 
 volumes:
+  clinora-postgres-data:
   clinora-minio-data:
+  clinora-clamav-data:

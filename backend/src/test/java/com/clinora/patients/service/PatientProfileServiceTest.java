@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,7 +41,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class PatientProfileServiceTest {
@@ -119,15 +117,12 @@ class PatientProfileServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<PatientAllergy>> allergyCaptor = ArgumentCaptor.forClass(List.class);
         verify(fixture.allergies).saveAll(allergyCaptor.capture());
-        assertEquals(2, allergyCaptor.getValue().size());
-        assertEquals(List.of("Penicillin", "Dust"), allergyCaptor.getValue().stream().map(PatientAllergy::getName).toList());
-
-        InOrder replacementOrder = inOrder(fixture.allergies, fixture.conditions, fixture.medications);
-        replacementOrder.verify(fixture.allergies).deleteAllByPatientProfileId(PROFILE_ID);
-        replacementOrder.verify(fixture.conditions).deleteAllByPatientProfileId(PROFILE_ID);
-        replacementOrder.verify(fixture.medications).deleteAllByPatientProfileId(PROFILE_ID);
-        replacementOrder.verify(fixture.allergies).flush();
-        replacementOrder.verify(fixture.allergies).saveAll(any());
+        assertEquals(1, allergyCaptor.getValue().size());
+        assertEquals(List.of("Dust"), allergyCaptor.getValue().stream().map(PatientAllergy::getName).toList());
+        verify(fixture.allergies, never()).deleteAllByPatientProfileId(PROFILE_ID);
+        verify(fixture.conditions, never()).deleteAllByPatientProfileId(PROFILE_ID);
+        verify(fixture.medications, never()).deleteAllByPatientProfileId(PROFILE_ID);
+        verify(fixture.allergies, never()).flush();
 
         verify(fixture.audit).record(
             USER_ID,

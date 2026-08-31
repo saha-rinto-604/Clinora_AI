@@ -6,7 +6,7 @@ export type ProfileSectionId = 'personal' | 'basic' | 'medical' | 'emergency';
 export const profileSections = [
   { id: 'personal' as const, label: 'Personal details', icon: UserRound },
   { id: 'basic' as const, label: 'Basic health', icon: HeartPulse },
-  { id: 'medical' as const, label: 'Medical history', icon: History },
+  { id: 'medical' as const, label: 'Medical background', icon: History },
   { id: 'emergency' as const, label: 'Emergency contact', icon: ContactRound },
 ];
 

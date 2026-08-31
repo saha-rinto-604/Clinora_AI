@@ -14,6 +14,8 @@ import com.clinora.auth.token.EmailVerificationTokenRepository;
 import com.clinora.auth.token.PasswordResetToken;
 import com.clinora.auth.token.PasswordResetTokenRepository;
 import com.clinora.config.AuthProperties;
+import com.clinora.notifications.service.PatientNotificationService;
+import com.clinora.notifications.service.PatientNotificationService.NotificationCategory;
 import com.clinora.security.PasswordService;
 import com.clinora.security.jwt.AccessTokenService;
 import com.clinora.security.jwt.AccessTokenService.IssuedAccessToken;
@@ -48,6 +50,7 @@ public class PatientAuthService {
     private final AuthMailService mail;
     private final AuthRateLimitGuard limits;
     private final AuthAuditService audit;
+    private final PatientNotificationService notifications;
     private final AuthProperties properties;
     private final Clock clock;
 
@@ -64,6 +67,7 @@ public class PatientAuthService {
         AuthMailService mail,
         AuthRateLimitGuard limits,
         AuthAuditService audit,
+        PatientNotificationService notifications,
         AuthProperties properties,
         Clock clock
     ) {
@@ -79,6 +83,7 @@ public class PatientAuthService {
         this.mail = mail;
         this.limits = limits;
         this.audit = audit;
+        this.notifications = notifications;
         this.properties = properties;
         this.clock = clock;
     }
@@ -273,6 +278,13 @@ public class PatientAuthService {
         token.consume(now);
         refreshSessions.revokeAll(user.getId(), "PASSWORD_RESET");
         record(user, AuthAuditAction.PASSWORD_RESET_COMPLETED, AuthAuditOutcome.SUCCESS, context, id(user.getId()));
+        notifySecurity(
+            user,
+            "PASSWORD_RESET_COMPLETED",
+            "Your password was reset",
+            "Your Clinora password was reset. Review your account security if you did not make this change.",
+            "password-reset:" + now.toEpochMilli()
+        );
     }
 
     @Transactional
@@ -308,6 +320,13 @@ public class PatientAuthService {
         IssuedRefreshSession refresh = refreshSessions.rotate(refreshToken);
         IssuedAccessToken access = accessTokens.issue(user.getId(), user.getRole());
         record(user, AuthAuditAction.PASSWORD_CHANGED, AuthAuditOutcome.SUCCESS, context, id(user.getId()));
+        notifySecurity(
+            user,
+            "PASSWORD_CHANGED",
+            "Your password was changed",
+            "Your Clinora password was changed and other sessions were signed out.",
+            "password-changed:" + clock.instant().toEpochMilli()
+        );
         return sessionResult(user, access, refresh);
     }
 
@@ -320,7 +339,7 @@ public class PatientAuthService {
 
     @Transactional
     public void revokeSession(UUID userId, UUID sessionId, RequestContext context) {
-        requireUser(userId);
+        UserAccount user = requireUser(userId);
         try {
             refreshSessions.revokeSession(userId, sessionId, "USER_REVOKED");
         } catch (RefreshSessionException exception) {
@@ -335,10 +354,18 @@ public class PatientAuthService {
             id(sessionId),
             null
         );
+        notifySecurity(
+            user,
+            "SESSION_REVOKED",
+            "A session was signed out",
+            "A Clinora session was signed out from your account security settings.",
+            "session-revoked:" + sessionId
+        );
     }
 
     @Transactional
     public void revokeOthers(UUID userId, String refreshToken, RequestContext context) {
+        UserAccount user = requireUser(userId);
         UUID current = safeSessionId(refreshToken);
         if (current == null) {
             throw AuthApiException.sessionInvalid();
@@ -353,6 +380,34 @@ public class PatientAuthService {
             "other-sessions",
             null
         );
+        notifySecurity(
+            user,
+            "OTHER_SESSIONS_REVOKED",
+            "Other sessions were signed out",
+            "Other Clinora sessions were signed out from your account security settings.",
+            "other-sessions-revoked:" + clock.instant().toEpochMilli()
+        );
+    }
+
+    private void notifySecurity(
+        UserAccount user,
+        String type,
+        String title,
+        String body,
+        String sourceEventId
+    ) {
+        if (user.getRole() == UserRole.PATIENT) {
+            notifications.create(
+                user.getId(),
+                type,
+                NotificationCategory.SECURITY,
+                title,
+                body,
+                "ACCOUNT_SECURITY",
+                null,
+                sourceEventId
+            );
+        }
     }
 
     public Duration refreshCookieMaxAge() {

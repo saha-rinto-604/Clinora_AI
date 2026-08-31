@@ -17,6 +17,7 @@ import com.clinora.auth.token.EmailVerificationTokenRepository;
 import com.clinora.auth.token.PasswordResetToken;
 import com.clinora.auth.token.PasswordResetTokenRepository;
 import com.clinora.config.AuthProperties;
+import com.clinora.notifications.service.PatientNotificationService;
 import com.clinora.security.PasswordService;
 import com.clinora.security.jwt.AccessTokenService;
 import com.clinora.security.token.SecureTokenService;
@@ -65,6 +66,7 @@ class PatientAuthServiceTest {
             mail,
             limits,
             audit,
+            mock(PatientNotificationService.class),
             new AuthProperties(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -180,6 +182,7 @@ class PatientAuthServiceTest {
         final AuthMailService mail = mock(AuthMailService.class);
         final AuthRateLimitGuard limits = mock(AuthRateLimitGuard.class);
         final AuthAuditService audit = mock(AuthAuditService.class);
+        final PatientNotificationService notifications = mock(PatientNotificationService.class);
         final SecureTokenService secureTokens = new SecureTokenService();
         final PatientAuthService service = new PatientAuthService(
             users,
@@ -194,6 +197,7 @@ class PatientAuthServiceTest {
             mail,
             limits,
             audit,
+            notifications,
             new AuthProperties(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
