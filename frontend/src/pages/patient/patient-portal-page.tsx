@@ -1,5 +1,7 @@
 import { useReducedMotion } from 'framer-motion';
+import { ScanText } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { Link } from 'react-router';
 import { appointmentApi, type Appointment } from '../../features/appointments/appointment-api';
 import { useAuthStore } from '../../features/auth/auth-store';
 import {
@@ -119,6 +121,33 @@ export function PatientPortalPage() {
       />
 
       <div className="mt-9 space-y-9 sm:mt-10 sm:space-y-10">
+        <section className="overflow-hidden rounded-[var(--clinora-radius-lg)] border border-cyan-300/15 bg-[var(--clinora-surface-raised)]">
+          <div className="grid gap-6 p-6 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="flex gap-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
+                <ScanText size={20} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
+                  Clinora intelligence
+                </p>
+                <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-white">
+                  Understand your medical report
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
+                  Extract laboratory-style results, compare them with the original document, and correct transcription
+                  errors before AI-assisted analysis.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/patient/analyze"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--clinora-primary-gradient)] px-5 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90"
+            >
+              <ScanText size={16} aria-hidden="true" /> Analyze a report
+            </Link>
+          </div>
+        </section>
         <MedicalReportsHero
           section={section(dashboard, loading.reports, errors.reports, loadReports)}
           reducedMotion={Boolean(reducedMotion)}

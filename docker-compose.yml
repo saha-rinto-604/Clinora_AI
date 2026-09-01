@@ -89,6 +89,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       OCR_SERVICE_URL: http://ocr-service:8000
+      CLINORA_SERVICES_OCR_TOKEN: ${OCR_INTERNAL_TOKEN:-dev-only-clinora-ocr-token-change-me}
       AI_SERVICE_URL: http://ai-service:8001
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-clinora-ai}
       AUTH_ACCESS_TOKEN_TTL: ${AUTH_ACCESS_TOKEN_TTL:-15m}
@@ -182,12 +183,20 @@ services:
     build:
       context: ./ocr-service
     environment:
+      OCR_INTERNAL_TOKEN: ${OCR_INTERNAL_TOKEN:-dev-only-clinora-ocr-token-change-me}
+      OCR_ENGINE: ${OCR_ENGINE:-auto}
+      OCR_LANG: ${OCR_LANG:-en}
       OCR_MAX_WORKERS: ${OCR_MAX_WORKERS:-2}
-      OCR_JOB_TIMEOUT_SECONDS: ${OCR_JOB_TIMEOUT_SECONDS:-60}
-      OCR_MAX_FILE_SIZE_MB: ${OCR_MAX_FILE_SIZE_MB:-50}
+      OCR_JOB_TIMEOUT_SECONDS: ${OCR_JOB_TIMEOUT_SECONDS:-180}
+      OCR_MAX_FILE_SIZE_MB: ${OCR_MAX_FILE_SIZE_MB:-20}
       OCR_MAX_PAGES: ${OCR_MAX_PAGES:-10}
+      OCR_MAX_PAGE_PIXELS: ${OCR_MAX_PAGE_PIXELS:-30000000}
+      OCR_PDF_DPI: ${OCR_PDF_DPI:-200}
+      OCR_NUMERIC_REVIEW_THRESHOLD: ${OCR_NUMERIC_REVIEW_THRESHOLD:-0.95}
     ports:
       - "8000:8000"
+    volumes:
+      - clinora-paddle-models:/root/.paddlex
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 15s
@@ -226,3 +235,4 @@ volumes:
   clinora-postgres-data:
   clinora-minio-data:
   clinora-clamav-data:
+  clinora-paddle-models:
