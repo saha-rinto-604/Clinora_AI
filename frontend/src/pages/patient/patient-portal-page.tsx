@@ -1,7 +1,9 @@
 import { useReducedMotion } from 'framer-motion';
-import { ScanText } from 'lucide-react';
+import { ArrowRight, ScanText, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { Link } from 'react-router';
+import { Button } from '../../components/ui/button';
+import { buttonVariants } from '../../components/ui/button-variants';
 import { appointmentApi, type Appointment } from '../../features/appointments/appointment-api';
 import { useAuthStore } from '../../features/auth/auth-store';
 import {
@@ -85,7 +87,7 @@ export function PatientPortalPage() {
     'activity',
     setLoading,
     setErrors,
-    async () => setActivity((await patientRecordApi.timeline({ limit: 4 })).items),
+    async () => setActivity((await patientRecordApi.timeline({ limit: 6 })).items),
     'Recent health activity could not be refreshed.',
   );
   const loadRecord = useHomeLoader(
@@ -120,32 +122,59 @@ export function PatientPortalPage() {
         reducedMotion={Boolean(reducedMotion)}
       />
 
-      <div className="mt-9 space-y-9 sm:mt-10 sm:space-y-10">
-        <section className="overflow-hidden rounded-[var(--clinora-radius-lg)] border border-cyan-300/15 bg-[var(--clinora-surface-raised)]">
-          <div className="grid gap-6 p-6 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="mt-8 space-y-8 sm:mt-9 sm:space-y-9">
+        <section
+          aria-labelledby="patient-report-analysis-title"
+          className="relative overflow-hidden rounded-[var(--clinora-radius-lg)] border border-cyan-300/20 bg-[linear-gradient(118deg,rgba(8,145,178,0.12),rgba(15,23,42,0.18)_50%,rgba(20,184,166,0.055))] shadow-[0_24px_70px_-54px_rgba(34,211,238,0.8)]"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-72 bg-[radial-gradient(circle_at_70%_50%,rgba(34,211,238,0.09),transparent_62%)]"
+          />
+          <div className="relative grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="flex gap-4">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
-                <ScanText size={20} aria-hidden="true" />
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)] ring-1 ring-cyan-300/10">
+                <ScanText size={18} aria-hidden="true" />
               </span>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
-                  Clinora intelligence
+                  AI report analysis
                 </p>
-                <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-white">
-                  Understand your medical report
+                <h2
+                  id="patient-report-analysis-title"
+                  className="mt-1.5 text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl"
+                >
+                  Turn a report into results you can verify
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-                  Extract laboratory-style results, compare them with the original document, and correct transcription
-                  errors before AI-assisted analysis.
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
+                  Upload a laboratory report or choose one already stored in Clinora. Clinora extracts reported
+                  laboratory values and lets you verify them against the original before later AI-assisted
+                  interpretation.
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-medium text-[var(--clinora-text-faint)]">
+                  <span>Extract</span>
+                  <ArrowRight size={12} aria-hidden="true" />
+                  <span>Verify</span>
+                  <ArrowRight size={12} aria-hidden="true" />
+                  <span>Prepare for AI insight</span>
+                </div>
               </div>
             </div>
-            <Link
-              to="/patient/analyze"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--clinora-primary-gradient)] px-5 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90"
-            >
-              <ScanText size={16} aria-hidden="true" /> Analyze a report
-            </Link>
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap lg:justify-end">
+              <Link
+                to="/patient/analyze"
+                className={`${buttonVariants({ variant: 'appPrimary' })} focus-visible:outline-cyan-300`}
+              >
+                <ScanText size={16} aria-hidden="true" /> Analyze a report <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+              <Button
+                variant="appSecondary"
+                className="focus-visible:outline-cyan-300"
+                onClick={() => setUploadOpen(true)}
+              >
+                <UploadCloud size={16} aria-hidden="true" /> Upload new report
+              </Button>
+            </div>
           </div>
         </section>
         <MedicalReportsHero

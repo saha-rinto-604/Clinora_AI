@@ -62,74 +62,64 @@ function AnalysisStart() {
     <div className="space-y-8">
       <header className="max-w-3xl">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/[0.07] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
-          <ScanText size={14} aria-hidden="true" /> Clinora intelligence
+          <ScanText size={14} aria-hidden="true" /> AI report analysis
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
           Analyze a medical report
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)] sm:text-base">
-          Turn a laboratory report into organized results you can verify. AI-assisted interpretation is added only after
-          the extracted information has been reviewed.
+          Extract laboratory values from a report and verify them against the original. Reviewed values can support
+          later AI-assisted interpretation.
         </p>
       </header>
 
-      <section className="grid gap-5 lg:grid-cols-2" aria-label="Choose how to begin report analysis">
-        <button
-          type="button"
-          onClick={() => setUploadOpen(true)}
-          className="group min-h-56 rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-raised)] p-6 text-left transition-colors hover:border-cyan-300/25 hover:bg-white/[0.055] sm:p-7"
-        >
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
-            <UploadCloud size={22} aria-hidden="true" />
-          </span>
-          <h2 className="mt-7 text-xl font-semibold tracking-[-0.025em] text-white">Upload a new report</h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-[var(--clinora-text-muted)]">
-            Securely add a PDF, JPG or PNG to your Medical Reports, then continue directly to extraction.
-          </p>
-          <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--clinora-info-foreground)]">
-            Upload report{' '}
-            <ChevronRight size={16} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </span>
-        </button>
-
-        <div className="min-h-56 rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-raised)] p-6 sm:p-7">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/[0.055] text-slate-300">
-            <FileText size={22} aria-hidden="true" />
-          </span>
-          <h2 className="mt-7 text-xl font-semibold tracking-[-0.025em] text-white">Choose an existing report</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
-            Reuse a document already secured in your Medical Reports. No duplicate upload is created.
-          </p>
-          <a
-            href="#existing-reports"
-            className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--clinora-info-foreground)]"
-          >
-            Browse reports <ChevronRight size={16} aria-hidden="true" />
-          </a>
-        </div>
-      </section>
-
-      <section className="rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-white/[0.025] p-5 sm:p-6">
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ['01', 'Secure the report', 'The original stays in your private report vault.'],
-            ['02', 'Extract reported data', 'Clinora reads document layout and laboratory values.'],
-            [
-              '03',
-              'Review important values',
-              'Compare extracted results with the original and correct transcription errors.',
-            ],
-            ['04', 'Prepare for AI insight', 'Reviewed values become the foundation for AI-assisted explanation.'],
-          ].map(([number, title, copy]) => (
-            <div
-              key={number}
-              className="border-l border-white/[0.08] pl-4 first:border-l-0 first:pl-0 sm:first:border-l"
-            >
-              <p className="text-[11px] font-bold tracking-[0.15em] text-[var(--clinora-info-foreground)]">{number}</p>
-              <h3 className="mt-2 text-sm font-semibold text-white">{title}</h3>
-              <p className="mt-1.5 text-xs leading-5 text-[var(--clinora-text-muted)]">{copy}</p>
+      <section
+        aria-labelledby="analysis-start-title"
+        className="rounded-[var(--clinora-radius-lg)] border border-cyan-300/15 bg-[linear-gradient(115deg,rgba(8,145,178,0.08),rgba(255,255,255,0.018)_55%)] p-5 sm:p-6"
+      >
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-4">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
+              <UploadCloud size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 id="analysis-start-title" className="text-base font-semibold text-white">
+                Start with your report
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
+                Upload a PDF, JPG or PNG, or choose a report already saved in Medical Reports. The original remains
+                unchanged while you review Clinora's transcription.
+              </p>
             </div>
-          ))}
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button variant="appPrimary" onClick={() => setUploadOpen(true)}>
+              <UploadCloud size={16} aria-hidden="true" /> Upload report
+            </Button>
+            <a
+              href="#existing-reports"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-white/[0.09] bg-white/[0.035] px-4 text-sm font-semibold text-slate-200 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+            >
+              Choose existing <ChevronRight size={15} aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 border-t border-white/[0.07] pt-4 text-xs text-[var(--clinora-text-muted)] sm:grid-cols-3">
+          <p>
+            <span className="font-semibold text-slate-300">1 · Extract</span>
+            <br />
+            Clinora reads reported laboratory values.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-300">2 · Verify</span>
+            <br />
+            Compare uncertain values with the source.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-300">3 · Confirm</span>
+            <br />
+            Verified values become ready for later AI insight.
+          </p>
         </div>
       </section>
 
@@ -400,7 +390,13 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   </div>
                 </div>
 
-                <div className="max-h-[680px] space-y-2 overflow-y-auto p-3 sm:p-4">
+                <div className="hidden grid-cols-[minmax(150px,1.15fr)_minmax(100px,0.7fr)_minmax(160px,1fr)_auto] gap-3 border-b border-white/[0.055] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:grid">
+                  <span>Test</span>
+                  <span>Result</span>
+                  <span>Reference on report</span>
+                  <span className="text-right">Action</span>
+                </div>
+                <div className="max-h-[680px] divide-y divide-white/[0.055] overflow-y-auto">
                   {[...extraction.observations]
                     .sort(
                       (a, b) =>
@@ -446,10 +442,10 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   </h2>
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
                     {extraction.reviewStatus === 'VERIFIED'
-                      ? 'These reviewed values are ready for AI-assisted analysis.'
+                      ? 'These reviewed values are ready for later AI-assisted interpretation.'
                       : unresolved
                         ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
-                        : 'Confirm that the extracted information matches your report before it can be used for AI-assisted analysis.'}
+                        : 'Confirm that the extracted information matches your report before later AI-assisted interpretation.'}
                   </p>
                 </div>
               </div>
@@ -652,71 +648,76 @@ function ObservationCard({
   reportId: string;
 }) {
   const needsReview = observation.reviewRequired && observation.verificationStatus === 'UNREVIEWED';
+  const corrected = observation.verificationStatus === 'PATIENT_CORRECTED';
   return (
     <article
       className={cn(
-        'rounded-2xl border transition-colors',
-        selected ? 'border-cyan-300/25 bg-cyan-300/[0.045]' : 'border-white/[0.07] bg-white/[0.025]',
-        needsReview ? 'border-amber-300/20' : '',
+        'border-l-2 transition-colors',
+        needsReview
+          ? 'border-l-amber-300 bg-amber-300/[0.035]'
+          : selected
+            ? 'border-l-cyan-300 bg-cyan-300/[0.045]'
+            : corrected
+              ? 'border-l-cyan-300/40 bg-cyan-300/[0.018]'
+              : 'border-l-transparent bg-transparent hover:bg-white/[0.02]',
       )}
     >
-      <button type="button" onClick={onSelect} className="flex w-full items-start gap-3 p-4 text-left">
-        <span
-          className={cn(
-            'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
-            needsReview ? 'bg-amber-300/[0.09] text-amber-300' : 'bg-white/[0.045] text-slate-400',
-          )}
-        >
-          {needsReview ? <CircleAlert size={17} aria-hidden="true" /> : <FileCheck2 size={17} aria-hidden="true" />}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-white">{observation.label}</span>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        className="grid w-full gap-3 px-4 py-3.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-300 sm:grid-cols-[minmax(150px,1.15fr)_minmax(100px,0.7fr)_minmax(160px,1fr)_auto] sm:items-center"
+      >
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-white">{observation.label}</span>
             {needsReview ? (
               <span className="rounded-full bg-amber-300/[0.1] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-300">
                 Needs review
               </span>
             ) : null}
-            {observation.verificationStatus === 'PATIENT_CORRECTED' ? (
+            {corrected ? (
               <span className="rounded-full bg-cyan-300/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-cyan-200">
                 Corrected
               </span>
             ) : null}
           </span>
-          <span className="mt-1.5 block text-lg font-semibold tracking-[-0.02em] text-white">
-            {observationValue(observation)}
+          <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">Page {observation.pageNumber}</span>
+        </span>
+        <span>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:hidden">
+            Result
           </span>
-          <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--clinora-text-faint)]">
-            {observation.referenceRangeRaw ? (
-              <span>Report range: {observation.referenceRangeRaw}</span>
-            ) : (
-              <span>Reference range not available on this report</span>
-            )}
-            <span>Page {observation.pageNumber}</span>
+          <span className="mt-1 block text-sm font-semibold text-white sm:mt-0">{observationValue(observation)}</span>
+        </span>
+        <span>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:hidden">
+            Reference on report
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-slate-300 sm:mt-0">
+            {observation.referenceRangeRaw ?? 'Not confidently captured — compare with source'}
           </span>
           {rangeLabel(observation.derivedRangeFlag) ? (
-            <span className={cn('mt-2 block text-xs font-semibold', rangeTone(observation.derivedRangeFlag))}>
+            <span className={cn('mt-1 block text-[11px] font-semibold', rangeTone(observation.derivedRangeFlag))}>
               {rangeLabel(observation.derivedRangeFlag)}
             </span>
           ) : null}
-          <ReferenceRangeVisualization observation={observation} />
+        </span>
+        <span className="inline-flex min-h-10 items-center gap-1.5 text-xs font-semibold text-slate-400 sm:justify-end">
+          <Eye size={14} aria-hidden="true" /> View on report
         </span>
       </button>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] px-4 py-2.5">
-        <button
-          type="button"
-          onClick={onSelect}
-          className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white"
-        >
-          <Eye size={14} aria-hidden="true" /> View on report
-        </button>
+      <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-3">
+        <div className="min-w-0 flex-1">
+          {selected ? <ReferenceRangeVisualization observation={observation} /> : null}
+        </div>
         {!editing ? (
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:text-cyan-200"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
           >
-            <PencilLine size={14} aria-hidden="true" /> Correct extraction
+            <PencilLine size={14} aria-hidden="true" /> Edit result
           </button>
         ) : null}
       </div>
@@ -1019,7 +1020,7 @@ function observationValue(observation: PatientReportObservation) {
   const value =
     observation.numericValue != null
       ? observation.numericValue.toString()
-      : observation.textValue || 'Value not captured';
+      : observation.textValue || 'Not confidently captured';
   return `${observation.comparator ?? ''}${value}${observation.unit ? ` ${observation.unit}` : ''}`;
 }
 

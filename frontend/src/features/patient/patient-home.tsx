@@ -40,7 +40,7 @@ import {
   type ProfileSectionId,
 } from './patient-profile-state';
 import type { PatientPortalSummary } from './patient-portal-api';
-import type { PatientDashboard, PatientProfile } from './patient-types';
+import type { PatientDashboard, PatientDashboardReport, PatientProfile } from './patient-types';
 
 export interface PatientHomeSection<T> {
   data: T | null;
@@ -110,6 +110,8 @@ export function MedicalReportsHero({
 }) {
   const dashboard = section.data;
   const latest = dashboard?.latestReport ?? null;
+  const latestTitle = latest ? patientReportDisplayName(latest) : null;
+  const latestMeta = latest ? patientReportDisplayMeta(latest) : null;
 
   return (
     <motion.div
@@ -124,10 +126,10 @@ export function MedicalReportsHero({
         aria-labelledby="medical-reports-title"
         className="relative overflow-hidden"
       >
-        <div className="relative grid items-stretch gap-7 lg:grid-cols-[minmax(0,0.95fr)_minmax(22rem,1.05fr)] lg:gap-6">
+        <div className="relative grid items-stretch gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:gap-5">
           <div className="relative z-10 flex min-w-0 flex-col justify-center py-1">
-            <div className="mb-5 flex items-center gap-3">
-              <IconWell className="h-12 w-12" tone="info">
+            <div className="mb-4 flex items-center gap-3">
+              <IconWell className="h-11 w-11" tone="info">
                 <FileText size={21} aria-hidden="true" />
               </IconWell>
               {dashboard && dashboard.activeReportCount > 0 ? (
@@ -156,21 +158,19 @@ export function MedicalReportsHero({
               </SectionUnavailable>
             ) : null}
             {!section.loading && !section.error && dashboard ? (
-              <div className="mt-6 max-w-xl border-t border-[var(--clinora-border-subtle)] pt-5">
+              <div className="mt-5 max-w-xl border-t border-[var(--clinora-border-subtle)] pt-4">
                 {latest ? (
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--clinora-text-faint)]">
                       Latest report
                     </p>
                     <p className="mt-2 truncate text-sm font-semibold text-[var(--clinora-text-primary)]">
-                      {latest.reportName}
+                      {latestTitle}
                     </p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
-                      {patientReportTypeLabels[latest.reportType]} · {formatReportDate(latest.reportDate)}
-                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">{latestMeta}</p>
                   </div>
                 ) : null}
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="mt-3.5 flex flex-wrap gap-2.5">
                   <Button variant="appPrimary" onClick={onUpload}>
                     <UploadCloud size={16} aria-hidden="true" /> Upload report
                   </Button>
@@ -185,7 +185,7 @@ export function MedicalReportsHero({
           </div>
 
           <div
-            className="relative min-h-[11rem] overflow-hidden sm:min-h-[13rem] md:min-h-[14rem] lg:-my-7 lg:-mr-7 lg:min-h-[20rem]"
+            className="relative min-h-[10rem] overflow-hidden opacity-[0.84] saturate-[0.92] sm:min-h-[11.5rem] md:min-h-[12.5rem] lg:-my-7 lg:-mr-7 lg:min-h-[16rem]"
             data-medical-reports-visual="clinical-ambient"
           >
             <BiomedicalBackground variant="patient-report" />
@@ -426,8 +426,10 @@ export function RecentHealthActivity({
   section: PatientHomeSection<TimelineEvent[]>;
   className?: string;
 }) {
+  const events = (section.data ?? []).filter((event) => !homeTransientEventTypes.has(event.eventType)).slice(0, 3);
+
   return (
-    <AppSurface as="section" className={className} aria-labelledby="recent-health-activity-title">
+    <AppSurface as="section" padding="compact" className={className} aria-labelledby="recent-health-activity-title">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <IconWell tone="neutral">
@@ -450,40 +452,53 @@ export function RecentHealthActivity({
       {!section.loading && section.error ? (
         <SectionUnavailable message={section.error} onRetry={section.retry} />
       ) : null}
-      {!section.loading && !section.error && section.data?.length ? (
+      {!section.loading && !section.error && events.length ? (
         <ol
-          className="mt-6 divide-y divide-[var(--clinora-border-subtle)] border-y border-[var(--clinora-border-subtle)]"
+          className="mt-5 divide-y divide-[var(--clinora-border-subtle)] border-y border-[var(--clinora-border-subtle)]"
           aria-label="Recent health activity"
         >
-          {section.data.slice(0, 4).map((event, index, items) => (
-            <li key={event.id} className="relative flex gap-3 py-4">
-              {index < items.length - 1 ? (
+          {events.map((event, index, items) => {
+            const activityDetail = patientActivityDisplayDetail(event);
+            return (
+              <li key={event.id} className="relative flex gap-3 py-3.5">
+                {index < items.length - 1 ? (
+                  <span
+                    className="absolute bottom-0 left-[4.5px] top-7 w-px bg-[var(--clinora-border-interactive)]"
+                    aria-hidden="true"
+                  />
+                ) : null}
                 <span
-                  className="absolute bottom-0 left-[4.5px] top-7 w-px bg-[var(--clinora-border-interactive)]"
+                  className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--clinora-accent-cyan-strong)] ring-4 ring-[var(--clinora-focus-ring-soft)]"
                   aria-hidden="true"
                 />
-              ) : null}
-              <span
-                className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--clinora-accent-cyan-strong)] ring-4 ring-[var(--clinora-focus-ring-soft)]"
-                aria-hidden="true"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-semibold text-slate-200">{event.title}</p>
-                  <time className="text-xs text-[var(--clinora-text-faint)]" dateTime={event.occurredAt}>
-                    {formatActivityDate(event.occurredAt)}
-                  </time>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-semibold text-slate-200">{event.title}</p>
+                    <time className="text-xs text-[var(--clinora-text-faint)]" dateTime={event.occurredAt}>
+                      {formatActivityDate(event.occurredAt)}
+                    </time>
+                  </div>
+                  {activityDetail ? (
+                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
+                      {activityDetail}
+                    </p>
+                  ) : null}
+                  {event.sourceId && homeActionableReportEventTypes.has(event.eventType) ? (
+                    <Link
+                      to={`/patient/analyze/${event.sourceId}`}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                    >
+                      Open analysis <ArrowRight size={13} aria-hidden="true" />
+                    </Link>
+                  ) : null}
                 </div>
-                {event.detail ? (
-                  <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--clinora-text-muted)]">{event.detail}</p>
-                ) : null}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       ) : null}
-      {!section.loading && !section.error && !section.data?.length ? (
-        <p className="mt-6 text-sm leading-6 text-[var(--clinora-text-muted)]">
+      {!section.loading && !section.error && !events.length ? (
+        <p className="mt-5 text-sm leading-6 text-[var(--clinora-text-muted)]">
           Your recent health activity will appear here as meaningful changes happen.
         </p>
       ) : null}
@@ -688,6 +703,52 @@ function formatDay(value: Date) {
 
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const homeTransientEventTypes = new Set([
+  'REPORT_EXTRACTION_REQUESTED',
+  'REPORT_EXTRACTION_QUEUED',
+  'REPORT_EXTRACTION_PROCESSING',
+]);
+
+const homeActionableReportEventTypes = new Set([
+  'REPORT_EXTRACTION_COMPLETED',
+  'REPORT_EXTRACTION_READY',
+  'REPORT_EXTRACTION_REVIEW_REQUIRED',
+]);
+
+function patientReportDisplayName(report: PatientDashboardReport) {
+  const reportName = report.reportName.trim();
+  if (reportName && !looksLikeOpaqueReportName(reportName)) return reportName;
+  return patientReportTypeLabels[report.reportType] ?? 'Medical report';
+}
+
+function patientReportDisplayMeta(report: PatientDashboardReport) {
+  const reportName = report.reportName.trim();
+  const provider = report.providerLaboratory?.trim();
+  const typeLabel = patientReportTypeLabels[report.reportType] ?? 'Medical report';
+  const dateLabel = report.reportDate
+    ? `Report date ${formatReportDate(report.reportDate)}`
+    : `Uploaded ${formatShortDate(report.uploadedAt)}`;
+  const context = provider || (!reportName || looksLikeOpaqueReportName(reportName) ? null : typeLabel);
+  return [context, dateLabel].filter((value): value is string => Boolean(value)).join(' · ');
+}
+
+function patientActivityDisplayDetail(event: TimelineEvent) {
+  const detail = event.detail?.trim();
+  if (!detail) return null;
+  if (event.sourceType === 'MEDICAL_REPORT' && looksLikeOpaqueReportName(detail)) return 'Medical report';
+  return detail;
+}
+
+function looksLikeOpaqueReportName(value: string) {
+  const trimmed = value.trim();
+  const compact = trimmed.replace(/[-_\s]/g, '');
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return true;
+  }
+  if (compact.length >= 16 && /^[a-f0-9]+$/i.test(compact)) return true;
+  return /^(?:report|file|upload|document|object)[-_]?[a-z0-9]{12,}$/i.test(trimmed);
 }
 
 function formatActivityDate(value: string) {

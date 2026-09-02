@@ -191,6 +191,9 @@ describe('Phase 5 Patient Home hybrid evolution', () => {
     renderHome();
 
     expect((await screen.findAllByText('Annual blood panel')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Turn a report into results you can verify' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Analyze a report' })).toHaveAttribute('href', '/patient/analyze');
+    expect(screen.getByRole('button', { name: 'Upload new report' })).toBeEnabled();
     expect(screen.getByText('2 active reports')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload report' })).toBeEnabled();
     expect(screen.getByRole('link', { name: /View all reports/i })).toHaveAttribute('href', '/patient/reports');

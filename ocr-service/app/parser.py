@@ -6,8 +6,8 @@ from statistics import mean
 
 from .schemas import BoundingBox, Observation
 
-PARSER_VERSION = "clinora-lab-parser-v1"
-NORMALIZER_VERSION = "clinora-lab-normalizer-v1"
+PARSER_VERSION = "clinora-lab-parser-v2"
+NORMALIZER_VERSION = "clinora-lab-normalizer-v2"
 
 _NORMALIZED_LABELS = {
     "hb": "Hemoglobin",
@@ -19,6 +19,7 @@ _NORMALIZED_LABELS = {
     "rbc": "Red blood cell count",
     "red blood cell count": "Red blood cell count",
     "platelet": "Platelets",
+    "platelet count": "Platelets",
     "platelets": "Platelets",
     "plt": "Platelets",
     "glucose": "Glucose",
@@ -48,6 +49,17 @@ _NORMALIZED_LABELS = {
     "mcv": "MCV",
     "mch": "MCH",
     "mchc": "MCHC",
+    "rdw": "RDW",
+    "rdw-cv": "RDW-CV",
+    "rdw cv": "RDW-CV",
+    "rdw-sd": "RDW-SD",
+    "rdw sd": "RDW-SD",
+    "pct": "Plateletcrit",
+    "plateletcrit": "Plateletcrit",
+    "mpv": "MPV",
+    "mean platelet volume": "MPV",
+    "pdw": "PDW",
+    "platelet distribution width": "PDW",
     "neutrophils": "Neutrophils",
     "lymphocytes": "Lymphocytes",
     "crp": "C-reactive protein",
@@ -62,11 +74,19 @@ _NORMALIZED_LABELS = {
 _NUMBER = r"-?\d+(?:[.,]\d+)?"
 _COMPARATOR = r"(?:<=|>=|<|>|≤|≥)?"
 _RANGE = rf"(?P<range>{_NUMBER}\s*(?:-|–|—|to)\s*{_NUMBER}|(?:<|>|≤|≥)\s*{_NUMBER})"
-_ROW = re.compile(
+_ROW_UNIT_THEN_RANGE = re.compile(
     rf"^\s*(?P<label>[A-Za-z0-9][A-Za-z0-9 .()/%+_\-]{{1,100}}?)\s+"
     rf"(?P<comparator>{_COMPARATOR})\s*(?P<value>{_NUMBER})"
     rf"(?:\s+(?P<unit>[A-Za-zµμ%/\^0-9⁰¹²³⁴⁵⁶⁷⁸⁹×x*·._\-]+))?"
     rf"(?:\s+{_RANGE})?"
+    rf"(?:\s+(?P<flag>H|L|HIGH|LOW|ABNORMAL|NORMAL))?\s*$",
+    re.IGNORECASE,
+)
+_ROW_RANGE_THEN_UNIT = re.compile(
+    rf"^\s*(?P<label>[A-Za-z0-9][A-Za-z0-9 .()/%+_\-]{{1,100}}?)\s+"
+    rf"(?P<comparator>{_COMPARATOR})\s*(?P<value>{_NUMBER})"
+    rf"(?:\s+{_RANGE})"
+    rf"(?:\s+(?P<unit>[A-Za-zµμ%/\^0-9⁰¹²³⁴⁵⁶⁷⁸⁹×x*·._\-]+))?"
     rf"(?:\s+(?P<flag>H|L|HIGH|LOW|ABNORMAL|NORMAL))?\s*$",
     re.IGNORECASE,
 )
@@ -133,6 +153,10 @@ def _parse_row(
     page_height: int,
     numeric_review_threshold: float,
 ) -> Observation | None:
+    structured = _parse_spatial_numeric_row(row, page_number, page_width, page_height, numeric_review_threshold)
+    if structured is not None:
+        return structured
+
     text = " ".join(block.text.strip() for block in row if block.text.strip())
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) < 3:
@@ -153,7 +177,7 @@ def _parse_row(
             reviewRequired=confidence < numeric_review_threshold,
         )
 
-    match = _ROW.match(text)
+    match = _ROW_RANGE_THEN_UNIT.match(text) or _ROW_UNIT_THEN_RANGE.match(text)
     if not match:
         return None
     label = _clean_label(match.group("label"))
@@ -163,6 +187,7 @@ def _parse_row(
     range_raw = match.group("range")
     reference_low, reference_high = _parse_range(range_raw)
     confidence = min(block.confidence for block in row)
+    semantic_review = _requires_semantic_review(label, value, reference_low, reference_high)
     return Observation(
         sourceLabel=label,
         normalizedLabel=normalize_label(label),
@@ -178,8 +203,116 @@ def _parse_row(
         pageNumber=page_number,
         boundingBox=_bounding_box(row, page_width, page_height),
         confidence=confidence,
-        reviewRequired=confidence < numeric_review_threshold,
+        reviewRequired=confidence < numeric_review_threshold or semantic_review,
     )
+
+
+def _parse_spatial_numeric_row(
+    row: list[TextBlock],
+    page_number: int,
+    page_width: int,
+    page_height: int,
+    numeric_review_threshold: float,
+) -> Observation | None:
+    """Parse common laboratory rows without discarding OCR column order."""
+    cells = [block for block in sorted(row, key=lambda block: block.x1) if block.text.strip()]
+    if len(cells) < 2:
+        return None
+
+    first_numeric = next((index for index, block in enumerate(cells) if _numeric_cell(block.text)), None)
+    if first_numeric is None or first_numeric == 0:
+        return None
+
+    label = _clean_label(" ".join(block.text.strip() for block in cells[:first_numeric]))
+    if not label or _looks_like_header(label):
+        return None
+
+    value_match = re.fullmatch(
+        rf"\s*(?P<comparator>{_COMPARATOR})\s*(?P<value>{_NUMBER})\s*",
+        cells[first_numeric].text,
+    )
+    if not value_match:
+        return None
+
+    value = _number(value_match.group("value"))
+    comparator = _normalize_comparator(value_match.group("comparator"))
+    trailing = [block.text.strip() for block in cells[first_numeric + 1:] if block.text.strip()]
+    reference_raw, reference_low, reference_high, unit, source_flag, ambiguous = _parse_trailing_cells(trailing)
+    confidence = min(block.confidence for block in cells)
+    semantic_review = ambiguous or _requires_semantic_review(label, value, reference_low, reference_high)
+
+    return Observation(
+        sourceLabel=label,
+        normalizedLabel=normalize_label(label),
+        valueType="NUMERIC",
+        numericValue=value,
+        comparator=comparator,
+        unit=unit,
+        referenceRangeRaw=reference_raw,
+        referenceLow=reference_low,
+        referenceHigh=reference_high,
+        sourceFlag=source_flag,
+        derivedRangeFlag=_range_flag(value, reference_low, reference_high),
+        pageNumber=page_number,
+        boundingBox=_bounding_box(cells, page_width, page_height),
+        confidence=confidence,
+        reviewRequired=confidence < numeric_review_threshold or semantic_review,
+    )
+
+
+def _numeric_cell(value: str) -> bool:
+    return re.fullmatch(rf"\s*{_COMPARATOR}\s*{_NUMBER}\s*", value) is not None
+
+
+def _parse_trailing_cells(
+    values: list[str],
+) -> tuple[str | None, float | None, float | None, str | None, str | None, bool]:
+    source_flag: str | None = None
+    unit: str | None = None
+    reference_raw: str | None = None
+
+    remaining = list(values)
+    if remaining and remaining[-1].upper() in {"H", "L", "HIGH", "LOW", "ABNORMAL", "NORMAL"}:
+        source_flag = remaining.pop().upper()
+
+    # Prefer an explicit range cell, including a range reconstructed from three OCR cells.
+    for width in (3, 2, 1):
+        for start in range(0, max(0, len(remaining) - width + 1)):
+            candidate = " ".join(remaining[start:start + width])
+            low, high = _parse_range(candidate)
+            if low is not None or high is not None:
+                reference_raw = re.sub(r"\s+", " ", candidate).strip()
+                outside_range = [*remaining[:start], *remaining[start + width:]]
+                unit = _first_unit(outside_range)
+                ambiguous = any(_numeric_cell(value) or re.fullmatch(r"[-–—]", value) for value in outside_range)
+                return reference_raw, low, high, unit, source_flag, ambiguous
+
+    unit = _first_unit(remaining)
+    ambiguous = any(_numeric_cell(value) or re.fullmatch(r"[-–—]", value) for value in remaining)
+    return None, None, None, unit, source_flag, ambiguous
+
+
+def _first_unit(values: list[str]) -> str | None:
+    for value in values:
+        cleaned = value.strip()
+        if cleaned and not _numeric_cell(cleaned) and not re.fullmatch(r"[-–—]", cleaned):
+            return cleaned[:40]
+    return None
+
+
+def _requires_semantic_review(
+    label: str,
+    value: float | None,
+    low: float | None,
+    high: float | None,
+) -> bool:
+    if value is None:
+        return True
+    if low is not None and high is not None and low > high:
+        return True
+    # Multiple standalone numbers in a source label usually indicate collapsed columns.
+    standalone_numbers = re.findall(r"(?<![A-Za-z])\d+(?:[.,]\d+)?(?![A-Za-z])", label)
+    return len(standalone_numbers) > 1
 
 
 def normalize_label(label: str) -> str:
@@ -194,7 +327,17 @@ def _clean_label(label: str) -> str:
 def _looks_like_header(label: str) -> bool:
     lowered = label.lower()
     return lowered in {
-        "test", "result", "reference", "reference range", "normal range", "parameter", "investigation"
+        "test",
+        "test description",
+        "result",
+        "reference",
+        "reference range",
+        "ref. range",
+        "ref range",
+        "normal range",
+        "parameter",
+        "investigation",
+        "unit",
     }
 
 
