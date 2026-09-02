@@ -170,6 +170,9 @@ describe('Phase 5A Patient experience', () => {
     mocks.profile.mockResolvedValueOnce(newProfile);
     const { container } = renderPatientRoute();
 
+    expect(
+      await screen.findByRole('heading', { name: 'Turn a report into results you can verify' }),
+    ).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Medical reports' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Your Health Profile' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Upcoming care' })).toBeInTheDocument();
@@ -177,6 +180,7 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getByRole('heading', { name: 'Recent health activity' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Privacy & sharing' })).toBeInTheDocument();
     expect(Array.from(container.querySelectorAll('main h2')).map((heading) => heading.textContent)).toEqual([
+      'Turn a report into results you can verify',
       'Medical reports',
       'Your Health Profile',
       'Upcoming care',

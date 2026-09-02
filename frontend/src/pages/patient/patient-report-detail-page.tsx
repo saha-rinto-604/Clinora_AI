@@ -10,6 +10,7 @@ import {
   Pencil,
   RefreshCcw,
   RotateCcw,
+  ScanText,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -210,7 +211,12 @@ export function PatientReportDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button variant="appPrimary" onClick={() => void download()} disabled={downloading}>
+          {!report.archived ? (
+            <Link to={`/patient/analyze/${report.id}`} className={buttonVariants({ variant: 'appPrimary' })}>
+              <ScanText size={16} aria-hidden="true" /> Analyze report
+            </Link>
+          ) : null}
+          <Button variant="appSecondary" onClick={() => void download()} disabled={downloading}>
             <Download size={16} aria-hidden="true" /> {downloading ? 'Downloading…' : 'Download'}
           </Button>
           <Button variant="appSecondary" onClick={() => setEditOpen(true)}>

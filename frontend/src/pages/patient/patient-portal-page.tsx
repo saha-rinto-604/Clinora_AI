@@ -1,5 +1,9 @@
 import { useReducedMotion } from 'framer-motion';
+import { ArrowRight, ScanText, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { Link } from 'react-router';
+import { Button } from '../../components/ui/button';
+import { buttonVariants } from '../../components/ui/button-variants';
 import { appointmentApi, type Appointment } from '../../features/appointments/appointment-api';
 import { useAuthStore } from '../../features/auth/auth-store';
 import {
@@ -83,7 +87,7 @@ export function PatientPortalPage() {
     'activity',
     setLoading,
     setErrors,
-    async () => setActivity((await patientRecordApi.timeline({ limit: 4 })).items),
+    async () => setActivity((await patientRecordApi.timeline({ limit: 6 })).items),
     'Recent health activity could not be refreshed.',
   );
   const loadRecord = useHomeLoader(
@@ -118,7 +122,61 @@ export function PatientPortalPage() {
         reducedMotion={Boolean(reducedMotion)}
       />
 
-      <div className="mt-9 space-y-9 sm:mt-10 sm:space-y-10">
+      <div className="mt-8 space-y-8 sm:mt-9 sm:space-y-9">
+        <section
+          aria-labelledby="patient-report-analysis-title"
+          className="relative overflow-hidden rounded-[var(--clinora-radius-lg)] border border-cyan-300/20 bg-[linear-gradient(118deg,rgba(8,145,178,0.12),rgba(15,23,42,0.18)_50%,rgba(20,184,166,0.055))] shadow-[0_24px_70px_-54px_rgba(34,211,238,0.8)]"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-72 bg-[radial-gradient(circle_at_70%_50%,rgba(34,211,238,0.09),transparent_62%)]"
+          />
+          <div className="relative grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="flex gap-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)] ring-1 ring-cyan-300/10">
+                <ScanText size={18} aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
+                  AI report analysis
+                </p>
+                <h2
+                  id="patient-report-analysis-title"
+                  className="mt-1.5 text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl"
+                >
+                  Turn a report into results you can verify
+                </h2>
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
+                  Upload a laboratory report or choose one already stored in Clinora. Clinora extracts reported
+                  laboratory values and lets you verify them against the original before later AI-assisted
+                  interpretation.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-medium text-[var(--clinora-text-faint)]">
+                  <span>Extract</span>
+                  <ArrowRight size={12} aria-hidden="true" />
+                  <span>Verify</span>
+                  <ArrowRight size={12} aria-hidden="true" />
+                  <span>Prepare for AI insight</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap lg:justify-end">
+              <Link
+                to="/patient/analyze"
+                className={`${buttonVariants({ variant: 'appPrimary' })} focus-visible:outline-cyan-300`}
+              >
+                <ScanText size={16} aria-hidden="true" /> Analyze a report <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+              <Button
+                variant="appSecondary"
+                className="focus-visible:outline-cyan-300"
+                onClick={() => setUploadOpen(true)}
+              >
+                <UploadCloud size={16} aria-hidden="true" /> Upload new report
+              </Button>
+            </div>
+          </div>
+        </section>
         <MedicalReportsHero
           section={section(dashboard, loading.reports, errors.reports, loadReports)}
           reducedMotion={Boolean(reducedMotion)}
