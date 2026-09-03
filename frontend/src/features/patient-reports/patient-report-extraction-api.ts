@@ -28,6 +28,13 @@ export const patientReportExtractionApi = {
     return response.data.data;
   },
 
+  async confirmObservation(reportId: string, observationId: string) {
+    const response = await apiClient.post<ApiEnvelope<PatientReportExtraction>>(
+      `/patient/reports/${reportId}/extraction/observations/${observationId}/confirm`,
+    );
+    return response.data.data;
+  },
+
   async confirm(reportId: string) {
     const response = await apiClient.post<ApiEnvelope<PatientReportExtraction>>(
       `/patient/reports/${reportId}/extraction/confirm`,

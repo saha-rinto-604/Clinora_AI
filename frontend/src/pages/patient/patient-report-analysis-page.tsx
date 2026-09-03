@@ -25,6 +25,7 @@ import type {
   PatientReportObservation,
   PatientReportObservationCorrectionInput,
 } from '../../features/patient-reports/patient-report-extraction-types';
+import { PatientReportAiPanel } from '../../features/patient-reports/patient-report-ai-panel';
 import { patientReportApi, patientReportErrorMessage } from '../../features/patient-reports/patient-report-api';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
 import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
@@ -68,8 +69,8 @@ function AnalysisStart() {
           Analyze a medical report
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)] sm:text-base">
-          Extract laboratory values from a report and verify them against the original. Reviewed values can support
-          later AI-assisted interpretation.
+          Extract laboratory values from a report, verify them against the original, then generate a private MedGemma
+          insight from the confirmed values.
         </p>
       </header>
 
@@ -116,9 +117,9 @@ function AnalysisStart() {
             Compare uncertain values with the source.
           </p>
           <p>
-            <span className="font-semibold text-slate-300">3 · Confirm</span>
+            <span className="font-semibold text-slate-300">3 · Interpret</span>
             <br />
-            Verified values become ready for later AI insight.
+            Generate a MedGemma insight from verified values.
           </p>
         </div>
       </section>
@@ -384,7 +385,9 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                     <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-right">
                       <p className="text-sm font-semibold text-white">{extraction.observations.length} results</p>
                       <p className={cn('text-[11px]', unresolved ? 'text-amber-300' : 'text-emerald-300')}>
-                        {unresolved ? `${unresolved} need review` : 'No flagged values remaining'}
+                        {unresolved
+                          ? `${unresolved} ${unresolved === 1 ? 'needs' : 'need'} review`
+                          : 'All flagged values have been reviewed'}
                       </p>
                     </div>
                   </div>
@@ -442,10 +445,10 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   </h2>
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
                     {extraction.reviewStatus === 'VERIFIED'
-                      ? 'These reviewed values are ready for later AI-assisted interpretation.'
+                      ? 'These reviewed values are ready for MedGemma AI-assisted interpretation.'
                       : unresolved
                         ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
-                        : 'Confirm that the extracted information matches your report before later AI-assisted interpretation.'}
+                        : 'Confirm that the extracted information matches your report before requesting AI-assisted interpretation.'}
                   </p>
                 </div>
               </div>
@@ -465,6 +468,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
               )}
             </section>
           ) : null}
+          {extraction.reviewStatus === 'VERIFIED' ? <PatientReportAiPanel reportId={reportId} /> : null}
         </>
       ) : null}
     </div>
@@ -489,7 +493,8 @@ function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () =>
               so you can verify it against the original.
             </p>
             <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">
-              Your original report remains unchanged. AI interpretation is not performed in this phase.
+              Your original report remains unchanged. MedGemma analysis becomes available only after you verify the
+              extracted values.
             </p>
           </div>
         </div>
@@ -649,6 +654,22 @@ function ObservationCard({
 }) {
   const needsReview = observation.reviewRequired && observation.verificationStatus === 'UNREVIEWED';
   const corrected = observation.verificationStatus === 'PATIENT_CORRECTED';
+  const confirmed = observation.verificationStatus === 'PATIENT_CONFIRMED';
+  const [confirming, setConfirming] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
+  async function confirmUnchanged() {
+    setConfirming(true);
+    setReviewError('');
+    try {
+      onSaved(await patientReportExtractionApi.confirmObservation(reportId, observation.id));
+    } catch (requestError) {
+      setReviewError(patientReportExtractionErrorMessage(requestError, 'This extracted value could not be confirmed.'));
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <article
       className={cn(
@@ -681,8 +702,16 @@ function ObservationCard({
                 Corrected
               </span>
             ) : null}
+            {confirmed ? (
+              <span className="rounded-full bg-emerald-300/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-200">
+                Confirmed
+              </span>
+            ) : null}
           </span>
-          <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">Page {observation.pageNumber}</span>
+          <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
+            Page {observation.pageNumber}
+            {confirmed ? ' · Confirmed by you' : ''}
+          </span>
         </span>
         <span>
           <span className="block text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:hidden">
@@ -712,15 +741,38 @@ function ObservationCard({
           {selected ? <ReferenceRangeVisualization observation={observation} /> : null}
         </div>
         {!editing ? (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
-          >
-            <PencilLine size={14} aria-hidden="true" /> Edit result
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {needsReview ? (
+              <button
+                type="button"
+                onClick={() => void confirmUnchanged()}
+                disabled={confirming}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-300/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {confirming ? (
+                  <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 size={14} aria-hidden="true" />
+                )}
+                {confirming ? 'Confirming…' : 'Looks correct'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={confirming}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <PencilLine size={14} aria-hidden="true" /> Edit result
+            </button>
+          </div>
         ) : null}
       </div>
+      {reviewError ? (
+        <p role="alert" className="px-4 pb-3 text-xs font-medium text-rose-300">
+          {reviewError}
+        </p>
+      ) : null}
       {editing ? (
         <CorrectionEditor observation={observation} reportId={reportId} onCancel={onCancelEdit} onSaved={onSaved} />
       ) : null}
