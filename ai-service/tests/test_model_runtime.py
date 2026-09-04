@@ -58,9 +58,14 @@ class MedGemmaRuntimeTests(unittest.TestCase):
                 json={"choices": [{"message": {"role": "assistant", "content": '{"safe":true}'}}]},
             )
 
+        allowed_observation_ids = [
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+        ]
         with patch.dict(os.environ, {"AI_GENERATION_SEED": "17", "AI_MAX_NEW_TOKENS": "600"}):
             result = self.runtime(handler).generate(
-                [{"role": "user", "content": "Analyze only the supplied structured observations."}]
+                [{"role": "user", "content": "Analyze only the supplied structured observations."}],
+                allowed_observation_ids=allowed_observation_ids,
             )
 
         self.assertEqual(result.content, '{"safe":true}')
@@ -76,6 +81,29 @@ class MedGemmaRuntimeTests(unittest.TestCase):
         self.assertEqual(response_format["schema"]["type"], "object")
         self.assertIn("analysisStatus", response_format["schema"]["properties"])
         self.assertEqual(response_format["schema"]["properties"]["notableFindings"]["maxItems"], 2)
+        self.assertEqual(response_format["schema"]["properties"]["clinicalPatterns"]["maxItems"], 2)
+        self.assertEqual(response_format["schema"]["properties"]["summary"]["maxLength"], 180)
+        self.assertEqual(response_format["schema"]["properties"]["patientExplanation"]["maxLength"], 240)
+        definitions = response_format["schema"]["$defs"]
+        self.assertEqual(definitions["Finding"]["properties"]["interpretation"]["maxLength"], 180)
+        self.assertEqual(definitions["ClinicalPattern"]["properties"]["reasoning"]["maxLength"], 240)
+        self.assertEqual(definitions["DiscussionPoint"]["properties"]["reason"]["maxLength"], 180)
+        self.assertEqual(
+            definitions["Finding"]["properties"]["observationId"]["enum"],
+            allowed_observation_ids,
+        )
+        self.assertEqual(
+            definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["items"]["enum"],
+            allowed_observation_ids,
+        )
+        self.assertEqual(
+            definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["maxItems"],
+            4,
+        )
+        self.assertEqual(
+            definitions["ClinicalPattern"]["properties"]["contradictoryObservationIds"]["items"]["enum"],
+            allowed_observation_ids,
+        )
         self.assertEqual(
             observed_request["messages"],
             [{"role": "user", "content": "Analyze only the supplied structured observations."}],

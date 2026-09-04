@@ -33,6 +33,7 @@ import { PatientShell } from './features/patient/patient-layout';
 import { useAuthStore } from './features/auth/auth-store';
 import { PatientProfilePage } from './pages/patient/patient-profile-page';
 import { PatientReportAnalysisPage } from './pages/patient/patient-report-analysis-page';
+import { PatientReportAiInsightPage } from './pages/patient/patient-report-ai-insight-page';
 import { PatientReportDetailPage } from './pages/patient/patient-report-detail-page';
 import { PatientReportsPage } from './pages/patient/patient-reports-page';
 import { PatientPortalPage } from './pages/patient/patient-portal-page';
@@ -89,6 +90,7 @@ export function AppRoutes() {
           <Route path="patient/profile" element={<PatientProfilePage />} />
           <Route path="patient/analyze" element={<PatientReportAnalysisPage />} />
           <Route path="patient/analyze/:reportId" element={<PatientReportAnalysisPage />} />
+          <Route path="patient/analyze/:reportId/insight" element={<PatientReportAiInsightPage />} />
           <Route path="patient/reports" element={<PatientReportsPage />} />
           <Route path="patient/reports/:reportId" element={<PatientReportDetailPage />} />
           <Route path="patient/history" element={<PatientHealthRecordPage />} />

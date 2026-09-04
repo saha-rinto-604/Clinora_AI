@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ScanText,
   ShieldCheck,
+  Sparkles,
   UploadCloud,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,7 +26,6 @@ import type {
   PatientReportObservation,
   PatientReportObservationCorrectionInput,
 } from '../../features/patient-reports/patient-report-extraction-types';
-import { PatientReportAiPanel } from '../../features/patient-reports/patient-report-ai-panel';
 import { patientReportApi, patientReportErrorMessage } from '../../features/patient-reports/patient-report-api';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
 import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
@@ -69,8 +69,8 @@ function AnalysisStart() {
           Analyze a medical report
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)] sm:text-base">
-          Extract laboratory values from a report, verify them against the original, then generate a private MedGemma
-          insight from the confirmed values.
+          Extract laboratory values, verify them against the original report, then continue to a dedicated AI insight
+          workspace for a clear, patient-friendly explanation.
         </p>
       </header>
 
@@ -117,9 +117,9 @@ function AnalysisStart() {
             Compare uncertain values with the source.
           </p>
           <p>
-            <span className="font-semibold text-slate-300">3 · Interpret</span>
+            <span className="font-semibold text-slate-300">3 · Understand</span>
             <br />
-            Generate a MedGemma insight from verified values.
+            Continue to a dedicated AI insight after verification.
           </p>
         </div>
       </section>
@@ -445,7 +445,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   </h2>
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
                     {extraction.reviewStatus === 'VERIFIED'
-                      ? 'These reviewed values are ready for MedGemma AI-assisted interpretation.'
+                      ? 'These reviewed values are ready. Continue to your dedicated AI insight workspace when you want a clear explanation.'
                       : unresolved
                         ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
                         : 'Confirm that the extracted information matches your report before requesting AI-assisted interpretation.'}
@@ -453,9 +453,17 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 </div>
               </div>
               {extraction.reviewStatus === 'VERIFIED' ? (
-                <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-4 text-sm font-semibold text-emerald-200">
-                  <CheckCircle2 size={16} aria-hidden="true" /> Verified
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-4 text-sm font-semibold text-emerald-200">
+                    <CheckCircle2 size={16} aria-hidden="true" /> Verified
+                  </span>
+                  <Link
+                    to={`/patient/analyze/${reportId}/insight`}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 px-4 text-sm font-semibold text-slate-950 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 motion-reduce:transform-none"
+                  >
+                    <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
+                  </Link>
+                </div>
               ) : (
                 <Button
                   variant="appPrimary"
@@ -468,7 +476,6 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
               )}
             </section>
           ) : null}
-          {extraction.reviewStatus === 'VERIFIED' ? <PatientReportAiPanel reportId={reportId} /> : null}
         </>
       ) : null}
     </div>
@@ -493,8 +500,8 @@ function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () =>
               so you can verify it against the original.
             </p>
             <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">
-              Your original report remains unchanged. MedGemma analysis becomes available only after you verify the
-              extracted values.
+              Your original report remains unchanged. AI insight becomes available only after you verify the extracted
+              values.
             </p>
           </div>
         </div>

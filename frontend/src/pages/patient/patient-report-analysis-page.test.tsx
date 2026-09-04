@@ -250,6 +250,23 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     expect(screen.getByRole('button', { name: 'Confirm extracted results' })).toBeEnabled();
   });
 
+  it('opens the dedicated AI insight experience only after report verification', async () => {
+    mocks.getExtraction.mockResolvedValue({
+      ...extraction,
+      reviewStatus: 'VERIFIED',
+      observations: extraction.observations.map((observation) => ({
+        ...observation,
+        reviewRequired: false,
+        verificationStatus: 'PATIENT_CONFIRMED',
+      })),
+    });
+    renderWorkspace();
+
+    const link = await screen.findByRole('link', { name: /Open AI insight/i });
+    expect(link).toHaveAttribute('href', `/patient/analyze/${report.id}/insight`);
+    expect(screen.queryByRole('heading', { name: 'AI report insight' })).not.toBeInTheDocument();
+  });
+
   it('renders the compact analysis start without automated accessibility violations', async () => {
     const { container } = renderStart();
     await screen.findByText('CBC report');

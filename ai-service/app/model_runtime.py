@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -39,31 +40,48 @@ class ModelGeneration:
     completion_tokens: int | None
 
 
-def _llama_response_schema() -> dict[str, object]:
-    """Constrain generation to a concise subset of the unchanged Clinora response contract."""
+def _llama_response_schema(allowed_observation_ids: Iterable[str] | None = None) -> dict[str, object]:
+    """Constrain generation to Clinora's concise response contract and supplied evidence IDs."""
     schema = ModelAnalysisPayload.model_json_schema()
     properties = schema["properties"]
-    properties["summary"]["maxLength"] = 120
-    properties["patientExplanation"]["maxLength"] = 180
+    properties["summary"]["maxLength"] = 180
+    properties["patientExplanation"]["maxLength"] = 240
     properties["notableFindings"]["maxItems"] = 2
-    properties["clinicalPatterns"]["maxItems"] = 1
+    properties["clinicalPatterns"]["maxItems"] = 2
     properties["discussionPoints"]["maxItems"] = 1
     properties["limitations"]["maxItems"] = 2
     properties["limitations"]["items"]["maxLength"] = 80
 
     definitions = schema["$defs"]
     definitions["Finding"]["properties"]["title"]["maxLength"] = 60
-    definitions["Finding"]["properties"]["interpretation"]["maxLength"] = 120
+    definitions["Finding"]["properties"]["interpretation"]["maxLength"] = 180
     definitions["ClinicalPattern"]["properties"]["name"]["maxLength"] = 80
-    definitions["ClinicalPattern"]["properties"]["reasoning"]["maxLength"] = 150
-    definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["maxItems"] = 3
+    definitions["ClinicalPattern"]["properties"]["reasoning"]["maxLength"] = 240
+    definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["maxItems"] = 4
     definitions["ClinicalPattern"]["properties"]["contradictoryObservationIds"]["maxItems"] = 2
     definitions["ClinicalPattern"]["properties"]["missingEvidence"]["maxItems"] = 2
     definitions["ClinicalPattern"]["properties"]["missingEvidence"]["items"]["maxLength"] = 80
     definitions["ClinicalPattern"]["properties"]["possibleCauses"]["maxItems"] = 2
     definitions["ClinicalPattern"]["properties"]["possibleCauses"]["items"]["maxLength"] = 60
     definitions["DiscussionPoint"]["properties"]["title"]["maxLength"] = 80
-    definitions["DiscussionPoint"]["properties"]["reason"]["maxLength"] = 120
+    definitions["DiscussionPoint"]["properties"]["reason"]["maxLength"] = 180
+
+    if allowed_observation_ids is not None:
+        allowed_ids = list(
+            dict.fromkeys(
+                observation_id.strip()
+                for observation_id in allowed_observation_ids
+                if observation_id.strip()
+            )
+        )
+        if allowed_ids:
+            definitions["Finding"]["properties"]["observationId"]["enum"] = allowed_ids
+            definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["items"][
+                "enum"
+            ] = allowed_ids
+            definitions["ClinicalPattern"]["properties"]["contradictoryObservationIds"]["items"][
+                "enum"
+            ] = allowed_ids
     return schema
 
 
@@ -123,7 +141,11 @@ class MedGemmaRuntime:
             self._last_error = exc.__class__.__name__
             raise ModelUnavailableError("MedGemma is not ready for inference.") from exc
 
-    def generate(self, messages: list[dict[str, object]]) -> ModelGeneration:
+    def generate(
+        self,
+        messages: list[dict[str, object]],
+        allowed_observation_ids: Iterable[str] | None = None,
+    ) -> ModelGeneration:
         request_messages = [self._chat_message(message) for message in messages]
         try:
             response = self._client.post(
@@ -137,7 +159,7 @@ class MedGemmaRuntime:
                     "stream": False,
                     "response_format": {
                         "type": "json_object",
-                        "schema": _llama_response_schema(),
+                        "schema": _llama_response_schema(allowed_observation_ids),
                     },
                 },
             )
