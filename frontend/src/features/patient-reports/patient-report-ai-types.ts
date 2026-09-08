@@ -19,6 +19,36 @@ export interface PatientReportAiClinicalPattern {
   possibleCauses: string[];
 }
 
+export type SupportEligibility = 'VERIFIED_ABNORMAL' | 'VERIFIED_QUALITATIVE_POSITIVE'
+  | 'VERIFIED_NORMAL' | 'VERIFIED_QUALITATIVE_NEGATIVE' | 'CONTEXT_ONLY' | 'UNKNOWN';
+
+export interface PatientReportAiClusterEvidence {
+  supportEligibility?: SupportEligibility | null;
+  observationId: string;
+  role: 'SUPPORTS' | 'CONTRADICTS' | 'CONTEXT';
+  clinicalRelevance: string;
+}
+
+export interface PatientReportAiClusterCandidate {
+  name: string;
+  supportLevel?: PatientReportAiEvidenceSupport;
+  rationale: string;
+  supportingObservationIds: string[];
+  contradictoryObservationIds: string[];
+  missingEvidence: string[];
+  alternatives: string[];
+}
+
+export interface PatientReportAiClinicalCluster {
+  displayTitle?: string | null;
+  title: string;
+  interpretation: string;
+  evidence: PatientReportAiClusterEvidence[];
+  candidates: PatientReportAiClusterCandidate[];
+  missingEvidence: string[];
+  alternatives: string[];
+}
+
 export interface PatientReportAiDiscussionPoint {
   type: 'POSSIBLE_TEST' | 'CLINICAL_QUESTION' | 'FOLLOW_UP';
   title: string;
@@ -30,6 +60,9 @@ export interface PatientReportAiResult {
   summary: string;
   notableFindings: PatientReportAiFinding[];
   clinicalPatterns: PatientReportAiClinicalPattern[];
+  /** Absent on saved results produced before the cluster-first contract. */
+  clinicalClusters?: PatientReportAiClinicalCluster[] | null;
+  overallInterpretation?: string | null;
   discussionPoints: PatientReportAiDiscussionPoint[];
   patientExplanation: string;
   limitations: string[];

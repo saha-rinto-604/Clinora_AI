@@ -79,31 +79,24 @@ class MedGemmaRuntimeTests(unittest.TestCase):
         response_format = observed_request["response_format"]
         self.assertEqual(response_format["type"], "json_object")
         self.assertEqual(response_format["schema"]["type"], "object")
-        self.assertIn("analysisStatus", response_format["schema"]["properties"])
-        self.assertEqual(response_format["schema"]["properties"]["notableFindings"]["maxItems"], 2)
-        self.assertEqual(response_format["schema"]["properties"]["clinicalPatterns"]["maxItems"], 2)
-        self.assertEqual(response_format["schema"]["properties"]["summary"]["maxLength"], 180)
-        self.assertEqual(response_format["schema"]["properties"]["patientExplanation"]["maxLength"], 240)
-        definitions = response_format["schema"]["$defs"]
-        self.assertEqual(definitions["Finding"]["properties"]["interpretation"]["maxLength"], 180)
-        self.assertEqual(definitions["ClinicalPattern"]["properties"]["reasoning"]["maxLength"], 240)
-        self.assertEqual(definitions["DiscussionPoint"]["properties"]["reason"]["maxLength"], 180)
-        self.assertEqual(
-            definitions["Finding"]["properties"]["observationId"]["enum"],
-            allowed_observation_ids,
-        )
-        self.assertEqual(
-            definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["items"]["enum"],
-            allowed_observation_ids,
-        )
-        self.assertEqual(
-            definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["maxItems"],
-            4,
-        )
-        self.assertEqual(
-            definitions["ClinicalPattern"]["properties"]["contradictoryObservationIds"]["items"]["enum"],
-            allowed_observation_ids,
-        )
+        schema = response_format["schema"]
+        self.assertEqual(set(schema["properties"]), {"clusters", "overallInterpretation"})
+        self.assertEqual(schema["properties"]["clusters"]["maxItems"], 3)
+        self.assertEqual(schema["required"], ["clusters", "overallInterpretation"])
+        definitions = schema["$defs"]
+        cluster = definitions["ModelClinicalCluster"]["properties"]
+        candidate = definitions["ModelClusterCandidate"]["properties"]
+        evidence = definitions["ModelClusterEvidence"]["properties"]
+        self.assertEqual(cluster["candidates"]["maxItems"], 2)
+        self.assertEqual(evidence["observationId"]["enum"], allowed_observation_ids)
+        self.assertEqual(candidate["supportingObservationIds"]["items"]["enum"], allowed_observation_ids)
+        self.assertEqual(candidate["contradictoryObservationIds"]["items"]["enum"], allowed_observation_ids)
+        self.assertNotIn("analysisStatus", schema["properties"])
+        self.assertIn("interpretation", cluster)
+        self.assertNotIn("interpretationClaims", cluster)
+        self.assertIn("rationale", candidate)
+        self.assertNotIn("rationaleClaims", candidate)
+        self.assertEqual(definitions["ReasoningPremise"]["properties"]["observationId"]["enum"], allowed_observation_ids)
         self.assertEqual(
             observed_request["messages"],
             [{"role": "user", "content": "Analyze only the supplied structured observations."}],

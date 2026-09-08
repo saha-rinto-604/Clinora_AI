@@ -9,8 +9,23 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from app.model_runtime import MedGemmaRuntime, ModelGeneration
-from app.prompts.patient_lab_report_v1 import PROMPT_VERSION, SCHEMA_VERSION, build_messages
+from app.clinical_ranges import range_state as _clinical_range_state
+from app.clinical_evidence import evidence_class, is_strong_evidence
+from app.model_runtime import MedGemmaRuntime, ModelGeneration, VerifiedObservationIds
+from app.prompts.patient_lab_report_v4 import (
+    CandidateOutputError as LegacyCandidateOutputError,
+    model_payload_from_candidate_output,
+    parse_candidate_output,
+)
+from app.prompts.patient_lab_report_v5 import (
+    CandidateOutputError,
+    PROMPT_VERSION,
+    SCHEMA_VERSION,
+    build_messages,
+    build_repair_messages,
+    model_payload_from_cluster_output,
+    parse_cluster_output,
+)
 from app.schemas.report_analysis import (
     AnalysisStatus,
     ModelAnalysisPayload,
@@ -42,6 +57,7 @@ _STANDARD_LIMITATIONS = (
 )
 
 _PROHIBITED_TREATMENT_PATTERNS = (
+    re.compile(r"(?:^|[.!?]\s+)(?:please\s+)?(?:start|stop|initiate|discontinue|take)\s+", re.IGNORECASE),
     re.compile(r"\bstart taking\b", re.IGNORECASE),
     re.compile(r"\bstop taking\b", re.IGNORECASE),
     re.compile(r"\bchange your dose\b", re.IGNORECASE),
@@ -106,26 +122,7 @@ _NEGATED_DIRECTION_PATTERN = re.compile(
 
 
 def _range_state(observation: object) -> str:
-    value_type = getattr(observation, "valueType", None)
-    numeric_value = getattr(observation, "numericValue", None)
-    reference_low = getattr(observation, "referenceLow", None)
-    reference_high = getattr(observation, "referenceHigh", None)
-    if value_type == "NUMERIC" and numeric_value is not None:
-        if reference_low is not None and numeric_value < reference_low:
-            return "LOW"
-        if reference_high is not None and numeric_value > reference_high:
-            return "HIGH"
-        if reference_low is not None or reference_high is not None:
-            return "IN_RANGE"
-    raw_flag = getattr(observation, "rangeFlag", "")
-    flag = str(getattr(raw_flag, "value", raw_flag) or "").upper()
-    if "ABOVE" in flag or flag in {"HIGH", "H"}:
-        return "HIGH"
-    if "BELOW" in flag or flag in {"LOW", "L"}:
-        return "LOW"
-    if "WITHIN" in flag or "NORMAL" in flag or "IN_RANGE" in flag:
-        return "IN_RANGE"
-    return "UNKNOWN"
+    return _clinical_range_state(observation)
 
 
 def _direction_claims(text: str) -> set[str]:
@@ -189,6 +186,7 @@ _ASSOCIATION_BRIDGE_WORDS = {
     "a",
     "about",
     "an",
+    "are",
     "appears",
     "appear",
     "approximately",
@@ -222,6 +220,7 @@ _ASSOCIATION_BRIDGE_WORDS = {
     "this",
     "value",
     "was",
+    "were",
     "which",
 }
 
@@ -230,7 +229,19 @@ def _observation_aliases(observation: object) -> set[str]:
     label = str(getattr(observation, "label", "") or "")
     label_without_parenthetical = re.sub(r"\s*\([^()]+\)\s*", " ", label)
     aliases = {_normalized_phrase(label), _normalized_phrase(label_without_parenthetical)}
+    # Plural count labels are often written as a singular noun plus "count" in
+    # prose. Keep the count qualifier so a cell-size explanation is not mistaken
+    # for a claim about an unclassified cell-count observation.
+    normalized_label = _normalized_phrase(label_without_parenthetical)
+    if normalized_label.endswith("s") and not normalized_label.endswith("ss") and len(normalized_label) > 3:
+        aliases.add(normalized_label[:-1] + " count")
     aliases.update(_normalized_phrase(item) for item in re.findall(r"\(([^()]{1,16})\)", label))
+    # Recognize initials of a supplied multi-word test label; this is identity
+    # matching, never a disease association or a source of reference intervals.
+    words = re.findall(r"[A-Za-z]+", label_without_parenthetical)
+    for parts in (words, [word for word in words if word.lower() not in {"count", "level", "test", "measurement", "of"}]):
+        if 2 <= len(parts) <= 5:
+            aliases.add("".join(word[0].lower() for word in parts))
     return {
         alias
         for alias in aliases
@@ -410,6 +421,30 @@ def _all_text(payload: ModelAnalysisPayload) -> Iterable[tuple[str, str]]:
     for index, point in enumerate(payload.discussionPoints):
         yield f"discussionPoints.{index}.title", point.title
         yield f"discussionPoints.{index}.reason", point.reason
+    yield from _cluster_text(payload)
+
+
+def _cluster_text(payload: ModelAnalysisPayload) -> Iterable[tuple[str, str]]:
+    if payload.overallInterpretation:
+        yield "overallInterpretation", payload.overallInterpretation
+    for index, cluster in enumerate(payload.clinicalClusters):
+        prefix = f"clinicalClusters.{index}"
+        yield f"{prefix}.title", cluster.title
+        if cluster.displayTitle:
+            yield f"{prefix}.displayTitle", cluster.displayTitle
+        yield f"{prefix}.interpretation", cluster.interpretation
+        for item_index, evidence in enumerate(cluster.evidence):
+            yield f"{prefix}.evidence.{item_index}.clinicalRelevance", evidence.clinicalRelevance
+        for field in ("missingEvidence", "alternatives"):
+            for item_index, value in enumerate(getattr(cluster, field)):
+                yield f"{prefix}.{field}.{item_index}", value
+        for item_index, candidate in enumerate(cluster.candidates):
+            candidate_prefix = f"{prefix}.candidates.{item_index}"
+            yield f"{candidate_prefix}.name", candidate.name
+            yield f"{candidate_prefix}.rationale", candidate.rationale
+            for field in ("missingEvidence", "alternatives"):
+                for value_index, value in enumerate(getattr(candidate, field)):
+                    yield f"{candidate_prefix}.{field}.{value_index}", value
 
 
 def _narrative_text(payload: ModelAnalysisPayload) -> Iterable[tuple[str, str]]:
@@ -421,6 +456,9 @@ def _narrative_text(payload: ModelAnalysisPayload) -> Iterable[tuple[str, str]]:
         yield f"clinicalPatterns.{index}.reasoning", pattern.reasoning
     for index, point in enumerate(payload.discussionPoints):
         yield f"discussionPoints.{index}.reason", point.reason
+    for field, text in _cluster_text(payload):
+        if field.endswith(("interpretation", "rationale", "clinicalRelevance")) or field == "overallInterpretation":
+            yield field, text
 
 
 class ReportAnalysisService:
@@ -429,9 +467,8 @@ class ReportAnalysisService:
         self._semaphore = threading.BoundedSemaphore(1)
 
     def analyze(self, request: ReportAnalysisRequest) -> ReportAnalysisResponse:
-        allowed_observation_ids = tuple(str(item.observationId) for item in request.observations)
-        base_messages = build_messages(request)
-        messages = base_messages
+        allowed_observation_ids = VerifiedObservationIds(request.observations)
+        messages = build_messages(request)
         repair_attempted = False
 
         while True:
@@ -443,33 +480,70 @@ class ReportAnalysisService:
             raw, truncated, generation_diagnostics = self._generation_details(generation)
 
             try:
+                if truncated:
+                    raise InvalidModelOutputError(
+                        "Clinora AI output was truncated at the configured token limit.",
+                        "OUTPUT_TRUNCATED",
+                        generation_diagnostics,
+                    )
+                parsed_candidate = parse_candidate_output(raw)
+                if "clusters" in parsed_candidate:
+                    parsed_candidate = parse_cluster_output(raw)
+                # Apply Clinora's existing raw safety boundary before sanitizing or
+                # grounding candidate output. Unsafe model text is never silently hidden.
+                self._validate_raw_safety_boundary(parsed_candidate)
+                is_cluster_contract = "clusters" in parsed_candidate or "clinicalClusters" in parsed_candidate
+                if is_cluster_contract:
+                    candidate_payload, candidate_diagnostics = model_payload_from_cluster_output(
+                        request, parsed_candidate,
+                    )
+                    LOGGER.info("Clinora AI cluster grounding counts: %s", json.dumps(candidate_diagnostics))
+                else:
+                    # Historical compact responses retain R4's evidence-level pruning.
+                    # Live v5 generation is constrained to clusters by the runtime schema.
+                    candidate_payload, candidate_diagnostics = model_payload_from_candidate_output(
+                        request, parsed_candidate,
+                    )
+                    LOGGER.info(
+                        "Clinora AI legacy grounding: raw_candidates=%s accepted_candidates=%s pruned_evidence=%s",
+                        candidate_diagnostics["modelCandidates"],
+                        candidate_diagnostics["acceptedCandidates"],
+                        candidate_diagnostics.get("discardedEvidenceIds", 0),
+                    )
                 payload = self._validated_payload(
                     request,
-                    raw,
+                    json.dumps(candidate_payload, separators=(",", ":"), ensure_ascii=True),
                     truncated=truncated,
                     generation_diagnostics=generation_diagnostics,
+                    cluster_grounded=is_cluster_contract,
                 )
                 break
+            except (CandidateOutputError, LegacyCandidateOutputError) as exc:
+                if repair_attempted or truncated:
+                    raise InvalidModelOutputError(
+                        "Clinora AI candidate output could not be parsed safely.",
+                        "CANDIDATE_OUTPUT_INVALID",
+                        f"{generation_diagnostics},candidate_reason={exc}",
+                    ) from exc
+                repair_attempted = True
+                LOGGER.info(
+                    "Clinora AI candidate output failed compact-contract parsing; attempting one JSON repair: reason=%s",
+                    exc,
+                )
+                messages = build_repair_messages(request, str(exc))
             except UnsafeModelOutputError as exc:
                 # Never ask the model to rewrite a response that crossed a patient-safety boundary.
                 self._log_rejection(exc)
                 raise
             except InvalidModelOutputError as exc:
-                if repair_attempted or exc.reason_code == "OUTPUT_TRUNCATED":
-                    self._log_rejection(exc)
-                    raise
-
-                repair_attempted = True
-                LOGGER.info(
-                    "MedGemma output failed contract validation; attempting one constrained repair: reason=%s",
-                    exc.reason_code,
-                )
-                messages = self._repair_messages(base_messages, raw, exc)
+                self._log_rejection(exc)
+                raise
 
         limitations = list(dict.fromkeys([*payload.limitations, *_STANDARD_LIMITATIONS]))
         metadata = self._runtime.metadata
         return ReportAnalysisResponse(
-            **payload.model_dump(exclude={"limitations"}),
+            **payload.model_dump(exclude={"limitations", "overallInterpretation"}),
+            overallInterpretation=payload.overallInterpretation or payload.patientExplanation,
             limitations=limitations[:12],
             modelName=metadata.model_name,
             modelRevision=metadata.model_revision,
@@ -478,13 +552,28 @@ class ReportAnalysisService:
         )
 
     @staticmethod
+    def _raw_clinical_pattern_count(raw: str) -> int:
+        """Count model-authored patterns without trusting or displaying them.
+
+        A non-empty raw differential that disappears after grounding is a safety
+        rejection and must never trigger a second semantic generation.
+        """
+
+        try:
+            parsed = _json_object(raw)
+        except InvalidModelOutputError:
+            return 0
+        patterns = parsed.get("clinicalPatterns")
+        return len(patterns) if isinstance(patterns, list) else 0
+
+    @staticmethod
     def _generation_details(generation: str | ModelGeneration) -> tuple[str, bool, str]:
         if isinstance(generation, ModelGeneration):
             raw = generation.content
             truncated = generation.finish_reason == "length"
             diagnostics = (
                 f"finish_reason={generation.finish_reason},completion_tokens={generation.completion_tokens},"
-                f"content_chars={len(raw)}"
+                f"content_chars={len(raw)},prompt_tokens={generation.prompt_tokens}"
             )
             return raw, truncated, diagnostics
         return generation, False, ""
@@ -519,7 +608,7 @@ class ReportAnalysisService:
         normalized["clinicalPatterns"] = clinical_patterns
         raw_status = normalized.get("analysisStatus")
 
-        if clinical_patterns:
+        if clinical_patterns or normalized.get("clinicalClusters"):
             canonical_status = AnalysisStatus.POSSIBLE_CLINICAL_PATTERN.value
         elif raw_status in {
             AnalysisStatus.NO_CLEAR_ABNORMAL_PATTERN.value,
@@ -550,9 +639,10 @@ class ReportAnalysisService:
         - Clinora owns values, units, reference ranges, range direction, evidence cards,
           support metadata, summary wording, and patient-facing factual statements.
         - MedGemma may contribute condition/pattern names, evidence IDs, missing evidence,
-          alternative explanations, and *fact-free* clinical reasoning.
-        - Model reasoning that names a supplied analyte or uses range-direction language is
-          discarded before display. Clinora substitutes a grounded fallback instead.
+          alternative explanations, and clinical interpretation of the verified findings.
+        - Clinora checks model-authored factual clauses sentence-by-sentence against the
+          authoritative observations. Invalid clauses are removed without erasing an
+          otherwise grounded condition candidate.
         - Unsupported or malformed clinical patterns are dropped fail-closed rather than
           promoted to the patient UI.
         """
@@ -591,6 +681,11 @@ class ReportAnalysisService:
                     cited_ids.append(item_id)
 
         def state_phrase(observation: object) -> str:
+            category = evidence_class(observation)
+            if category == "QUALITATIVE_POSITIVE":
+                return "reported positive/reactive"
+            if category == "QUALITATIVE_NEGATIVE":
+                return "reported negative/non-reactive"
             state = _range_state(observation)
             if state == "LOW":
                 return "lower than expected"
@@ -632,19 +727,91 @@ class ReportAnalysisService:
                     return True
             return False
 
-        def model_reasoning_is_fact_safe(text: object) -> bool:
+        numeric_fact_tokens = {
+            str(getattr(observation, "numericValue", "") or "").strip()
+            for observation in observation_values
+            if getattr(observation, "numericValue", None) is not None
+        }
+
+        def sanitize_model_reasoning(text: object) -> str:
+            """Keep grounded clinical interpretation and drop only unsafe factual clauses.
+
+            The previous implementation rejected any MedGemma sentence that mentioned a
+            supplied analyte or words such as high/low. That erased useful medical
+            reasoning and made the product read like an OCR summary. Here Clinora checks
+            model-authored sentences against the authoritative observation facts instead.
+            A bad sentence is removed; the whole candidate is not discarded.
+            """
+
             if not isinstance(text, str) or not text.strip():
-                return False
+                return ""
+
             candidate = text.strip()
             if _INTERNAL_PATIENT_TOKEN_PATTERN.search(candidate) or _UUID_TEXT_PATTERN.search(candidate):
-                return False
-            if _MODEL_FACT_DIRECTION_PATTERN.search(candidate):
-                return False
-            if mentions_supplied_analyte(candidate):
-                return False
-            if _INCOMPLETE_NARRATIVE_END_PATTERN.search(candidate):
-                return False
-            return True
+                return ""
+
+            sentences = [
+                item.strip()
+                for item in re.split(r"(?<=[.!?])\s+|[\r\n]+", candidate)
+                if item.strip()
+            ]
+            safe_sentences: list[str] = []
+            for sentence in sentences:
+                # Exact numeric report facts are always rendered by Clinora-owned cards.
+                copied_numeric_fact = any(
+                    token
+                    and re.search(rf"(?<![0-9.]){re.escape(token)}(?![0-9.])", sentence)
+                    for token in numeric_fact_tokens
+                )
+                if copied_numeric_fact:
+                    LOGGER.info("Discarded model-authored reasoning sentence containing copied numeric report text")
+                    continue
+                if _INCOMPLETE_NARRATIVE_END_PATTERN.search(sentence):
+                    continue
+
+                mentioned = _observation_mentions(sentence, observation_values)
+                mismatch = False
+                for observation in observation_values:
+                    observation_id = getattr(observation, "observationId", None)
+                    if observation_id not in mentioned:
+                        continue
+
+                    expected = _range_state(observation)
+                    claims = _direction_claims_for_observation(
+                        sentence, observation, observation_values, allow_ambiguous_aliases=True
+                    )
+                    if claims and (
+                        expected == "UNKNOWN" or any(claim != expected for claim in claims)
+                    ):
+                        mismatch = True
+                        break
+
+                    # Qualitative words are checked only when exactly one supplied
+                    # observation is mentioned in the sentence. With several analytes in
+                    # one sentence, a global word such as "positive" cannot be safely
+                    # assigned to each mention without a full semantic parser.
+                    if len(mentioned) == 1:
+                        normalized_sentence = _normalized_phrase(sentence)
+                        category = evidence_class(observation)
+                        positive_claim = bool(
+                            re.search(r"\b(?:positive|reactive|detected|present)\b", normalized_sentence)
+                        )
+                        negative_claim = bool(
+                            re.search(r"\b(?:negative|nonreactive|non reactive|not detected|absent)\b", normalized_sentence)
+                        )
+                        if positive_claim and category != "QUALITATIVE_POSITIVE":
+                            mismatch = True
+                            break
+                        if negative_claim and category != "QUALITATIVE_NEGATIVE":
+                            mismatch = True
+                            break
+
+                if mismatch:
+                    LOGGER.info("Discarded one model-authored reasoning sentence after factual grounding")
+                    continue
+                safe_sentences.append(sentence)
+
+            return " ".join(safe_sentences)[:1600]
 
         def sanitize_model_list(value: object, *, max_items: int) -> list[str]:
             if not isinstance(value, list):
@@ -670,8 +837,9 @@ class ReportAnalysisService:
 
         safe_overall_reasoning = ""
         for candidate in (raw_patient_explanation, raw_summary):
-            if model_reasoning_is_fact_safe(candidate):
-                safe_overall_reasoning = str(candidate).strip()
+            safe_candidate = sanitize_model_reasoning(candidate)
+            if safe_candidate:
+                safe_overall_reasoning = safe_candidate
                 break
 
         grounded_patterns: list[dict[str, object]] = []
@@ -696,17 +864,20 @@ class ReportAnalysisService:
                 LOGGER.info("Dropped MedGemma clinical pattern that was only a laboratory finding")
                 continue
 
-            supporting_ids = clean_id_list(raw_pattern.get("supportingObservationIds"))
-            if not supporting_ids:
-                LOGGER.info("Dropped MedGemma clinical pattern with no verified supporting evidence")
-                continue
-
-            supporting_states = [
-                _range_state(observation_by_id[observation_id])
-                for observation_id in supporting_ids
+            raw_supporting_ids = clean_id_list(raw_pattern.get("supportingObservationIds"))
+            supporting_ids = [
+                observation_id
+                for observation_id in raw_supporting_ids
+                if is_strong_evidence(observation_by_id[observation_id])
             ]
-            if supporting_states and all(state == "IN_RANGE" for state in supporting_states):
-                LOGGER.info("Dropped MedGemma clinical pattern supported only by in-range findings")
+            discarded_support = len(raw_supporting_ids) - len(supporting_ids)
+            if discarded_support:
+                LOGGER.info(
+                    "Pruned %s neutral/unclassified supporting evidence item(s) without deleting the candidate",
+                    discarded_support,
+                )
+            if not supporting_ids:
+                LOGGER.info("Dropped MedGemma clinical pattern with no grounded abnormal/positive support")
                 continue
 
             contradictory_ids = [
@@ -717,10 +888,10 @@ class ReportAnalysisService:
             add_cited(supporting_ids)
             add_cited(contradictory_ids)
 
-            abnormal_count = sum(state in {"LOW", "HIGH"} for state in supporting_states)
-            if abnormal_count >= 3:
+            strong_count = len(supporting_ids)
+            if strong_count >= 3:
                 support_level = "STRONG"
-            elif abnormal_count >= 2:
+            elif strong_count >= 2:
                 support_level = "MODERATE"
             else:
                 support_level = "LIMITED"
@@ -730,12 +901,11 @@ class ReportAnalysisService:
                 f"{evidence_phrase(supporting_ids)}."
             )
             raw_reasoning = raw_pattern.get("reasoning")
-            if model_reasoning_is_fact_safe(raw_reasoning):
-                clinical_reason = str(raw_reasoning).strip()
-            else:
+            clinical_reason = sanitize_model_reasoning(raw_reasoning)
+            if not clinical_reason:
                 if isinstance(raw_reasoning, str) and raw_reasoning.strip():
                     LOGGER.info(
-                        "Discarded model-authored pattern reasoning that could restate laboratory facts"
+                        "Model-authored pattern reasoning contained no fact-safe sentence after grounding"
                     )
                 clinical_reason = (
                     f"This combination is why {name} was considered as a possible explanation, "
@@ -781,7 +951,7 @@ class ReportAnalysisService:
 
         abnormal_ids: list[str] = []
         for observation in request.observations:
-            if _range_state(observation) in {"LOW", "HIGH"}:
+            if is_strong_evidence(observation):
                 observation_id = str(observation.observationId)
                 abnormal_ids.append(observation_id)
                 add_cited([observation_id])
@@ -791,7 +961,12 @@ class ReportAnalysisService:
         for observation_id in cited_ids[:50]:
             observation = observation_by_id[observation_id]
             state = _range_state(observation)
-            if state == "LOW":
+            category = evidence_class(observation)
+            if category == "QUALITATIVE_POSITIVE":
+                interpretation = "This verified result was reported as positive/reactive/detected."
+            elif category == "QUALITATIVE_NEGATIVE":
+                interpretation = "This verified result was reported as negative/non-reactive/not detected."
+            elif state == "LOW":
                 interpretation = "This verified result is lower than the supplied reference range."
             elif state == "HIGH":
                 interpretation = "This verified result is higher than the supplied reference range."
@@ -895,6 +1070,7 @@ class ReportAnalysisService:
         *,
         truncated: bool,
         generation_diagnostics: str,
+        cluster_grounded: bool = False,
     ) -> ModelAnalysisPayload:
         try:
             parsed = _json_object(raw)
@@ -913,7 +1089,8 @@ class ReportAnalysisService:
 
         # Ground first because unsupported model patterns may be dropped fail-closed.
         # Then derive analysisStatus from the final grounded pattern structure.
-        parsed = self._ground_patient_facing_payload(request, parsed)
+        if not cluster_grounded:
+            parsed = self._ground_patient_facing_payload(request, parsed)
         parsed = self._canonicalize_analysis_status(parsed)
 
         try:
@@ -998,7 +1175,7 @@ Repair rules:
 - Clinora, not MedGemma, owns every laboratory value, unit, reference range, and range direction.
 - Treat each supplied clinoraRangeStatus as authoritative and never restate or reinterpret it in free-form reasoning.
 - clinicalPatterns must contain at most 2 condition-level possibilities with supporting IDs copied only from the supplied observations.
-- Pattern reasoning must explain the clinical mechanism or relationship without naming any supplied analyte, value, unit, or range direction.
+- Pattern reasoning may name supplied analytes and Clinora-owned range direction when clinically useful, but it must not copy exact numeric values or contradict clinoraRangeStatus.
 - missingEvidence may name absent tests or clinical context; possibleCauses must be alternative conditions/explanations, not laboratory findings.
 - If a condition-level possibility is not responsibly supported after correction, remove it rather than forcing a prediction.
 - Preserve the patient-safety rules: no definitive diagnosis, medication instructions, dosage advice, or numeric disease probability.
@@ -1017,6 +1194,11 @@ Repair rules:
         for pattern in payload.clinicalPatterns:
             referenced_ids.update(pattern.supportingObservationIds)
             referenced_ids.update(pattern.contradictoryObservationIds)
+        for cluster in payload.clinicalClusters:
+            referenced_ids.update(item.observationId for item in cluster.evidence)
+            for candidate in cluster.candidates:
+                referenced_ids.update(candidate.supportingObservationIds)
+                referenced_ids.update(candidate.contradictoryObservationIds)
         unknown = referenced_ids - allowed_ids
         if unknown:
             raise InvalidModelOutputError(
@@ -1106,25 +1288,28 @@ Repair rules:
                 raise_direction_mismatch(field, observation, claims)
 
         for index, pattern in enumerate(payload.clinicalPatterns):
-            supporting_states = [
-                _range_state(observations[observation_id])
+            supporting_items = [
+                observations[observation_id]
                 for observation_id in pattern.supportingObservationIds
                 if observation_id in observations
             ]
             if (
-                len(supporting_states) == len(pattern.supportingObservationIds)
-                and supporting_states
-                and all(state == "IN_RANGE" for state in supporting_states)
+                len(supporting_items) == len(pattern.supportingObservationIds)
+                and supporting_items
+                and not any(is_strong_evidence(item) for item in supporting_items)
             ):
                 raise InvalidModelOutputError(
-                    "MedGemma proposed a clinical pattern using only observations within their supplied reference ranges.",
-                    "PATTERN_SUPPORTED_ONLY_BY_NORMAL_EVIDENCE",
-                    f"pattern_index={index},supporting_count={len(supporting_states)}",
+                    "MedGemma proposed a clinical pattern without grounded abnormal or positive evidence.",
+                    "PATTERN_SUPPORTED_ONLY_BY_NEUTRAL_EVIDENCE",
+                    f"pattern_index={index},supporting_count={len(supporting_items)}",
                 )
 
     def _validate_differential_quality(
         self, request: ReportAnalysisRequest, payload: ModelAnalysisPayload
     ) -> None:
+        if payload.clinicalClusters:
+            self._validate_cluster_quality(request, payload)
+            return
         if len(payload.clinicalPatterns) > 2:
             raise InvalidModelOutputError(
                 "MedGemma returned more condition-level possibilities than the patient differential allows.",
@@ -1151,23 +1336,56 @@ Repair rules:
                     f"pattern_index={index}",
                 )
 
-            supporting_states = [
-                _range_state(observations[observation_id])
+            supporting_items = [
+                observations[observation_id]
                 for observation_id in pattern.supportingObservationIds
                 if observation_id in observations
             ]
-            if supporting_states and all(state != "UNKNOWN" for state in supporting_states):
-                abnormal_count = sum(state in {"LOW", "HIGH"} for state in supporting_states)
-                support_name = str(getattr(pattern.supportLevel, "value", pattern.supportLevel))
-                minimum = _SUPPORT_MINIMUM_KNOWN_ABNORMAL.get(support_name, 1)
-                if abnormal_count < minimum:
+            strong_count = sum(is_strong_evidence(item) for item in supporting_items)
+            support_name = str(getattr(pattern.supportLevel, "value", pattern.supportLevel))
+            minimum = _SUPPORT_MINIMUM_KNOWN_ABNORMAL.get(support_name, 1)
+            if strong_count < minimum:
+                raise InvalidModelOutputError(
+                    "Clinora's grounded evidence does not support the reported candidate support level.",
+                    "EVIDENCE_SUPPORT_OVERSTATED",
+                    (
+                        f"pattern_index={index},support={support_name},"
+                        f"grounded_strong_support={strong_count},required={minimum}"
+                    ),
+                )
+
+    @staticmethod
+    def _validate_cluster_quality(request: ReportAnalysisRequest, payload: ModelAnalysisPayload) -> None:
+        from app.clinical_evidence import is_strong_evidence as has_support, support_level, is_context_only, support_eligibility
+
+        observations = {item.observationId: item for item in request.observations}
+        seen_names: set[str] = set()
+        for index, cluster in enumerate(payload.clinicalClusters):
+            support_ids = {item.observationId for item in cluster.evidence if item.role == "SUPPORTS"}
+            cluster_ids = {item.observationId for item in cluster.evidence}
+            if ((not support_ids and not any(is_context_only(observations[item]) for item in cluster_ids))
+                or any(not has_support(observations[item]) for item in support_ids)
+                or any(item.supportEligibility != support_eligibility(observations[item.observationId]) for item in cluster.evidence)):
+                raise InvalidModelOutputError(
+                    "Clinical cluster lacks grounded abnormal or positive evidence.",
+                    "CLUSTER_SUPPORT_INVALID", f"cluster_index={index}",
+                )
+            for candidate in cluster.candidates:
+                candidate_support = set(candidate.supportingObservationIds)
+                candidate_contradiction = set(candidate.contradictoryObservationIds)
+                name = _normalized_phrase(candidate.name)
+                if (not candidate_support or not candidate_support <= support_ids
+                    or not candidate_contradiction <= cluster_ids
+                    or candidate_support & candidate_contradiction or name in seen_names):
                     raise InvalidModelOutputError(
-                        "MedGemma overstated how strongly the supplied report supports a possible condition.",
-                        "EVIDENCE_SUPPORT_OVERSTATED",
-                        (
-                            f"pattern_index={index},support={support_name},"
-                            f"known_abnormal_support={abnormal_count},required={minimum}"
-                        ),
+                        "Clinical candidate evidence is inconsistent with its cluster.",
+                        "CLUSTER_CANDIDATE_INVALID", f"cluster_index={index}",
+                    )
+                seen_names.add(name)
+                if str(candidate.supportLevel) != support_level([observations[item] for item in candidate_support]):
+                    raise InvalidModelOutputError(
+                        "Clinical candidate support metadata is inconsistent.",
+                        "EVIDENCE_SUPPORT_OVERSTATED", f"cluster_index={index}",
                     )
 
     def _validate_patient_prose(self, payload: ModelAnalysisPayload) -> None:

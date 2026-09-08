@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
+from types import MappingProxyType
 
 import httpx
 
-from app.schemas.report_analysis import ModelAnalysisPayload
+from app.schemas.report_analysis import ClusterModelPayload
+from app.clinical_evidence import is_strong_evidence, is_context_only, authoritative_states
 
 
 class ModelUnavailableError(RuntimeError):
@@ -38,50 +40,109 @@ class ModelGeneration:
     content: str
     finish_reason: str | None
     completion_tokens: int | None
+    prompt_tokens: int | None = None
+
+
+class VerifiedObservationIds(tuple):
+    """Backward-compatible ID sequence carrying facts for generation constraints."""
+
+    def __new__(cls, observations):
+        facts = {str(item.observationId): item for item in observations}
+        instance = super().__new__(cls, facts)
+        instance.facts = MappingProxyType(facts)
+        return instance
 
 
 def _llama_response_schema(allowed_observation_ids: Iterable[str] | None = None) -> dict[str, object]:
     """Constrain generation to Clinora's concise response contract and supplied evidence IDs."""
-    schema = ModelAnalysisPayload.model_json_schema()
-    properties = schema["properties"]
-    properties["summary"]["maxLength"] = 180
-    properties["patientExplanation"]["maxLength"] = 240
-    properties["notableFindings"]["maxItems"] = 2
-    properties["clinicalPatterns"]["maxItems"] = 2
-    properties["discussionPoints"]["maxItems"] = 1
-    properties["limitations"]["maxItems"] = 2
-    properties["limitations"]["items"]["maxLength"] = 80
-
+    schema = ClusterModelPayload.model_json_schema()
+    schema["required"] = ["clusters", "overallInterpretation"]
+    schema["properties"] = {name: schema["properties"][name]
+                            for name in ("overallInterpretation", "clusters")}
+    schema["properties"]["overallInterpretation"]["maxLength"] = 600
     definitions = schema["$defs"]
-    definitions["Finding"]["properties"]["title"]["maxLength"] = 60
-    definitions["Finding"]["properties"]["interpretation"]["maxLength"] = 180
-    definitions["ClinicalPattern"]["properties"]["name"]["maxLength"] = 80
-    definitions["ClinicalPattern"]["properties"]["reasoning"]["maxLength"] = 240
-    definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["maxItems"] = 4
-    definitions["ClinicalPattern"]["properties"]["contradictoryObservationIds"]["maxItems"] = 2
-    definitions["ClinicalPattern"]["properties"]["missingEvidence"]["maxItems"] = 2
-    definitions["ClinicalPattern"]["properties"]["missingEvidence"]["items"]["maxLength"] = 80
-    definitions["ClinicalPattern"]["properties"]["possibleCauses"]["maxItems"] = 2
-    definitions["ClinicalPattern"]["properties"]["possibleCauses"]["items"]["maxLength"] = 60
-    definitions["DiscussionPoint"]["properties"]["title"]["maxLength"] = 80
-    definitions["DiscussionPoint"]["properties"]["reason"]["maxLength"] = 180
+    cluster = definitions["ModelClinicalCluster"]["properties"]
+    candidate = definitions["ModelClusterCandidate"]["properties"]
+    evidence = definitions["ModelClusterEvidence"]["properties"]
+    # Group evidence before interpreting it and naming conditions. Keep live
+    # generation concise; optional evidence-bound claim arrays are understood by
+    # grounding but need not duplicate every authoritative fact during inference.
+    definitions["ModelClinicalCluster"]["properties"] = {
+        name: cluster[name] for name in (
+            "interpretation", "evidence", "title", "candidates", "missingEvidence", "alternatives",
+        )
+    }
+    candidate.pop("rationaleClaims")
+    candidate["rationale"] = {"type": "string", "minLength": 1, "maxLength": 500}
+    definitions["ModelClusterCandidate"]["properties"] = {
+        name: candidate[name] for name in (
+            "rationale", "name", "supportingObservationIds", "contradictoryObservationIds",
+            "missingEvidence", "alternatives",
+        )
+    }
+    definitions["ModelClinicalCluster"]["properties"]["interpretation"] = {
+        "type": "string", "minLength": 1, "maxLength": 500,
+    }
+    # Defaulted Pydantic fields are optional unless explicitly required for
+    # generation. Missing-context/alternative fields must not silently disappear.
+    for name in ("ModelClinicalCluster", "ModelClusterCandidate", "ModelClusterEvidence", "ReasoningClaim", "ReasoningPremise"):
+        definitions[name]["required"] = list(definitions[name]["properties"])
+    cluster["title"]["maxLength"] = 100
+    cluster["interpretation"]["maxLength"] = 500
+    cluster["evidence"]["maxItems"] = 6
+    candidate["name"]["maxLength"] = 100
+    definitions["ReasoningClaim"]["properties"]["text"]["maxLength"] = 300
+    definitions["ReasoningClaim"]["properties"]["premises"]["maxItems"] = 3
+    cluster["interpretationClaims"]["maxItems"] = 1
+    evidence["clinicalRelevance"]["maxLength"] = 180
+    for properties in (cluster, candidate):
+        for field in ("missingEvidence", "alternatives"):
+            properties[field]["maxItems"] = 1
+            properties[field]["items"]["maxLength"] = 160
+    candidate["missingEvidence"]["minItems"] = 1
+    candidate["alternatives"]["minItems"] = 1
+    for field in ("supportingObservationIds", "contradictoryObservationIds"):
+        candidate[field]["maxItems"] = 6
 
     if allowed_observation_ids is not None:
-        allowed_ids = list(
-            dict.fromkeys(
-                observation_id.strip()
-                for observation_id in allowed_observation_ids
-                if observation_id.strip()
-            )
-        )
+        allowed_ids = list(dict.fromkeys(item.strip() for item in allowed_observation_ids if item.strip()))
         if allowed_ids:
-            definitions["Finding"]["properties"]["observationId"]["enum"] = allowed_ids
-            definitions["ClinicalPattern"]["properties"]["supportingObservationIds"]["items"][
-                "enum"
-            ] = allowed_ids
-            definitions["ClinicalPattern"]["properties"]["contradictoryObservationIds"]["items"][
-                "enum"
-            ] = allowed_ids
+            evidence["observationId"]["enum"] = allowed_ids
+            definitions["ReasoningPremise"]["properties"]["observationId"]["enum"] = allowed_ids
+            for field in ("supportingObservationIds", "contradictoryObservationIds"):
+                candidate[field]["items"]["enum"] = allowed_ids
+        facts = getattr(allowed_observation_ids, "facts", allowed_observation_ids)
+        if isinstance(facts, Mapping):
+            # Choose a verified label first; the grammar then supplies its exact
+            # UUID. The model cannot attach that label to a neighboring result.
+            # This constrains identity/eligibility only, never medical meaning.
+            branches = []
+            for key, observation in facts.items():
+                roles = ["CONTEXT"]
+                if is_strong_evidence(observation):
+                    roles.append("SUPPORTS")
+                if not is_context_only(observation):
+                    roles.append("CONTRADICTS")
+                branches.append({
+                    "type": "object", "additionalProperties": False,
+                    "properties": {
+                        "observationLabel": {"const": observation.label},
+                        "observationId": {"const": key},
+                        "authoritativeStatus": {"const": next(
+                            (state for state in ("POSITIVE", "NEGATIVE", "HIGH", "LOW", "IN_RANGE")
+                             if state in authoritative_states(observation)), "UNKNOWN")},
+                        "role": {"type": "string", "enum": roles},
+                        "clinicalRelevance": evidence["clinicalRelevance"],
+                    },
+                    "required": ["observationLabel", "observationId", "authoritativeStatus", "role", "clinicalRelevance"],
+                })
+            definitions["ModelClusterEvidence"] = {"oneOf": branches}
+            supporting_ids = [key for key, observation in facts.items()
+                              if is_strong_evidence(observation)]
+            if supporting_ids:
+                candidate["supportingObservationIds"]["items"]["enum"] = supporting_ids
+            else:
+                cluster["candidates"]["maxItems"] = 0
     return schema
 
 
@@ -103,7 +164,7 @@ class MedGemmaRuntime:
             or parsed_server_url.password is not None
         ):
             raise ValueError("LLAMA_SERVER_URL must be an unauthenticated local HTTP loopback URL.")
-        self._max_new_tokens = max(256, min(int(os.getenv("AI_MAX_NEW_TOKENS", "768")), 1200))
+        self._max_new_tokens = max(256, min(int(os.getenv("AI_MAX_NEW_TOKENS", "3072")), 3072))
         self._seed = int(os.getenv("AI_GENERATION_SEED", "0"))
         connect_timeout = max(1.0, float(os.getenv("LLAMA_CONNECT_TIMEOUT_SECONDS", "5")))
         read_timeout = max(30.0, float(os.getenv("LLAMA_READ_TIMEOUT_SECONDS", "240")))
@@ -186,6 +247,9 @@ class MedGemmaRuntime:
             completion_tokens = usage.get("completion_tokens") if isinstance(usage, dict) else None
             if completion_tokens is not None and not isinstance(completion_tokens, int):
                 completion_tokens = None
+            prompt_tokens = usage.get("prompt_tokens") if isinstance(usage, dict) else None
+            if not isinstance(prompt_tokens, int):
+                prompt_tokens = None
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             self._last_error = exc.__class__.__name__
             raise MalformedModelResponseError(
@@ -195,7 +259,7 @@ class MedGemmaRuntime:
 
         self._ready = True
         self._last_error = None
-        return ModelGeneration(content.strip(), finish_reason, completion_tokens)
+        return ModelGeneration(content.strip(), finish_reason, completion_tokens, prompt_tokens)
 
     @staticmethod
     def _chat_message(message: dict[str, object]) -> dict[str, str]:

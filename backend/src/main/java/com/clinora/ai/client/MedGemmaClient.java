@@ -77,13 +77,73 @@ public class MedGemmaClient {
         String modelName,
         String modelRevision,
         String promptVersion,
-        String schemaVersion
+        String schemaVersion,
+        List<ClinicalCluster> clinicalClusters,
+        String overallInterpretation
     ) {
         public ReportAnalysisResponse {
             notableFindings = notableFindings == null ? List.of() : List.copyOf(notableFindings);
             clinicalPatterns = clinicalPatterns == null ? List.of() : List.copyOf(clinicalPatterns);
+            clinicalClusters = clinicalClusters == null ? List.of() : List.copyOf(clinicalClusters);
             discussionPoints = discussionPoints == null ? List.of() : List.copyOf(discussionPoints);
             limitations = limitations == null ? List.of() : List.copyOf(limitations);
+        }
+
+        // Historical results and existing Java consumers retain the v1.0 contract.
+        public ReportAnalysisResponse(
+            String analysisStatus, String summary, List<Finding> notableFindings,
+            List<ClinicalPattern> clinicalPatterns, List<DiscussionPoint> discussionPoints,
+            String patientExplanation, List<String> limitations, String modelName,
+            String modelRevision, String promptVersion, String schemaVersion
+        ) {
+            this(analysisStatus, summary, notableFindings, clinicalPatterns, discussionPoints,
+                patientExplanation, limitations, modelName, modelRevision, promptVersion,
+                schemaVersion, List.of(), null);
+        }
+    }
+
+    public record ClinicalCluster(
+        String title,
+        String interpretation,
+        List<ClusterEvidence> evidence,
+        List<ClusterCandidate> candidates,
+        List<String> missingEvidence,
+        List<String> alternatives,
+        String displayTitle
+    ) {
+        public ClinicalCluster(String title, String interpretation, List<ClusterEvidence> evidence,
+                List<ClusterCandidate> candidates, List<String> missingEvidence, List<String> alternatives) {
+            this(title, interpretation, evidence, candidates, missingEvidence, alternatives, null);
+        }
+
+        public ClinicalCluster {
+            evidence = evidence == null ? List.of() : List.copyOf(evidence);
+            candidates = candidates == null ? List.of() : List.copyOf(candidates);
+            missingEvidence = missingEvidence == null ? List.of() : List.copyOf(missingEvidence);
+            alternatives = alternatives == null ? List.of() : List.copyOf(alternatives);
+        }
+    }
+
+    public record ClusterEvidence(UUID observationId, String role, String clinicalRelevance, String supportEligibility) {
+        public ClusterEvidence(UUID observationId, String role, String clinicalRelevance) {
+            this(observationId, role, clinicalRelevance, null);
+        }
+    }
+
+    public record ClusterCandidate(
+        String name,
+        String rationale,
+        List<UUID> supportingObservationIds,
+        List<UUID> contradictoryObservationIds,
+        List<String> missingEvidence,
+        List<String> alternatives,
+        String supportLevel
+    ) {
+        public ClusterCandidate {
+            supportingObservationIds = supportingObservationIds == null ? List.of() : List.copyOf(supportingObservationIds);
+            contradictoryObservationIds = contradictoryObservationIds == null ? List.of() : List.copyOf(contradictoryObservationIds);
+            missingEvidence = missingEvidence == null ? List.of() : List.copyOf(missingEvidence);
+            alternatives = alternatives == null ? List.of() : List.copyOf(alternatives);
         }
     }
 

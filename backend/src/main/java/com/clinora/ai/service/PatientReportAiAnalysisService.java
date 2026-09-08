@@ -3,6 +3,8 @@ package com.clinora.ai.service;
 import com.clinora.ai.client.MedGemmaClient;
 import com.clinora.ai.client.MedGemmaClient.AnalysisInputSnapshot;
 import com.clinora.ai.client.MedGemmaClient.ClinicalObservation;
+import com.clinora.ai.client.MedGemmaClient.ClinicalCluster;
+import com.clinora.ai.client.MedGemmaClient.ClusterEvidence;
 import com.clinora.ai.client.MedGemmaClient.ReportAnalysisResponse;
 import com.clinora.notifications.service.PatientNotificationService;
 import com.clinora.notifications.service.PatientNotificationService.NotificationCategory;
@@ -49,6 +51,7 @@ public class PatientReportAiAnalysisService {
         "INSUFFICIENT_EVIDENCE"
     );
     private static final Set<String> ALLOWED_EVIDENCE_SUPPORT = Set.of("LIMITED", "MODERATE", "STRONG");
+    private static final Set<String> ALLOWED_CLUSTER_EVIDENCE_ROLES = Set.of("SUPPORTS", "CONTRADICTS", "CONTEXT");
     private static final Set<String> ALLOWED_DISCUSSION_TYPES = Set.of("POSSIBLE_TEST", "CLINICAL_QUESTION", "FOLLOW_UP");
     private static final List<Pattern> PROHIBITED_PATIENT_OUTPUT = List.of(
         Pattern.compile("\\bstart taking\\b", Pattern.CASE_INSENSITIVE),
@@ -95,8 +98,8 @@ public class PatientReportAiAnalysisService {
         @Value("${clinora.ai.queue:clinora.patient-report-ai-analysis}") String queueName,
         @Value("${clinora.ai.hf-model:google/medgemma-1.5-4b-it}") String modelName,
         @Value("${clinora.ai.model-revision:main}") String modelRevision,
-        @Value("${clinora.ai.prompt-version:patient-lab-report-v1}") String promptVersion,
-        @Value("${clinora.ai.schema-version:1.0}") String schemaVersion,
+        @Value("${clinora.ai.prompt-version:patient-lab-report-v5}") String promptVersion,
+        @Value("${clinora.ai.schema-version:1.1}") String schemaVersion,
         @Value("${clinora.ai.recovery-min-age-seconds:15}") long recoveryMinAgeSeconds,
         @Value("${clinora.ai.processing-timeout-seconds:300}") long processingTimeoutSeconds
     ) {
@@ -109,8 +112,8 @@ public class PatientReportAiAnalysisService {
         this.queueName = queueName;
         this.modelName = fallback(modelName, "google/medgemma-1.5-4b-it");
         this.modelRevision = fallback(modelRevision, "main");
-        this.promptVersion = fallback(promptVersion, "patient-lab-report-v1");
-        this.schemaVersion = fallback(schemaVersion, "1.0");
+        this.promptVersion = fallback(promptVersion, "patient-lab-report-v5");
+        this.schemaVersion = fallback(schemaVersion, "1.1");
         this.recoveryMinAgeSeconds = recoveryMinAgeSeconds;
         this.processingTimeoutSeconds = processingTimeoutSeconds;
     }
@@ -653,10 +656,11 @@ public class PatientReportAiAnalysisService {
             || response.patientExplanation() == null || response.patientExplanation().isBlank()) {
             throw new IllegalStateException("AI service response is missing required patient-facing content.");
         }
-        if (response.analysisStatus().equals("POSSIBLE_CLINICAL_PATTERN") && response.clinicalPatterns().isEmpty()) {
+        boolean hasPatterns = !response.clinicalPatterns().isEmpty() || !response.clinicalClusters().isEmpty();
+        if (response.analysisStatus().equals("POSSIBLE_CLINICAL_PATTERN") && !hasPatterns) {
             throw new IllegalStateException("AI service returned a pattern status without a clinical pattern.");
         }
-        if (!response.analysisStatus().equals("POSSIBLE_CLINICAL_PATTERN") && !response.clinicalPatterns().isEmpty()) {
+        if (!response.analysisStatus().equals("POSSIBLE_CLINICAL_PATTERN") && hasPatterns) {
             throw new IllegalStateException("AI service returned clinical patterns for a non-pattern result.");
         }
         if (response.clinicalPatterns().stream().anyMatch(pattern -> !ALLOWED_EVIDENCE_SUPPORT.contains(pattern.supportLevel()))) {
@@ -681,8 +685,17 @@ public class PatientReportAiAnalysisService {
             throw new IllegalStateException("AI service returned a clinical pattern with invalid evidence references.");
         }
 
+        if (response.clinicalClusters().size() > 3
+            || response.clinicalClusters().stream().anyMatch(cluster -> invalidCluster(cluster, allowed))) {
+            throw new IllegalStateException("AI service returned a clinical cluster with invalid evidence or structure.");
+        }
+        if ("1.1".equals(response.schemaVersion())
+            && (response.overallInterpretation() == null || response.overallInterpretation().isBlank())) {
+            throw new IllegalStateException("AI service response is missing the overall clinical interpretation.");
+        }
+
         Stream<String> patientText = Stream.concat(
-            Stream.of(response.summary(), response.patientExplanation()),
+            Stream.of(response.summary(), response.patientExplanation(), response.overallInterpretation()),
             Stream.concat(
                 response.limitations().stream(),
                 Stream.concat(
@@ -696,10 +709,53 @@ public class PatientReportAiAnalysisService {
                     )
                 )
             )
-        ).filter(value -> value != null && !value.isBlank());
+        );
+        patientText = Stream.concat(patientText, response.clinicalClusters().stream()
+            .flatMap(PatientReportAiAnalysisService::clusterPatientText))
+            .filter(value -> value != null && !value.isBlank());
         if (patientText.anyMatch(text -> PROHIBITED_PATIENT_OUTPUT.stream().anyMatch(pattern -> pattern.matcher(text).find()))) {
             throw new IllegalStateException("AI service response crossed the Phase 10P patient-safety boundary.");
         }
+    }
+
+    private static boolean invalidCluster(ClinicalCluster cluster, Set<UUID> allowed) {
+        if (cluster.title() == null || cluster.title().isBlank()
+            || cluster.interpretation() == null || cluster.interpretation().isBlank()
+            || cluster.evidence().isEmpty() || cluster.candidates().size() > 2
+            || cluster.evidence().stream().anyMatch(evidence ->
+                !allowed.contains(evidence.observationId()) || evidence.role() == null
+                    || !ALLOWED_CLUSTER_EVIDENCE_ROLES.contains(evidence.role()))) {
+            return true;
+        }
+        Set<UUID> support = cluster.evidence().stream()
+            .filter(evidence -> "SUPPORTS".equals(evidence.role()))
+            .map(ClusterEvidence::observationId).collect(Collectors.toUnmodifiableSet());
+        Set<UUID> clusterIds = cluster.evidence().stream()
+            .map(ClusterEvidence::observationId).collect(Collectors.toUnmodifiableSet());
+        // Factual pruning and shared clinical evidence-strength checks belong to the AI service.
+        // This boundary verifies that its accepted candidates reference their own grounded cluster.
+        return cluster.candidates().stream().anyMatch(candidate ->
+            candidate.name() == null || candidate.name().isBlank()
+                || candidate.rationale() == null || candidate.rationale().isBlank()
+                || (candidate.supportLevel() != null && !ALLOWED_EVIDENCE_SUPPORT.contains(candidate.supportLevel()))
+                || candidate.supportingObservationIds().isEmpty()
+                || !support.containsAll(candidate.supportingObservationIds())
+                || !clusterIds.containsAll(candidate.contradictoryObservationIds())
+                || candidate.contradictoryObservationIds().stream().anyMatch(candidate.supportingObservationIds()::contains)
+        );
+    }
+
+    private static Stream<String> clusterPatientText(ClinicalCluster cluster) {
+        return Stream.of(
+            Stream.of(cluster.title(), cluster.displayTitle(), cluster.interpretation()).filter(java.util.Objects::nonNull),
+            cluster.missingEvidence().stream(),
+            cluster.alternatives().stream(),
+            cluster.evidence().stream().map(ClusterEvidence::clinicalRelevance),
+            cluster.candidates().stream().flatMap(candidate -> Stream.of(
+                Stream.of(candidate.name(), candidate.rationale()),
+                candidate.missingEvidence().stream(), candidate.alternatives().stream()
+            ).flatMap(stream -> stream))
+        ).flatMap(stream -> stream);
     }
 
     private AnalysisInputSnapshot parseInput(String inputJson) {

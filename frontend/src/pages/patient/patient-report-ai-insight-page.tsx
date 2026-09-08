@@ -29,12 +29,23 @@ import type {
   PatientReportAiResult,
 } from '../../features/patient-reports/patient-report-ai-types';
 import { patientReportApi } from '../../features/patient-reports/patient-report-api';
+import { PatientReportClinicalClusters } from '../../features/patient-reports/patient-report-clinical-clusters';
+import {
+  formatObservationValue,
+  formatReference,
+  rangeStateLabel,
+} from '../../features/patient-reports/patient-report-observation-presentation';
 import { patientReportExtractionApi } from '../../features/patient-reports/patient-report-extraction-api';
 import type {
   PatientReportExtraction,
   PatientReportObservation,
 } from '../../features/patient-reports/patient-report-extraction-types';
+import {
+  patientObservationRangeState,
+  type PatientObservationRangeState,
+} from '../../features/patient-reports/patient-report-range-state';
 import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
+import './patient-report-ai-insight-theme.css';
 
 export function PatientReportAiInsightPage() {
   const { reportId } = useParams();
@@ -176,7 +187,7 @@ function InsightHeader({ report, reportId }: { report: PatientReport; reportId: 
         >
           <ArrowLeft size={14} aria-hidden="true" /> Back to verified report
         </Link>
-        <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">Clinora AI · MedGemma</p>
+        <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">Clinora AI · Clinical Intelligence</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Your report insight</h1>
         <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
           {report.reportName} · {patientReportTypeLabels[report.reportType]}
@@ -213,7 +224,7 @@ function InsightReady({
 }) {
   const { outside, within } = observationSummary(extraction.observations);
   return (
-    <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-[#f5f7fb] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+    <section className="clinora-ai-insight-theme overflow-hidden rounded-[30px] border border-slate-200 bg-[#f5f7fb] text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <div className="bg-white p-6 sm:p-8 lg:p-10">
           <span className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-800">
@@ -223,7 +234,7 @@ function InsightReady({
             Understand what your verified lab report may suggest.
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-            MedGemma looks for clinically meaningful patterns and possible conditions while Clinora keeps the exact values,
+            Clinora AI looks for clinically meaningful patterns and possible conditions while keeping the exact values,
             reference ranges, and range status fixed to the report you reviewed.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -296,7 +307,11 @@ function InsightLab({
   const previewRows = extraction.observations.slice(0, 5);
 
   return (
-    <section aria-live="polite" className="rounded-[32px] border border-slate-200 bg-[#f4f7fb] p-4 text-slate-950 shadow-[0_26px_80px_rgba(15,23,42,0.18)] sm:p-7 lg:p-10">
+    <section
+      aria-live="polite"
+      data-ai-status={queued ? 'queued' : 'processing'}
+      className="clinora-ai-insight-theme rounded-[32px] border border-slate-200 bg-[#f4f7fb] p-4 text-slate-950 shadow-[0_26px_80px_rgba(15,23,42,0.18)] sm:p-7 lg:p-10"
+    >
       <div className="mx-auto max-w-4xl rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.10)] sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
@@ -313,7 +328,7 @@ function InsightLab({
               <FileCheck2 size={14} aria-hidden="true" /> Verified lab report
             </span>
             <span className="inline-flex items-center gap-2 text-xs font-semibold text-blue-700">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" /> MedGemma analysis active
+              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.62)] motion-reduce:animate-none" /> {queued ? 'Clinora AI queued securely' : 'Clinora AI analysis active'}
             </span>
           </div>
 
@@ -347,23 +362,24 @@ function InsightLab({
           <h2 className="text-3xl font-semibold tracking-[-0.035em] text-slate-950">Analyzing your verified report</h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             {queued
-              ? 'Your request is securely queued. Analysis will start automatically when the local MedGemma worker is ready.'
-              : 'Clinora is asking MedGemma for cautious clinical possibilities, then checking every evidence link before anything is shown.'}
+              ? 'Your request is securely queued. Clinora AI will begin automatically as soon as private analysis capacity is available.'
+              : 'Clinora AI is evaluating cautious clinical possibilities, then checking every evidence link before anything is shown.'}
           </p>
         </div>
 
         <div className="mt-6 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
-          <div className="h-2 w-full animate-pulse bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 motion-reduce:animate-none" />
+          <div className={queued ? 'clinora-ai-queue-track h-2 w-full' : 'clinora-ai-activity-track h-2 w-full'} />
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <ProcessStep title="Verified values" text="Confirmed report data" state="complete" />
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <ProcessStep title="Verified report" text="Confirmed report data" state="complete" />
           <ProcessStep
-            title="AI reasoning + evidence"
-            text={queued ? 'Waiting to start' : 'Clinical inference with grounding checks'}
-            state="active"
+            title="Clinical correlation"
+            text={queued ? 'Waiting to start' : 'Related findings and clinical possibilities'}
+            state={queued ? 'waiting' : 'active'}
           />
-          <ProcessStep title="Safe result" text="Shown only after validation" state="waiting" />
+          <ProcessStep title="Evidence grounding" text="Every clinical claim must be checked" state="waiting" />
+          <ProcessStep title="Safety checked result" text="Shown only after validation" state="waiting" />
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-slate-200 pt-5 text-xs font-medium text-slate-500">
@@ -416,7 +432,7 @@ function InsightFailure({
   const capacityIssue = failureCode === 'AI_MODEL_UNAVAILABLE' || failureCode === 'AI_SERVICE_UNAVAILABLE';
   const rejected = failureCode === 'AI_RESPONSE_REJECTED';
   return (
-    <section className="rounded-[28px] border border-amber-200 bg-white p-6 text-center text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.12)] sm:p-8">
+    <section className="clinora-ai-insight-theme rounded-[28px] border border-amber-200 bg-white p-6 text-center text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.12)] sm:p-8">
       <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-amber-50 text-amber-700">
         <CircleAlert size={21} aria-hidden="true" />
       </span>
@@ -466,25 +482,62 @@ function InsightResult({
   );
   if (!result) return null;
 
-  const hasConditions = result.analysisStatus === 'POSSIBLE_CLINICAL_PATTERN' && result.clinicalPatterns.length > 0;
+  const hasConditions = (result.schemaVersion !== '1.0' && result.clinicalClusters != null)
+    ? result.clinicalClusters.some((cluster) => cluster.candidates.length > 0)
+    : result.analysisStatus === 'POSSIBLE_CLINICAL_PATTERN' && result.clinicalPatterns.length > 0;
   const { outside, within, unavailable } = observationSummary(extraction.observations);
   const keyOutside = outside.slice(0, 4);
 
   return (
-    <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-[#f5f7fb] text-slate-950 shadow-[0_26px_80px_rgba(15,23,42,0.18)]">
+    <div className="clinora-ai-insight-theme overflow-hidden rounded-[30px] border border-slate-200 bg-[#f5f7fb] text-slate-950 shadow-[0_26px_80px_rgba(15,23,42,0.18)]">
       <ResultHero result={result} report={report} hasConditions={hasConditions} outsideCount={outside.length} />
+
+      <section className="border-t border-slate-200 p-5 sm:p-7 lg:p-8">
+        {result.clinicalClusters?.length ? (
+          <PatientReportClinicalClusters clusters={result.clinicalClusters} observations={extraction.observations} />
+        ) : (result.schemaVersion !== '1.0' && result.clinicalClusters != null) ? (
+          <article className="rounded-[22px] border border-slate-200 bg-white p-5 sm:p-6">
+            <h3 className="text-lg font-semibold text-slate-950">
+              {result.analysisStatus === 'NO_CLEAR_ABNORMAL_PATTERN' ? 'No clear abnormal pattern from this report' : 'More context is needed for a clinical interpretation'}
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">{result.patientExplanation}</p>
+          </article>
+        ) : hasConditions ? (
+          <>
+            <SectionHeadingLight
+              eyebrow="AI interpretation"
+              title="Possible conditions to discuss"
+              description="Clinora shows a condition only when its analysis links it to verified evidence that passes grounding checks. These are possibilities, not diagnoses."
+            />
+            <div className="mt-5 space-y-5">
+              {result.clinicalPatterns.map((pattern, index) => (
+                <ConditionCard
+                  key={`${pattern.name}-${index}`}
+                  pattern={pattern}
+                  index={index}
+                  observationMap={observationMap}
+                />
+              ))}
+            </div>
+          </>
+        ) : outside.length ? (
+          <ClinicalPatternFallback result={result} outside={outside} />
+        ) : (
+          <ReassuringResult result={result} />
+        )}
+      </section>
 
       <section className="border-t border-slate-200 p-5 sm:p-7 lg:p-8">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.42fr)]">
           <div className="rounded-[22px] border border-slate-200 bg-white p-5 sm:p-6">
-            <SectionHeadingLight eyebrow="Health summary" title="Your verified report at a glance" />
+            <SectionHeadingLight eyebrow="Clinora-owned laboratory facts" title="Verified report summary" />
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <MetricTile label="Outside expected range" value={outside.length} tone="alert" />
               <MetricTile label="Within expected range" value={within.length} tone="good" />
             </div>
             {unavailable.length ? (
               <p className="mt-3 text-xs text-slate-500">
-                {unavailable.length} verified {unavailable.length === 1 ? 'result has' : 'results have'} no usable reference range in the report.
+                {unavailable.length} verified {unavailable.length === 1 ? 'result has' : 'results have'} an unknown or unclassified range status.
               </p>
             ) : null}
           </div>
@@ -509,52 +562,24 @@ function InsightResult({
       </section>
 
       <section className="border-t border-slate-200 p-5 sm:p-7 lg:p-8">
-        {hasConditions ? (
-          <>
-            <SectionHeadingLight
-              eyebrow="AI interpretation"
-              title="Possible conditions to discuss"
-              description="Clinora shows a condition only when MedGemma links it to verified evidence that passes grounding checks. These are possibilities, not diagnoses."
-            />
-            <div className="mt-5 space-y-5">
-              {result.clinicalPatterns.map((pattern, index) => (
-                <ConditionCard
-                  key={`${pattern.name}-${index}`}
-                  pattern={pattern}
-                  index={index}
-                  observationMap={observationMap}
-                />
-              ))}
-            </div>
-          </>
-        ) : outside.length ? (
-          <ClinicalPatternFallback result={result} outside={outside} />
-        ) : (
-          <ReassuringResult result={result} />
-        )}
-      </section>
-
-      {outside.length ? (
-        <section className="border-t border-slate-200 p-5 sm:p-7 lg:p-8">
           <SectionHeadingLight
             eyebrow="Verified findings"
-            title="What stands out in your report"
-            description="These statuses are calculated from the exact values and reference ranges you confirmed. MedGemma cannot change them."
+            title="Exact values from your verified report"
+            description="These statuses are calculated from the exact values and reference ranges you confirmed. Clinora AI cannot change them."
           />
           <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
             <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(120px,0.7fr)_minmax(150px,0.8fr)_minmax(150px,0.8fr)] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 md:grid">
               <span>Test</span><span>Result</span><span>Reference</span><span>Status</span>
             </div>
-            {outside.map((observation, index) => (
+            {extraction.observations.map((observation, index) => (
               <VerifiedFindingRow
                 key={observation.id}
                 observation={observation}
-                repeatedStatus={outside.slice(0, index).some((candidate) => rangeState(candidate) === rangeState(observation))}
+                repeatedStatus={extraction.observations.slice(0, index).some((candidate) => rangeState(candidate) === rangeState(observation))}
               />
             ))}
           </div>
-        </section>
-      ) : null}
+      </section>
 
       {result.discussionPoints.length ? (
         <section className="border-t border-slate-200 p-5 sm:p-7 lg:p-8">
@@ -627,7 +652,7 @@ function InsightResult({
       <details className="border-t border-slate-200 bg-slate-50 px-5 py-4 text-[11px] text-slate-500 sm:px-7 lg:px-8">
         <summary className="cursor-pointer font-semibold text-slate-600">About this analysis</summary>
         <p className="mt-2 leading-5">
-          Powered by {result.modelName}. The result uses verified report values with Clinora’s evidence and patient-safety checks.
+          Clinora AI created this result from verified report values with evidence and patient-safety checks.
           Prompt {result.promptVersion} · contract {result.schemaVersion}.
         </p>
       </details>
@@ -646,7 +671,13 @@ function ResultHero({
   hasConditions: boolean;
   outsideCount: number;
 }) {
-  const title = hasConditions
+  const title = result.clinicalClusters?.length
+    ? `Your report contains ${result.clinicalClusters.length} clinically related ${result.clinicalClusters.length === 1 ? 'pattern' : 'patterns'}.`
+    : (result.schemaVersion !== '1.0' && result.clinicalClusters != null)
+      ? result.analysisStatus === 'NO_CLEAR_ABNORMAL_PATTERN'
+        ? 'No clear abnormal pattern stands out in this verified report.'
+        : 'More context is needed to interpret these findings.'
+      : hasConditions
     ? 'Your verified report may fit one or more possible conditions.'
     : outsideCount
       ? 'Your report shows a clinical pattern worth discussing.'
@@ -662,8 +693,9 @@ function ResultHero({
             </span>
             <ResultStatusPill status={result.analysisStatus} />
           </div>
-          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-4xl lg:text-5xl">{title}</h2>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">{result.summary}</p>
+          <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.15em] text-cyan-700">Clinora AI Clinical Interpretation</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-4xl lg:text-5xl">{title}</h2>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">{result.overallInterpretation || result.summary}</p>
           <p className="mt-4 text-xs text-slate-500">
             Prepared from the verified values in {report.reportName}. This is AI-assisted interpretation, not a diagnosis or treatment plan.
           </p>
@@ -864,20 +896,8 @@ function observationSummary(observations: PatientReportObservation[]) {
   return { outside, within, unavailable };
 }
 
-type ObservationRangeState = 'LOW' | 'IN_RANGE' | 'HIGH' | 'REPORTED';
-
-function rangeState(observation: PatientReportObservation): ObservationRangeState {
-  if (observation.valueType === 'NUMERIC' && observation.numericValue != null) {
-    if (observation.referenceLow != null && observation.numericValue < observation.referenceLow) return 'LOW';
-    if (observation.referenceHigh != null && observation.numericValue > observation.referenceHigh) return 'HIGH';
-    if (observation.referenceLow != null || observation.referenceHigh != null) return 'IN_RANGE';
-  }
-  const flag = `${observation.derivedRangeFlag ?? ''} ${observation.sourceFlag ?? ''}`.toUpperCase();
-  if (flag.includes('ABOVE') || /\b(?:HIGH|H)\b/.test(flag)) return 'HIGH';
-  if (flag.includes('BELOW') || /\b(?:LOW|L)\b/.test(flag)) return 'LOW';
-  if (flag.includes('WITHIN') || flag.includes('NORMAL') || flag.includes('IN_RANGE')) return 'IN_RANGE';
-  return 'REPORTED';
-}
+type ObservationRangeState = PatientObservationRangeState;
+const rangeState = patientObservationRangeState;
 
 function RangePill({ state, prefix = '' }: { state: ObservationRangeState; prefix?: string }) {
   const label = rangeStateLabel(state);
@@ -896,33 +916,8 @@ function RangePill({ state, prefix = '' }: { state: ObservationRangeState; prefi
   );
 }
 
-function rangeStateLabel(state: ObservationRangeState) {
-  return state === 'IN_RANGE'
-    ? 'Within expected range'
-    : state === 'REPORTED'
-      ? 'Range not available'
-      : state === 'HIGH'
-        ? 'Higher than expected'
-        : 'Lower than expected';
-}
-
-function formatObservationValue(observation: PatientReportObservation) {
-  const value = observation.numericValue != null
-    ? `${observation.comparator ?? ''}${observation.numericValue}`
-    : observation.textValue || 'Reported';
-  return observation.unit ? `${value} ${observation.unit}` : value;
-}
-
-function formatReference(observation: PatientReportObservation) {
-  if (observation.referenceRangeRaw) return observation.referenceRangeRaw;
-  if (observation.referenceLow != null && observation.referenceHigh != null) return `${observation.referenceLow}–${observation.referenceHigh}`;
-  if (observation.referenceLow != null) return `≥ ${observation.referenceLow}`;
-  if (observation.referenceHigh != null) return `≤ ${observation.referenceHigh}`;
-  return 'Not stated on report';
-}
-
 function ResultStatusPill({ status }: { status: PatientReportAiAnalysisStatus }) {
-  const label = status === 'POSSIBLE_CLINICAL_PATTERN' ? 'Possible condition' : status === 'NO_CLEAR_ABNORMAL_PATTERN' ? 'No clear condition' : 'More context needed';
+  const label = status === 'POSSIBLE_CLINICAL_PATTERN' ? 'Clinical pattern' : status === 'NO_CLEAR_ABNORMAL_PATTERN' ? 'No clear condition' : 'More context needed';
   return <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-600">{label}</span>;
 }
 

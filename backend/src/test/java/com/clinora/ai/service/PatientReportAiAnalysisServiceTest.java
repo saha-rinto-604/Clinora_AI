@@ -16,6 +16,9 @@ import static org.mockito.Mockito.when;
 
 import com.clinora.ai.client.MedGemmaClient.AnalysisInputSnapshot;
 import com.clinora.ai.client.MedGemmaClient.ClinicalObservation;
+import com.clinora.ai.client.MedGemmaClient.ClinicalCluster;
+import com.clinora.ai.client.MedGemmaClient.ClusterCandidate;
+import com.clinora.ai.client.MedGemmaClient.ClusterEvidence;
 import com.clinora.ai.client.MedGemmaClient.ReportAnalysisResponse;
 import com.clinora.ai.service.PatientReportAiAnalysisService.AnalysisView;
 import com.clinora.ai.service.PatientReportAiAnalysisService.WorkItem;
@@ -32,6 +35,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -149,6 +154,192 @@ class PatientReportAiAnalysisServiceTest {
 
         verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
         verify(fixture.jdbc, never()).update(contains("status = 'SUCCEEDED'"), any(Object[].class));
+    }
+
+    @Test
+    void v5PersistsMultipleClustersAndTwoPossibilitiesWithoutLegacyPatterns() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        UUID secondId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        ClinicalCluster first = cluster(OBSERVATION_ID, List.of(
+            candidate("Possible process A", OBSERVATION_ID), candidate("Possible process B", OBSERVATION_ID)
+        ));
+        ClinicalCluster second = cluster(secondId, List.of(candidate("Possible process C", secondId)));
+        ReportAnalysisResponse response = clusterResponse(List.of(first, second));
+
+        fixture.service.complete(clusterWork(OBSERVATION_ID, secondId), response);
+
+        verify(fixture.jdbc).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
+        ObjectMapper mapper = new ObjectMapper();
+        ReportAnalysisResponse stored = mapper.readValue(mapper.writeValueAsString(response), ReportAnalysisResponse.class);
+        assertEquals(response, stored);
+        assertEquals(2, stored.clinicalClusters().size());
+        assertEquals(2, stored.clinicalClusters().getFirst().candidates().size());
+        assertEquals(List.of(secondId), stored.clinicalClusters().get(1).candidates().getFirst().supportingObservationIds());
+    }
+
+    @Test
+    void v5PatternOnlyClusterIsAcceptedWithoutForcingCandidate() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+
+        fixture.service.complete(clusterWork(OBSERVATION_ID), clusterResponse(List.of(cluster(OBSERVATION_ID, List.of()))));
+
+        verify(fixture.jdbc).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
+    }
+
+    @Test
+    void v5CandidateCannotBorrowSupportFromAnotherCluster() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        UUID secondId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        ReportAnalysisResponse response = clusterResponse(List.of(
+            cluster(OBSERVATION_ID, List.of(candidate("Possible process", secondId))),
+            cluster(secondId, List.of())
+        ));
+
+        assertThrows(IllegalStateException.class, () -> fixture.service.complete(clusterWork(OBSERVATION_ID, secondId), response));
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
+    }
+
+    @Test
+    void v5BoundaryRejectsUnknownEvidenceThatEscapedAiGrounding() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        UUID unknownId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+
+        assertThrows(IllegalStateException.class, () -> fixture.service.complete(
+            clusterWork(OBSERVATION_ID), clusterResponse(List.of(cluster(unknownId, List.of())))
+        ));
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
+    }
+
+    @Test
+    void v5ContextEvidenceCannotBecomeCandidateSupport() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        ClinicalCluster cluster = new ClinicalCluster("Clinical pattern", "A possible related pattern.",
+            List.of(new ClusterEvidence(OBSERVATION_ID, "CONTEXT", "Provides neutral context.")),
+            List.of(candidate("Possible process", OBSERVATION_ID)), List.of(), List.of());
+
+        assertThrows(IllegalStateException.class, () -> fixture.service.complete(
+            clusterWork(OBSERVATION_ID), clusterResponse(List.of(cluster))
+        ));
+    }
+
+    @Test
+    void v5ContradictoryEvidenceRemainsScopedAndSeparateFromSupport() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        UUID secondId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        ClinicalCluster cluster = new ClinicalCluster("Clinical pattern", "A possible related pattern.",
+            List.of(new ClusterEvidence(OBSERVATION_ID, "SUPPORTS", "Supports the possible process."),
+                new ClusterEvidence(secondId, "CONTRADICTS", "Does not fully match the possible process.")),
+            List.of(new ClusterCandidate("Possible process", "The verified findings may fit this process.",
+                List.of(OBSERVATION_ID), List.of(secondId), List.of(), List.of(), "LIMITED")),
+            List.of(), List.of());
+
+        fixture.service.complete(clusterWork(OBSERVATION_ID, secondId), clusterResponse(List.of(cluster)));
+
+        verify(fixture.jdbc).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
+    }
+
+    @Test
+    void v5RejectsExcessClustersAndCandidates() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        ClinicalCluster pattern = cluster(OBSERVATION_ID, List.of());
+        assertThrows(IllegalStateException.class, () -> fixture.service.complete(
+            clusterWork(OBSERVATION_ID), clusterResponse(List.of(pattern, pattern, pattern, pattern))
+        ));
+        assertThrows(IllegalStateException.class, () -> fixture.service.complete(
+            clusterWork(OBSERVATION_ID), clusterResponse(List.of(cluster(OBSERVATION_ID, List.of(
+                candidate("Possible A", OBSERVATION_ID), candidate("Possible B", OBSERVATION_ID),
+                candidate("Possible C", OBSERVATION_ID)
+            ))))
+        ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"overall", "title", "interpretation", "relevance", "name", "rationale", "missing", "alternatives", "clusterMissing", "clusterAlternatives"})
+    void v5NewPatientTextFieldsRetainSafetyBoundary(String field) throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        String unsafe = "Start taking a medicine.";
+        ClinicalCluster cluster = new ClinicalCluster(
+            field.equals("title") ? unsafe : "Clinical pattern",
+            field.equals("interpretation") ? unsafe : "A possible related pattern.",
+            List.of(new ClusterEvidence(OBSERVATION_ID, "SUPPORTS", field.equals("relevance") ? unsafe : "Related finding.")),
+            List.of(new ClusterCandidate(field.equals("name") ? unsafe : "Possible process",
+                field.equals("rationale") ? unsafe : "These findings may fit.", List.of(OBSERVATION_ID), List.of(),
+                field.equals("missing") ? List.of(unsafe) : List.of(),
+                field.equals("alternatives") ? List.of(unsafe) : List.of(), "LIMITED")),
+            field.equals("clusterMissing") ? List.of(unsafe) : List.of(),
+            field.equals("clusterAlternatives") ? List.of(unsafe) : List.of());
+        ReportAnalysisResponse response = new ReportAnalysisResponse(
+            "POSSIBLE_CLINICAL_PATTERN", "Verified report summary.", List.of(), List.of(), List.of(),
+            "Please discuss these possibilities with your clinician.", List.of(),
+            "google/medgemma-1.5-4b-it", "main", "patient-lab-report-v5", "1.1", List.of(cluster),
+            field.equals("overall") ? unsafe : "A related clinical pattern may be present.");
+
+        assertThrows(IllegalStateException.class, () -> fixture.service.complete(clusterWork(OBSERVATION_ID), response));
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_results"), any(Object[].class));
+    }
+
+    @Test
+    void historicalSchemaDeserializesWithoutNewFields() throws Exception {
+        ReportAnalysisResponse historical = new ObjectMapper().readValue("""
+            {"analysisStatus":"NO_CLEAR_ABNORMAL_PATTERN", "summary":"No clear abnormal pattern.",
+             "clinicalPatterns":[], "patientExplanation":"Discuss your report with your clinician.",
+             "modelName":"google/medgemma-1.5-4b-it", "modelRevision":"main",
+             "promptVersion":"patient-lab-report-v4", "schemaVersion":"1.0"}
+            """, ReportAnalysisResponse.class);
+
+        assertEquals(List.of(), historical.clinicalClusters());
+        assertEquals("1.0", historical.schemaVersion());
+        assertEquals(null, historical.overallInterpretation());
+    }
+
+    @Test
+    void preservesNeutralDisplayTitleAndExplicitUnknownContextThroughJson() throws Exception {
+        UUID contextId = UUID.randomUUID();
+        ClinicalCluster group = new ClinicalCluster("PDW pattern", "Reference information limits this grouping.",
+            List.of(new ClusterEvidence(OBSERVATION_ID, "SUPPORTS", "Size variation merits review.", "VERIFIED_ABNORMAL"),
+                new ClusterEvidence(contextId, "CONTEXT", "Range status unavailable.", "UNKNOWN")),
+            List.of(), List.of("Usable reference information"), List.of(), "PDW + Platelets pattern");
+        ObjectMapper mapper = new ObjectMapper();
+        ReportAnalysisResponse result = mapper.readValue(mapper.writeValueAsString(clusterResponse(List.of(group))), ReportAnalysisResponse.class);
+        assertEquals("PDW + Platelets pattern", result.clinicalClusters().getFirst().displayTitle());
+        assertEquals("UNKNOWN", result.clinicalClusters().getFirst().evidence().get(1).supportEligibility());
+        assertEquals("CONTEXT", result.clinicalClusters().getFirst().evidence().get(1).role());
+        assertEquals(List.of(), result.clinicalClusters().getFirst().candidates());
+    }
+
+    private static WorkItem clusterWork(UUID... observationIds) {
+        AnalysisInputSnapshot input = new AnalysisInputSnapshot("LAB_REPORT", java.util.Arrays.stream(observationIds)
+            .map(id -> new ClinicalObservation(id, "Verified finding", "NUMERIC", new BigDecimal("12.0"),
+                null, null, "unit", "2-10", new BigDecimal("2"), new BigDecimal("10"), "HIGH"))
+            .toList());
+        return new WorkItem(JOB_ID, REPORT_ID, PATIENT_ID, EXTRACTION_ID, input,
+            "google/medgemma-1.5-4b-it", "main", "patient-lab-report-v5", "1.1");
+    }
+
+    private static ClusterCandidate candidate(String name, UUID supportId) {
+        return new ClusterCandidate(name, "The verified findings may fit this process.",
+            List.of(supportId), List.of(), List.of("Clinical history"), List.of("Other physiological processes"), "LIMITED");
+    }
+
+    private static ClinicalCluster cluster(UUID evidenceId, List<ClusterCandidate> candidates) {
+        return new ClinicalCluster("Related clinical pattern", "The findings may reflect a related process.",
+            List.of(new ClusterEvidence(evidenceId, "SUPPORTS", "Contributes to the clinical pattern.")),
+            candidates, List.of("Clinical context"), List.of());
+    }
+
+    private static ReportAnalysisResponse clusterResponse(List<ClinicalCluster> clusters) {
+        return new ReportAnalysisResponse("POSSIBLE_CLINICAL_PATTERN", "Verified report summary.",
+            List.of(), List.of(), List.of(), "Please discuss these possibilities with your clinician.", List.of(),
+            "google/medgemma-1.5-4b-it", "main", "patient-lab-report-v5", "1.1", clusters,
+            "The report contains potentially independent clinical patterns.");
     }
 
     private static final class Fixture {

@@ -90,8 +90,10 @@ services:
       REDIS_PORT: 6379
       OCR_SERVICE_URL: http://ocr-service:8000
       CLINORA_SERVICES_OCR_TOKEN: ${OCR_INTERNAL_TOKEN:-dev-only-clinora-ocr-token-change-me}
-      AI_SERVICE_URL: ${COMPOSE_AI_SERVICE_URL:-http://ai-service:8001}
+      AI_SERVICE_URL: ${COMPOSE_AI_SERVICE_URL:-http://host.docker.internal:8001}
       AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-dev-only-clinora-ai-token-change-me}
+      AI_PROMPT_VERSION: ${AI_PROMPT_VERSION:-patient-lab-report-v5}
+      AI_SCHEMA_VERSION: ${AI_SCHEMA_VERSION:-1.1}
       AI_BACKEND_CONNECT_TIMEOUT_MS: ${AI_BACKEND_CONNECT_TIMEOUT_MS:-5000}
       AI_BACKEND_READ_TIMEOUT_MS: ${AI_BACKEND_READ_TIMEOUT_MS:-240000}
       HF_MODEL: ${HF_MODEL:-google/medgemma-1.5-4b-it}
@@ -212,6 +214,8 @@ services:
       - clinora-private
 
   ai-service:
+    # Local development uses Windows FastAPI; enable this container explicitly only.
+    profiles: [container-ai]
     build:
       context: ./ai-service
     environment:
@@ -220,8 +224,9 @@ services:
       HF_MODEL_REVISION: ${HF_MODEL_REVISION:-main}
       AI_QUANTIZATION: ${AI_QUANTIZATION:-Q4_0}
       AI_MAX_CONCURRENT_REQUESTS: ${AI_MAX_CONCURRENT_REQUESTS:-1}
-      AI_MAX_NEW_TOKENS: ${AI_MAX_NEW_TOKENS:-768}
+      AI_MAX_NEW_TOKENS: ${AI_MAX_NEW_TOKENS:-3072}
       AI_GENERATION_SEED: ${AI_GENERATION_SEED:-0}
+      AI_PROMPT_VERSION: ${AI_PROMPT_VERSION:-patient-lab-report-v5}
       LLAMA_SERVER_URL: ${LLAMA_SERVER_URL:-http://127.0.0.1:8002}
       LLAMA_CONNECT_TIMEOUT_SECONDS: ${LLAMA_CONNECT_TIMEOUT_SECONDS:-5}
       LLAMA_READ_TIMEOUT_SECONDS: ${LLAMA_READ_TIMEOUT_SECONDS:-240}

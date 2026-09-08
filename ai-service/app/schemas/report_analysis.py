@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from app.clinical_evidence import SupportEligibility
 
 
 ShortText = Annotated[str, Field(min_length=1, max_length=400)]
@@ -75,6 +76,80 @@ class ClinicalPattern(StrictModel):
     possibleCauses: Annotated[list[ShortText], Field(max_length=8)] = Field(default_factory=list)
 
 
+class ClinicalClusterEvidence(StrictModel):
+    observationId: UUID
+    role: Literal["SUPPORTS", "CONTRADICTS", "CONTEXT"]
+    clinicalRelevance: LongText
+    supportEligibility: SupportEligibility | None = None
+
+
+class ClinicalClusterCandidate(StrictModel):
+    name: Annotated[str, Field(min_length=1, max_length=180)]
+    rationale: LongText
+    supportLevel: EvidenceSupport = EvidenceSupport.LIMITED
+    supportingObservationIds: Annotated[list[UUID], Field(min_length=1, max_length=20)]
+    contradictoryObservationIds: Annotated[list[UUID], Field(max_length=20)] = Field(default_factory=list)
+    missingEvidence: Annotated[list[ShortText], Field(max_length=12)] = Field(default_factory=list)
+    alternatives: Annotated[list[ShortText], Field(max_length=8)] = Field(default_factory=list)
+
+
+class ClinicalCluster(StrictModel):
+    title: Annotated[str, Field(min_length=1, max_length=180)]
+    displayTitle: Annotated[str | None, Field(max_length=180)] = None
+    interpretation: LongText
+    evidence: Annotated[list[ClinicalClusterEvidence], Field(min_length=1, max_length=20)]
+    candidates: Annotated[list[ClinicalClusterCandidate], Field(max_length=2)] = Field(default_factory=list)
+    missingEvidence: Annotated[list[ShortText], Field(max_length=12)] = Field(default_factory=list)
+    alternatives: Annotated[list[ShortText], Field(max_length=8)] = Field(default_factory=list)
+
+
+class ReasoningPremise(StrictModel):
+    observationId: UUID
+    status: Literal["LOW", "HIGH", "IN_RANGE", "POSITIVE", "NEGATIVE", "UNKNOWN"]
+
+
+class ReasoningClaim(StrictModel):
+    """A model-authored conclusion with explicit factual dependencies."""
+    text: LongText
+    kind: Literal["RELATIONSHIP", "LIMITATION"]
+    premises: Annotated[list[ReasoningPremise], Field(min_length=1, max_length=6)]
+
+
+class ModelClusterEvidence(StrictModel):
+    observationId: UUID
+    observationLabel: Annotated[str | None, Field(max_length=160)] = None
+    authoritativeStatus: Literal["LOW", "HIGH", "IN_RANGE", "POSITIVE", "NEGATIVE", "UNKNOWN"] | None = None
+    role: Literal["SUPPORTS", "CONTRADICTS", "CONTEXT"]
+    clinicalRelevance: LongText
+
+
+class ModelClusterCandidate(StrictModel):
+    name: Annotated[str, Field(min_length=1, max_length=180)]
+    rationale: LongText | None = None
+    rationaleClaims: Annotated[list[ReasoningClaim], Field(max_length=4)] = Field(default_factory=list)
+    supportingObservationIds: Annotated[list[UUID], Field(min_length=1, max_length=20)]
+    contradictoryObservationIds: Annotated[list[UUID], Field(max_length=20)] = Field(default_factory=list)
+    missingEvidence: Annotated[list[ShortText], Field(max_length=12)] = Field(default_factory=list)
+    alternatives: Annotated[list[ShortText], Field(max_length=8)] = Field(default_factory=list)
+
+
+class ModelClinicalCluster(StrictModel):
+    title: Annotated[str, Field(min_length=1, max_length=180)]
+    interpretation: LongText | None = None
+    interpretationClaims: Annotated[list[ReasoningClaim], Field(max_length=4)] = Field(default_factory=list)
+    evidence: Annotated[list[ModelClusterEvidence], Field(min_length=1, max_length=20)]
+    candidates: Annotated[list[ModelClusterCandidate], Field(max_length=2)] = Field(default_factory=list)
+    missingEvidence: Annotated[list[ShortText], Field(max_length=12)] = Field(default_factory=list)
+    alternatives: Annotated[list[ShortText], Field(max_length=8)] = Field(default_factory=list)
+
+
+class ClusterModelPayload(StrictModel):
+    """Generation contract; model reasoning is grounded before public validation."""
+
+    clusters: Annotated[list[ModelClinicalCluster], Field(max_length=3)] = Field(default_factory=list)
+    overallInterpretation: LongText
+
+
 class DiscussionPoint(StrictModel):
     type: Literal["POSSIBLE_TEST", "CLINICAL_QUESTION", "FOLLOW_UP"]
     title: Annotated[str, Field(min_length=1, max_length=180)]
@@ -86,21 +161,24 @@ class ModelAnalysisPayload(StrictModel):
     summary: LongText
     notableFindings: Annotated[list[Finding], Field(max_length=50)] = Field(default_factory=list)
     clinicalPatterns: Annotated[list[ClinicalPattern], Field(max_length=5)] = Field(default_factory=list)
+    clinicalClusters: Annotated[list[ClinicalCluster], Field(max_length=3)] = Field(default_factory=list)
+    overallInterpretation: LongText | None = None
     discussionPoints: Annotated[list[DiscussionPoint], Field(max_length=10)] = Field(default_factory=list)
     patientExplanation: LongText
     limitations: Annotated[list[ShortText], Field(min_length=1, max_length=12)]
 
     @model_validator(mode="after")
     def validate_status_shape(self) -> "ModelAnalysisPayload":
-        if self.analysisStatus == AnalysisStatus.POSSIBLE_CLINICAL_PATTERN and not self.clinicalPatterns:
-            raise ValueError("clinicalPatterns are required when a possible clinical pattern is reported")
-        if self.analysisStatus != AnalysisStatus.POSSIBLE_CLINICAL_PATTERN and self.clinicalPatterns:
-            raise ValueError("clinicalPatterns must be empty when no possible clinical pattern is reported")
+        has_patterns = bool(self.clinicalPatterns or self.clinicalClusters)
+        if self.analysisStatus == AnalysisStatus.POSSIBLE_CLINICAL_PATTERN and not has_patterns:
+            raise ValueError("clinicalPatterns or clinicalClusters are required when a possible clinical pattern is reported")
+        if self.analysisStatus != AnalysisStatus.POSSIBLE_CLINICAL_PATTERN and has_patterns:
+            raise ValueError("clinicalPatterns and clinicalClusters must be empty when no possible clinical pattern is reported")
         return self
 
 
 class ReportAnalysisResponse(ModelAnalysisPayload):
     modelName: Annotated[str, Field(min_length=1, max_length=200)]
     modelRevision: Annotated[str, Field(min_length=1, max_length=120)]
-    promptVersion: Literal["patient-lab-report-v1"]
-    schemaVersion: Literal["1.0"]
+    promptVersion: Literal["patient-lab-report-v1", "patient-lab-report-v2", "patient-lab-report-v3", "patient-lab-report-v4", "patient-lab-report-v5"]
+    schemaVersion: Literal["1.0", "1.1"]

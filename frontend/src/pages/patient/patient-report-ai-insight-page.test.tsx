@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PatientReportAiAnalysis } from '../../features/patient-reports/patient-report-ai-types';
+import type { PatientReportAiAnalysis, PatientReportAiClinicalCluster } from '../../features/patient-reports/patient-report-ai-types';
 import type { PatientReportExtraction } from '../../features/patient-reports/patient-report-extraction-types';
 import type { PatientReport } from '../../features/patient-reports/patient-report-types';
 import { PatientReportAiInsightPage } from './patient-report-ai-insight-page';
@@ -226,7 +226,10 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
 
     expect(await screen.findByRole('heading', { name: 'Analyzing your verified report' })).toBeInTheDocument();
     expect(screen.getByText('Verified lab report')).toBeInTheDocument();
-    expect(screen.getByText('AI reasoning + evidence')).toBeInTheDocument();
+    expect(screen.getByText('Verified report')).toBeInTheDocument();
+    expect(screen.getByText('Clinical correlation')).toBeInTheDocument();
+    expect(screen.getByText('Evidence grounding')).toBeInTheDocument();
+    expect(screen.getByText('Safety checked result')).toBeInTheDocument();
     expect(screen.getByText('Safety checked before display')).toBeInTheDocument();
     expect(screen.queryByText(/\b\d{1,3}%\b/)).not.toBeInTheDocument();
   });
@@ -265,5 +268,207 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
     const { container } = renderPage();
     await screen.findByRole('button', { name: 'Analyze verified report' });
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+const thyroidObservations = [
+  { ...extraction.observations[1], id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', label: 'TSH', numericValue: 0.1, unit: 'mIU/L', referenceLow: 0.4, referenceHigh: 4, referenceRangeRaw: '0.4 - 4' },
+  { ...extraction.observations[1], id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', label: 'Free T4', numericValue: 2.8, unit: 'ng/dL', referenceLow: 0.8, referenceHigh: 1.8, referenceRangeRaw: '0.8 - 1.8' },
+];
+
+const redCellCluster: PatientReportAiClinicalCluster = {
+  title: 'Red-cell pattern',
+  interpretation: 'These findings may reflect reduced iron availability for red-cell production.',
+  evidence: [
+    { observationId: extraction.observations[1].id, role: 'SUPPORTS', clinicalRelevance: 'Reduced hemoglobin can reflect impaired oxygen-carrying capacity.' },
+    { observationId: extraction.observations[2].id, role: 'SUPPORTS', clinicalRelevance: 'Smaller red cells help characterize the pattern.' },
+    { observationId: extraction.observations[0].id, role: 'CONTEXT', clinicalRelevance: 'The lymphocyte count provides context without supporting a red-cell cause.' },
+  ],
+  candidates: [{
+    name: 'Iron-deficiency anemia',
+    rationale: 'Reduced hemoglobin with small red cells may fit limited iron availability.',
+    supportingObservationIds: [extraction.observations[1].id, extraction.observations[2].id],
+    contradictoryObservationIds: [],
+    missingEvidence: ['Ferritin and iron studies'],
+    alternatives: ['Thalassemia trait'],
+  }],
+  missingEvidence: [],
+  alternatives: [],
+};
+
+const thyroidCluster: PatientReportAiClinicalCluster = {
+  title: 'Thyroid hormone pattern',
+  interpretation: 'The reduced TSH and raised Free T4 may reflect thyroid hormone excess.',
+  evidence: [
+    { observationId: thyroidObservations[0].id, role: 'SUPPORTS', clinicalRelevance: 'Reduced TSH can accompany feedback from thyroid hormone excess.' },
+    { observationId: thyroidObservations[1].id, role: 'SUPPORTS', clinicalRelevance: 'Raised free hormone provides a related finding.' },
+  ],
+  candidates: [{
+    name: 'Thyroid hormone excess',
+    rationale: 'These related hormone findings may fit an independent thyroid process.',
+    supportingObservationIds: thyroidObservations.map((observation) => observation.id),
+    contradictoryObservationIds: [],
+    missingEvidence: ['Symptoms and thyroid medication history'],
+    alternatives: ['Assay interference'],
+  }],
+  missingEvidence: [],
+  alternatives: [],
+};
+
+function useClusters(clinicalClusters: PatientReportAiClinicalCluster[]) {
+  mocks.getAi.mockResolvedValue({
+    ...conditionSucceeded,
+    result: {
+      ...conditionSucceeded.result!,
+      clinicalClusters,
+      overallInterpretation: 'There may be independent clinical processes in this report; each needs its own clinical context.',
+      promptVersion: 'patient-lab-report-v5',
+      schemaVersion: '1.1',
+    },
+  });
+}
+
+describe('Phase 10P-R5 cluster-first interpretation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.detail.mockResolvedValue(report);
+    mocks.getExtraction.mockResolvedValue({ ...extraction, observations: [...extraction.observations, ...thyroidObservations] });
+  });
+
+  it('shows independent clinical clusters before the verified report summary and keeps their evidence separate', async () => {
+    useClusters([redCellCluster, thyroidCluster]);
+    const { container } = renderPage();
+    expect(await screen.findByRole('heading', { name: 'Your report contains 2 clinically related patterns.' })).toBeInTheDocument();
+    const redCell = screen.getByRole('article', { name: 'Clinical cluster 1: Red-cell pattern' });
+    const thyroid = screen.getByRole('article', { name: 'Clinical cluster 2: Thyroid hormone pattern' });
+    expect(within(redCell).getByText('Hemoglobin')).toBeInTheDocument();
+    expect(within(redCell).queryByText('TSH')).not.toBeInTheDocument();
+    expect(within(thyroid).getByText('TSH')).toBeInTheDocument();
+    expect(within(thyroid).queryByText('Hemoglobin')).not.toBeInTheDocument();
+    expect(within(thyroid).getByText('0.1 mIU/L')).toBeInTheDocument();
+    expect(within(thyroid).getByText('Reference 0.4 - 4')).toBeInTheDocument();
+    expect(within(thyroid).getByText('Lower than expected')).toBeInTheDocument();
+    const summary = screen.getByRole('heading', { name: 'Verified report summary' });
+    expect(thyroid.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container).not.toHaveTextContent(/MedGemma/i);
+    expect(container).not.toHaveTextContent(/Â|â€|Ã‚/);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('represents two candidates within one cluster with their own missing context', async () => {
+    useClusters([{
+      ...redCellCluster,
+      candidates: [redCellCluster.candidates[0], {
+        ...redCellCluster.candidates[0],
+        name: 'Thalassemia trait',
+        rationale: 'An inherited red-cell process is another possible explanation.',
+        missingEvidence: ['Family history and hemoglobin studies'],
+        alternatives: [],
+      }],
+    }]);
+    renderPage();
+    const cluster = await screen.findByRole('article', { name: 'Clinical cluster 1: Red-cell pattern' });
+    const alternatives = within(cluster).getAllByRole('region', { name: /^Possible condition:/ });
+    expect(alternatives).toHaveLength(2);
+    expect(within(alternatives[0]).getByText('Ferritin and iron studies')).toBeInTheDocument();
+    expect(within(alternatives[1]).getByText('Family history and hemoglobin studies')).toBeInTheDocument();
+  });
+
+  it('preserves a pattern-only clinical interpretation without adding a condition', async () => {
+    useClusters([{ ...redCellCluster, candidates: [], missingEvidence: ['Previous comparable results'] }]);
+    renderPage();
+    const cluster = await screen.findByRole('article', { name: 'Clinical cluster 1: Red-cell pattern' });
+    expect(within(cluster).getByText(redCellCluster.interpretation)).toBeInTheDocument();
+    expect(within(cluster).getByText('Verified support')).toBeInTheDocument();
+    expect(within(cluster).queryByText('Possible condition')).not.toBeInTheDocument();
+    expect(screen.queryByText('Iron-deficiency anemia')).not.toBeInTheDocument();
+  });
+
+  it('keeps normal context separate from support and hides references missing from the verified report', async () => {
+    useClusters([{
+      ...redCellCluster,
+      evidence: [...redCellCluster.evidence, { observationId: 'unknown-id', role: 'SUPPORTS', clinicalRelevance: 'This unknown evidence must not be rendered.' }],
+      candidates: [{ ...redCellCluster.candidates[0], supportingObservationIds: [...redCellCluster.candidates[0].supportingObservationIds, 'unknown-id'] }],
+    }]);
+    renderPage();
+    const cluster = await screen.findByRole('article', { name: 'Clinical cluster 1: Red-cell pattern' });
+    expect(within(cluster).getByText('Iron-deficiency anemia')).toBeInTheDocument();
+    expect(within(cluster).getByText('Other verified context')).toBeInTheDocument();
+    expect(within(cluster).getByText('Within expected range')).toBeInTheDocument();
+    expect(within(cluster).queryByText(/unknown evidence/)).not.toBeInTheDocument();
+  });
+
+  it('shows contradictory evidence only when provided and grounded', async () => {
+    useClusters([{
+      ...redCellCluster,
+      evidence: redCellCluster.evidence.map((item) => item.role === 'CONTEXT' ? { ...item, role: 'CONTRADICTS' } : item),
+      candidates: [{ ...redCellCluster.candidates[0], contradictoryObservationIds: [extraction.observations[0].id] }],
+    }]);
+    renderPage();
+    const cluster = await screen.findByRole('article', { name: 'Clinical cluster 1: Red-cell pattern' });
+    expect(within(cluster).getByText('What does not fully match')).toBeInTheDocument();
+    expect(within(cluster).getByText('Absolute Lymphocytes')).toBeInTheDocument();
+    expect(within(cluster).getByText('Within expected range')).toBeInTheDocument();
+  });
+
+  it('treats explicit empty clusters as authoritative and does not revive legacy candidates', async () => {
+    useClusters([]);
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'More context is needed to interpret these findings.' })).toBeInTheDocument();
+    expect(screen.queryByText('Iron-deficiency anemia')).not.toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: /^Clinical cluster/ })).not.toBeInTheDocument();
+  });
+
+  it('shows a no-clear-pattern result for a mostly normal verified report without inventing a condition', async () => {
+    mocks.getExtraction.mockResolvedValue({ ...extraction, observations: [extraction.observations[0]] });
+    mocks.getAi.mockResolvedValue({ ...noConditionSucceeded, result: { ...noConditionSucceeded.result!, schemaVersion: '1.1', clinicalClusters: [], overallInterpretation: 'No coherent abnormal pattern is apparent in the verified findings.' } });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' })).toBeInTheDocument();
+    expect(screen.queryByText('Possible condition')).not.toBeInTheDocument();
+    expect(screen.getByText('2000 /cumm')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Verified report summary' })).toBeInTheDocument();
+  });
+
+  it('preserves historical conditions when backend serializes absent v1.0 clusters as an empty list', async () => {
+    mocks.getAi.mockResolvedValue({
+      ...conditionSucceeded,
+      result: { ...conditionSucceeded.result!, schemaVersion: '1.0', clinicalClusters: [], overallInterpretation: null },
+    });
+    renderPage();
+    expect(await screen.findByText('Iron-deficiency anemia')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Possible conditions to discuss' })).toBeInTheDocument();
+  });
+});
+
+
+describe('Phase 10P-R5.1 grounded display', () => {
+  it('uses the neutral display title and keeps all 17 unclassified context cards visible after downgrade', async () => {
+    vi.clearAllMocks();
+    mocks.detail.mockResolvedValue(report);
+    const pdw = { ...extraction.observations[1], id: 'pdw-verified', label: 'PDW', numericValue: 19, unit: 'fL', referenceLow: 9, referenceHigh: 17, referenceRangeRaw: '9 - 17', derivedRangeFlag: 'HIGH' };
+    const context = Array.from({ length: 17 }, (_, index) => ({
+      ...extraction.observations[1], id: `context-${index}`, label: `Context measurement ${index + 1}`,
+      numericValue: 8.2 + index, referenceLow: null, referenceHigh: null, referenceRangeRaw: null,
+      derivedRangeFlag: null, sourceFlag: null,
+    }));
+    mocks.getExtraction.mockResolvedValue({ ...extraction, observations: [pdw, ...context] });
+    useClusters([{
+      title: 'Old unvalidated model title', displayTitle: 'PDW + related findings pattern',
+      interpretation: 'These hematology findings warrant review together, but unavailable reference information limits their classification.',
+      evidence: [
+        { observationId: pdw.id, role: 'SUPPORTS', supportEligibility: 'VERIFIED_ABNORMAL', clinicalRelevance: 'Size variation warrants clinical correlation.' },
+        ...context.map((item) => ({ observationId: item.id, role: 'CONTEXT' as const, supportEligibility: 'UNKNOWN' as const, clinicalRelevance: 'Report-specific range status is unavailable.' })),
+      ], candidates: [], missingEvidence: ['Usable report-specific references'], alternatives: [],
+    }]);
+    renderPage();
+    const group = await screen.findByRole('article', { name: 'Clinical cluster 1: PDW + related findings pattern' });
+    expect(within(group).getByRole('heading', { name: 'PDW + related findings pattern' })).toBeInTheDocument();
+    expect(screen.queryByText('Old unvalidated model title')).not.toBeInTheDocument();
+    expect(within(group).getAllByText('Range status unavailable')).toHaveLength(17);
+    expect(within(group).getByText('Other verified context')).toBeInTheDocument();
+    expect(within(group).getByText('19 fL')).toBeInTheDocument();
+    expect(within(group).getByText('Reference 9 - 17')).toBeInTheDocument();
+    expect(within(group).queryByText('Possible condition')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Verified report summary' })).toBeInTheDocument();
   });
 });

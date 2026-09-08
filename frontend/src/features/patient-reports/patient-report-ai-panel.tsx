@@ -94,13 +94,13 @@ export function PatientReportAiPanel({ reportId }: PatientReportAiPanelProps) {
             </span>
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--clinora-info-foreground)]">
-                MedGemma · Patient report intelligence
+                Clinora AI · Patient report intelligence
               </p>
               <h2 id="patient-report-ai-title" className="mt-1 text-xl font-semibold tracking-[-0.025em] text-white">
                 AI report insight
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-                Clinora sends only your confirmed structured report values to the private MedGemma service. This
+                Clinora interprets only your confirmed structured report values. This
                 interpretation is educational decision support, not a diagnosis or treatment plan.
               </p>
             </div>
@@ -166,7 +166,7 @@ function ReadyState() {
       <div className="max-w-3xl">
         <h3 className="text-base font-semibold text-white">Your verified report values are ready</h3>
         <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
-          MedGemma can now identify notable findings, describe possible clinical patterns, explain which confirmed
+          Clinora AI can now identify notable findings, describe possible clinical patterns, explain which confirmed
           results support them, and highlight missing or uncertain evidence. It is allowed to return no clear pattern
           when the supplied data are insufficient.
         </p>
@@ -186,7 +186,7 @@ function ProcessingState({ status }: { status: PatientReportAiJobStatus }) {
         />
         <div>
           <h3 className="text-base font-semibold text-white">
-            {status === 'QUEUED' ? 'AI insight queued' : 'MedGemma is analyzing the verified values'}
+            {status === 'QUEUED' ? 'AI insight queued' : 'Clinora AI is analyzing the verified values'}
           </h3>
           <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
             You can leave this page and return later. Your original report and confirmed extraction remain unchanged if
@@ -208,7 +208,7 @@ function FailureState({ failureCode }: { failureCode: string | null }) {
           <h3 className="text-base font-semibold text-white">AI insight could not be completed</h3>
           <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
             {capacityIssue
-              ? 'The local MedGemma service is unavailable or does not currently have enough GPU capacity. Your report and verified values are safe and unchanged.'
+              ? 'The private analysis service is currently unavailable. Your report and verified values are safe and unchanged.'
               : 'Clinora rejected or could not complete the AI response. Your report and verified values are safe and unchanged.'}
           </p>
           {failureCode ? (
@@ -232,7 +232,7 @@ function ResultView({ analysis }: { analysis: PatientReportAiAnalysis }) {
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-300">
               AI interpretation complete
             </p>
-            <h3 className="mt-2 text-lg font-semibold text-white">What MedGemma found in the confirmed values</h3>
+            <h3 className="mt-2 text-lg font-semibold text-white">What Clinora AI found in the confirmed values</h3>
             <p className="mt-2 text-sm leading-6 text-slate-300">{result.summary}</p>
           </div>
           <AnalysisStatusPill status={result.analysisStatus} />
@@ -269,7 +269,7 @@ function ResultView({ analysis }: { analysis: PatientReportAiAnalysis }) {
         <div className="border-t border-white/[0.07] p-5 sm:p-6">
           <SectionHeading eyebrow="Clinical reasoning" title="No forced condition list" />
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-            MedGemma did not identify a sufficiently supported clinical pattern from the confirmed values provided. That
+            Clinora AI did not identify a sufficiently supported clinical pattern from the confirmed values provided. That
             is a valid result and does not mean that a complete clinical evaluation would find nothing important.
           </p>
         </div>
@@ -297,7 +297,7 @@ function ResultView({ analysis }: { analysis: PatientReportAiAnalysis }) {
           <ul className="mt-2 space-y-1.5 text-xs leading-5 text-[var(--clinora-text-muted)]">
             {result.limitations.map((limitation, index) => (
               <li key={`${limitation}-${index}`} className="flex gap-2">
-                <span aria-hidden="true">•</span>
+                <span aria-hidden="true">â€¢</span>
                 <span>{limitation}</span>
               </li>
             ))}

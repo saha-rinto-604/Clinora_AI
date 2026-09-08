@@ -158,7 +158,7 @@ clinora:
     hf-model: ${HF_MODEL:google/medgemma-1.5-4b-it}
     model-revision: ${HF_MODEL_REVISION:main}
     queue: ${AI_ANALYSIS_QUEUE:clinora.patient-report-ai-analysis}
-    prompt-version: ${AI_PROMPT_VERSION:patient-lab-report-v1}
-    schema-version: ${AI_SCHEMA_VERSION:1.0}
+    prompt-version: ${AI_PROMPT_VERSION:patient-lab-report-v5}
+    schema-version: ${AI_SCHEMA_VERSION:1.1}
     recovery-min-age-seconds: ${AI_RECOVERY_MIN_AGE_SECONDS:15}
     processing-timeout-seconds: ${AI_PROCESSING_TIMEOUT_SECONDS:300}
