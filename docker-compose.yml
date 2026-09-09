@@ -113,6 +113,9 @@ services:
       SYSTEM_ADMIN_LAST_NAME: ${SYSTEM_ADMIN_LAST_NAME:-}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:5173}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      BLOOD_NETWORK_DEMO_SEED_ENABLED: ${BLOOD_NETWORK_DEMO_SEED_ENABLED:-false}
+      BLOOD_NETWORK_DEMO_LOGIN_PASSWORD: ${BLOOD_NETWORK_DEMO_LOGIN_PASSWORD:-}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-unconfigured}
       MAIL_FROM: ${MAIL_FROM:-Clinora AI <noreply@example.invalid>}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
@@ -172,6 +175,7 @@ services:
     environment:
       # Local Compose always routes browser API calls through Vite's relative /api proxy.
       VITE_API_BASE_URL: /api/v1
+      VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
       DEV_API_PROXY_TARGET: ${DEV_API_PROXY_TARGET:-http://backend:8080}
       VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080/ws}
     ports:

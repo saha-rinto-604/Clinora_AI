@@ -44,6 +44,7 @@ import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-p
 import { PatientAppointmentsPage } from './pages/patient/patient-appointments-page';
 import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
 import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
+import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-page';
 import { DoctorAvailabilityPage } from './pages/doctor/doctor-availability-page';
 
 export function AppRoutes() {
@@ -99,6 +100,7 @@ export function AppRoutes() {
           <Route path="patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
           <Route path="patient/appointments" element={<PatientAppointmentsPage />} />
           <Route path="patient/appointments/:appointmentId" element={<PatientAppointmentDetailPage />} />
+          <Route path="patient/blood-network" element={<PatientBloodNetworkPage />} />
           <Route path="patient/notifications" element={<PatientNotificationsPage />} />
         </Route>
       </Route>
