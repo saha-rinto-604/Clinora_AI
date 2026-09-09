@@ -28,8 +28,8 @@ import type {
 } from '../../features/patient-reports/patient-report-extraction-types';
 import { patientReportApi, patientReportErrorMessage } from '../../features/patient-reports/patient-report-api';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
-import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
-
+import { patientReportDisplayName, patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
+import './patient-report-analysis-processing.css';
 export function PatientReportAnalysisPage() {
   const { reportId } = useParams();
   return reportId ? <AnalysisWorkspace reportId={reportId} /> : <AnalysisStart />;
@@ -173,7 +173,7 @@ function AnalysisStart() {
                   <FileText size={19} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-white">{report.reportName}</span>
+                  <span className="block truncate text-sm font-semibold text-white">{patientReportDisplayName(report)}</span>
                   <span className="mt-1 block text-xs text-[var(--clinora-text-faint)]">
                     {patientReportTypeLabels[report.reportType]}
                     {report.reportDate ? ` · ${formatDate(report.reportDate)}` : ''}
@@ -330,7 +330,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
             <ArrowLeft size={14} aria-hidden="true" /> AI Report Analysis
           </Link>
           <h1 className="mt-3 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
-            {report.reportName}
+            {patientReportDisplayName(report)}
           </h1>
           <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
             {patientReportTypeLabels[report.reportType]}
@@ -514,32 +514,109 @@ function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () =>
 }
 
 function ProcessingPanel({ status }: { status: PatientReportExtraction['status'] }) {
+  const queued = status === 'QUEUED';
   return (
     <section
-      className="rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-raised)] p-6 sm:p-8"
+      className="clinora-ocr-processing overflow-hidden rounded-[28px] border border-cyan-300/15 bg-[var(--clinora-surface-raised)]"
       aria-live="polite"
+      data-ocr-status={queued ? 'queued' : 'processing'}
     >
-      <div className="mx-auto max-w-2xl text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
-          <RefreshCw size={21} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        </span>
-        <h2 className="mt-5 text-xl font-semibold text-white">
-          {status === 'QUEUED' ? 'Waiting to process' : 'Reading your report'}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
-          {status === 'QUEUED'
-            ? 'Your report is in the secure processing queue. You can leave this page and return later.'
-            : 'Clinora is reading the document and organizing extracted results. No diagnosis or AI prediction is being generated.'}
-        </p>
-        <div className="mt-7 grid grid-cols-3 gap-2 text-left text-[11px] text-[var(--clinora-text-faint)]">
-          {['Preparing document', 'Reading report', 'Organizing results'].map((label, index) => (
-            <div key={label} className="border-t border-white/[0.1] pt-2">
-              <span className="font-bold text-slate-400">0{index + 1}</span> {label}
+      <div className="grid gap-0 lg:grid-cols-[minmax(300px,0.86fr)_minmax(0,1.14fr)]">
+        <div className="relative border-b border-white/[0.07] bg-[linear-gradient(145deg,rgba(34,211,238,0.07),rgba(255,255,255,0.018))] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+          <div className="mx-auto max-w-sm">
+            <div className="flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-400">
+              <span className="inline-flex items-center gap-2"><FileText size={14} className="text-cyan-200" aria-hidden="true" /> Source document</span>
+              <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-2.5 py-1 text-cyan-100">
+                {queued ? 'Queued securely' : 'Reading now'}
+              </span>
             </div>
-          ))}
+            <div className="relative mt-5 aspect-[4/5] overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#07101d] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+              <div className="h-3 w-2/5 rounded-full bg-white/[0.11]" />
+              <div className="mt-3 h-2 w-3/5 rounded-full bg-white/[0.06]" />
+              <div className="mt-7 grid grid-cols-[1.25fr_0.7fr_0.8fr] gap-2 border-b border-white/[0.07] pb-2">
+                <span className="h-2 rounded-full bg-cyan-200/20" />
+                <span className="h-2 rounded-full bg-cyan-200/12" />
+                <span className="h-2 rounded-full bg-cyan-200/12" />
+              </div>
+              <div className="space-y-4 pt-4" aria-hidden="true">
+                {[86, 72, 91, 64, 79, 68].map((width, index) => (
+                  <div key={width + index} className="grid grid-cols-[1.25fr_0.7fr_0.8fr] items-center gap-2">
+                    <span className="h-2 rounded-full bg-white/[0.08]" style={{ width: `${width}%` }} />
+                    <span className="h-2 rounded-full bg-white/[0.055]" />
+                    <span className="h-2 rounded-full bg-white/[0.045]" />
+                  </div>
+                ))}
+              </div>
+              {queued ? <span className="clinora-ocr-queue-glow" aria-hidden="true" /> : <span className="clinora-ocr-scan-band" aria-hidden="true" />}
+              <div className="absolute inset-x-5 bottom-5 flex items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-400/[0.05] px-3 py-2 text-[10px] font-semibold text-emerald-200">
+                <ShieldCheck size={13} aria-hidden="true" /> Original document stays unchanged
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8 lg:p-10">
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100">
+            <ScanText size={13} aria-hidden="true" /> Document extraction
+          </span>
+          <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+            {queued ? 'Your report is queued securely' : 'Reading and organizing your report'}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)]">
+            {queued
+              ? 'Clinora has your report and will begin extraction automatically when the private document worker is available.'
+              : 'Clinora is locating laboratory-style text and values so you can compare the transcription with the original before any AI insight is requested.'}
+          </p>
+
+          <div className="mt-7 space-y-3">
+            <ExtractionStatusRow icon={CheckCircle2} title="Report secured" text="The uploaded source is stored privately and remains unchanged." state="complete" />
+            <ExtractionStatusRow
+              icon={queued ? RefreshCw : ScanText}
+              title={queued ? 'Waiting for extraction' : 'Reading document data'}
+              text={queued ? 'No extraction is running yet.' : 'Text and laboratory-style results are being organized for review.'}
+              state={queued ? 'waiting' : 'active'}
+            />
+            <ExtractionStatusRow icon={FileCheck2} title="Your review comes next" text="You will confirm or correct extracted values before clinical AI reasoning can begin." state="next" />
+          </div>
+
+          <div className="mt-7 border-t border-white/[0.07] pt-5 text-xs leading-6 text-[var(--clinora-text-faint)]">
+            This is document extraction, not prediction. Clinora AI insight starts only after you verify the extracted report data.
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function ExtractionStatusRow({
+  icon: Icon,
+  title,
+  text,
+  state,
+}: {
+  icon: typeof ScanText;
+  title: string;
+  text: string;
+  state: 'complete' | 'active' | 'waiting' | 'next';
+}) {
+  return (
+    <div className="flex gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+      <span
+        className={cn(
+          'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
+          state === 'complete' && 'bg-emerald-400/[0.08] text-emerald-300',
+          state === 'active' && 'bg-cyan-300/[0.09] text-cyan-200',
+          state === 'waiting' && 'bg-white/[0.045] text-slate-400',
+          state === 'next' && 'bg-white/[0.035] text-slate-500',
+        )}
+      >
+        <Icon size={17} className={state === 'active' ? 'animate-pulse motion-reduce:animate-none' : ''} aria-hidden="true" />
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">{text}</p>
+      </div>
+    </div>
   );
 }
 
@@ -610,7 +687,7 @@ function ReportSourceViewer({
           </div>
         ) : report.mimeType === 'application/pdf' ? (
           <iframe
-            title={`Original report: ${report.reportName}`}
+            title={`Original report: ${patientReportDisplayName(report)}`}
             src={`${sourceUrl}#page=${page}&view=FitH`}
             className="h-[650px] w-full rounded-xl border-0 bg-white"
           />
@@ -618,7 +695,7 @@ function ReportSourceViewer({
           <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-white">
             <img
               src={sourceUrl}
-              alt={`Original report: ${report.reportName}`}
+              alt={`Original report: ${patientReportDisplayName(report)}`}
               className="max-h-[650px] max-w-full object-contain"
             />
             {selected?.boundingBox ? (

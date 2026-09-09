@@ -9,9 +9,11 @@ export const patientReportAiApi = {
     );
     return response.data.data;
   },
-  async request(reportId: string) {
+  async request(reportId: string, force = false) {
     const response = await apiClient.post<ApiEnvelope<PatientReportAiAnalysis>>(
       `/patient/reports/${reportId}/ai-analysis`,
+      undefined,
+      force ? { params: { force: true } } : undefined,
     );
     return response.data.data;
   },

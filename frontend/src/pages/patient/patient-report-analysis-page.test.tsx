@@ -155,6 +155,17 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
   });
 
+  it.each(['QUEUED', 'PROCESSING'] as const)('renders truthful %s document extraction state', async (status) => {
+    mocks.getExtraction.mockResolvedValue({ ...extraction, status });
+    const { container } = renderWorkspace();
+    const title = status === 'QUEUED' ? 'Your report is queued securely' : 'Reading and organizing your report';
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByText('Your review comes next')).toBeInTheDocument();
+    expect(screen.getByText(/This is document extraction, not prediction/)).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it('offers one compact start surface with working upload and existing-report actions', async () => {
     const user = userEvent.setup();
     renderStart();

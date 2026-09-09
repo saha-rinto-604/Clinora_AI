@@ -37,6 +37,7 @@ import {
 } from '../../features/patient-reports/patient-report-format';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
 import {
+  patientReportDisplayName,
   patientReportTypeLabels,
   patientReportTypes,
   type PatientReport,
@@ -211,8 +212,8 @@ export function PatientReportsPage() {
         <DialogContent>
           <DialogTitle className="text-xl font-semibold text-white">Archive this report?</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
-            {archiveTarget?.reportName} will leave your current list but remain available in Archived. You can restore
-            it anytime.
+            {archiveTarget ? patientReportDisplayName(archiveTarget) : 'This report'} will leave your current list but remain
+            available in Archived. You can restore it anytime.
           </DialogDescription>
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="ghost" onClick={() => setArchiveTarget(null)} disabled={Boolean(busyReportId)}>
@@ -446,7 +447,7 @@ function ReportRow({
   onRestore: () => void;
 }) {
   const FileIcon = report.mimeType === 'application/pdf' ? FileText : FileImage;
-
+  const displayName = patientReportDisplayName(report);
   return (
     <li className="grid gap-4 border-b border-[var(--clinora-border-subtle)] px-4 py-5 transition-colors last:border-b-0 hover:bg-white/[0.018] sm:px-5 lg:grid-cols-[minmax(14rem,1.45fr)_8.5rem_minmax(10rem,0.9fr)_7.5rem_9rem_auto] lg:items-center lg:gap-4 lg:px-6 lg:py-4">
       <div className="flex min-w-0 items-start gap-3">
@@ -458,7 +459,7 @@ function ReportRow({
             to={`/patient/reports/${report.id}`}
             className="block truncate text-sm font-semibold text-white hover:text-[var(--clinora-info-foreground)]"
           >
-            {report.reportName}
+            {displayName}
           </Link>
           <p className="mt-1 text-xs text-[var(--clinora-info-foreground)]">
             {patientReportTypeLabels[report.reportType]}
@@ -477,7 +478,7 @@ function ReportRow({
       <div className="flex items-center justify-end gap-2">
         <Link
           to={`/patient/reports/${report.id}`}
-          aria-label={`Open ${report.reportName}`}
+          aria-label={`Open ${displayName}`}
           className={buttonVariants({ variant: 'appSecondary', size: 'sm' })}
         >
           Open <ArrowRight size={15} aria-hidden="true" />
@@ -488,7 +489,7 @@ function ReportRow({
               variant="appSecondary"
               size="sm"
               className="min-w-10"
-              aria-label={`More actions for ${report.reportName}`}
+              aria-label={`More actions for ${displayName}`}
               disabled={busy}
             >
               <MoreHorizontal size={17} aria-hidden="true" />

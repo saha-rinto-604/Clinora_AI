@@ -14,6 +14,12 @@ public interface PatientMedicalReportRepository extends JpaRepository<PatientMed
 
     Optional<PatientMedicalReport> findByIdAndPatientUserId(UUID id, UUID patientUserId);
 
+    Optional<PatientMedicalReport> findFirstByPatientUserIdAndSha256Checksum(UUID patientUserId, String sha256Checksum);
+
+    boolean existsByPatientUserIdAndReportNameIgnoreCase(UUID patientUserId, String reportName);
+
+    boolean existsByPatientUserIdAndReportNameIgnoreCaseAndIdNot(UUID patientUserId, String reportName, UUID id);
+
     long countByPatientUserIdAndArchivedAtIsNull(UUID patientUserId);
 
     long countByPatientUserIdAndArchivedAtIsNotNull(UUID patientUserId);

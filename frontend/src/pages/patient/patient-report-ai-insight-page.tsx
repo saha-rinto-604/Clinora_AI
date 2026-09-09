@@ -44,7 +44,7 @@ import {
   patientObservationRangeState,
   type PatientObservationRangeState,
 } from '../../features/patient-reports/patient-report-range-state';
-import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
+import { patientReportDisplayName, patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
 import './patient-report-ai-insight-theme.css';
 
 export function PatientReportAiInsightPage() {
@@ -99,11 +99,11 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
     return () => window.clearInterval(timer);
   }, [analysisStatus, reportId]);
 
-  async function requestInsight() {
+  async function requestInsight(force = false) {
     setRequesting(true);
     setError('');
     try {
-      setAnalysis(await patientReportAiApi.request(reportId));
+      setAnalysis(await patientReportAiApi.request(reportId, force));
     } catch (requestError) {
       setError(patientReportAiErrorMessage(requestError, 'Clinora could not start your report insight.'));
     } finally {
@@ -146,7 +146,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
               </p>
             </div>
           </div>
-          <Button variant="appPrimary" size="sm" onClick={() => void requestInsight()} disabled={requesting}>
+          <Button variant="appPrimary" size="sm" onClick={() => void requestInsight(true)} disabled={requesting}>
             <RefreshCw size={15} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
             {requesting ? 'Starting…' : 'Refresh insight'}
           </Button>
@@ -171,7 +171,13 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
       ) : null}
 
       {verified && status === 'SUCCEEDED' && analysis.result ? (
-        <InsightResult report={report} extraction={extraction} analysis={analysis} />
+        <InsightResult
+          report={report}
+          extraction={extraction}
+          analysis={analysis}
+          busy={requesting}
+          onRunAgain={() => void requestInsight(true)}
+        />
       ) : null}
     </div>
   );
@@ -190,7 +196,7 @@ function InsightHeader({ report, reportId }: { report: PatientReport; reportId: 
         <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">Clinora AI · Clinical Intelligence</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Your report insight</h1>
         <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-          {report.reportName} · {patientReportTypeLabels[report.reportType]}
+          {patientReportDisplayName(report)} · {patientReportTypeLabels[report.reportType]}
           {report.providerLaboratory ? ` · ${report.providerLaboratory}` : ''}
         </p>
       </div>
@@ -253,7 +259,7 @@ function InsightReady({
         </div>
         <aside className="border-t border-slate-200 bg-slate-50 p-6 sm:p-8 lg:border-l lg:border-t-0">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Report ready</p>
-          <p className="mt-2 text-lg font-semibold text-slate-950">{report.reportName}</p>
+          <p className="mt-2 text-lg font-semibold text-slate-950">{patientReportDisplayName(report)}</p>
           <div className="mt-6 grid grid-cols-2 gap-3">
             <MetricTile label="Outside expected range" value={outside.length} tone="alert" />
             <MetricTile label="Within expected range" value={within.length} tone="good" />
@@ -315,7 +321,7 @@ function InsightLab({
       <div className="mx-auto max-w-4xl rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.10)] sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
-            <FileText size={16} aria-hidden="true" /> {report.reportName}
+            <FileText size={16} aria-hidden="true" /> {patientReportDisplayName(report)}
           </span>
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold tabular-nums text-slate-600">
             <Clock3 size={16} aria-hidden="true" /> {formatElapsed(elapsedSeconds)}
@@ -470,10 +476,14 @@ function InsightResult({
   report,
   extraction,
   analysis,
+  busy,
+  onRunAgain,
 }: {
   report: PatientReport;
   extraction: PatientReportExtraction;
   analysis: PatientReportAiAnalysis;
+  busy: boolean;
+  onRunAgain: () => void;
 }) {
   const result = analysis.result;
   const observationMap = useMemo(
@@ -612,18 +622,18 @@ function InsightResult({
           </>
         ) : null}
 
-        <div className={cn('rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5', hasConditions && 'mt-7')}>
+        <div className={cn('rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 sm:p-5', hasConditions && 'mt-7')}>
           <div className="flex gap-3">
-            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-amber-700" aria-hidden="true" />
+            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-cyan-200" aria-hidden="true" />
             <div className="max-w-4xl">
-              <p className="text-sm font-semibold text-amber-950">About this AI insight</p>
-              <p className="mt-2 text-sm leading-6 text-amber-950/75">
+              <p className="text-sm font-semibold text-white">About this AI insight</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
                 Clinora AI helps you understand patterns in your verified report. It does not diagnose a medical condition
                 and cannot replace an evaluation by a qualified healthcare professional. A clinician can interpret these
                 findings together with your symptoms, medical history, medicines, and other tests.
               </p>
               {result.limitations.length ? (
-                <ul className="mt-4 space-y-1.5 border-t border-amber-200 pt-4 text-xs leading-5 text-amber-950/70">
+                <ul className="mt-4 space-y-1.5 border-t border-white/[0.08] pt-4 text-xs leading-5 text-slate-400">
                   {result.limitations.map((limitation, index) => (
                     <li key={`${limitation}-${index}`} className="flex gap-2"><span aria-hidden="true">•</span><span>{limitation}</span></li>
                   ))}
@@ -634,6 +644,15 @@ function InsightResult({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={onRunAgain}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-4 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-300/[0.1] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={busy ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+            {busy ? 'Starting fresh analysis…' : 'Run analysis again'}
+          </button>
           <Link
             to="/patient/doctors"
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400"
@@ -697,7 +716,7 @@ function ResultHero({
           <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-slate-950 sm:text-4xl lg:text-5xl">{title}</h2>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">{result.overallInterpretation || result.summary}</p>
           <p className="mt-4 text-xs text-slate-500">
-            Prepared from the verified values in {report.reportName}. This is AI-assisted interpretation, not a diagnosis or treatment plan.
+            Prepared from the verified values in {patientReportDisplayName(report)}. This is AI-assisted interpretation, not a diagnosis or treatment plan.
           </p>
         </div>
         <div className="grid min-w-[250px] gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">

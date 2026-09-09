@@ -120,6 +120,11 @@ public class PatientReportAiAnalysisService {
 
     @Transactional
     public AnalysisView request(UUID patientUserId, UUID reportId) {
+        return request(patientUserId, reportId, false);
+    }
+
+    @Transactional
+    public AnalysisView request(UUID patientUserId, UUID reportId, boolean force) {
         ReportRow report = requireOwnedReport(patientUserId, reportId);
         if (report.archivedAt() != null) {
             throw new PatientApiException(
@@ -130,12 +135,15 @@ public class PatientReportAiAnalysisService {
         }
         lockReport(reportId);
         AnalysisContext context = requireVerifiedContext(patientUserId, reportId, report.reportType());
-
-        Optional<JobRow> reusable = reusableJob(patientUserId, reportId, context.fingerprint());
-        if (reusable.isPresent()) {
-            return viewForJob(reportId, context, reusable.get());
+        if (!force) {
+            Optional<JobRow> reusable = reusableJob(patientUserId, reportId, context.fingerprint());
+            if (reusable.isPresent()) {
+                return viewForJob(reportId, context, reusable.get());
+            }
         }
 
+        // A manual rerun may bypass a completed reusable result, but never starts
+        // a second concurrent job for the same report.
         Optional<JobRow> active = activeJob(reportId);
         if (active.isPresent()) {
             return viewForJob(reportId, context, active.get());

@@ -98,6 +98,44 @@ class PatientReportAiAnalysisServiceTest {
     }
 
     @Test
+    void forcedRerunBypassesReusableResultAndQueuesANewJob() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("8.0"));
+        fixture.reusableJobMatchingRequestedFingerprint();
+        when(fixture.jdbc.query(
+            contains("FROM medical_report_ai_analysis_jobs\nWHERE id = ?"),
+            any(RowMapper.class), any(UUID.class)
+        )).thenAnswer(invocation -> List.of(fixture.mapJob(invocation, "new-fingerprint", "QUEUED")));
+
+        AnalysisView view = fixture.service.request(PATIENT_ID, REPORT_ID, true);
+
+        assertEquals("QUEUED", view.status());
+        verify(fixture.jdbc).update(contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class));
+        verify(fixture.jdbc, never()).query(contains("input_fingerprint = ?"), any(RowMapper.class),
+            eq(PATIENT_ID), eq(REPORT_ID), anyString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"QUEUED", "PROCESSING"})
+    void forcedRerunReusesActiveJobWithoutStartingAConcurrentJob(String status) throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("8.0"));
+        when(fixture.jdbc.query(contains("WHERE report_id = ? AND status IN"),
+            any(RowMapper.class), eq(REPORT_ID)))
+            .thenAnswer(invocation -> List.of(fixture.mapJob(invocation, "fingerprint", status)));
+
+        AnalysisView view = fixture.service.request(PATIENT_ID, REPORT_ID, true);
+
+        assertEquals(JOB_ID, view.jobId());
+        assertEquals(status, view.status());
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class));
+    }
+
+    @Test
     void changedConfirmedObservationMakesPriorAnalysisStale() throws Exception {
         Fixture fixture = new Fixture();
         fixture.ownedReport(PATIENT_ID);

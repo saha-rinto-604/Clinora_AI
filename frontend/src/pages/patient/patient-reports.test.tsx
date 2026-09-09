@@ -136,6 +136,21 @@ describe('Phase 5B Patient report vault', () => {
     expect(await screen.findByText('Archive is empty')).toBeInTheDocument();
   });
 
+  it('uses a readable upload name and keeps duplicate rejection visible', async () => {
+    const user = userEvent.setup();
+    mocks.list.mockResolvedValue({ ...reportPage, items: [], totalItems: 0, totalPages: 0, activeCount: 0, archivedCount: 0 });
+    mocks.upload.mockRejectedValue(new Error('This exact report is already saved in Medical Reports.'));
+    renderReportsPage();
+    await user.click(await screen.findByRole('button', { name: 'Choose a report' }));
+    const dialog = screen.getByRole('dialog', { name: 'Upload medical report' });
+    await user.upload(within(dialog).getByLabelText('Report file'), new File(['%PDF-1.7\n%%EOF'], '22222222-2222-2222-2222-222222222222.pdf', { type: 'application/pdf' }));
+    expect(within(dialog).getByLabelText('Report name')).toHaveValue('Medical report');
+    await user.selectOptions(within(dialog).getByLabelText('Report type'), 'LAB_RESULTS');
+    await user.click(within(dialog).getByRole('button', { name: 'Upload report' }));
+    expect(await within(dialog).findByText('This exact report is already saved in Medical Reports.')).toBeInTheDocument();
+    expect(dialog).toBeInTheDocument();
+  });
+
   it('uploads only useful metadata with genuine progress and refreshes the library', async () => {
     const user = userEvent.setup();
     mocks.list.mockResolvedValue({

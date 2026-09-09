@@ -1,0 +1,48 @@
+@keyframes clinora-ocr-scan {
+  0% { top: 8%; opacity: 0; }
+  10% { opacity: 0.85; }
+  48% { opacity: 1; }
+  90% { opacity: 0.8; }
+  100% { top: 82%; opacity: 0; }
+}
+
+@keyframes clinora-ocr-queue-breathe {
+  0%, 100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.88); }
+  50% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+.clinora-ocr-scan-band {
+  position: absolute;
+  inset-inline: 0;
+  top: 8%;
+  z-index: 10;
+  height: 3.25rem;
+  pointer-events: none;
+  border-bottom: 1px solid rgba(103, 232, 249, 0.72);
+  background: linear-gradient(to bottom, transparent, rgba(34, 211, 238, 0.04), rgba(34, 211, 238, 0.16), transparent);
+  box-shadow: 0 14px 26px rgba(34, 211, 238, 0.12);
+  animation: clinora-ocr-scan 2.9s cubic-bezier(0.42, 0, 0.28, 1) infinite;
+}
+
+.clinora-ocr-queue-glow {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: 70%;
+  height: 40%;
+  pointer-events: none;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent 68%);
+  animation: clinora-ocr-queue-breathe 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clinora-ocr-scan-band,
+  .clinora-ocr-queue-glow {
+    animation: none;
+  }
+  .clinora-ocr-scan-band {
+    top: 48%;
+    opacity: 0.5;
+  }
+}

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,11 +39,12 @@ public class PatientReportAiAnalysisController {
     @PostMapping
     public ApiResponse<AnalysisView> request(
         @AuthenticationPrincipal Jwt jwt,
-        @PathVariable UUID reportId
+        @PathVariable UUID reportId,
+        @RequestParam(defaultValue = "false") boolean force
     ) {
         return ApiResponse.success(
             "AI report insight queued.",
-            analysis.request(userId(jwt), reportId)
+            analysis.request(userId(jwt), reportId, force)
         );
     }
 

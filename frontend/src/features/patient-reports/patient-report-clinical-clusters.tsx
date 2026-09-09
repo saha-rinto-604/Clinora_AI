@@ -25,12 +25,12 @@ export function PatientReportClinicalClusters({
       {clusters.map((cluster, index) => (
         <article
           key={`${(cluster.displayTitle || cluster.title)}-${index}`}
-          aria-label={`Clinical cluster ${index + 1}: ${(cluster.displayTitle || cluster.title)}`}
+          aria-label={`Clinical finding ${index + 1}: ${(cluster.displayTitle || cluster.title)}`}
           className="overflow-hidden rounded-[22px] border border-cyan-300/20 bg-[var(--clinora-surface-raised)]"
         >
           <div className="border-b border-white/[0.07] bg-cyan-300/[0.045] p-5 sm:p-6">
             <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-cyan-200">
-              {cluster.candidates.length ? 'Cluster' : 'Pattern / finding'} {index + 1}
+              {cluster.candidates.length ? 'Clinical interpretation' : 'Related findings'}
             </p>
             <h3 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">{(cluster.displayTitle || cluster.title)}</h3>
             <p className="mt-3 text-sm leading-7 text-slate-300">{cluster.interpretation}</p>
