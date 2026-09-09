@@ -84,7 +84,14 @@ public class PatientReportService {
                 "The filename extension does not match the selected document."
             );
         }
-
+        String checksum = sha256(bytes);
+        if (reports.findFirstByPatientUserIdAndSha256Checksum(patientUserId, checksum).isPresent()) {
+            throw conflict(
+                "REPORT_DUPLICATE_FILE",
+                "This exact report is already saved in Medical Reports. Open the existing report instead of uploading another copy."
+            );
+        }
+        ensureUniqueReportName(patientUserId, reportName, null);
         Instant now = clock.instant();
         String objectKey = objectKey(patientUserId, now, detectedMime);
         putSecurely(objectKey, bytes, detectedMime);
@@ -100,7 +107,7 @@ public class PatientReportService {
             originalFilename,
             detectedMime,
             bytes.length,
-            sha256(bytes),
+            checksum,
             now
         );
 
@@ -225,6 +232,7 @@ public class PatientReportService {
         PatientReportType reportType = requiredReportType(command.reportType());
         String provider = optionalText(command.providerLaboratory(), 200, "REPORT_PROVIDER_INVALID");
         validateReportDate(command.reportDate());
+        ensureUniqueReportName(patientUserId, reportName, reportId);
         report.updateMetadata(reportName, reportType, command.reportDate(), provider, clock.instant());
         reports.save(report);
         audit.record(
@@ -480,8 +488,24 @@ public class PatientReportService {
         return cleaned;
     }
 
+    private void ensureUniqueReportName(UUID patientUserId, String reportName, UUID excludedReportId) {
+        boolean duplicate = excludedReportId == null
+            ? reports.existsByPatientUserIdAndReportNameIgnoreCase(patientUserId, reportName)
+            : reports.existsByPatientUserIdAndReportNameIgnoreCaseAndIdNot(patientUserId, reportName, excludedReportId);
+        if (duplicate) {
+            throw conflict(
+                "REPORT_NAME_ALREADY_EXISTS",
+                "You already have a report with this name. Choose a different report name."
+            );
+        }
+    }
+
     private PatientApiException badRequest(String code, String message) {
         return new PatientApiException(HttpStatus.BAD_REQUEST, code, message);
+    }
+
+    private PatientApiException conflict(String code, String message) {
+        return new PatientApiException(HttpStatus.CONFLICT, code, message);
     }
 
     private ReportView view(PatientMedicalReport report) {

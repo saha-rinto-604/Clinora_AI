@@ -1,0 +1,298 @@
+/* Phase 10P-R patient AI insight theme.
+ * Page-scoped on purpose: it preserves the existing Clinora shell and API/UI contracts
+ * while removing the isolated bright-white microsystem from this workflow.
+ */
+.clinora-ai-insight-theme {
+  color: var(--clinora-text-primary) !important;
+  border-color: var(--clinora-border-interactive) !important;
+  background:
+    radial-gradient(circle at 12% -8%, rgba(34, 211, 238, 0.12), transparent 36%),
+    radial-gradient(circle at 92% 14%, rgba(20, 184, 166, 0.08), transparent 32%),
+    linear-gradient(145deg, rgba(7, 37, 43, 0.96), rgba(8, 15, 31, 0.985) 48%, rgba(3, 8, 22, 0.995)) !important;
+  box-shadow:
+    0 30px 92px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+/* Re-map the light utility surfaces only inside the AI-insight workspace. */
+.clinora-ai-insight-theme .bg-white {
+  background-color: rgba(5, 16, 29, 0.82) !important;
+}
+
+.clinora-ai-insight-theme .bg-slate-50 {
+  background-color: rgba(255, 255, 255, 0.025) !important;
+}
+
+.clinora-ai-insight-theme .bg-slate-100 {
+  background-color: rgba(255, 255, 255, 0.045) !important;
+}
+
+.clinora-ai-insight-theme .bg-slate-200 {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.clinora-ai-insight-theme .border-slate-100 {
+  border-color: rgba(255, 255, 255, 0.055) !important;
+}
+
+.clinora-ai-insight-theme .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.085) !important;
+}
+
+.clinora-ai-insight-theme .text-slate-950,
+.clinora-ai-insight-theme .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.clinora-ai-insight-theme .text-slate-700,
+.clinora-ai-insight-theme .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.clinora-ai-insight-theme .text-slate-500 {
+  color: var(--clinora-text-muted) !important;
+}
+
+.clinora-ai-insight-theme .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+/* Clinical information tones stay restrained and readable on the dark surface. */
+.clinora-ai-insight-theme .bg-blue-50,
+.clinora-ai-insight-theme .bg-cyan-50 {
+  background-color: rgba(34, 211, 238, 0.065) !important;
+}
+
+.clinora-ai-insight-theme .border-blue-100,
+.clinora-ai-insight-theme .border-blue-200,
+.clinora-ai-insight-theme .border-cyan-200 {
+  border-color: rgba(103, 232, 249, 0.18) !important;
+}
+
+.clinora-ai-insight-theme .text-blue-600,
+.clinora-ai-insight-theme .text-blue-700,
+.clinora-ai-insight-theme .text-blue-800,
+.clinora-ai-insight-theme .text-cyan-700,
+.clinora-ai-insight-theme .text-cyan-800 {
+  color: #a5f3fc !important;
+}
+
+.clinora-ai-insight-theme .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.075) !important;
+}
+
+.clinora-ai-insight-theme .border-rose-200 {
+  border-color: rgba(251, 113, 133, 0.19) !important;
+}
+
+.clinora-ai-insight-theme .text-rose-700 {
+  color: #fda4af !important;
+}
+
+.clinora-ai-insight-theme .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.075) !important;
+}
+
+.clinora-ai-insight-theme .border-emerald-200 {
+  border-color: rgba(110, 231, 183, 0.19) !important;
+}
+
+.clinora-ai-insight-theme .text-emerald-600,
+.clinora-ai-insight-theme .text-emerald-700,
+.clinora-ai-insight-theme .text-emerald-800 {
+  color: #a7f3d0 !important;
+}
+
+.clinora-ai-insight-theme .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.075) !important;
+}
+
+.clinora-ai-insight-theme .border-amber-200 {
+  border-color: rgba(252, 211, 77, 0.2) !important;
+}
+
+.clinora-ai-insight-theme .text-amber-700,
+.clinora-ai-insight-theme .text-amber-950 {
+  color: #fde68a !important;
+}
+
+.clinora-ai-insight-theme .hover\:bg-slate-50:hover {
+  background-color: rgba(255, 255, 255, 0.055) !important;
+}
+
+/* The report preview already owns one decorative scan line. Animate that exact line
+ * instead of replacing its JSX, which keeps the source markup and tests stable. */
+@keyframes clinora-ai-report-scan {
+  0% {
+    top: -3.25rem;
+    opacity: 0;
+  }
+  9% {
+    opacity: 0.76;
+  }
+  50% {
+    opacity: 1;
+  }
+  91% {
+    opacity: 0.7;
+  }
+  100% {
+    top: calc(100% + 0.6rem);
+    opacity: 0;
+  }
+}
+
+@keyframes clinora-ai-queue-breathe {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: translateY(-50%) scaleY(0.72);
+  }
+  50% {
+    opacity: 0.68;
+    transform: translateY(-50%) scaleY(1.08);
+  }
+}
+
+@keyframes clinora-ai-row-focus {
+  0%,
+  100% {
+    background-color: rgba(255, 255, 255, 0.012);
+    border-color: rgba(255, 255, 255, 0.055);
+    box-shadow: none;
+  }
+  20%,
+  34% {
+    background-color: rgba(34, 211, 238, 0.055);
+    border-color: rgba(103, 232, 249, 0.19);
+    box-shadow: inset 3px 0 0 rgba(103, 232, 249, 0.55);
+  }
+  48% {
+    background-color: rgba(255, 255, 255, 0.012);
+    border-color: rgba(255, 255, 255, 0.055);
+    box-shadow: none;
+  }
+}
+
+@keyframes clinora-ai-track-sweep {
+  from {
+    transform: translate3d(-145%, 0, 0);
+  }
+  to {
+    transform: translate3d(430%, 0, 0);
+  }
+}
+
+@keyframes clinora-ai-track-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateX(-50%) scaleX(0.72);
+  }
+  50% {
+    opacity: 0.92;
+    transform: translateX(-50%) scaleX(1.25);
+  }
+}
+
+/* PROCESSING: a luminous band travels through the verified report instead of
+ * sitting frozen at 58%. The original line remains the DOM target. */
+.clinora-ai-insight-theme[data-ai-status='processing']
+  .pointer-events-none.absolute.inset-x-0.h-px {
+  top: -3.25rem !important;
+  z-index: 10;
+  height: 3.25rem !important;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(34, 211, 238, 0.035) 20%,
+    rgba(34, 211, 238, 0.18) 54%,
+    rgba(20, 184, 166, 0.1) 70%,
+    transparent 100%
+  ) !important;
+  border-bottom: 1px solid rgba(103, 232, 249, 0.74);
+  box-shadow: 0 12px 28px rgba(34, 211, 238, 0.16) !important;
+  filter: drop-shadow(0 0 13px rgba(34, 211, 238, 0.36));
+  animation: clinora-ai-report-scan 3.35s cubic-bezier(0.42, 0, 0.32, 1) infinite !important;
+  will-change: top, opacity;
+}
+
+/* QUEUED: show activity without falsely implying that model inference has begun. */
+.clinora-ai-insight-theme[data-ai-status='queued']
+  .pointer-events-none.absolute.inset-x-0.h-px {
+  top: 50% !important;
+  z-index: 8;
+  height: 4.75rem !important;
+  background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.12), transparent 66%) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  animation: clinora-ai-queue-breathe 2.35s ease-in-out infinite !important;
+}
+
+/* Give the report rows a restrained sequential focus while real processing runs. */
+.clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div {
+  animation: clinora-ai-row-focus 3.35s ease-in-out infinite;
+}
+
+.clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div:nth-child(2) {
+  animation-delay: 0.22s;
+}
+
+.clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div:nth-child(3) {
+  animation-delay: 0.44s;
+}
+
+.clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div:nth-child(4) {
+  animation-delay: 0.66s;
+}
+
+.clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div:nth-child(5) {
+  animation-delay: 0.88s;
+}
+
+.clinora-ai-activity-track,
+.clinora-ai-queue-track {
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.clinora-ai-activity-track::after,
+.clinora-ai-queue-track::after {
+  position: absolute;
+  inset-block: 0;
+  border-radius: inherit;
+  content: '';
+}
+
+.clinora-ai-activity-track::after {
+  left: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, #22d3ee, #14b8a6, transparent);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.34);
+  animation: clinora-ai-track-sweep 2.2s ease-in-out infinite;
+}
+
+.clinora-ai-queue-track::after {
+  left: 50%;
+  width: 24%;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.8), transparent);
+  animation: clinora-ai-track-breathe 1.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clinora-ai-insight-theme[data-ai-status]
+    .pointer-events-none.absolute.inset-x-0.h-px,
+  .clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div,
+  .clinora-ai-activity-track::after,
+  .clinora-ai-queue-track::after {
+    animation: none !important;
+  }
+
+  .clinora-ai-insight-theme[data-ai-status='processing']
+    .pointer-events-none.absolute.inset-x-0.h-px {
+    top: 50% !important;
+    opacity: 0.42;
+  }
+}

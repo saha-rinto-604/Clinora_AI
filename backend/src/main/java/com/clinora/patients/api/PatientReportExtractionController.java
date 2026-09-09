@@ -65,6 +65,18 @@ public class PatientReportExtractionController {
         );
     }
 
+    @PostMapping("/observations/{observationId}/confirm")
+    public ApiResponse<ExtractionView> confirmObservation(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable UUID reportId,
+        @PathVariable UUID observationId
+    ) {
+        return ApiResponse.success(
+            "Extracted value confirmed.",
+            extraction.confirmObservation(userId(jwt), reportId, observationId)
+        );
+    }
+
     @PostMapping("/confirm")
     public ApiResponse<ExtractionView> confirm(
         @AuthenticationPrincipal Jwt jwt,

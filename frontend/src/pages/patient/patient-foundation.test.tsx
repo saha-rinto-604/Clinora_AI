@@ -158,6 +158,10 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getAllByText('Health Profile').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Reports/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Health Record').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Blood Network').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole('link', { name: /blood network/i }).some((link) => link.getAttribute('href') === '/patient/blood-network'),
+    ).toBe(true);
     expect(screen.getAllByText('Appointments').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Find a Doctor').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Notifications').length).toBeGreaterThan(0);
@@ -179,8 +183,10 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getByRole('heading', { name: 'Health insights' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent health activity' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Privacy & sharing' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open blood network/i })).toHaveAttribute('href', '/patient/blood-network');
     expect(Array.from(container.querySelectorAll('main h2')).map((heading) => heading.textContent)).toEqual([
       'Turn a report into results you can verify',
+      'Nearby help, organized on a live map',
       'Medical reports',
       'Your Health Profile',
       'Upcoming care',

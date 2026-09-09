@@ -365,8 +365,11 @@ function validateSelectedFile(file: File) {
 }
 
 function reportNameFromFilename(filename: string) {
-  return filename
-    .replace(/\.(pdf|jpe?g|png)$/i, '')
+  const stem = filename.replace(/\.(pdf|jpe?g|png)$/i, '').trim();
+  const compact = stem.replace(/[-_\s]/g, '');
+  if (/^[0-9a-f]{24,}$/i.test(compact)) return 'Medical report';
+
+  return stem
     .replace(/[_-]+/g, ' ')
     .trim()
     .slice(0, 160);

@@ -2,6 +2,7 @@ import {
   CalendarDays,
   ChevronDown,
   Bell,
+  Droplets,
   FileText,
   HeartPulse,
   History,
@@ -56,6 +57,7 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
   {
     label: 'Care',
     items: [
+      { to: '/patient/blood-network', label: 'Blood Network', shortLabel: 'Blood', icon: Droplets },
       { to: '/patient/doctors', label: 'Find a Doctor', shortLabel: 'Doctors', icon: Stethoscope },
       { to: '/patient/appointments', label: 'Appointments', shortLabel: 'Care', icon: CalendarDays },
     ],
@@ -71,7 +73,7 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
 
 const allNavigation = navigation.flatMap((section) => section.items);
 const mobileNavigation = allNavigation.filter((item) =>
-  ['/patient', '/patient/analyze', '/patient/reports', '/patient/doctors', '/patient/appointments'].includes(item.to),
+  ['/patient', '/patient/analyze', '/patient/reports', '/patient/blood-network', '/patient/appointments'].includes(item.to),
 );
 
 export function PatientLayout() {
@@ -90,6 +92,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
   const clinicalHome = location.pathname === '/patient' || location.pathname === '/patient/';
   const reportWorkspace = location.pathname.startsWith('/patient/reports');
   const analysisWorkspace = location.pathname.startsWith('/patient/analyze');
+  const bloodNetworkWorkspace = location.pathname.startsWith('/patient/blood-network');
   const [signingOut, setSigningOut] = useState(false);
 
   const signOut = async () => {
@@ -249,7 +252,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
           transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             'mx-auto w-full px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-7 sm:pt-8 lg:px-8 lg:pb-12 lg:pt-10',
-            clinicalHome
+            clinicalHome || bloodNetworkWorkspace
               ? 'max-w-[1480px]'
               : reportWorkspace || analysisWorkspace
                 ? 'max-w-[1360px]'

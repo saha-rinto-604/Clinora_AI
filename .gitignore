@@ -51,3 +51,17 @@ postgres-data/
 rabbitmq-data/
 redis-data/
 minio-data/
+
+# Local AI weights and Phase 10P development captures
+/ai-service/models/
+*.gguf
+/.codex-smoke/
+/..phase10p-*-extracted-*/
+/.clinora-phase10p-*-backup-*/
+/.phase10p-*-backup-*/
+/LOCAL_BRANCH.txt
+/LOCAL_GIT_LOG.txt
+/LOCAL_GIT_STATUS.txt
+/LOCAL_HEAD.txt
+/PRE_PHASE10P_*_STATUS.txt
+/docs/validation/phase10p-*.json
