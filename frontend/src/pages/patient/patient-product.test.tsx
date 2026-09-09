@@ -174,16 +174,19 @@ describe('Phase 5 Patient Home hybrid evolution', () => {
     });
   });
 
-  it('renders the real greeting, verification state, approved hero, and exact biomedical visual', async () => {
+  it('renders the real greeting, verification state, and approved Patient Core experience', async () => {
     const { container } = renderHome();
 
     expect(await screen.findByRole('heading', { name: /good (morning|afternoon|evening), pia/i })).toBeInTheDocument();
     expect(screen.getByText('Verified Patient')).toBeInTheDocument();
     expect(screen.queryByText(/Anika(?!.+Rahman)/)).not.toBeInTheDocument();
-    const reportsHero = screen.getByRole('heading', { name: 'Medical reports' }).closest('section')!;
-    expect(reportsHero).toHaveAttribute('data-surface-variant', 'hero');
-    expect(reportsHero.querySelector('[data-clinical-ambient-visual="patient-report"]')).toBeInTheDocument();
-    expect(reportsHero.querySelectorAll('[data-depth-plane]')).toHaveLength(3);
+    const coreExperience = screen.getByRole('heading', { name: 'Medical reports' }).closest('section')!;
+    expect(coreExperience).toHaveAttribute('data-surface-variant', 'hero');
+    expect(coreExperience).toHaveAttribute('data-patient-core-experience', 'true');
+    expect(coreExperience.querySelector('[data-core-experience-media="cinematic"]')).toBeInTheDocument();
+    expect(coreExperience.querySelector('[data-medical-reports-panel="true"]')).toBeInTheDocument();
+    expect(coreExperience.querySelector('[data-clinical-ambient-visual="patient-report"]')).not.toBeInTheDocument();
+    expect(coreExperience.querySelectorAll('[data-depth-plane]')).toHaveLength(0);
     expect(container.querySelector('[data-health-insight-visual="biomarker-trend"]')).not.toBeInTheDocument();
   });
 
