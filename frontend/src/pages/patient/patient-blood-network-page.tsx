@@ -164,6 +164,7 @@ export function PatientBloodNetworkPage() {
       return;
     }
     let cancelled = false;
+    setRoute(null);
     setRouteLoading(true);
     setRouteError('');
     void bloodNetworkApi
@@ -270,7 +271,7 @@ export function PatientBloodNetworkPage() {
         <section className="relative min-h-[700px] overflow-hidden rounded-[30px] border border-cyan-300/[0.09] bg-[#06111f] shadow-[0_34px_90px_-54px_rgba(8,145,178,0.8)]">
           <BloodNetworkMap
             apiKey={googleMapsApiKey}
-            currentLocation={currentLocation}
+            currentLocation={request?.owner ? null : currentLocation}
             nearbyPeople={people}
             request={request}
             route={route}

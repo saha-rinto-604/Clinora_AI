@@ -168,9 +168,9 @@ public class BloodNetworkService {
             throw new PatientApiException(HttpStatus.FORBIDDEN, "BLOOD_REQUEST_ACCESS_DENIED", "This blood request is not available to your account.");
         }
 
-        List<NearbyPersonView> matches = owner ? requestMatches(requestId) : List.of();
-        ContactView requesterContact = !owner && myMatch != null && "ACCEPTED".equals(myMatch.status())
-            ? requesterContact(request.requesterUserId())
+        List<NearbyPersonView> matches = owner ? requestMatches(requestId, request.requesterUserId()) : List.of();
+        ContactView requesterContact = !owner && myMatch != null && myMatch.contactShared()
+            ? contactForUser(counterpartyUserId(userId, request.requesterUserId(), userId))
             : null;
         return new BloodRequestDetailView(
             request.id(),
@@ -255,7 +255,7 @@ public class BloodNetworkService {
                 );
             }
             MatchRow accepted = matchRow(requestId, matchedUserId);
-            if (accepted == null || !"ACCEPTED".equals(accepted.status())) {
+            if (accepted == null || !accepted.contactShared()) {
                 throw new PatientApiException(
                     HttpStatus.FORBIDDEN,
                     "BLOOD_REQUEST_ROUTE_NOT_ACCEPTED",
@@ -265,7 +265,7 @@ public class BloodNetworkService {
             routeUserId = matchedUserId;
         } else {
             MatchRow accepted = matchRow(requestId, userId);
-            if (accepted == null || !"ACCEPTED".equals(accepted.status())) {
+            if (accepted == null || !accepted.contactShared()) {
                 throw new PatientApiException(
                     HttpStatus.FORBIDDEN,
                     "BLOOD_REQUEST_ROUTE_NOT_ACCEPTED",
@@ -282,19 +282,26 @@ public class BloodNetworkService {
             routeUserId = userId;
         }
 
-        ProfileRow origin = profileRow(routeUserId);
-        if (origin.latitude() == null || origin.longitude() == null) {
+        ProfileRow donor = profileRow(routeUserId);
+        if (donor.latitude() == null || donor.longitude() == null) {
             throw new PatientApiException(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "BLOOD_REQUEST_ROUTE_LOCATION_REQUIRED",
                 "A verified map location is required before Clinora can calculate the driving route."
             );
         }
-        GoogleRoutesService.RouteResult route = routes.drivingRoute(
-            origin.latitude(),
-            origin.longitude(),
+        RouteEndpoints endpoints = routeEndpoints(
+            request.requesterUserId().equals(userId),
             request.latitude(),
-            request.longitude()
+            request.longitude(),
+            donor.latitude(),
+            donor.longitude()
+        );
+        GoogleRoutesService.RouteResult route = routes.drivingRoute(
+            endpoints.originLatitude(),
+            endpoints.originLongitude(),
+            endpoints.destinationLatitude(),
+            endpoints.destinationLongitude()
         ).orElseThrow(() -> new PatientApiException(
             HttpStatus.SERVICE_UNAVAILABLE,
             "BLOOD_REQUEST_ROUTE_UNAVAILABLE",
@@ -485,20 +492,21 @@ public class BloodNetworkService {
             .toList();
     }
 
-    private List<NearbyPersonView> requestMatches(UUID requestId) {
+    private List<NearbyPersonView> requestMatches(UUID requestId, UUID requesterUserId) {
         return jdbc.query(
             """
             SELECT u.id AS user_id, u.first_name, u.last_name, u.email, p.phone, p.blood_group,
-                   p.latitude, p.longitude, bm.distance_meters, bm.status
+                   p.latitude, p.longitude, bm.distance_meters, bm.status, bm.contact_shared_at
             FROM blood_request_matches bm
             JOIN users u ON u.id = bm.matched_user_id
             JOIN patient_profiles p ON p.user_id = u.id
-            WHERE bm.request_id = ?
+            WHERE bm.request_id = ? AND bm.matched_user_id <> ?
             ORDER BY CASE bm.status WHEN 'ACCEPTED' THEN 0 WHEN 'PENDING' THEN 1 ELSE 2 END,
                      bm.distance_meters ASC
             """,
             (rs, rowNum) -> {
                 String status = rs.getString("status");
+                boolean contactShared = coordinationUnlocked(status, rs.getTimestamp("contact_shared_at"));
                 PersonCandidate candidate = new PersonCandidate(
                     rs.getObject("user_id", UUID.class),
                     rs.getString("first_name"),
@@ -510,9 +518,10 @@ public class BloodNetworkService {
                     rs.getDouble("longitude"),
                     rs.getInt("distance_meters")
                 );
-                return toNearbyPerson(candidate, "ACCEPTED".equals(status), status);
+                return toNearbyPerson(candidate, contactShared, status);
             },
-            requestId
+            requestId,
+            requesterUserId
         );
     }
 
@@ -624,17 +633,38 @@ public class BloodNetworkService {
 
     private MatchRow matchRow(UUID requestId, UUID userId) {
         List<MatchRow> rows = jdbc.query(
-            "SELECT status, distance_meters FROM blood_request_matches WHERE request_id = ? AND matched_user_id = ?",
-            (rs, rowNum) -> new MatchRow(rs.getString("status"), rs.getInt("distance_meters")),
+            "SELECT status, distance_meters, contact_shared_at FROM blood_request_matches WHERE request_id = ? AND matched_user_id = ?",
+            (rs, rowNum) -> new MatchRow(
+                rs.getString("status"),
+                rs.getInt("distance_meters"),
+                coordinationUnlocked(rs.getString("status"), rs.getTimestamp("contact_shared_at"))
+            ),
             requestId,
             userId
         );
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
-    private ContactView requesterContact(UUID requesterId) {
-        ProfileRow profile = profileRow(requesterId);
+    private ContactView contactForUser(UUID contactUserId) {
+        ProfileRow profile = profileRow(contactUserId);
         return new ContactView(profile.firstName() + " " + profile.lastName(), profile.phone());
+    }
+
+    static UUID counterpartyUserId(UUID viewerUserId, UUID requesterUserId, UUID matchedUserId) {
+        if (viewerUserId.equals(requesterUserId)) {
+            if (matchedUserId.equals(viewerUserId)) {
+                throw new IllegalArgumentException("The requester cannot be their own blood request match.");
+            }
+            return matchedUserId;
+        }
+        if (!viewerUserId.equals(matchedUserId)) {
+            throw new IllegalArgumentException("The viewer is not a participant in this blood request match.");
+        }
+        return requesterUserId;
+    }
+
+    static boolean coordinationUnlocked(String responseStatus, Timestamp contactSharedAt) {
+        return "ACCEPTED".equals(responseStatus) && contactSharedAt != null;
     }
 
     private void requireActivePatient(UUID userId) {
@@ -661,6 +691,18 @@ public class BloodNetworkService {
             + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
             * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a));
+    }
+
+    static RouteEndpoints routeEndpoints(
+        boolean requesterView,
+        double requestLatitude,
+        double requestLongitude,
+        double donorLatitude,
+        double donorLongitude
+    ) {
+        return requesterView
+            ? new RouteEndpoints(requestLatitude, requestLongitude, donorLatitude, donorLongitude)
+            : new RouteEndpoints(donorLatitude, donorLongitude, requestLatitude, requestLongitude);
     }
 
     private static double rounded(double value, int places) {
@@ -842,6 +884,12 @@ public class BloodNetworkService {
         Instant createdAt
     ) {}
 
-    private record MatchRow(String status, int distanceMeters) {}
+    private record MatchRow(String status, int distanceMeters, boolean contactShared) {}
+    record RouteEndpoints(
+        double originLatitude,
+        double originLongitude,
+        double destinationLatitude,
+        double destinationLongitude
+    ) {}
     private record GeoSelection(double latitude, double longitude) {}
 }

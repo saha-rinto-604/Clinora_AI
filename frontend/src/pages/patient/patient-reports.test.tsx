@@ -110,7 +110,7 @@ describe('Phase 5B Patient report vault', () => {
     renderReportsPage();
 
     expect(await screen.findByRole('heading', { name: 'Add your first medical report' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Choose a report' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Upload report' })).toHaveLength(1);
     expect(screen.queryByRole('searchbox', { name: /search medical reports/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/filter by report type/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /current/i })).not.toBeInTheDocument();
@@ -141,7 +141,7 @@ describe('Phase 5B Patient report vault', () => {
     mocks.list.mockResolvedValue({ ...reportPage, items: [], totalItems: 0, totalPages: 0, activeCount: 0, archivedCount: 0 });
     mocks.upload.mockRejectedValue(new Error('This exact report is already saved in Medical Reports.'));
     renderReportsPage();
-    await user.click(await screen.findByRole('button', { name: 'Choose a report' }));
+    await user.click(await screen.findByRole('button', { name: 'Upload report' }));
     const dialog = screen.getByRole('dialog', { name: 'Upload medical report' });
     await user.upload(within(dialog).getByLabelText('Report file'), new File(['%PDF-1.7\n%%EOF'], '22222222-2222-2222-2222-222222222222.pdf', { type: 'application/pdf' }));
     expect(within(dialog).getByLabelText('Report name')).toHaveValue('Medical report');
@@ -168,7 +168,7 @@ describe('Phase 5B Patient report vault', () => {
     });
     renderReportsPage();
 
-    await user.click(await screen.findByRole('button', { name: 'Choose a report' }));
+    await user.click(await screen.findByRole('button', { name: 'Upload report' }));
     const dialog = screen.getByRole('dialog', { name: 'Upload medical report' });
     const file = new File(['%PDF-1.7\n%%EOF'], 'annual-blood-panel.pdf', { type: 'application/pdf' });
     await user.upload(within(dialog).getByLabelText('Report file'), file);

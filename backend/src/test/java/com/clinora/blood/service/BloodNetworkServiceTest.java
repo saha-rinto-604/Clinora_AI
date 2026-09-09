@@ -1,6 +1,7 @@
 package com.clinora.blood.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -24,6 +25,59 @@ class BloodNetworkServiceTest {
     @Test
     void samePointHasZeroDistance() {
         assertThat(BloodNetworkService.distanceMeters(23.7952, 90.3818, 23.7952, 90.3818)).isZero();
+    }
+
+    @Test
+    void requesterRouteRunsFromBloodRequestHospitalToAcceptedDonor() {
+        BloodNetworkService.RouteEndpoints endpoints = BloodNetworkService.routeEndpoints(
+            true,
+            23.7806,
+            90.4007,
+            23.8009,
+            90.3861
+        );
+
+        assertThat(endpoints.originLatitude()).isEqualTo(23.7806);
+        assertThat(endpoints.originLongitude()).isEqualTo(90.4007);
+        assertThat(endpoints.destinationLatitude()).isEqualTo(23.8009);
+        assertThat(endpoints.destinationLongitude()).isEqualTo(90.3861);
+    }
+
+    @Test
+    void donorRouteRunsFromAcceptedDonorToBloodRequestHospital() {
+        BloodNetworkService.RouteEndpoints endpoints = BloodNetworkService.routeEndpoints(
+            false,
+            23.7806,
+            90.4007,
+            23.8009,
+            90.3861
+        );
+
+        assertThat(endpoints.originLatitude()).isEqualTo(23.8009);
+        assertThat(endpoints.originLongitude()).isEqualTo(90.3861);
+        assertThat(endpoints.destinationLatitude()).isEqualTo(23.7806);
+        assertThat(endpoints.destinationLongitude()).isEqualTo(90.4007);
+    }
+
+    @Test
+    void contactDirectionAlwaysResolvesToTheOtherPatient() {
+        UUID requesterId = UUID.randomUUID();
+        UUID donorId = UUID.randomUUID();
+
+        assertThat(BloodNetworkService.counterpartyUserId(requesterId, requesterId, donorId)).isEqualTo(donorId);
+        assertThat(BloodNetworkService.counterpartyUserId(donorId, requesterId, donorId)).isEqualTo(requesterId);
+        assertThatThrownBy(() -> BloodNetworkService.counterpartyUserId(requesterId, requesterId, requesterId))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void coordinationStaysPrivateUntilManualAcceptanceSetsTheSharingTimestamp() {
+        Timestamp acceptedAt = Timestamp.from(Instant.parse("2026-09-09T10:15:30Z"));
+
+        assertThat(BloodNetworkService.coordinationUnlocked("PENDING", null)).isFalse();
+        assertThat(BloodNetworkService.coordinationUnlocked("ACCEPTED", null)).isFalse();
+        assertThat(BloodNetworkService.coordinationUnlocked("PENDING", acceptedAt)).isFalse();
+        assertThat(BloodNetworkService.coordinationUnlocked("ACCEPTED", acceptedAt)).isTrue();
     }
 
     @Test

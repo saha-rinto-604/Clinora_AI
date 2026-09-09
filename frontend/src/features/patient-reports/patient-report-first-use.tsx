@@ -38,7 +38,7 @@ export function PatientReportFirstUse({ onUpload }: { onUpload: () => void }) {
           </p>
           <div className="mt-7">
             <Button variant="appPrimary" onClick={onUpload}>
-              <UploadCloud size={17} aria-hidden="true" /> Choose a report
+              <UploadCloud size={17} aria-hidden="true" /> Upload report
             </Button>
             <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">
               PDF, JPG, JPEG or PNG <span aria-hidden="true">·</span> up to 20 MB
