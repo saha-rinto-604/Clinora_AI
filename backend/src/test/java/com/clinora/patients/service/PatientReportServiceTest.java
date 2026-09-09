@@ -94,6 +94,56 @@ class PatientReportServiceTest {
     }
 
     @Test
+    void uploadRejectsAnExactDuplicateBeforePrivateStorage() {
+        Fixture fixture = new Fixture();
+        fixture.activePatient();
+        byte[] pdf = "%PDF-1.7\nExisting report\n%%EOF\n".getBytes(StandardCharsets.US_ASCII);
+        when(fixture.reports.findFirstByPatientUserIdAndSha256Checksum(USER_ID, sha256(pdf)))
+            .thenReturn(Optional.of(report(pdf)));
+
+        PatientApiException exception = assertThrows(
+            PatientApiException.class,
+            () -> fixture.service.upload(
+                USER_ID,
+                new UploadReportCommand("Another copy", PatientReportType.LAB_RESULTS, null, null),
+                new MockMultipartFile("file", "copy.pdf", "application/pdf", pdf),
+                null,
+                null
+            )
+        );
+
+        assertEquals("REPORT_DUPLICATE_FILE", exception.getErrorCode());
+        verify(fixture.storage, never()).put(any(), any(), any());
+        verify(fixture.reports, never()).save(any());
+    }
+
+    @Test
+    void uploadRequiresAUniquePatientFacingReportName() {
+        Fixture fixture = new Fixture();
+        fixture.activePatient();
+        byte[] pdf = "%PDF-1.7\nNew content\n%%EOF\n".getBytes(StandardCharsets.US_ASCII);
+        when(fixture.reports.findFirstByPatientUserIdAndSha256Checksum(USER_ID, sha256(pdf)))
+            .thenReturn(Optional.empty());
+        when(fixture.reports.existsByPatientUserIdAndReportNameIgnoreCase(USER_ID, "Blood panel"))
+            .thenReturn(true);
+
+        PatientApiException exception = assertThrows(
+            PatientApiException.class,
+            () -> fixture.service.upload(
+                USER_ID,
+                new UploadReportCommand("Blood panel", PatientReportType.LAB_RESULTS, null, null),
+                new MockMultipartFile("file", "new-report.pdf", "application/pdf", pdf),
+                null,
+                null
+            )
+        );
+
+        assertEquals("REPORT_NAME_ALREADY_EXISTS", exception.getErrorCode());
+        verify(fixture.storage, never()).put(any(), any(), any());
+        verify(fixture.reports, never()).save(any());
+    }
+
+    @Test
     void uploadRejectsExecutableContentAndTypeMismatchesBeforeStorage() {
         Fixture fixture = new Fixture();
         fixture.activePatient();

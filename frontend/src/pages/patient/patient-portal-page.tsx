@@ -1,5 +1,5 @@
 import { useReducedMotion } from 'framer-motion';
-import { ArrowRight, ScanText, UploadCloud } from 'lucide-react';
+import { ArrowRight, Droplets, MapPinned, ScanText, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../../components/ui/button';
@@ -175,6 +175,43 @@ export function PatientPortalPage() {
                 <UploadCloud size={16} aria-hidden="true" /> Upload new report
               </Button>
             </div>
+          </div>
+        </section>
+        <section
+          aria-labelledby="patient-blood-network-title"
+          className="relative overflow-hidden rounded-[var(--clinora-radius-lg)] border border-rose-300/15 bg-[linear-gradient(118deg,rgba(159,18,57,0.12),rgba(15,23,42,0.2)_48%,rgba(8,145,178,0.08))] shadow-[0_24px_70px_-56px_rgba(244,63,94,0.65)]"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-80 bg-[radial-gradient(circle_at_70%_45%,rgba(34,211,238,0.09),transparent_60%)]"
+          />
+          <div className="relative grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="flex gap-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-rose-300/15 bg-rose-300/[0.075] text-rose-200">
+                <Droplets size={18} aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-rose-200">Blood Network</p>
+                <h2 id="patient-blood-network-title" className="mt-1.5 text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl">
+                  Nearby help, organized on a live map
+                </h2>
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
+                  Create a blood request, alert opted-in Clinora patients with the matching blood group inside a
+                  5 km area, and coordinate after someone accepts.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium text-[var(--clinora-text-faint)]">
+                  <span className="inline-flex items-center gap-1.5"><MapPinned size={12} aria-hidden="true" /> 5 km proximity matching</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Contact stays private until acceptance</span>
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/patient/blood-network"
+              className={`${buttonVariants({ variant: 'appSecondary' })} border-rose-300/15 bg-rose-300/[0.055] text-rose-100 hover:bg-rose-300/[0.09]`}
+            >
+              <Droplets size={16} aria-hidden="true" /> Open Blood Network <ArrowRight size={15} aria-hidden="true" />
+            </Link>
           </div>
         </section>
         <MedicalReportsHero

@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ScanText,
   ShieldCheck,
+  Sparkles,
   UploadCloud,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,8 +28,8 @@ import type {
 } from '../../features/patient-reports/patient-report-extraction-types';
 import { patientReportApi, patientReportErrorMessage } from '../../features/patient-reports/patient-report-api';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
-import { patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
-
+import { patientReportDisplayName, patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
+import './patient-report-analysis-processing.css';
 export function PatientReportAnalysisPage() {
   const { reportId } = useParams();
   return reportId ? <AnalysisWorkspace reportId={reportId} /> : <AnalysisStart />;
@@ -68,8 +69,8 @@ function AnalysisStart() {
           Analyze a medical report
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)] sm:text-base">
-          Extract laboratory values from a report and verify them against the original. Reviewed values can support
-          later AI-assisted interpretation.
+          Extract laboratory values, verify them against the original report, then continue to a dedicated AI insight
+          workspace for a clear, patient-friendly explanation.
         </p>
       </header>
 
@@ -116,9 +117,9 @@ function AnalysisStart() {
             Compare uncertain values with the source.
           </p>
           <p>
-            <span className="font-semibold text-slate-300">3 · Confirm</span>
+            <span className="font-semibold text-slate-300">3 · Understand</span>
             <br />
-            Verified values become ready for later AI insight.
+            Continue to a dedicated AI insight after verification.
           </p>
         </div>
       </section>
@@ -172,7 +173,7 @@ function AnalysisStart() {
                   <FileText size={19} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-white">{report.reportName}</span>
+                  <span className="block truncate text-sm font-semibold text-white">{patientReportDisplayName(report)}</span>
                   <span className="mt-1 block text-xs text-[var(--clinora-text-faint)]">
                     {patientReportTypeLabels[report.reportType]}
                     {report.reportDate ? ` · ${formatDate(report.reportDate)}` : ''}
@@ -329,7 +330,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
             <ArrowLeft size={14} aria-hidden="true" /> AI Report Analysis
           </Link>
           <h1 className="mt-3 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
-            {report.reportName}
+            {patientReportDisplayName(report)}
           </h1>
           <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
             {patientReportTypeLabels[report.reportType]}
@@ -384,7 +385,9 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                     <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-right">
                       <p className="text-sm font-semibold text-white">{extraction.observations.length} results</p>
                       <p className={cn('text-[11px]', unresolved ? 'text-amber-300' : 'text-emerald-300')}>
-                        {unresolved ? `${unresolved} need review` : 'No flagged values remaining'}
+                        {unresolved
+                          ? `${unresolved} ${unresolved === 1 ? 'needs' : 'need'} review`
+                          : 'All flagged values have been reviewed'}
                       </p>
                     </div>
                   </div>
@@ -442,17 +445,25 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   </h2>
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
                     {extraction.reviewStatus === 'VERIFIED'
-                      ? 'These reviewed values are ready for later AI-assisted interpretation.'
+                      ? 'These reviewed values are ready. Continue to your dedicated AI insight workspace when you want a clear explanation.'
                       : unresolved
                         ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
-                        : 'Confirm that the extracted information matches your report before later AI-assisted interpretation.'}
+                        : 'Confirm that the extracted information matches your report before requesting AI-assisted interpretation.'}
                   </p>
                 </div>
               </div>
               {extraction.reviewStatus === 'VERIFIED' ? (
-                <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-4 text-sm font-semibold text-emerald-200">
-                  <CheckCircle2 size={16} aria-hidden="true" /> Verified
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-4 text-sm font-semibold text-emerald-200">
+                    <CheckCircle2 size={16} aria-hidden="true" /> Verified
+                  </span>
+                  <Link
+                    to={`/patient/analyze/${reportId}/insight`}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 px-4 text-sm font-semibold text-slate-950 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 motion-reduce:transform-none"
+                  >
+                    <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
+                  </Link>
+                </div>
               ) : (
                 <Button
                   variant="appPrimary"
@@ -489,7 +500,8 @@ function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () =>
               so you can verify it against the original.
             </p>
             <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">
-              Your original report remains unchanged. AI interpretation is not performed in this phase.
+              Your original report remains unchanged. AI insight becomes available only after you verify the extracted
+              values.
             </p>
           </div>
         </div>
@@ -502,32 +514,109 @@ function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () =>
 }
 
 function ProcessingPanel({ status }: { status: PatientReportExtraction['status'] }) {
+  const queued = status === 'QUEUED';
   return (
     <section
-      className="rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-raised)] p-6 sm:p-8"
+      className="clinora-ocr-processing overflow-hidden rounded-[28px] border border-cyan-300/15 bg-[var(--clinora-surface-raised)]"
       aria-live="polite"
+      data-ocr-status={queued ? 'queued' : 'processing'}
     >
-      <div className="mx-auto max-w-2xl text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
-          <RefreshCw size={21} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        </span>
-        <h2 className="mt-5 text-xl font-semibold text-white">
-          {status === 'QUEUED' ? 'Waiting to process' : 'Reading your report'}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
-          {status === 'QUEUED'
-            ? 'Your report is in the secure processing queue. You can leave this page and return later.'
-            : 'Clinora is reading the document and organizing extracted results. No diagnosis or AI prediction is being generated.'}
-        </p>
-        <div className="mt-7 grid grid-cols-3 gap-2 text-left text-[11px] text-[var(--clinora-text-faint)]">
-          {['Preparing document', 'Reading report', 'Organizing results'].map((label, index) => (
-            <div key={label} className="border-t border-white/[0.1] pt-2">
-              <span className="font-bold text-slate-400">0{index + 1}</span> {label}
+      <div className="grid gap-0 lg:grid-cols-[minmax(300px,0.86fr)_minmax(0,1.14fr)]">
+        <div className="relative border-b border-white/[0.07] bg-[linear-gradient(145deg,rgba(34,211,238,0.07),rgba(255,255,255,0.018))] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+          <div className="mx-auto max-w-sm">
+            <div className="flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-400">
+              <span className="inline-flex items-center gap-2"><FileText size={14} className="text-cyan-200" aria-hidden="true" /> Source document</span>
+              <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-2.5 py-1 text-cyan-100">
+                {queued ? 'Queued securely' : 'Reading now'}
+              </span>
             </div>
-          ))}
+            <div className="relative mt-5 aspect-[4/5] overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#07101d] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+              <div className="h-3 w-2/5 rounded-full bg-white/[0.11]" />
+              <div className="mt-3 h-2 w-3/5 rounded-full bg-white/[0.06]" />
+              <div className="mt-7 grid grid-cols-[1.25fr_0.7fr_0.8fr] gap-2 border-b border-white/[0.07] pb-2">
+                <span className="h-2 rounded-full bg-cyan-200/20" />
+                <span className="h-2 rounded-full bg-cyan-200/12" />
+                <span className="h-2 rounded-full bg-cyan-200/12" />
+              </div>
+              <div className="space-y-4 pt-4" aria-hidden="true">
+                {[86, 72, 91, 64, 79, 68].map((width, index) => (
+                  <div key={width + index} className="grid grid-cols-[1.25fr_0.7fr_0.8fr] items-center gap-2">
+                    <span className="h-2 rounded-full bg-white/[0.08]" style={{ width: `${width}%` }} />
+                    <span className="h-2 rounded-full bg-white/[0.055]" />
+                    <span className="h-2 rounded-full bg-white/[0.045]" />
+                  </div>
+                ))}
+              </div>
+              {queued ? <span className="clinora-ocr-queue-glow" aria-hidden="true" /> : <span className="clinora-ocr-scan-band" aria-hidden="true" />}
+              <div className="absolute inset-x-5 bottom-5 flex items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-400/[0.05] px-3 py-2 text-[10px] font-semibold text-emerald-200">
+                <ShieldCheck size={13} aria-hidden="true" /> Original document stays unchanged
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8 lg:p-10">
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100">
+            <ScanText size={13} aria-hidden="true" /> Document extraction
+          </span>
+          <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+            {queued ? 'Your report is queued securely' : 'Reading and organizing your report'}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)]">
+            {queued
+              ? 'Clinora has your report and will begin extraction automatically when the private document worker is available.'
+              : 'Clinora is locating laboratory-style text and values so you can compare the transcription with the original before any AI insight is requested.'}
+          </p>
+
+          <div className="mt-7 space-y-3">
+            <ExtractionStatusRow icon={CheckCircle2} title="Report secured" text="The uploaded source is stored privately and remains unchanged." state="complete" />
+            <ExtractionStatusRow
+              icon={queued ? RefreshCw : ScanText}
+              title={queued ? 'Waiting for extraction' : 'Reading document data'}
+              text={queued ? 'No extraction is running yet.' : 'Text and laboratory-style results are being organized for review.'}
+              state={queued ? 'waiting' : 'active'}
+            />
+            <ExtractionStatusRow icon={FileCheck2} title="Your review comes next" text="You will confirm or correct extracted values before clinical AI reasoning can begin." state="next" />
+          </div>
+
+          <div className="mt-7 border-t border-white/[0.07] pt-5 text-xs leading-6 text-[var(--clinora-text-faint)]">
+            This is document extraction, not prediction. Clinora AI insight starts only after you verify the extracted report data.
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function ExtractionStatusRow({
+  icon: Icon,
+  title,
+  text,
+  state,
+}: {
+  icon: typeof ScanText;
+  title: string;
+  text: string;
+  state: 'complete' | 'active' | 'waiting' | 'next';
+}) {
+  return (
+    <div className="flex gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+      <span
+        className={cn(
+          'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl',
+          state === 'complete' && 'bg-emerald-400/[0.08] text-emerald-300',
+          state === 'active' && 'bg-cyan-300/[0.09] text-cyan-200',
+          state === 'waiting' && 'bg-white/[0.045] text-slate-400',
+          state === 'next' && 'bg-white/[0.035] text-slate-500',
+        )}
+      >
+        <Icon size={17} className={state === 'active' ? 'animate-pulse motion-reduce:animate-none' : ''} aria-hidden="true" />
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">{text}</p>
+      </div>
+    </div>
   );
 }
 
@@ -598,7 +687,7 @@ function ReportSourceViewer({
           </div>
         ) : report.mimeType === 'application/pdf' ? (
           <iframe
-            title={`Original report: ${report.reportName}`}
+            title={`Original report: ${patientReportDisplayName(report)}`}
             src={`${sourceUrl}#page=${page}&view=FitH`}
             className="h-[650px] w-full rounded-xl border-0 bg-white"
           />
@@ -606,7 +695,7 @@ function ReportSourceViewer({
           <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-white">
             <img
               src={sourceUrl}
-              alt={`Original report: ${report.reportName}`}
+              alt={`Original report: ${patientReportDisplayName(report)}`}
               className="max-h-[650px] max-w-full object-contain"
             />
             {selected?.boundingBox ? (
@@ -649,6 +738,22 @@ function ObservationCard({
 }) {
   const needsReview = observation.reviewRequired && observation.verificationStatus === 'UNREVIEWED';
   const corrected = observation.verificationStatus === 'PATIENT_CORRECTED';
+  const confirmed = observation.verificationStatus === 'PATIENT_CONFIRMED';
+  const [confirming, setConfirming] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
+  async function confirmUnchanged() {
+    setConfirming(true);
+    setReviewError('');
+    try {
+      onSaved(await patientReportExtractionApi.confirmObservation(reportId, observation.id));
+    } catch (requestError) {
+      setReviewError(patientReportExtractionErrorMessage(requestError, 'This extracted value could not be confirmed.'));
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <article
       className={cn(
@@ -681,8 +786,16 @@ function ObservationCard({
                 Corrected
               </span>
             ) : null}
+            {confirmed ? (
+              <span className="rounded-full bg-emerald-300/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-200">
+                Confirmed
+              </span>
+            ) : null}
           </span>
-          <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">Page {observation.pageNumber}</span>
+          <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
+            Page {observation.pageNumber}
+            {confirmed ? ' · Confirmed by you' : ''}
+          </span>
         </span>
         <span>
           <span className="block text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:hidden">
@@ -712,15 +825,38 @@ function ObservationCard({
           {selected ? <ReferenceRangeVisualization observation={observation} /> : null}
         </div>
         {!editing ? (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
-          >
-            <PencilLine size={14} aria-hidden="true" /> Edit result
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {needsReview ? (
+              <button
+                type="button"
+                onClick={() => void confirmUnchanged()}
+                disabled={confirming}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-300/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {confirming ? (
+                  <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 size={14} aria-hidden="true" />
+                )}
+                {confirming ? 'Confirming…' : 'Looks correct'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={confirming}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <PencilLine size={14} aria-hidden="true" /> Edit result
+            </button>
+          </div>
         ) : null}
       </div>
+      {reviewError ? (
+        <p role="alert" className="px-4 pb-3 text-xs font-medium text-rose-300">
+          {reviewError}
+        </p>
+      ) : null}
       {editing ? (
         <CorrectionEditor observation={observation} reportId={reportId} onCancel={onCancelEdit} onSaved={onSaved} />
       ) : null}

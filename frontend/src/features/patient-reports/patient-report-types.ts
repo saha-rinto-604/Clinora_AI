@@ -64,3 +64,31 @@ export const patientReportTypeLabels: Record<PatientReportType, string> = {
   DISCHARGE_SUMMARY: 'Discharge summary',
   OTHER: 'Other medical report',
 };
+
+function looksLikeInternalReportName(value: string) {
+  const compact = value.replace(/[\s_-]/g, '');
+  return compact.length >= 24 && /^[0-9a-f]+$/i.test(compact);
+}
+
+function filenameStem(value: string) {
+  const filename = value.replace(/\\/g, '/').split('/').pop() ?? value;
+  return filename
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function patientReportDisplayName(
+  report: Pick<PatientReport, 'reportName' | 'originalFilename' | 'reportType'>,
+) {
+  const storedName = report.reportName.trim();
+  if (storedName && !looksLikeInternalReportName(storedName)) return storedName;
+
+  const sourceName = filenameStem(report.originalFilename);
+  if (sourceName && !looksLikeInternalReportName(sourceName) && sourceName.toLowerCase() !== 'medical report') {
+    return sourceName;
+  }
+
+  return patientReportTypeLabels[report.reportType];
+}

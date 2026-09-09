@@ -10,6 +10,9 @@ export function notificationTarget(notification: PatientNotification) {
   if (notification.targetType === 'MEDICAL_REPORT' && notification.targetId) {
     return `/patient/reports/${notification.targetId}`;
   }
+  if (notification.targetType === 'BLOOD_REQUEST' && notification.targetId) {
+    return `/patient/blood-network?request=${notification.targetId}`;
+  }
   if (notification.category === 'SECURITY') return '/account';
   return '/patient/notifications';
 }

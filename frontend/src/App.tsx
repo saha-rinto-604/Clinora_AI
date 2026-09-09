@@ -33,6 +33,7 @@ import { PatientShell } from './features/patient/patient-layout';
 import { useAuthStore } from './features/auth/auth-store';
 import { PatientProfilePage } from './pages/patient/patient-profile-page';
 import { PatientReportAnalysisPage } from './pages/patient/patient-report-analysis-page';
+import { PatientReportAiInsightPage } from './pages/patient/patient-report-ai-insight-page';
 import { PatientReportDetailPage } from './pages/patient/patient-report-detail-page';
 import { PatientReportsPage } from './pages/patient/patient-reports-page';
 import { PatientPortalPage } from './pages/patient/patient-portal-page';
@@ -43,6 +44,7 @@ import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-p
 import { PatientAppointmentsPage } from './pages/patient/patient-appointments-page';
 import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
 import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
+import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-page';
 import { DoctorAvailabilityPage } from './pages/doctor/doctor-availability-page';
 
 export function AppRoutes() {
@@ -89,6 +91,7 @@ export function AppRoutes() {
           <Route path="patient/profile" element={<PatientProfilePage />} />
           <Route path="patient/analyze" element={<PatientReportAnalysisPage />} />
           <Route path="patient/analyze/:reportId" element={<PatientReportAnalysisPage />} />
+          <Route path="patient/analyze/:reportId/insight" element={<PatientReportAiInsightPage />} />
           <Route path="patient/reports" element={<PatientReportsPage />} />
           <Route path="patient/reports/:reportId" element={<PatientReportDetailPage />} />
           <Route path="patient/history" element={<PatientHealthRecordPage />} />
@@ -97,6 +100,7 @@ export function AppRoutes() {
           <Route path="patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
           <Route path="patient/appointments" element={<PatientAppointmentsPage />} />
           <Route path="patient/appointments/:appointmentId" element={<PatientAppointmentDetailPage />} />
+          <Route path="patient/blood-network" element={<PatientBloodNetworkPage />} />
           <Route path="patient/notifications" element={<PatientNotificationsPage />} />
         </Route>
       </Route>
