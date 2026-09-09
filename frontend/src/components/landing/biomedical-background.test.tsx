@@ -18,15 +18,38 @@ describe('BiomedicalBackground', () => {
     motionPreference.reduced = false;
   });
 
-  it('keeps the established landing composition as the default shared visual', () => {
+  it('uses the optimized ambient video as the default shared landing visual', () => {
     const { container } = render(<BiomedicalBackground />);
-    const visual = container.querySelector('[data-clinical-ambient-visual="landing"]');
+    const visual = container.querySelector('[data-clinical-ambient-visual="landing-video"]');
+    const video = container.querySelector('video');
 
     expect(visual).toHaveAttribute('aria-hidden', 'true');
     expect(visual).toHaveClass('pointer-events-none');
-    expect(visual).toHaveAttribute('data-clinical-ambient-motion', 'ambient');
-    expect(container.querySelectorAll('[data-biomedical-cell]')).toHaveLength(4);
-    expect(container.querySelector('[data-biomedical-network="true"]')).toBeInTheDocument();
+    expect(visual).toHaveAttribute('data-clinical-ambient-motion', 'video');
+    expect(video).toHaveAttribute('autoplay');
+    expect(video).toHaveAttribute('loop');
+    expect(video).toHaveProperty('muted', true);
+    expect(video).toHaveAttribute('playsinline');
+    expect(video).toHaveAttribute('preload', 'metadata');
+    expect(video).toHaveAttribute('poster', '/assets/biomedical/clinora-biomedical-ambient-poster.webp');
+    expect(video).toHaveClass('object-cover');
+    expect(container.querySelector('source')).toHaveAttribute(
+      'src',
+      '/assets/biomedical/clinora-biomedical-ambient.mp4',
+    );
+  });
+
+  it('uses the static poster instead of video when reduced motion is preferred', () => {
+    motionPreference.reduced = true;
+    const { container } = render(<BiomedicalBackground />);
+    const visual = container.querySelector('[data-clinical-ambient-visual="landing-video"]');
+    const poster = container.querySelector('img');
+
+    expect(visual).toHaveAttribute('data-clinical-ambient-motion', 'reduced');
+    expect(poster).toHaveAttribute('src', '/assets/biomedical/clinora-biomedical-ambient-poster.webp');
+    expect(poster).toHaveAttribute('alt', '');
+    expect(poster).toHaveClass('object-cover');
+    expect(container.querySelector('video')).not.toBeInTheDocument();
   });
 
   it('reuses a layered patient-report composition without WebGL or medical status content', async () => {

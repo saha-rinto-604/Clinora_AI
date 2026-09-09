@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   getExtraction: vi.fn(),
   startExtraction: vi.fn(),
   correctExtraction: vi.fn(),
+  confirmObservation: vi.fn(),
   confirmExtraction: vi.fn(),
 }));
 
@@ -27,6 +28,7 @@ vi.mock('../../features/patient-reports/patient-report-extraction-api', () => ({
     get: mocks.getExtraction,
     start: mocks.startExtraction,
     correct: mocks.correctExtraction,
+    confirmObservation: mocks.confirmObservation,
     confirm: mocks.confirmExtraction,
   },
   patientReportExtractionErrorMessage: (error: unknown, fallback: string) =>
@@ -153,6 +155,17 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
   });
 
+  it.each(['QUEUED', 'PROCESSING'] as const)('renders truthful %s document extraction state', async (status) => {
+    mocks.getExtraction.mockResolvedValue({ ...extraction, status });
+    const { container } = renderWorkspace();
+    const title = status === 'QUEUED' ? 'Your report is queued securely' : 'Reading and organizing your report';
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByText('Your review comes next')).toBeInTheDocument();
+    expect(screen.getByText(/This is document extraction, not prediction/)).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it('offers one compact start surface with working upload and existing-report actions', async () => {
     const user = userEvent.setup();
     renderStart();
@@ -189,10 +202,80 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
   it('keeps unresolved review requirements visible and blocks confirmation', async () => {
     renderWorkspace();
 
-    expect(await screen.findByText('1 need review')).toBeInTheDocument();
+    expect(await screen.findByText('1 needs review')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Looks correct' })).toBeInTheDocument();
     expect(screen.getByText('Needs review')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm extracted results' })).toBeDisabled();
     await waitFor(() => expect(mocks.getExtraction).toHaveBeenCalledWith(report.id));
+  });
+
+  it('confirms a flagged value unchanged and updates the unresolved count without reloading', async () => {
+    const user = userEvent.setup();
+    const flagged = Array.from({ length: 4 }, (_, index) => ({
+      ...extraction.observations[1],
+      id: `${index + 1}6666666-6666-6666-6666-666666666666`,
+    }));
+    const fourUnresolved = { ...extraction, observations: [extraction.observations[0], ...flagged] };
+    const threeUnresolved: PatientReportExtraction = {
+      ...fourUnresolved,
+      observations: [
+        extraction.observations[0],
+        { ...flagged[0], reviewRequired: false, verificationStatus: 'PATIENT_CONFIRMED' },
+        ...flagged.slice(1),
+      ],
+    };
+    let resolveConfirmation!: (value: PatientReportExtraction) => void;
+    mocks.getExtraction.mockResolvedValue(fourUnresolved);
+    mocks.confirmObservation.mockReturnValue(
+      new Promise<PatientReportExtraction>((resolve) => {
+        resolveConfirmation = resolve;
+      }),
+    );
+    renderWorkspace();
+
+    expect(await screen.findByText('4 need review')).toBeInTheDocument();
+    const looksCorrect = screen.getAllByRole('button', { name: 'Looks correct' })[0];
+    await user.click(looksCorrect);
+    expect(screen.getByRole('button', { name: 'Confirming…' })).toBeDisabled();
+    expect(mocks.confirmObservation).toHaveBeenCalledWith(report.id, flagged[0].id);
+
+    resolveConfirmation(threeUnresolved);
+    expect(await screen.findByText('3 need review')).toBeInTheDocument();
+    expect(screen.getByText('Confirmed')).toBeInTheDocument();
+    expect(screen.queryByText('4 need review')).not.toBeInTheDocument();
+  });
+
+  it('enables final confirmation when every flagged value has been reviewed', async () => {
+    mocks.getExtraction.mockResolvedValue({
+      ...extraction,
+      reviewStatus: 'READY_FOR_CONFIRMATION',
+      observations: extraction.observations.map((observation) => ({
+        ...observation,
+        reviewRequired: false,
+        verificationStatus: 'PATIENT_CONFIRMED',
+      })),
+    });
+    renderWorkspace();
+
+    expect(await screen.findByText('All flagged values have been reviewed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm extracted results' })).toBeEnabled();
+  });
+
+  it('opens the dedicated AI insight experience only after report verification', async () => {
+    mocks.getExtraction.mockResolvedValue({
+      ...extraction,
+      reviewStatus: 'VERIFIED',
+      observations: extraction.observations.map((observation) => ({
+        ...observation,
+        reviewRequired: false,
+        verificationStatus: 'PATIENT_CONFIRMED',
+      })),
+    });
+    renderWorkspace();
+
+    const link = await screen.findByRole('link', { name: /Open AI insight/i });
+    expect(link).toHaveAttribute('href', `/patient/analyze/${report.id}/insight`);
+    expect(screen.queryByRole('heading', { name: 'AI report insight' })).not.toBeInTheDocument();
   });
 
   it('renders the compact analysis start without automated accessibility violations', async () => {

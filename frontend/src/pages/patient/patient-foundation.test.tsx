@@ -158,6 +158,10 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getAllByText('Health Profile').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Reports/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Health Record').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Blood Network').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole('link', { name: /blood network/i }).some((link) => link.getAttribute('href') === '/patient/blood-network'),
+    ).toBe(true);
     expect(screen.getAllByText('Appointments').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Find a Doctor').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Notifications').length).toBeGreaterThan(0);
@@ -179,8 +183,10 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getByRole('heading', { name: 'Health insights' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent health activity' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Privacy & sharing' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open blood network/i })).toHaveAttribute('href', '/patient/blood-network');
     expect(Array.from(container.querySelectorAll('main h2')).map((heading) => heading.textContent)).toEqual([
       'Turn a report into results you can verify',
+      'Nearby help, organized on a live map',
       'Medical reports',
       'Your Health Profile',
       'Upcoming care',
@@ -198,7 +204,9 @@ describe('Phase 5A Patient experience', () => {
     expect(container.querySelectorAll('[data-surface-variant="hero"]')).toHaveLength(1);
     expect(container.querySelector('[data-bio-record-stage]')).not.toBeInTheDocument();
     expect(container.querySelector('[data-bio-record-static-fallback]')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-clinical-ambient-visual="patient-report"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-patient-core-experience="true"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-core-experience-media="cinematic"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-clinical-ambient-visual="patient-report"]')).not.toBeInTheDocument();
     expect(container.querySelectorAll('[data-clinical-backdrop="true"]')).toHaveLength(0);
     expect(container.querySelectorAll('[data-clinical-motif="hematology"]')).toHaveLength(0);
     expect(container.querySelectorAll('[data-clinical-motif="biomarker"]')).toHaveLength(0);
@@ -212,14 +220,16 @@ describe('Phase 5A Patient experience', () => {
       expect(visual).toHaveAttribute('aria-hidden', 'true');
       expect(visual).toHaveClass('pointer-events-none');
     });
-    const reportsHero = screen.getByRole('heading', { name: 'Medical reports' }).closest('section')!;
-    expect(reportsHero).toHaveAttribute('data-surface-variant', 'hero');
-    expect(reportsHero.querySelector('canvas')).not.toBeInTheDocument();
-    expect(reportsHero.querySelector('[data-medical-reports-visual="clinical-ambient"]')).toBeInTheDocument();
-    expect(reportsHero.querySelector('[data-clinical-ambient-visual="patient-report"]')).toBeInTheDocument();
-    expect(reportsHero.querySelectorAll('[data-depth-plane]')).toHaveLength(3);
-    expect(reportsHero.querySelector('[data-biomedical-neuron="model-derived"]')).toBeInTheDocument();
-    expect(reportsHero.querySelector('img[src*="bio-record"], [data-bio-record-stage]')).not.toBeInTheDocument();
+    const coreExperience = screen.getByRole('heading', { name: 'Medical reports' }).closest('section')!;
+    expect(coreExperience).toHaveAttribute('data-surface-variant', 'hero');
+    expect(coreExperience).toHaveAttribute('data-patient-core-experience', 'true');
+    expect(coreExperience.querySelector('canvas')).not.toBeInTheDocument();
+    expect(coreExperience.querySelector('[data-core-experience-media="cinematic"]')).toBeInTheDocument();
+    expect(coreExperience.querySelector('[data-medical-reports-panel="true"]')).toBeInTheDocument();
+    expect(coreExperience.querySelector('[data-clinical-ambient-visual="patient-report"]')).not.toBeInTheDocument();
+    expect(coreExperience.querySelectorAll('[data-depth-plane]')).toHaveLength(0);
+    expect(coreExperience.querySelector('[data-biomedical-neuron="model-derived"]')).not.toBeInTheDocument();
+    expect(coreExperience.querySelector('img[src*="bio-record"], [data-bio-record-stage]')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Care overview' })).not.toBeInTheDocument();
     expect(screen.queryByText(/needs attention/i)).not.toBeInTheDocument();
 

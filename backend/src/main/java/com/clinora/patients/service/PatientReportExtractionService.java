@@ -181,6 +181,42 @@ public class PatientReportExtractionService {
     }
 
     @Transactional
+    public ExtractionView confirmObservation(UUID patientUserId, UUID reportId, UUID observationId) {
+        requireOwnedReport(patientUserId, reportId);
+        ObservationRow observation = requireObservation(patientUserId, reportId, observationId);
+        if ("PATIENT_CONFIRMED".equals(observation.verificationStatus())) {
+            return view(patientUserId, reportId);
+        }
+        if (!observation.reviewRequired() || !"UNREVIEWED".equals(observation.verificationStatus())) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "EXTRACTED_RESULT_REVIEW_NOT_REQUIRED",
+                "This extracted value does not require Patient review."
+            );
+        }
+
+        Instant now = clock.instant();
+        int changed = jdbc.update(
+            """
+            UPDATE medical_report_observations
+            SET review_required = FALSE, verification_status = 'PATIENT_CONFIRMED', updated_at = ?
+            WHERE id = ? AND extraction_result_id = ?
+              AND review_required = TRUE AND verification_status = 'UNREVIEWED'
+            """,
+            Timestamp.from(now), observationId, observation.resultId()
+        );
+        if (changed != 1) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "EXTRACTED_RESULT_ALREADY_REVIEWED",
+                "This extracted value was already reviewed. Refresh the report and try again."
+            );
+        }
+        refreshReviewStatus(observation.resultId(), now);
+        return view(patientUserId, reportId);
+    }
+
+    @Transactional
     public ExtractionView confirm(UUID patientUserId, UUID reportId) {
         requireOwnedReport(patientUserId, reportId);
         JobRow job = latestJob(reportId).orElseThrow(() -> new PatientApiException(
@@ -594,7 +630,7 @@ public class PatientReportExtractionService {
             SELECT o.id, o.extraction_result_id, o.source_label, o.effective_label, o.effective_value_type,
                 o.effective_numeric_value, o.effective_text_value, o.effective_comparator,
                 o.effective_unit, o.reference_range_raw, o.reference_low, o.reference_high,
-                o.source_flag, o.derived_range_flag
+                o.source_flag, o.derived_range_flag, o.review_required, o.verification_status
             FROM medical_report_observations o
             JOIN medical_report_extraction_results r ON r.id = o.extraction_result_id
             JOIN medical_report_extraction_jobs j ON j.id = r.job_id
@@ -606,7 +642,8 @@ public class PatientReportExtractionService {
                 rs.getBigDecimal("effective_numeric_value"),
                 rs.getString("effective_text_value"), rs.getString("effective_comparator"), rs.getString("effective_unit"),
                 rs.getString("reference_range_raw"), rs.getBigDecimal("reference_low"), rs.getBigDecimal("reference_high"),
-                rs.getString("source_flag"), rs.getString("derived_range_flag")
+                rs.getString("source_flag"), rs.getString("derived_range_flag"),
+                rs.getBoolean("review_required"), rs.getString("verification_status")
             ),
             observationId, reportId, patientUserId
         ).stream().findFirst().orElseThrow(() -> new PatientApiException(
@@ -821,7 +858,9 @@ public class PatientReportExtractionService {
         BigDecimal referenceLow,
         BigDecimal referenceHigh,
         String sourceFlag,
-        String derivedRangeFlag
+        String derivedRangeFlag,
+        boolean reviewRequired,
+        String verificationStatus
     ) {
     }
 
