@@ -217,7 +217,7 @@ describe('Phase 5B Patient report vault', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit details' }));
     const editDialog = screen.getByRole('dialog', { name: 'Edit report details' });
-    const name = within(editDialog).getByLabelText('Report name');
+    const name = within(editDialog).getByLabelText('Display title');
     await user.clear(name);
     await user.type(name, 'Updated blood panel');
     await user.click(within(editDialog).getByRole('button', { name: 'Save details' }));

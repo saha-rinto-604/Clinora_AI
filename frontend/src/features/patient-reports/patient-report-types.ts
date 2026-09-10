@@ -65,9 +65,19 @@ export const patientReportTypeLabels: Record<PatientReportType, string> = {
   OTHER: 'Other medical report',
 };
 
-function looksLikeInternalReportName(value: string) {
-  const compact = value.replace(/[\s_-]/g, '');
-  return compact.length >= 24 && /^[0-9a-f]+$/i.test(compact);
+type PatientReportIdentity = Pick<PatientReport, 'reportName' | 'originalFilename' | 'reportType'> &
+  Partial<Pick<PatientReport, 'reportDate' | 'providerLaboratory' | 'createdAt'>>;
+
+const captureFilenamePattern =
+  /^(?:(?:screen\s*shot|screenshot|img|image|photo|pxl|scan|scanned|document|doc|report|file|medical\s*report|whatsapp\s+image|adobe\s+scan|camscanner)[\s_-]*(?:\d|$)|\d{8,}(?:[\s_-]\d{4,})?$)/i;
+const genericFilenamePattern = /^(?:medical\s*report|report|document|image|photo|scan|file)$/i;
+
+export function looksLikeOpaqueReportName(value: string) {
+  const cleaned = value.trim();
+  if (!cleaned) return true;
+  const compact = cleaned.replace(/[\s_-]/g, '');
+  if (compact.length >= 24 && /^[0-9a-f]+$/i.test(compact)) return true;
+  return captureFilenamePattern.test(cleaned) || genericFilenamePattern.test(cleaned);
 }
 
 function filenameStem(value: string) {
@@ -79,16 +89,53 @@ function filenameStem(value: string) {
     .trim();
 }
 
-export function patientReportDisplayName(
-  report: Pick<PatientReport, 'reportName' | 'originalFilename' | 'reportType'>,
-) {
+function readableFilename(value: string) {
+  const stem = filenameStem(value);
+  if (!stem || looksLikeOpaqueReportName(stem)) return null;
+  return stem;
+}
+
+function compactDate(value: string | null | undefined) {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export function patientReportDisplayName(report: PatientReportIdentity) {
   const storedName = report.reportName.trim();
-  if (storedName && !looksLikeInternalReportName(storedName)) return storedName;
+  if (storedName && !looksLikeOpaqueReportName(storedName)) return storedName;
 
-  const sourceName = filenameStem(report.originalFilename);
-  if (sourceName && !looksLikeInternalReportName(sourceName) && sourceName.toLowerCase() !== 'medical report') {
-    return sourceName;
+  const sourceName = readableFilename(report.originalFilename);
+  if (sourceName) return sourceName;
+
+  const typeLabel = patientReportTypeLabels[report.reportType];
+  const date = compactDate(report.reportDate);
+  if (date) return `${typeLabel} · ${date}`;
+
+  const provider = report.providerLaboratory?.trim();
+  if (provider) return `${typeLabel} · ${provider}`;
+
+  return typeLabel;
+}
+
+export function patientReportSecondaryContext(report: PatientReportIdentity) {
+  const parts: string[] = [];
+  const date = compactDate(report.reportDate);
+  const storedName = report.reportName.trim();
+  const usesDerivedDateTitle =
+    (!storedName || looksLikeOpaqueReportName(storedName)) &&
+    !readableFilename(report.originalFilename) &&
+    Boolean(date);
+  if (date && !usesDerivedDateTitle) parts.push(date);
+  if (report.providerLaboratory?.trim()) parts.push(report.providerLaboratory.trim());
+  if (!date && report.createdAt) {
+    const uploaded = new Date(report.createdAt);
+    if (!Number.isNaN(uploaded.getTime())) {
+      parts.push(
+        `Uploaded ${uploaded.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`,
+      );
+    }
   }
-
-  return patientReportTypeLabels[report.reportType];
+  return parts;
 }

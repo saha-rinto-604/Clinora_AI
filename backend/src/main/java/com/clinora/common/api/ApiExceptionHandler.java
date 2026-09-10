@@ -2,6 +2,7 @@ package com.clinora.common.api;
 
 import com.clinora.access.api.AccessApplicationException;
 import com.clinora.auth.api.AuthApiException;
+import com.clinora.doctors.api.DoctorApiException;
 import com.clinora.patients.api.PatientApiException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
@@ -38,6 +39,11 @@ public class ApiExceptionHandler {
             .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
     }
 
+    @ExceptionHandler(DoctorApiException.class)
+    public ResponseEntity<ApiError> handleDoctor(DoctorApiException exception) {
+        return ResponseEntity.status(exception.getStatus())
+            .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
+    }
 
     @ExceptionHandler(AccessApplicationException.class)
     public ResponseEntity<ApiError> handleAccessApplication(AccessApplicationException exception) {

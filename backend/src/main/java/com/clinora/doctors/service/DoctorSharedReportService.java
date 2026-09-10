@@ -4,6 +4,7 @@ import com.clinora.audit.AuthAuditAction;
 import com.clinora.audit.AuthAuditOutcome;
 import com.clinora.audit.AuthAuditService;
 import com.clinora.patients.api.PatientApiException;
+import com.clinora.patients.service.PatientReportDisplayName;
 import com.clinora.patients.storage.PatientReportStoragePort;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,17 +23,23 @@ public class DoctorSharedReportService {
     private final JdbcTemplate jdbc;
     private final PatientReportStoragePort storage;
     private final AuthAuditService audit;
+    private final DoctorClinicalAccessService access;
 
-    public DoctorSharedReportService(JdbcTemplate jdbc, PatientReportStoragePort storage, AuthAuditService audit) {
+    public DoctorSharedReportService(
+        JdbcTemplate jdbc,
+        PatientReportStoragePort storage,
+        AuthAuditService audit,
+        DoctorClinicalAccessService access
+    ) {
         this.jdbc = jdbc;
         this.storage = storage;
         this.audit = audit;
+        this.access = access;
     }
 
     @Transactional(readOnly = true)
     public List<SharedReportView> list(UUID doctorUserId, UUID appointmentId) {
-        requireActiveDoctor(doctorUserId);
-        requireActiveAppointment(doctorUserId, appointmentId);
+        access.requireActiveOwnedAppointment(doctorUserId, appointmentId);
         return jdbc.query(
             """
             SELECT r.id, r.report_name, r.report_type, r.report_date, r.provider_laboratory,
@@ -43,12 +50,26 @@ public class DoctorSharedReportService {
               AND r.archived_at IS NULL
             ORDER BY s.shared_at DESC, r.id DESC
             """,
-            (rs, rowNum) -> new SharedReportView(
-                rs.getObject("id", UUID.class), rs.getString("report_name"), rs.getString("report_type"),
-                rs.getDate("report_date") == null ? null : rs.getDate("report_date").toLocalDate(),
-                rs.getString("provider_laboratory"), rs.getString("original_filename"), rs.getString("mime_type"),
-                rs.getLong("size_bytes"), rs.getTimestamp("shared_at").toInstant()
-            ),
+            (rs, rowNum) -> {
+                LocalDate reportDate = rs.getDate("report_date") == null ? null : rs.getDate("report_date").toLocalDate();
+                return new SharedReportView(
+                    rs.getObject("id", UUID.class),
+                    PatientReportDisplayName.resolve(
+                        rs.getString("report_name"),
+                        rs.getString("original_filename"),
+                        rs.getString("report_type"),
+                        reportDate,
+                        rs.getString("provider_laboratory")
+                    ),
+                    rs.getString("report_type"),
+                    reportDate,
+                    rs.getString("provider_laboratory"),
+                    rs.getString("original_filename"),
+                    rs.getString("mime_type"),
+                    rs.getLong("size_bytes"),
+                    rs.getTimestamp("shared_at").toInstant()
+                );
+            },
             appointmentId,
             doctorUserId
         );
@@ -59,11 +80,11 @@ public class DoctorSharedReportService {
         UUID doctorUserId,
         UUID appointmentId,
         UUID reportId,
-        Access access,
+        Access accessType,
         String ipAddress,
         String userAgent
     ) {
-        requireActiveDoctor(doctorUserId);
+        access.requireSharedReport(doctorUserId, appointmentId, reportId);
         List<StoredReport> rows = jdbc.query(
             """
             SELECT r.object_key, r.original_filename, r.mime_type, r.sha256_checksum
@@ -110,7 +131,7 @@ public class DoctorSharedReportService {
         }
         audit.record(
             doctorUserId,
-            access == Access.DOWNLOAD
+            accessType == Access.DOWNLOAD
                 ? AuthAuditAction.DOCTOR_SHARED_REPORT_DOWNLOADED
                 : AuthAuditAction.DOCTOR_SHARED_REPORT_VIEWED,
             AuthAuditOutcome.SUCCESS,
@@ -120,39 +141,6 @@ public class DoctorSharedReportService {
             "appointmentId=" + appointmentId
         );
         return new SharedReportContent(report.filename(), report.mimeType(), stored.bytes());
-    }
-
-    private void requireActiveAppointment(UUID doctorUserId, UUID appointmentId) {
-        Integer count = jdbc.queryForObject(
-            """
-            SELECT COUNT(*) FROM appointments
-            WHERE id = ? AND doctor_user_id = ? AND status = 'BOOKED' AND scheduled_end >= CURRENT_TIMESTAMP
-            """,
-            Integer.class,
-            appointmentId,
-            doctorUserId
-        );
-        if (count == null || count != 1) {
-            throw new PatientApiException(
-                HttpStatus.NOT_FOUND,
-                "APPOINTMENT_NOT_FOUND",
-                "That active appointment could not be found."
-            );
-        }
-    }
-
-    private void requireActiveDoctor(UUID doctorUserId) {
-        Integer count = jdbc.queryForObject(
-            """
-            SELECT COUNT(*) FROM users
-            WHERE id = ? AND role = 'DOCTOR' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL
-            """,
-            Integer.class,
-            doctorUserId
-        );
-        if (count == null || count != 1) {
-            throw new PatientApiException(HttpStatus.FORBIDDEN, "ACTIVE_DOCTOR_REQUIRED", "An active Doctor account is required.");
-        }
     }
 
     private String sha256(byte[] bytes) {

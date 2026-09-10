@@ -125,3 +125,9 @@ export const doctorAvailabilityApi = {
 export function appointmentError(error: unknown, fallback: string) {
   return apiErrorMessage(error, fallback);
 }
+
+export function appointmentErrorCode(error: unknown) {
+  if (!error || typeof error !== 'object') return null;
+  const response = (error as { response?: { data?: { errorCode?: unknown } } }).response;
+  return typeof response?.data?.errorCode === 'string' ? response.data.errorCode : null;
+}

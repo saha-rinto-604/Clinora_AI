@@ -45,7 +45,14 @@ import { PatientAppointmentsPage } from './pages/patient/patient-appointments-pa
 import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
 import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
 import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-page';
-import { DoctorAvailabilityPage } from './pages/doctor/doctor-availability-page';
+import { DoctorLayout, DoctorShell } from './features/doctor/doctor-layout';
+import { DoctorAppointmentPage } from './pages/doctor/doctor-appointment-page';
+import { DoctorAvailabilityWorkspacePage } from './pages/doctor/doctor-availability-workspace-page';
+import { DoctorDashboardPage } from './pages/doctor/doctor-dashboard-page';
+import { DoctorProfilePage } from './pages/doctor/doctor-profile-page';
+import { DoctorReportComparePage } from './pages/doctor/doctor-report-compare-page';
+import { DoctorReportReviewPage } from './pages/doctor/doctor-report-review-page';
+import { DoctorSchedulePage } from './pages/doctor/doctor-schedule-page';
 
 export function AppRoutes() {
   return (
@@ -106,7 +113,15 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['DOCTOR']} />}>
-        <Route path="doctor/availability" element={<DoctorAvailabilityPage />} />
+        <Route element={<DoctorLayout />}>
+          <Route path="doctor" element={<DoctorDashboardPage />} />
+          <Route path="doctor/schedule" element={<DoctorSchedulePage />} />
+          <Route path="doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />
+          <Route path="doctor/appointments/:appointmentId/reports/compare" element={<DoctorReportComparePage />} />
+          <Route path="doctor/appointments/:appointmentId/reports/:reportId" element={<DoctorReportReviewPage />} />
+          <Route path="doctor/availability" element={<DoctorAvailabilityWorkspacePage />} />
+          <Route path="doctor/profile" element={<DoctorProfilePage />} />
+        </Route>
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
@@ -120,13 +135,21 @@ export function AppRoutes() {
 
 function RoleAwareAccountPage() {
   const role = useAuthStore((state) => state.user?.role);
-  return role === 'PATIENT' ? (
-    <PatientShell>
-      <AccountPage embedded />
-    </PatientShell>
-  ) : (
-    <AccountPage />
-  );
+  if (role === 'PATIENT') {
+    return (
+      <PatientShell>
+        <AccountPage embedded />
+      </PatientShell>
+    );
+  }
+  if (role === 'DOCTOR') {
+    return (
+      <DoctorShell>
+        <AccountPage embedded />
+      </DoctorShell>
+    );
+  }
+  return <AccountPage />;
 }
 
 export function App() {

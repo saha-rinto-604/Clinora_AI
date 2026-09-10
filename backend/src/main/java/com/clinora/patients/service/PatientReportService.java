@@ -511,7 +511,13 @@ public class PatientReportService {
     private ReportView view(PatientMedicalReport report) {
         return new ReportView(
             report.getId(),
-            report.getReportName(),
+            PatientReportDisplayName.resolve(
+                report.getReportName(),
+                report.getOriginalFilename(),
+                report.getReportType().name(),
+                report.getReportDate(),
+                report.getProviderLaboratory()
+            ),
             report.getReportType(),
             report.getReportDate(),
             report.getProviderLaboratory(),

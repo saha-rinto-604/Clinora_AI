@@ -21,6 +21,8 @@ function renderAdminRoute() {
         <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
           <Route path="/admin/access-reviews" element={<div>Access reviews</div>} />
         </Route>
+        <Route path="/doctor" element={<div>Doctor home</div>} />
+        <Route path="/patient" element={<div>Patient home</div>} />
         <Route path="/account" element={<div>Account security</div>} />
         <Route path="/login" element={<div>Login</div>} />
       </Routes>
@@ -54,21 +56,22 @@ describe('ProtectedRoute role enforcement', () => {
     expect(screen.getByText('Access reviews')).toBeInTheDocument();
   });
 
-  it.each(['PATIENT', 'DOCTOR', 'RESEARCHER'])(
-    'redirects an authenticated %s user away from a System Admin-only boundary',
-    (role) => {
-      useAuthStore.setState({
-        status: 'authenticated',
-        accessToken: 'token',
-        user: { ...adminUser, role, email: `${role.toLowerCase()}@example.com` },
-      });
+  it.each([
+    ['PATIENT', 'Patient home'],
+    ['DOCTOR', 'Doctor home'],
+    ['RESEARCHER', 'Account security'],
+  ])('redirects an authenticated %s user to their own landing page', (role, destination) => {
+    useAuthStore.setState({
+      status: 'authenticated',
+      accessToken: 'token',
+      user: { ...adminUser, role, email: `${role.toLowerCase()}@example.com` },
+    });
 
-      renderAdminRoute();
+    renderAdminRoute();
 
-      expect(screen.getByText('Account security')).toBeInTheDocument();
-      expect(screen.queryByText('Access reviews')).not.toBeInTheDocument();
-    },
-  );
+    expect(screen.getByText(destination)).toBeInTheDocument();
+    expect(screen.queryByText('Access reviews')).not.toBeInTheDocument();
+  });
 
   it('does not expose protected content while restoring authentication state', () => {
     useAuthStore.setState({ status: 'unknown', accessToken: null, user: null });
