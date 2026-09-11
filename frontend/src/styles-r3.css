@@ -1,0 +1,161 @@
+/* Clinora Phase 6 UX R3
+ * Business-level clinical workspace refinements.
+ * Scope is intentionally presentation-only: no API, auth, consent, or domain behavior changes.
+ */
+
+.clinora-r3-shell,
+.clinora-r3-patient {
+  --clinora-surface-1: #07111b;
+  --clinora-surface-2: #0a1521;
+  --clinora-surface-hero: #081c22;
+  --clinora-surface-nested: rgba(255, 255, 255, 0.026);
+  --clinora-surface-hover: rgba(255, 255, 255, 0.045);
+  --clinora-border-subtle: rgba(226, 232, 240, 0.075);
+  --clinora-border-interactive: rgba(56, 189, 248, 0.26);
+  --clinora-info-soft: rgba(14, 165, 233, 0.07);
+  --clinora-success-soft: rgba(20, 184, 166, 0.07);
+  --clinora-focus-ring-soft: rgba(56, 189, 248, 0.065);
+  --radius-app-card: 18px;
+  --radius-app-compact: 12px;
+}
+
+.clinora-r3-shell {
+  background:
+    radial-gradient(circle at 76% -10%, rgba(14, 165, 233, 0.055), transparent 30rem),
+    linear-gradient(180deg, #030914 0%, #050c15 46%, #030914 100%);
+}
+
+.clinora-r3-shell::before,
+.clinora-r3-patient::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: '';
+  opacity: 0.32;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.018) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, rgba(0, 0, 0, 0.45) 46%, transparent 92%);
+  mask-image: linear-gradient(to bottom, black 0%, rgba(0, 0, 0, 0.45) 46%, transparent 92%);
+}
+
+.clinora-r3-patient {
+  position: relative;
+  isolation: isolate;
+}
+
+.clinora-r3-panel {
+  border: 1px solid var(--clinora-border-subtle);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(10, 21, 33, 0.94), rgba(6, 15, 25, 0.96));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16);
+}
+
+.clinora-r3-panel--raised {
+  background: linear-gradient(180deg, rgba(12, 27, 39, 0.96), rgba(7, 17, 28, 0.98));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+}
+
+.clinora-r3-panel--interactive {
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.clinora-r3-panel--interactive:hover {
+  border-color: rgba(56, 189, 248, 0.18);
+  background: rgba(255, 255, 255, 0.036);
+}
+
+.clinora-r3-hairline {
+  border-color: rgba(226, 232, 240, 0.07);
+}
+
+.clinora-r3-kicker {
+  color: #7dd3fc;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.clinora-r3-section-title {
+  color: #f8fafc;
+  font-size: clamp(1.12rem, 1.5vw, 1.36rem);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.clinora-r3-muted {
+  color: #8ea0b5;
+}
+
+.clinora-r3-faint {
+  color: #65758b;
+}
+
+.clinora-r3-focus-ring:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.9);
+  outline-offset: 3px;
+}
+
+.clinora-r3-scrollbar {
+  scrollbar-color: rgba(100, 116, 139, 0.52) transparent;
+  scrollbar-width: thin;
+}
+
+.clinora-r3-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.clinora-r3-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.48);
+  background-clip: padding-box;
+}
+
+.clinora-r3-date-strip {
+  scrollbar-width: none;
+}
+
+.clinora-r3-date-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.clinora-r3-agenda-line {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(56, 189, 248, 0.2) 12%,
+    rgba(56, 189, 248, 0.08) 88%,
+    transparent
+  );
+}
+
+.clinora-r3-calendar-grid {
+  background-image: linear-gradient(to bottom, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 100% 44px;
+}
+
+.clinora-r3-calendar-day {
+  min-height: 21rem;
+}
+
+@media (max-width: 1023px) {
+  .clinora-r3-calendar-day {
+    min-height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clinora-r3-panel--interactive,
+  .clinora-r3-panel--interactive:hover {
+    transition: none;
+    transform: none;
+  }
+}
