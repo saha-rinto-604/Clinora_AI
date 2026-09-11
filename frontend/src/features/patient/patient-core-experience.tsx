@@ -186,11 +186,21 @@ export function PatientCoreExperience({
   );
 }
 
-function CinematicCoreMedia({ reducedMotion }: { reducedMotion: boolean }) {
+export function CinematicCoreMedia({
+  reducedMotion,
+  integrated = false,
+}: {
+  reducedMotion: boolean;
+  integrated?: boolean;
+}) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] overflow-hidden sm:h-[23rem] lg:inset-0 lg:h-auto"
+      className={
+        integrated
+          ? 'patient-home__media'
+          : 'pointer-events-none absolute inset-x-0 top-0 h-[20rem] overflow-hidden sm:h-[23rem] lg:inset-0 lg:h-auto'
+      }
       data-core-experience-media="cinematic"
     >
       {reducedMotion ? (
@@ -215,8 +225,14 @@ function CinematicCoreMedia({ reducedMotion }: { reducedMotion: boolean }) {
           <source src={CORE_VIDEO} type="video/mp4" />
         </video>
       )}
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,42,47,0.5)_0%,rgba(5,42,47,0.22)_32%,transparent_62%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,18,24,0.04)_0%,rgba(3,18,24,0.12)_38%,rgba(3,18,24,0.7)_76%,rgba(3,18,24,0.98)_100%)]" />
+      {integrated ? (
+        <div className="patient-home__media-scrim" />
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,42,47,0.5)_0%,rgba(5,42,47,0.22)_32%,transparent_62%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,18,24,0.04)_0%,rgba(3,18,24,0.12)_38%,rgba(3,18,24,0.7)_76%,rgba(3,18,24,0.98)_100%)]" />
+        </>
+      )}
     </div>
   );
 }

@@ -73,7 +73,9 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
 
 const allNavigation = navigation.flatMap((section) => section.items);
 const mobileNavigation = allNavigation.filter((item) =>
-  ['/patient', '/patient/analyze', '/patient/reports', '/patient/blood-network', '/patient/appointments'].includes(item.to),
+  ['/patient', '/patient/analyze', '/patient/reports', '/patient/blood-network', '/patient/appointments'].includes(
+    item.to,
+  ),
 );
 
 export function PatientLayout() {
@@ -106,7 +108,12 @@ export function PatientShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="relative isolate min-h-dvh overflow-x-clip bg-[var(--clinora-bg-canvas)] text-white">
+    <div
+      className={cn(
+        'relative isolate min-h-dvh overflow-x-clip bg-[var(--clinora-bg-canvas)] text-white',
+        clinicalHome && 'patient-home-shell',
+      )}
+    >
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[244px] flex-col border-r border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-4 py-6 lg:flex">
         <NavLink to="/patient" className="flex min-h-11 items-center gap-3 rounded-2xl px-3">
           <ClinoraBrandMark />
@@ -162,9 +169,11 @@ export function PatientShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="mt-auto">
-          <div className="mb-3 flex justify-end px-1">
-            <PatientNotificationBell />
-          </div>
+          {!clinicalHome ? (
+            <div className="mb-3 flex justify-end px-1">
+              <PatientNotificationBell />
+            </div>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -259,12 +268,16 @@ export function PatientShell({ children }: { children: ReactNode }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            'mx-auto w-full px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-7 sm:pt-8 lg:px-8 lg:pb-12 lg:pt-10',
-            clinicalHome || bloodNetworkWorkspace
-              ? 'max-w-[1480px]'
-              : reportWorkspace || analysisWorkspace
-                ? 'max-w-[1360px]'
-                : 'max-w-[1224px]',
+            clinicalHome
+              ? 'patient-home-workspace'
+              : 'mx-auto w-full px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-7 sm:pt-8 lg:px-8 lg:pb-12 lg:pt-10',
+            clinicalHome
+              ? ''
+              : bloodNetworkWorkspace
+                ? 'max-w-[1480px]'
+                : reportWorkspace || analysisWorkspace
+                  ? 'max-w-[1360px]'
+                  : 'max-w-[1224px]',
           )}
         >
           {children}

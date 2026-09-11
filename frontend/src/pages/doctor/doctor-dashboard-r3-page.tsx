@@ -391,11 +391,13 @@ function DoctorTimeline({ appointments }: { appointments: DoctorAppointmentSumma
           );
         })}
         {sorted.length === 0 ? (
-          <div className="clinora-r5-timeline-empty">
-            <CalendarDays size={22} aria-hidden="true" />
+          <div className="clinora-r5-timeline-empty clinora-r52-timeline-empty">
+            <span className="clinora-r52-timeline-empty-icon">
+              <CalendarDays size={20} aria-hidden="true" />
+            </span>
             <strong>No appointments booked today</strong>
             <span>Your schedule remains visible so the day is still useful at a glance.</span>
-            <Link to="/doctor/availability">
+            <Link className="clinora-r52-timeline-empty-action" to="/doctor/availability">
               Manage availability <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
