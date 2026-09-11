@@ -235,7 +235,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
           transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             'mx-auto w-full px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-7 sm:pt-7 lg:px-8 lg:pb-12 lg:pt-8 2xl:px-10',
-            wideWorkspace ? 'max-w-[1500px]' : 'max-w-[1280px]',
+            wideWorkspace ? 'max-w-[1660px]' : 'max-w-[1580px]',
           )}
         >
           {children}

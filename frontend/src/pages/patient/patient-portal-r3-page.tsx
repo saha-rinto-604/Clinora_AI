@@ -1,4 +1,16 @@
-import { Activity, ArrowRight, FileText, HeartPulse, ShieldCheck, UserRound } from 'lucide-react';
+import {
+  Activity,
+  ArrowRight,
+  CalendarDays,
+  FileText,
+  HeartPulse,
+  Ruler,
+  ScanText,
+  ShieldCheck,
+  Stethoscope,
+  UploadCloud,
+  Weight,
+} from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Link } from 'react-router';
@@ -16,7 +28,7 @@ import {
 } from '../../features/patient/patient-home';
 import { patientApi, patientErrorMessage } from '../../features/patient/patient-api';
 import { patientPortalApi, type PatientPortalSummary } from '../../features/patient/patient-portal-api';
-import { bloodGroupLabels, type PatientDashboard, type PatientProfile } from '../../features/patient/patient-types';
+import type { PatientDashboard, PatientProfile } from '../../features/patient/patient-types';
 import {
   patientRecordApi,
   type HealthRecord,
@@ -110,8 +122,10 @@ export function PatientPortalPage() {
     void loadSharing();
   }, [loadActivity, loadCare, loadProfile, loadRecord, loadReports, loadSharing]);
 
+  const nextAppointment = appointments?.length ? appointments.slice(0, 1) : appointments;
+
   return (
-    <div className="clinora-r3-patient">
+    <div className="clinora-r5-dashboard clinora-r51-dashboard clinora-r5-patient-dashboard">
       <PatientHomeCanvas>
         <PatientHomeHeader
           firstName={dashboard?.firstName || profile?.firstName || user?.firstName || 'there'}
@@ -119,54 +133,165 @@ export function PatientPortalPage() {
           reducedMotion={Boolean(reducedMotion)}
         />
 
-        <div className="mt-7 space-y-9 sm:mt-8 sm:space-y-10">
+        <div className="clinora-r51-patient-stack">
           <PatientCoreExperience
             reports={section(dashboard, loading.reports, errors.reports, loadReports)}
             reducedMotion={Boolean(reducedMotion)}
             onUpload={() => setUploadOpen(true)}
           />
 
-          <HealthDataWorkspace
-            profile={section(profile, loading.profile, errors.profile, loadProfile)}
-            record={section(record, loading.record, errors.record, loadRecord)}
-          />
-
-          <section aria-labelledby="patient-care-activity-title">
-            <SectionHeading
-              eyebrow="Care coordination"
-              title="What needs your attention"
-              copy="Upcoming care and meaningful health-record changes, without turning your home page into an analytics dashboard."
-              id="patient-care-activity-title"
+          <section className="clinora-r5-metric-grid clinora-r51-metric-grid" aria-label="Patient home overview">
+            <PatientMetric
+              icon={<FileText size={20} aria-hidden="true" />}
+              label="Active reports"
+              value={loading.reports ? '…' : String(dashboard?.activeReportCount ?? 0)}
+              detail="Stored medical reports"
+              to="/patient/reports"
             />
-            <div className="mt-4 grid items-start gap-5 lg:grid-cols-12">
-              <UpcomingCare
-                section={section(appointments, loading.care, errors.care, loadCare)}
-                className="lg:col-span-5"
-              />
-              <RecentHealthActivity
-                section={section(activity, loading.activity, errors.activity, loadActivity)}
-                className="lg:col-span-7"
-              />
-            </div>
+            <PatientMetric
+              icon={<CalendarDays size={20} aria-hidden="true" />}
+              label="Upcoming appointments"
+              value={loading.care ? '…' : String(appointments?.length ?? 0)}
+              detail="Scheduled care"
+              to="/patient/appointments"
+            />
+            <PatientMetric
+              icon={<Activity size={20} aria-hidden="true" />}
+              label="Health record updates"
+              value={loading.activity ? '…' : String(activity?.length ?? 0)}
+              detail="Recent timeline events"
+              to="/patient/history"
+            />
+            <PatientMetric
+              icon={<HeartPulse size={20} aria-hidden="true" />}
+              label="Health profile"
+              value={loading.profile ? '…' : `${profile?.completenessPercent ?? 0}%`}
+              detail="Profile completeness"
+              to="/patient/profile"
+            />
           </section>
 
-          <section aria-labelledby="patient-baseline-privacy-title">
-            <SectionHeading
-              eyebrow="Your baseline"
-              title="Context and control"
-              copy="Keep useful measurements visible while privacy and sharing remain explicit."
-              id="patient-baseline-privacy-title"
-            />
-            <div className="mt-4 grid items-start gap-5 lg:grid-cols-12">
-              <HealthInsights
-                section={section(profile, loading.profile, errors.profile, loadProfile)}
-                className="lg:col-span-7"
-              />
-              <div className="clinora-r3-panel p-5 sm:p-6 lg:col-span-5">
-                <PrivacySharingSummary section={section(sharing, loading.sharing, errors.sharing, loadSharing)} />
+          <div className="clinora-r5-patient-workspace-grid clinora-r51-patient-workspace-grid">
+            <main className="clinora-r5-patient-main">
+              <section
+                className="clinora-r5-patient-panel clinora-r51-health-overview"
+                aria-labelledby="patient-health-overview-title"
+              >
+                <div className="clinora-r5-panel-heading clinora-r51-panel-heading">
+                  <div className="clinora-r5-panel-heading-copy">
+                    <span className="clinora-r5-panel-icon">
+                      <HeartPulse size={18} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h2 id="patient-health-overview-title">Today's Health Overview</h2>
+                      <p>A quick snapshot from health data already stored in Clinora.</p>
+                    </div>
+                  </div>
+                  <Link to="/patient/history">View health record</Link>
+                </div>
+                <HealthOverview
+                  profile={section(profile, loading.profile, errors.profile, loadProfile)}
+                  record={section(record, loading.record, errors.record, loadRecord)}
+                />
+              </section>
+
+              <div className="clinora-r5-patient-lower-grid clinora-r51-patient-lower-grid">
+                <section className="clinora-r5-patient-panel" aria-labelledby="patient-upcoming-title">
+                  <div className="clinora-r5-panel-heading compact">
+                    <div className="clinora-r5-panel-heading-copy">
+                      <span className="clinora-r5-panel-icon">
+                        <CalendarDays size={18} aria-hidden="true" />
+                      </span>
+                      <div>
+                        <h2 id="patient-upcoming-title">Upcoming Care</h2>
+                        <p>Your scheduled consultations.</p>
+                      </div>
+                    </div>
+                    <Link to="/patient/appointments">View all</Link>
+                  </div>
+                  <UpcomingCare section={section(appointments, loading.care, errors.care, loadCare)} />
+                </section>
+
+                <section className="clinora-r5-patient-panel" aria-labelledby="patient-activity-title">
+                  <div className="clinora-r5-panel-heading compact">
+                    <div className="clinora-r5-panel-heading-copy">
+                      <span className="clinora-r5-panel-icon">
+                        <Activity size={18} aria-hidden="true" />
+                      </span>
+                      <div>
+                        <h2 id="patient-activity-title">Recent Health Activity</h2>
+                        <p>Meaningful changes across your record.</p>
+                      </div>
+                    </div>
+                    <Link to="/patient/history">View timeline</Link>
+                  </div>
+                  <RecentHealthActivity section={section(activity, loading.activity, errors.activity, loadActivity)} />
+                </section>
               </div>
-            </div>
-          </section>
+            </main>
+
+            <aside className="clinora-r5-side-rail clinora-r51-side-rail" aria-label="Patient dashboard actions">
+              <section
+                className="clinora-r5-rail-card clinora-r51-next-appointment"
+                aria-labelledby="patient-next-appointment-title"
+              >
+                <div className="clinora-r5-rail-heading">
+                  <h2 id="patient-next-appointment-title">Next Appointment</h2>
+                  <Link to="/patient/appointments">View all</Link>
+                </div>
+                <div className="clinora-r51-next-appointment-body">
+                  <UpcomingCare
+                    section={section(nextAppointment, loading.care, errors.care, loadCare)}
+                    className="clinora-r51-upcoming-rail-content"
+                  />
+                </div>
+              </section>
+
+              <section className="clinora-r5-rail-card" aria-labelledby="patient-actions-title">
+                <div className="clinora-r5-rail-heading">
+                  <h2 id="patient-actions-title">Quick Actions</h2>
+                </div>
+                <div className="clinora-r5-quick-grid">
+                  <QuickLink
+                    to="/patient/analyze"
+                    icon={<ScanText size={18} aria-hidden="true" />}
+                    label="Analyze report"
+                  />
+                  <QuickLink
+                    to="/patient/doctors"
+                    icon={<Stethoscope size={18} aria-hidden="true" />}
+                    label="Find a Doctor"
+                  />
+                  <button type="button" className="clinora-r5-quick-link" onClick={() => setUploadOpen(true)}>
+                    <span>
+                      <UploadCloud size={18} aria-hidden="true" />
+                    </span>
+                    <small>Upload report</small>
+                  </button>
+                  <QuickLink
+                    to="/patient/appointments"
+                    icon={<CalendarDays size={18} aria-hidden="true" />}
+                    label="Appointments"
+                  />
+                </div>
+              </section>
+
+              <section className="clinora-r5-rail-card" aria-labelledby="patient-insights-title">
+                <div className="clinora-r5-rail-heading">
+                  <h2 id="patient-insights-title">Health Insights</h2>
+                  <Link to="/patient/profile">View</Link>
+                </div>
+                <HealthInsights section={section(profile, loading.profile, errors.profile, loadProfile)} />
+              </section>
+
+              <section className="clinora-r5-rail-card" aria-labelledby="patient-privacy-title">
+                <div className="clinora-r5-rail-heading">
+                  <h2 id="patient-privacy-title">Privacy & Sharing</h2>
+                </div>
+                <PrivacySharingSummary section={section(sharing, loading.sharing, errors.sharing, loadSharing)} />
+              </section>
+            </aside>
+          </div>
         </div>
 
         <PatientReportUploadDialog
@@ -197,224 +322,129 @@ export function PatientPortalPage() {
   );
 }
 
-function HealthDataWorkspace({
+function PatientMetric({
+  icon,
+  label,
+  value,
+  detail,
+  to,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+  to: string;
+}) {
+  return (
+    <Link className="clinora-r5-metric-tile" to={to}>
+      <span className="clinora-r5-metric-icon">{icon}</span>
+      <span className="clinora-r5-metric-copy">
+        <span className="clinora-r5-metric-label">{label}</span>
+        <strong>{value}</strong>
+        <small>{detail}</small>
+      </span>
+      <ArrowRight size={15} className="clinora-r5-metric-arrow" aria-hidden="true" />
+    </Link>
+  );
+}
+
+function QuickLink({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
+  return (
+    <Link to={to} className="clinora-r5-quick-link">
+      <span>{icon}</span>
+      <small>{label}</small>
+    </Link>
+  );
+}
+
+function HealthOverview({
   profile,
   record,
 }: {
   profile: PatientHomeSection<PatientProfile>;
   record: PatientHomeSection<HealthRecord>;
 }) {
-  return (
-    <section aria-labelledby="health-data-title">
-      <SectionHeading
-        eyebrow="Your health data"
-        title="One place, two clear sources"
-        copy="Health Profile is information you maintain. Health Record is the longitudinal medical evidence Clinora organizes around it."
-        id="health-data-title"
-      />
-
-      <div className="clinora-r3-panel mt-4 overflow-hidden">
-        <div className="grid lg:grid-cols-2">
-          <div className="p-5 sm:p-6 lg:border-r lg:border-white/[0.055]">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-cyan-300/[0.09] bg-cyan-300/[0.045] text-cyan-200">
-                  <UserRound size={16} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-300">Self-maintained</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Health Profile</h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    Personal context you can review and update at any time.
-                  </p>
-                </div>
-              </div>
-              {profile.data ? (
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-400">
-                  {profile.data.completenessPercent}%
-                </span>
-              ) : null}
-            </div>
-
-            {profile.loading ? <CompactLoading /> : null}
-            {!profile.loading && profile.error ? <CompactError message={profile.error} retry={profile.retry} /> : null}
-            {!profile.loading && !profile.error && profile.data ? (
-              <>
-                <dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 border-y border-white/[0.055] py-4 sm:grid-cols-3">
-                  <SmallFact
-                    label="Blood group"
-                    value={profile.data.bloodGroup ? bloodGroupLabels[profile.data.bloodGroup] : 'Not set'}
-                  />
-                  <SmallFact
-                    label="Allergies"
-                    value={
-                      profile.data.allergies.length ? `${profile.data.allergies.length} recorded` : 'None recorded'
-                    }
-                  />
-                  <SmallFact
-                    label="Medications"
-                    value={
-                      profile.data.currentMedications.length
-                        ? `${profile.data.currentMedications.length} recorded`
-                        : 'None recorded'
-                    }
-                  />
-                  <SmallFact
-                    label="Conditions"
-                    value={
-                      profile.data.chronicConditions.length
-                        ? `${profile.data.chronicConditions.length} recorded`
-                        : 'None recorded'
-                    }
-                  />
-                  <SmallFact
-                    label="Emergency contact"
-                    value={profile.data.emergencyContact.configured ? 'Configured' : 'Not configured'}
-                  />
-                  <SmallFact label="Updated" value={formatCompactDate(profile.data.updatedAt)} />
-                </dl>
-                <Link
-                  to="/patient/profile"
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-200 hover:text-cyan-100"
-                >
-                  Review Health Profile <ArrowRight size={13} aria-hidden="true" />
-                </Link>
-              </>
-            ) : null}
-          </div>
-
-          <div className="border-t border-white/[0.055] p-5 sm:p-6 lg:border-t-0">
-            <div className="flex gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-teal-300/[0.09] bg-teal-300/[0.04] text-teal-200">
-                <HeartPulse size={16} aria-hidden="true" />
-              </span>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-teal-300">Longitudinal record</p>
-                <h3 className="mt-1 text-base font-semibold text-white">Health Record</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Reports, measurements and care history organized over time.
-                </p>
-              </div>
-            </div>
-
-            {record.loading ? <CompactLoading /> : null}
-            {!record.loading && record.error ? <CompactError message={record.error} retry={record.retry} /> : null}
-            {!record.loading && !record.error && record.data ? (
-              <>
-                <div className="mt-5 grid gap-3 border-y border-white/[0.055] py-4 sm:grid-cols-2">
-                  <RecordLine
-                    icon={<FileText size={14} aria-hidden="true" />}
-                    label="Recent reports"
-                    value={
-                      record.data.recentReports.length
-                        ? `${record.data.recentReports.length} in current snapshot`
-                        : 'No recent reports'
-                    }
-                  />
-                  <RecordLine
-                    icon={<Activity size={14} aria-hidden="true" />}
-                    label="Current measurement"
-                    value={measurementSummary(record.data)}
-                  />
-                  <RecordLine
-                    icon={<ShieldCheck size={14} aria-hidden="true" />}
-                    label="Clinical essentials"
-                    value={`${record.data.clinicalEssentials.allergies.length + record.data.clinicalEssentials.conditions.length + record.data.clinicalEssentials.medications.length} recorded items`}
-                  />
-                  <RecordLine
-                    icon={<HeartPulse size={14} aria-hidden="true" />}
-                    label="Last updated"
-                    value={formatCompactDate(record.data.lastUpdatedAt)}
-                  />
-                </div>
-                <Link
-                  to="/patient/history"
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-200 hover:text-teal-100"
-                >
-                  Open Health Record <ArrowRight size={13} aria-hidden="true" />
-                </Link>
-              </>
-            ) : null}
-          </div>
-        </div>
+  if (profile.loading || record.loading)
+    return (
+      <div className="clinora-r51-health-loading">
+        <CompactLoading />
       </div>
-    </section>
-  );
-}
+    );
+  if (profile.error && record.error)
+    return <CompactError message="Your current health overview could not be loaded." retry={record.retry} />;
 
-function SectionHeading({ eyebrow, title, copy, id }: { eyebrow: string; title: string; copy: string; id: string }) {
-  return (
-    <header className="max-w-3xl">
-      <p className="clinora-r3-kicker">{eyebrow}</p>
-      <h2 id={id} className="mt-1 text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl">
-        {title}
-      </h2>
-      <p className="mt-1.5 text-sm leading-6 text-slate-600">{copy}</p>
-    </header>
-  );
-}
+  const measurement = record.data?.currentMeasurements;
+  const clinicalEssentials = record.data
+    ? record.data.clinicalEssentials.allergies.length +
+      record.data.clinicalEssentials.conditions.length +
+      record.data.clinicalEssentials.medications.length
+    : null;
 
-function SmallFact({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-700">{label}</dt>
-      <dd className="mt-1 text-xs font-medium text-slate-300">{value}</dd>
+    <div className="clinora-r51-health-stat-grid">
+      <HealthStat
+        icon={<Ruler size={18} aria-hidden="true" />}
+        label="Height"
+        value={measurement?.heightCm != null ? `${measurement.heightCm}` : '—'}
+        unit={measurement?.heightCm != null ? 'cm' : 'Not recorded'}
+      />
+      <HealthStat
+        icon={<Weight size={18} aria-hidden="true" />}
+        label="Weight"
+        value={measurement?.weightKg != null ? `${measurement.weightKg}` : '—'}
+        unit={measurement?.weightKg != null ? 'kg' : 'Not recorded'}
+      />
+      <HealthStat
+        icon={<HeartPulse size={18} aria-hidden="true" />}
+        label="BMI"
+        value={measurement?.bmi != null ? measurement.bmi.toFixed(1) : '—'}
+        unit={measurement?.bmi != null ? 'Current baseline' : 'Not recorded'}
+      />
+      <HealthStat
+        icon={<ShieldCheck size={18} aria-hidden="true" />}
+        label="Clinical essentials"
+        value={clinicalEssentials != null ? String(clinicalEssentials) : '—'}
+        unit={clinicalEssentials != null ? 'Recorded items' : 'Not available'}
+      />
+      {profile.data ? (
+        <div className="clinora-r51-health-profile-strip">
+          <span>Health Profile</span>
+          <strong>{profile.data.completenessPercent}% complete</strong>
+          <Link to="/patient/profile">
+            Review <ArrowRight size={12} aria-hidden="true" />
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function RecordLine({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function HealthStat({ icon, label, value, unit }: { icon: ReactNode; label: string; value: string; unit: string }) {
   return (
-    <div className="flex min-w-0 gap-2.5">
-      <span className="mt-0.5 shrink-0 text-teal-300">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-700">{label}</p>
-        <p className="mt-1 truncate text-xs text-slate-400">{value}</p>
-      </div>
+    <div className="clinora-r51-health-stat">
+      <span className="clinora-r51-health-stat-icon">{icon}</span>
+      <span className="clinora-r51-health-stat-copy">
+        <small>{label}</small>
+        <strong>{value}</strong>
+        <em>{unit}</em>
+      </span>
     </div>
   );
 }
 
 function CompactLoading() {
-  return (
-    <div
-      className="mt-5 h-20 animate-pulse rounded-[12px] bg-white/[0.025] motion-reduce:animate-none"
-      role="status"
-      aria-label="Loading health data"
-    />
-  );
+  return <div className="clinora-r5-compact-loading" role="status" aria-label="Loading health data" />;
 }
 
 function CompactError({ message, retry }: { message: string; retry: () => Promise<void> }) {
   return (
-    <div className="mt-5 rounded-[10px] border border-rose-300/[0.1] bg-rose-300/[0.035] p-3">
-      <p role="alert" className="text-xs leading-5 text-rose-200">
-        {message}
-      </p>
-      <button
-        type="button"
-        onClick={() => void retry()}
-        className="mt-2 text-xs font-semibold text-white underline underline-offset-4"
-      >
+    <div className="clinora-r5-compact-error">
+      <p role="alert">{message}</p>
+      <button type="button" onClick={() => void retry()}>
         Try again
       </button>
     </div>
   );
-}
-
-function measurementSummary(record: HealthRecord) {
-  const parts: string[] = [];
-  if (record.currentMeasurements.heightCm != null) parts.push(`${record.currentMeasurements.heightCm} cm`);
-  if (record.currentMeasurements.weightKg != null) parts.push(`${record.currentMeasurements.weightKg} kg`);
-  if (record.currentMeasurements.bmi != null) parts.push(`BMI ${record.currentMeasurements.bmi.toFixed(1)}`);
-  return parts.length ? parts.join(' · ') : 'No baseline yet';
-}
-
-function formatCompactDate(value: string | null) {
-  if (!value) return 'Not available';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'Not available';
-  return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function useHomeLoader(
