@@ -327,6 +327,11 @@ public class PatientReportExtractionService {
     public void complete(WorkItem work, ExtractionResponse response) {
         JobRow job = requireJob(work.jobId());
         if (!job.status().equals("PROCESSING")) return;
+        if ("INSUFFICIENT".equals(response.qualityState())
+            || response.warnings() != null && response.warnings().contains("EXTRACTION_QUALITY_INSUFFICIENT")) {
+            fail(work, "EXTRACTION_QUALITY_INSUFFICIENT");
+            return;
+        }
         Instant now = clock.instant();
         UUID resultId = UUID.randomUUID();
         List<Observation> observations = response.observations() == null ? List.of() : response.observations();
@@ -434,14 +439,15 @@ public class PatientReportExtractionService {
             """
             INSERT INTO medical_report_observations (
                 id, extraction_result_id, source_label, normalized_label, effective_label, ocr_value_type, effective_value_type,
-                ocr_numeric_value, ocr_text_value, ocr_comparator, ocr_unit,
+                ocr_raw_value, ocr_numeric_value, ocr_text_value, ocr_comparator, ocr_unit,
                 effective_numeric_value, effective_text_value, effective_comparator, effective_unit,
                 reference_range_raw, reference_low, reference_high, source_flag, derived_range_flag,
                 page_number, bounding_box_json, ocr_confidence, review_required, verification_status,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, 'UNREVIEWED', ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, 'UNREVIEWED', ?, ?)
             """,
             id, resultId, sourceLabel, normalizedLabel, normalizedLabel, valueType, valueType,
+            cleanNullable(observation.rawValue()),
             observation.numericValue(), cleanNullable(observation.textValue()), cleanNullable(observation.comparator()), cleanNullable(observation.unit()),
             observation.numericValue(), cleanNullable(observation.textValue()), cleanNullable(observation.comparator()), cleanNullable(observation.unit()),
             cleanNullable(observation.referenceRangeRaw()), observation.referenceLow(), observation.referenceHigh(), cleanNullable(observation.sourceFlag()),
@@ -463,7 +469,7 @@ public class PatientReportExtractionService {
         ResultRow result = requireResult(job.id());
         List<ObservationView> observations = jdbc.query(
             """
-            SELECT id, source_label, effective_label, effective_value_type, effective_numeric_value,
+            SELECT id, source_label, effective_label, effective_value_type, ocr_raw_value, effective_numeric_value,
                 effective_text_value, effective_comparator, effective_unit, reference_range_raw,
                 reference_low, reference_high, source_flag, derived_range_flag, page_number,
                 bounding_box_json::text AS bounding_box_json, ocr_confidence, review_required,
@@ -498,7 +504,8 @@ public class PatientReportExtractionService {
         }
         return new ObservationView(
             rs.getObject("id", UUID.class), rs.getString("source_label"), rs.getString("effective_label"),
-            rs.getString("effective_value_type"), rs.getBigDecimal("effective_numeric_value"), rs.getString("effective_text_value"),
+            rs.getString("effective_value_type"), rs.getString("ocr_raw_value"),
+            rs.getBigDecimal("effective_numeric_value"), rs.getString("effective_text_value"),
             rs.getString("effective_comparator"), rs.getString("effective_unit"), rs.getString("reference_range_raw"),
             rs.getBigDecimal("reference_low"), rs.getBigDecimal("reference_high"), rs.getString("source_flag"),
             rs.getString("derived_range_flag"), rs.getInt("page_number"), box, rs.getBigDecimal("ocr_confidence"),
@@ -899,6 +906,7 @@ public class PatientReportExtractionService {
         String sourceLabel,
         String label,
         String valueType,
+        String rawValue,
         BigDecimal numericValue,
         String textValue,
         String comparator,

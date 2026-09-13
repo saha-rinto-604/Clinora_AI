@@ -43,6 +43,20 @@ _UNFINISHED = re.compile(r"\b(?:and|or|but|which|that|because|can|could|may|migh
 _NEGATIVE_WORD = re.compile(r"\b(?:negative|non[- ]?reactive|not\s+detected|absent)\b", re.I)
 _POSITIVE_WORD = re.compile(r"\b(?:positive|reactive|detected|present)\b", re.I)
 _QUALITATIVE_BRIDGE = r"(?:\s+(?:is|was|are|were|reported|result|test|assay|as|has|been|remains)){0,5}\s*"
+_UNSUPPORTED_EXTENSION = re.compile(
+    r"\s*,?\s*\b(?:particularly|including|such as)\b[^.!?]*",
+    re.I,
+)
+_UNOBSERVED_FACT_ASSERTION = re.compile(
+    r"\b(?:has|have|shows?|demonstrates?|confirms?|indicates?|reflects?|causes?|establishes?)\b"
+    r"[^.!?]{0,120}\b(?:damage|injury|failure|involvement|complications?|symptoms?|"
+    r"physical findings?|history|medications?|treatment)\b",
+    re.I,
+)
+_EXPLICITLY_UNVERIFIED = re.compile(
+    r"\bnot\s+(?:directly\s+)?(?:assessed|observed|measured|reported|supplied|verified)\b",
+    re.I,
+)
 
 
 def _text(value: object, limit: int = 2400) -> str:
@@ -51,6 +65,33 @@ def _text(value: object, limit: int = 2400) -> str:
 
 def _normal(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _prune_unsupported_candidate_assertions(text: str, candidate_name: str) -> tuple[str, int]:
+    """Remove unsupported factual extensions while retaining the grounded candidate.
+
+    This operates on discourse structure and unsupported fact categories, never
+    on condition names or disease mappings. The candidate itself remains an
+    allowed hypothesis; extra asserted complications or findings do not.
+    """
+    retained: list[str] = []
+    removed = 0
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        source = sentence.strip()
+        if not source:
+            continue
+        cleaned = _UNSUPPORTED_EXTENSION.sub("", source).strip(" ,")
+        if cleaned != source:
+            removed += 1
+        masked = re.sub(re.escape(candidate_name), "candidate", cleaned, flags=re.I) if candidate_name else cleaned
+        if _EXPLICITLY_UNVERIFIED.search(masked) or _UNOBSERVED_FACT_ASSERTION.search(masked):
+            removed += 1
+            continue
+        if cleaned:
+            if source[-1:] in ".!?" and cleaned[-1:] not in ".!?":
+                cleaned += source[-1]
+            retained.append(cleaned)
+    return " ".join(retained)[:2400], removed
 
 
 def sanitize_reasoning(
@@ -318,6 +359,7 @@ def ground_cluster_output(
     neutralized = 0
     unknown_pruned = 0
     context_recovered = 0
+    unsupported_claims_pruned = 0
     fallback_groups: dict[frozenset[str], dict[str, Any]] = {}
     all_names = {
         _text(item.get("name"), 180) for group in raw_clusters if isinstance(group, dict)
@@ -374,9 +416,13 @@ def ground_cluster_output(
                 discarded += 1
                 unknown_pruned += int(is_context_only(observation))
             relevance = safe(item.get("clinicalRelevance"), observation_id)
+            grounded_relevance = noncandidate(relevance)
+            if _UNOBSERVED_FACT_ASSERTION.search(grounded_relevance):
+                grounded_relevance = ""
+                unsupported_claims_pruned += 1
             evidence[observation_id] = {
                 "observationId": observation_id, "role": role,
-                "clinicalRelevance": noncandidate(relevance) or _fact_relevance(observation),
+                "clinicalRelevance": grounded_relevance or _fact_relevance(observation),
                 "supportEligibility": support_eligibility(observation),
             }
             if len(evidence) >= 20:
@@ -479,6 +525,8 @@ def ground_cluster_output(
                     rationale = " ".join(part for part in re.split(r"(?<=[.!?])\s+", rationale)
                         if _mentions(request, part) & set(supporting)
                         and not any(is_context_only(by_id[key]) for key in _mentions(request, part)))
+            rationale, unsupported_removed = _prune_unsupported_candidate_assertions(rationale, name)
+            unsupported_claims_pruned += unsupported_removed
             contradictory = [key for key in clean_ids(item.get("contradictoryObservationIds"), supporting=False)
                              if key not in supporting and not is_context_only(by_id[key])]
             level = support_level(by_id[key] for key in supporting)
@@ -491,7 +539,9 @@ def ground_cluster_output(
                 r"\bcontradicts?\s+this\b[^.!?]*\binstead\b", rationale, re.I))
             combined_hypotheses = bool(re.search(r"\s+(?:/|or)\s+", name, re.I))
             test_label_as_candidate = _normal(name) in {_normal(o.label) for o in request.observations}
-            if (not missing or not alternatives or not name or not rationale or level is None or _normal(name) in seen_candidates
+            # Optional explanation enrichment must not erase a condition-level
+            # candidate that still has a grounded name, rationale and eligible support.
+            if (not name or not rationale or level is None or _normal(name) in seen_candidates
                 or withdrawn or combined_hypotheses or test_label_as_candidate
                 or any(_normal(other["name"]) == _normal(name) for other in candidates)):
                 continue
@@ -646,6 +696,7 @@ def ground_cluster_output(
         "support_to_context_reclassification_count": reclassified,
         "unknown_support_pruned_count": unknown_pruned,
         "factual_claim_pruned_count": pruned_claims,
+        "unsupported_clinical_claim_pruned_count": unsupported_claims_pruned,
         "condition_leakage_neutralized_count": neutralized,
         "accepted_cluster_count": len(clusters), "accepted_candidate_count": accepted_candidates,
         "downgraded_candidate_count": max(0, raw_candidates - accepted_candidates),

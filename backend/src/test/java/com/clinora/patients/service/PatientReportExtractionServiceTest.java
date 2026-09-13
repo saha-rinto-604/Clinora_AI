@@ -16,11 +16,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.clinora.notifications.service.PatientNotificationService;
+import com.clinora.ocr.client.OcrClient.ExtractionResponse;
+import com.clinora.ocr.client.OcrClient.Observation;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.domain.PatientMedicalReport;
 import com.clinora.patients.repository.PatientMedicalReportRepository;
 import com.clinora.patients.service.PatientReportExtractionService.CorrectionCommand;
 import com.clinora.patients.service.PatientReportExtractionService.ExtractionView;
+import com.clinora.patients.service.PatientReportExtractionService.WorkItem;
 import com.clinora.patients.storage.PatientReportStoragePort;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -152,6 +155,70 @@ class PatientReportExtractionServiceTest {
         verify(fixture.jdbc, never()).update(contains("PATIENT_CONFIRMED"), any(Object[].class));
     }
 
+    @Test
+    void incompleteExtractionWarningFailsClosedBeforePersistingObservations() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        WorkItem work = new WorkItem(JOB_ID, REPORT_ID, PATIENT_ID, "reports/source.pdf", "source.pdf", "application/pdf");
+        ExtractionResponse response = new ExtractionResponse(
+            "PADDLE_PP_STRUCTURE_V3",
+            "3.5.0",
+            "LAB_REPORT",
+            1,
+            new BigDecimal("0.98"),
+            "clinora-lab-parser-v3",
+            "clinora-lab-normalizer-v3",
+            "INSUFFICIENT",
+            List.of(),
+            List.of("EXTRACTION_QUALITY_INSUFFICIENT")
+        );
+
+        fixture.service.complete(work, response);
+
+        verify(fixture.jdbc).update(
+            contains("SET status = 'FAILED'"),
+            eq("EXTRACTION_QUALITY_INSUFFICIENT"),
+            any(Timestamp.class),
+            any(Timestamp.class),
+            eq(JOB_ID)
+        );
+        verify(fixture.jdbc, never()).update(
+            contains("INSERT INTO medical_report_extraction_results"),
+            any(Object[].class)
+        );
+    }
+
+    @Test
+    void persistsRawResultTextAlongsideNormalizedNumericValue() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.processingJob();
+        WorkItem work = new WorkItem(JOB_ID, REPORT_ID, PATIENT_ID, "reports/source.pdf", "source.pdf", "application/pdf");
+        Observation platelet = new Observation(
+            "Total Platelet Count", "Platelets", "NUMERIC", "1,60,000", new BigDecimal("160000"),
+            null, null, "/Cmm", "1,50,000-4,50,000/Cmm", new BigDecimal("150000"),
+            new BigDecimal("450000"), null, "WITHIN_REPORTED_RANGE", 1, null,
+            new BigDecimal("0.98"), false
+        );
+        ExtractionResponse response = new ExtractionResponse(
+            "PADDLE_PP_STRUCTURE_V3", "3.5.0", "LAB_REPORT", 1, new BigDecimal("0.98"),
+            "clinora-lab-parser-v3", "clinora-lab-normalizer-v3", "HIGH_CONFIDENCE",
+            List.of(platelet), List.of()
+        );
+
+        fixture.service.complete(work, response);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> arguments = ArgumentCaptor.forClass(Object[].class);
+        verify(fixture.jdbc, atLeastOnce()).update(sql.capture(), arguments.capture());
+        int insertIndex = java.util.stream.IntStream.range(0, sql.getAllValues().size())
+            .filter(index -> sql.getAllValues().get(index).contains("INSERT INTO medical_report_observations"))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(sql.getAllValues().get(insertIndex).contains("ocr_raw_value"));
+        assertTrue(java.util.Arrays.asList(arguments.getAllValues().get(insertIndex)).contains("1,60,000"));
+        assertTrue(java.util.Arrays.asList(arguments.getAllValues().get(insertIndex)).contains(new BigDecimal("160000")));
+    }
+
     private static final class Fixture {
         private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
         private final PatientMedicalReportRepository reports = mock(PatientMedicalReportRepository.class);
@@ -257,6 +324,25 @@ class PatientReportExtractionServiceTest {
                 when(rs.getString("document_type")).thenReturn("LAB_REPORT");
                 when(rs.getInt("page_count")).thenReturn(1);
                 when(rs.getString("review_status")).thenReturn("READY_FOR_CONFIRMATION");
+                return List.of(mapper.mapRow(rs, 0));
+            });
+        }
+
+        private void processingJob() throws Exception {
+            when(jdbc.query(
+                contains("FROM medical_report_extraction_jobs WHERE id"),
+                any(RowMapper.class),
+                eq(JOB_ID)
+            )).thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                RowMapper<Object> mapper = invocation.getArgument(1);
+                ResultSet rs = mock(ResultSet.class);
+                when(rs.getObject("id", UUID.class)).thenReturn(JOB_ID);
+                when(rs.getObject("report_id", UUID.class)).thenReturn(REPORT_ID);
+                when(rs.getObject("patient_user_id", UUID.class)).thenReturn(PATIENT_ID);
+                when(rs.getString("source_checksum")).thenReturn("checksum");
+                when(rs.getString("status")).thenReturn("PROCESSING");
+                when(rs.getTimestamp("requested_at")).thenReturn(Timestamp.from(NOW));
                 return List.of(mapper.mapRow(rs, 0));
             });
         }

@@ -7,7 +7,7 @@ import uuid
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 
-from .engine import OcrInputError, OcrProcessingError, ensure_primary_engine_ready, extract_document
+from .engine_v3 import OcrInputError, OcrProcessingError, ensure_primary_engine_ready, extract_document
 from .schemas import ExtractionResponse
 
 app = FastAPI(title="Clinora OCR Service", version="1.0.0")

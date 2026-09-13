@@ -2,7 +2,7 @@ from copy import deepcopy
 import json
 import pytest
 from app.clinical_evidence import support_eligibility, is_strong_evidence, authoritative_states
-from app.prompts.patient_lab_report_v5 import _clinical_input, model_payload_from_cluster_output
+from app.prompts.patient_lab_report_v5 import _clinical_input, build_messages, model_payload_from_cluster_output
 from app.services.clinical_cluster_grounding import sanitize_reasoning
 from test_patient_lab_report_v5 import analyze
 from v5_cases import cases, candidate, cluster, metabolic_output, oid
@@ -39,6 +39,18 @@ def test_complete_unknown_context_is_retained_in_prompt_without_invented_ranges(
     assert context["numericValue"] == "8.2"
     assert context["supportEligibility"] == "UNKNOWN"
     assert "referenceLow" not in context
+
+
+def test_positive_assay_is_explicit_high_information_evidence_in_prompt():
+    request = cases()["A"]
+    source = json.loads(_clinical_input(request))
+    assay = next(o for o in source["observations"] if o["observationId"] == oid(1))
+
+    assert assay["supportEligibility"] == "VERIFIED_QUALITATIVE_POSITIVE"
+    assert assay["evidencePriority"] == "HIGH_INFORMATION_VERIFIED_POSITIVE"
+    prompt = str(build_messages(request)[0]["content"])
+    assert oid(1) in prompt
+    assert "Do not replace it with a generic measurement-only summary" in prompt
 
 
 def test_candidate_recomputed_from_independent_surviving_reasoning_claim():
@@ -196,7 +208,7 @@ def test_rationale_cannot_borrow_uncited_support_from_another_cluster():
     assert len(result.clinicalClusters[1].candidates) == 1
 
 
-def test_candidate_with_unusable_missing_context_downgrades_but_valid_size_reasoning_survives():
+def test_candidate_with_unusable_optional_missing_context_survives_with_valid_grounding():
     raw = regression_output()
     c = raw["clusters"][0]
     c["title"] = "Cell morphology and Size"
@@ -204,7 +216,8 @@ def test_candidate_with_unusable_missing_context_downgrades_but_valid_size_reaso
     c["candidates"] = [candidate("Unverified marrow process", [51], "Elevated PDW may fit this marrow process.")]
     c["candidates"][0]["missingEvidence"] = ["Clinical context is needed to confirm or refute this"]
     result = analyze(hematology(), raw)
-    assert not result.clinicalClusters[0].candidates
+    assert len(result.clinicalClusters[0].candidates) == 1
+    assert result.clinicalClusters[0].candidates[0].missingEvidence == []
     assert "variation in platelet size" in result.model_dump_json()
 
 
@@ -336,13 +349,14 @@ def test_internal_support_metadata_is_not_patient_reasoning():
     assert sanitize_reasoning(hematology(), text) == "The high PDW reflects variation in platelet size."
 
 
-def test_verified_status_cannot_be_relabelled_unknown_to_rescue_candidate():
+def test_false_optional_missing_status_is_pruned_without_erasing_grounded_candidate():
     raw = regression_output()
     c = raw["clusters"][0]
     c["candidates"] = [candidate("Unverified process", [51], "The elevated PDW may fit a platelet process.")]
     c["candidates"][0]["missingEvidence"] = ["PDW is unclassified"]
     result = analyze(hematology(), raw)
-    assert not result.clinicalClusters[0].candidates
+    assert len(result.clinicalClusters[0].candidates) == 1
+    assert result.clinicalClusters[0].candidates[0].missingEvidence == []
     assert "PDW is unclassified" not in result.model_dump_json()
     assert "variation in platelet size" in result.model_dump_json()
 
