@@ -67,6 +67,7 @@ public class DoctorWorkspaceService {
               AND s.doctor_user_id = ?
               AND s.revoked_at IS NULL
               AND r.archived_at IS NULL
+              AND r.subject_type = 'SELF'
             """,
             Integer.class,
             doctorId,
@@ -338,7 +339,8 @@ public class DoctorWorkspaceService {
                      WHERE s.appointment_id = a.id
                        AND s.doctor_user_id = a.doctor_user_id
                        AND s.revoked_at IS NULL
-                       AND sr.archived_at IS NULL) AS shared_report_count
+                       AND sr.archived_at IS NULL
+                       AND sr.subject_type = 'SELF') AS shared_report_count
             FROM appointments a
             JOIN users u ON u.id = a.patient_user_id
             WHERE a.doctor_user_id = ?
@@ -411,6 +413,7 @@ public class DoctorWorkspaceService {
               AND s.patient_user_id = ?
               AND s.revoked_at IS NULL
               AND r.archived_at IS NULL
+              AND r.subject_type = 'SELF'
             ORDER BY COALESCE(r.report_date, DATE '1900-01-01') DESC, s.shared_at DESC
             """,
             (rs, rowNum) -> {

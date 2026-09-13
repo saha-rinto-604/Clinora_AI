@@ -46,6 +46,7 @@ import {
   type PatientReportType,
 } from '../../features/patient-reports/patient-report-types';
 import { cn } from '../../lib/cn';
+import './patient-reports-analysis-palette.css';
 
 export function PatientReportsPage() {
   const [reports, setReports] = useState<PatientReportPage | null>(null);
@@ -131,7 +132,7 @@ export function PatientReportsPage() {
   const showHeaderUpload = !loading && !loadError && storedReportCount > 0;
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] pb-8">
+    <div className="clinora-medical-reports-analysis-palette mx-auto w-full max-w-[1280px] pb-8">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Medical reports</h1>

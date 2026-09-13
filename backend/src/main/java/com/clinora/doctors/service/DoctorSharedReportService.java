@@ -48,6 +48,7 @@ public class DoctorSharedReportService {
             JOIN patient_medical_reports r ON r.id = s.report_id AND r.patient_user_id = s.patient_user_id
             WHERE s.appointment_id = ? AND s.doctor_user_id = ? AND s.revoked_at IS NULL
               AND r.archived_at IS NULL
+              AND r.subject_type = 'SELF'
             ORDER BY s.shared_at DESC, r.id DESC
             """,
             (rs, rowNum) -> {
@@ -94,6 +95,7 @@ public class DoctorSharedReportService {
             WHERE s.appointment_id = ? AND s.report_id = ? AND s.doctor_user_id = ?
               AND s.revoked_at IS NULL AND a.doctor_user_id = ? AND a.status = 'BOOKED'
               AND a.scheduled_end >= CURRENT_TIMESTAMP AND r.archived_at IS NULL
+              AND r.subject_type = 'SELF'
             """,
             (rs, rowNum) -> new StoredReport(
                 rs.getString("object_key"), rs.getString("original_filename"), rs.getString("mime_type"),

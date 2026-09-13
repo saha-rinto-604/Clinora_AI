@@ -70,6 +70,7 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
       patientReportApi
         .list({
           collection: 'ACTIVE',
+          subjectType: 'SELF',
           page,
           size: PAGE_SIZE,
           query: query.trim() || undefined,

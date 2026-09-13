@@ -34,6 +34,7 @@ public class PatientHealthRecordService {
             SELECT id, report_name, report_type, report_date, provider_laboratory, created_at
               FROM patient_medical_reports
              WHERE patient_user_id = ?
+               AND subject_type = 'SELF'
                AND archived_at IS NULL
              ORDER BY report_date DESC NULLS LAST, created_at DESC, id DESC
              LIMIT 3
@@ -81,6 +82,7 @@ public class PatientHealthRecordService {
                     SELECT MAX(updated_at)
                       FROM patient_medical_reports
                      WHERE patient_user_id = ?
+                       AND subject_type = 'SELF'
                     UNION ALL
                     SELECT MAX(recorded_at)
                       FROM patient_body_measurement_snapshots

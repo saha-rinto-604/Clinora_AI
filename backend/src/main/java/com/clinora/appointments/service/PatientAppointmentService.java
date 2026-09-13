@@ -408,6 +408,7 @@ public class PatientAppointmentService {
             FROM appointment_report_shares s
             JOIN patient_medical_reports r ON r.id = s.report_id
             WHERE s.appointment_id = ? AND s.patient_user_id = ?
+              AND r.subject_type = 'SELF'
             ORDER BY s.shared_at DESC
             """,
             (rs, rowNum) -> {
@@ -461,10 +462,10 @@ public class PatientAppointmentService {
 
     private void addShareInternal(UUID patientUserId, UUID appointmentId, UUID reportId, Instant now) {
         Integer owned = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM patient_medical_reports WHERE id = ? AND patient_user_id = ? AND archived_at IS NULL",
+            "SELECT COUNT(*) FROM patient_medical_reports WHERE id = ? AND patient_user_id = ? AND subject_type = 'SELF' AND archived_at IS NULL",
             Integer.class, reportId, patientUserId
         );
-        if (owned == null || owned != 1) throw badRequest("REPORT_NOT_SHAREABLE", "Choose an active medical report from your own report library.");
+        if (owned == null || owned != 1) throw badRequest("REPORT_NOT_SHAREABLE", "Choose an active report that belongs to your own health record.");
         UUID doctorUserId = jdbc.queryForObject("SELECT doctor_user_id FROM appointments WHERE id = ? AND patient_user_id = ?", UUID.class, appointmentId, patientUserId);
         jdbc.update(
             """

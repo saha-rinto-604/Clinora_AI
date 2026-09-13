@@ -9,11 +9,15 @@ export const patientReportTypes = [
 
 export type PatientReportType = (typeof patientReportTypes)[number];
 export type PatientReportCollection = 'ACTIVE' | 'ARCHIVED';
+export type PatientReportSubjectType = 'SELF' | 'OTHER';
 
 export interface PatientReport {
   id: string;
   reportName: string;
   reportType: PatientReportType;
+  /** Undefined only for cached/pre-migration payloads; current API always returns a value. */
+  subjectType?: PatientReportSubjectType;
+  subjectLabel?: string | null;
   reportDate: string | null;
   providerLaboratory: string | null;
   originalFilename: string;
@@ -40,6 +44,8 @@ export interface PatientReportPage {
 export interface PatientReportListQuery {
   query?: string;
   reportType?: PatientReportType;
+  subjectType?: PatientReportSubjectType;
+  subjectLabel?: string;
   collection: PatientReportCollection;
   page: number;
   size?: number;
@@ -54,6 +60,8 @@ export interface PatientReportMetadataInput {
 
 export interface PatientReportUploadInput extends PatientReportMetadataInput {
   file: File;
+  subjectType?: PatientReportSubjectType;
+  subjectLabel?: string | null;
 }
 
 export const patientReportTypeLabels: Record<PatientReportType, string> = {
@@ -64,6 +72,11 @@ export const patientReportTypeLabels: Record<PatientReportType, string> = {
   DISCHARGE_SUMMARY: 'Discharge summary',
   OTHER: 'Other medical report',
 };
+
+export function patientReportSubjectLabel(report: Pick<PatientReport, 'subjectType' | 'subjectLabel'>) {
+  if ((report.subjectType ?? 'SELF') === 'SELF') return 'Self';
+  return report.subjectLabel?.trim() || 'Someone else';
+}
 
 type PatientReportIdentity = Pick<PatientReport, 'reportName' | 'originalFilename' | 'reportType'> &
   Partial<Pick<PatientReport, 'reportDate' | 'providerLaboratory' | 'createdAt'>>;

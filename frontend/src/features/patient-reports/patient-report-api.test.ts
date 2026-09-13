@@ -53,7 +53,28 @@ describe('Patient report API', () => {
     expect(body).toBeInstanceOf(FormData);
     expect(body.get('reportName')).toBe(report.reportName);
     expect(body.get('reportType')).toBe(report.reportType);
+    expect(body.get('subjectType')).toBe('SELF');
+    expect(body.get('subjectLabel')).toBeNull();
     expect(body.get('file')).toBe(file);
     expect(config.headers).toEqual({ 'Content-Type': undefined });
   });
+
+  it('sends an isolated subject label when a report is uploaded for someone else', async () => {
+    const file = new File(['%PDF-1.7\n%%EOF'], 'family-panel.pdf', { type: 'application/pdf' });
+
+    await patientReportApi.upload({
+      reportName: 'Family blood panel',
+      reportType: 'LAB_RESULTS',
+      reportDate: report.reportDate,
+      providerLaboratory: report.providerLaboratory,
+      subjectType: 'OTHER',
+      subjectLabel: 'Mother',
+      file,
+    });
+
+    const [, body] = mocks.post.mock.calls[0] as [string, FormData];
+    expect(body.get('subjectType')).toBe('OTHER');
+    expect(body.get('subjectLabel')).toBe('Mother');
+  });
+
 });

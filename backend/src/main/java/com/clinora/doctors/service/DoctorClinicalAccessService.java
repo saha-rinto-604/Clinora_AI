@@ -129,6 +129,7 @@ public class DoctorClinicalAccessService {
               AND s.patient_user_id = ?
               AND s.revoked_at IS NULL
               AND r.archived_at IS NULL
+              AND r.subject_type = 'SELF'
             """,
             (rs, rowNum) -> new SharedReportAccess(
                 appointment,

@@ -185,7 +185,7 @@ public class DoctorReportReviewService {
             """
             SELECT report_name, report_type, report_date, provider_laboratory, original_filename, mime_type
             FROM patient_medical_reports
-            WHERE id = ? AND patient_user_id = ? AND archived_at IS NULL
+            WHERE id = ? AND patient_user_id = ? AND archived_at IS NULL AND subject_type = 'SELF'
             """,
             (rs, rowNum) -> {
                 java.time.LocalDate reportDate = rs.getDate("report_date") == null
