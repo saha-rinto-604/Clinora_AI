@@ -472,7 +472,8 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' })).toBeInTheDocument();
     expect(screen.queryByText('Possible condition')).not.toBeInTheDocument();
-    expect(screen.getByText('2000 /cumm')).toBeInTheDocument();
+    const verifiedValues = screen.getByRole('region', { name: 'Verified laboratory values' });
+    expect(within(verifiedValues).getByText('2000 /cumm')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Verified report summary' })).toBeInTheDocument();
   });
 
@@ -511,11 +512,12 @@ describe('Phase 10P-R5.1 grounded display', () => {
     const group = await screen.findByRole('article', { name: 'Clinical finding 1: PDW + related findings pattern' });
     expect(within(group).getByRole('heading', { name: 'PDW + related findings pattern' })).toBeInTheDocument();
     expect(screen.queryByText('Old unvalidated model title')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Range status unavailable')).toHaveLength(17);
+    const verifiedValues = screen.getByRole('region', { name: 'Verified laboratory values' });
+    expect(within(verifiedValues).getAllByText('Range status unavailable')).toHaveLength(17);
     expect(screen.getAllByText('19 fL').length).toBeGreaterThan(0);
     expect(screen.getAllByText('9 - 17').length).toBeGreaterThan(0);
     for (const item of context) {
-      expect(screen.getByText(item.label)).toBeInTheDocument();
+      expect(within(verifiedValues).getByText(item.label)).toBeInTheDocument();
     }
     expect(within(group).queryByText('Possible condition')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Verified report summary' })).toBeInTheDocument();

@@ -936,6 +936,11 @@
   color: #5eead4;
 }
 
+.clinora-report-review-reference__status-badge.changed {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+}
+
 .clinora-report-review-reference__result-value {
   color: #f4f8fb;
   font-size: 0.7rem;
