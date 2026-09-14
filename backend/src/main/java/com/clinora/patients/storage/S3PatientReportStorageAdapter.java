@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -56,6 +57,18 @@ public class S3PatientReportStorageAdapter implements PatientReportStoragePort {
             GetObjectRequest.builder().bucket(properties.getBucket()).key(objectKey).build()
         );
         return new StoredObject(response.asByteArray(), response.response().contentType());
+    }
+
+    @Override
+    public boolean exists(String objectKey) {
+        ensureBucket();
+        try {
+            s3Client.headObject(HeadObjectRequest.builder().bucket(properties.getBucket()).key(objectKey).build());
+            return true;
+        } catch (S3Exception exception) {
+            if (exception.statusCode() == 404) return false;
+            throw exception;
+        }
     }
 
     @Override

@@ -43,6 +43,22 @@ class PatientReportExtractionControllerSecurityTest {
         verify(extraction).confirmObservation(PATIENT_ID, REPORT_ID, OBSERVATION_ID);
     }
 
+    @Test
+    void patientIdentityComesFromJwtWhenRequestingReExtraction() throws Exception {
+        mvc.perform(post("/api/v1/patient/reports/" + REPORT_ID + "/extraction/re-extract").with(roleJwt("PATIENT")))
+            .andExpect(status().isOk());
+
+        verify(extraction).reExtract(PATIENT_ID, REPORT_ID);
+    }
+
+    @Test
+    void nonPatientCannotRequestReExtraction() throws Exception {
+        mvc.perform(post("/api/v1/patient/reports/" + REPORT_ID + "/extraction/re-extract").with(roleJwt("SYSTEM_ADMIN")))
+            .andExpect(status().isForbidden());
+
+        verify(extraction, never()).reExtract(PATIENT_ID, REPORT_ID);
+    }
+
     @ParameterizedTest
     @MethodSource("nonPatientClinicalRoles")
     void researcherAndSystemAdminCannotConfirmPatientObservation(String role) throws Exception {

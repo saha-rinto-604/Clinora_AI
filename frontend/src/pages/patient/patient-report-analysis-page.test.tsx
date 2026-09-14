@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -13,9 +13,11 @@ const mocks = vi.hoisted(() => ({
   content: vi.fn(),
   getExtraction: vi.fn(),
   startExtraction: vi.fn(),
+  reExtract: vi.fn(),
   correctExtraction: vi.fn(),
   confirmObservation: vi.fn(),
   confirmExtraction: vi.fn(),
+  confirmMissingDifference: vi.fn(),
 }));
 
 vi.mock('../../features/patient-reports/patient-report-api', () => ({
@@ -27,9 +29,11 @@ vi.mock('../../features/patient-reports/patient-report-extraction-api', () => ({
   patientReportExtractionApi: {
     get: mocks.getExtraction,
     start: mocks.startExtraction,
+    reExtract: mocks.reExtract,
     correct: mocks.correctExtraction,
     confirmObservation: mocks.confirmObservation,
     confirm: mocks.confirmExtraction,
+    confirmMissingDifference: mocks.confirmMissingDifference,
   },
   patientReportExtractionErrorMessage: (error: unknown, fallback: string) =>
     error instanceof Error ? error.message : fallback,
@@ -151,6 +155,7 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     mocks.detail.mockResolvedValue(report);
     mocks.content.mockResolvedValue(new Blob(['image'], { type: 'image/png' }));
     mocks.getExtraction.mockResolvedValue(extraction);
+    mocks.reExtract.mockResolvedValue({ ...extraction, status: 'QUEUED', reprocessing: true, displayedPreviousResult: true });
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:cbc-report') });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
   });
@@ -276,6 +281,43 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     const link = await screen.findByRole('link', { name: /Open AI insight/i });
     expect(link).toHaveAttribute('href', `/patient/analyze/${report.id}/insight`);
     expect(screen.queryByRole('heading', { name: 'AI report insight' })).not.toBeInTheDocument();
+  });
+
+  it('confirms re-extraction and preserves the current observations while processing', async () => {
+    const user = userEvent.setup();
+    mocks.getExtraction.mockResolvedValue({ ...extraction, reviewStatus: 'VERIFIED' });
+    renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: 'Re-extract report' }));
+    const dialog = screen.getByRole('dialog', { name: 'Run extraction again?' });
+    expect(within(dialog).getByText(/Verified corrections will not be replaced without your confirmation/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Re-extract' }));
+
+    expect(mocks.reExtract).toHaveBeenCalledWith(report.id);
+    expect(await screen.findByText(/current reviewed extraction remains visible/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review what Clinora read' })).toBeInTheDocument();
+  });
+
+  it('surfaces changed, new, and missing re-extraction differences for explicit review', async () => {
+    mocks.getExtraction.mockResolvedValue({
+      ...extraction,
+      reprocessing: true,
+      pendingDifferenceCount: 3,
+      observations: [
+        { ...extraction.observations[0], changeType: 'CHANGED', differenceId: 'change-1', reviewRequired: true },
+        { ...extraction.observations[1], changeType: 'NEW', differenceId: 'new-1', reviewRequired: true },
+      ],
+      missingDifferences: [{
+        differenceId: 'missing-1', previousObservationId: 'old-1', label: 'Platelets', valueType: 'NUMERIC',
+        numericValue: 160000, textValue: null, comparator: null, unit: '/Cmm',
+      }],
+    });
+    renderWorkspace();
+
+    expect(await screen.findByText('Changed on re-extraction')).toBeInTheDocument();
+    expect(screen.getByText('New on re-extraction')).toBeInTheDocument();
+    expect(screen.getByText('Values missing from the new extraction')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm extracted results' })).toBeDisabled();
   });
 
   it('renders the compact analysis start without automated accessibility violations', async () => {

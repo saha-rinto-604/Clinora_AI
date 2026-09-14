@@ -52,6 +52,17 @@ public class PatientReportExtractionController {
         );
     }
 
+    @PostMapping("/re-extract")
+    public ApiResponse<ExtractionView> reExtract(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable UUID reportId
+    ) {
+        return ApiResponse.success(
+            "Report re-extraction queued.",
+            extraction.reExtract(userId(jwt), reportId)
+        );
+    }
+
     @PatchMapping("/observations/{observationId}")
     public ApiResponse<ExtractionView> correct(
         @AuthenticationPrincipal Jwt jwt,
@@ -85,6 +96,18 @@ public class PatientReportExtractionController {
         return ApiResponse.success(
             "Extracted report data confirmed.",
             extraction.confirm(userId(jwt), reportId)
+        );
+    }
+
+    @PostMapping("/differences/{differenceId}/confirm-missing")
+    public ApiResponse<ExtractionView> confirmMissingDifference(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable UUID reportId,
+        @PathVariable UUID differenceId
+    ) {
+        return ApiResponse.success(
+            "Missing value reviewed.",
+            extraction.confirmMissingDifference(userId(jwt), reportId, differenceId)
         );
     }
 

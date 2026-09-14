@@ -51,6 +51,27 @@ def test_positive_assay_is_explicit_high_information_evidence_in_prompt():
     prompt = str(build_messages(request)[0]["content"])
     assert oid(1) in prompt
     assert "Do not replace it with a generic measurement-only summary" in prompt
+    assert "standalone candidates that merely restate their low/high measurement states" in prompt
+    assert "Copy the UUID belonging to every actual test discussed by the rationale" in prompt
+
+
+def test_candidate_support_ids_include_every_eligible_finding_used_by_rationale():
+    request = cases()["A"]
+    c = cluster(
+        "Correlated infectious pattern",
+        [1, 2, 3],
+        "The positive NS1 Antigen with low Platelets and low White blood cell count forms a related pattern.",
+        [candidate(
+            "Possible viral infection",
+            [1],
+            "The positive NS1 Antigen with low Platelets and low White blood cell count may fit this process.",
+        )],
+    )
+
+    result = analyze(request, {"clusters": [c], "overallInterpretation": "A related process may fit."})
+
+    accepted = result.clinicalClusters[0].candidates[0]
+    assert [str(item) for item in accepted.supportingObservationIds] == [oid(1), oid(2), oid(3)]
 
 
 def test_candidate_recomputed_from_independent_surviving_reasoning_claim():
@@ -111,13 +132,65 @@ def test_rejected_hypothesis_removed_from_all_non_candidate_channels():
     assert len(result.clinicalClusters[1].candidates) == 1
 
 
-@pytest.mark.parametrize("certainty", ["strong possibility", "highly likely", "very likely", "most likely"])
+@pytest.mark.parametrize(
+    "certainty",
+    ["strong possibility", "likely", "probable", "highly likely", "very likely", "most likely"],
+)
 def test_qualitative_certainty_is_bounded_without_erasing_reasoning(certainty):
     raw = metabolic_output()
     raw["clusters"][0]["candidates"][0]["rationale"] = f"This is a {certainty} given sustained glucose exposure."
     result = analyze(cases()["B"], raw)
     assert certainty not in result.model_dump_json()
     assert "sustained glucose exposure" in result.clinicalClusters[0].candidates[0].rationale
+
+
+def test_candidate_name_and_rationale_are_calibrated_to_possibility_language():
+    request = cases()["A"]
+    c = cluster(
+        "Infectious assay pattern",
+        [1],
+        "The positive NS1 Antigen is clinically relevant.",
+        [candidate(
+            "Likely viral infection",
+            [1],
+            "The positive NS1 Antigen means this is likely a viral infection.",
+        )],
+    )
+
+    result = analyze(request, {"clusters": [c], "overallInterpretation": "A process may fit."})
+
+    accepted = result.clinicalClusters[0].candidates[0]
+    assert accepted.name == "Possible viral infection"
+    assert "likely" not in accepted.rationale.lower()
+    assert "possible" in accepted.rationale.lower()
+    assert accepted.supportLevel == "LIMITED"
+
+
+def test_strong_support_and_specificity_phrasing_are_calibrated_generically():
+    request = cases()["A"]
+    c = cluster(
+        "Assay pattern",
+        [1],
+        "The positive NS1 Antigen is a highly specific marker for a viral process.",
+        [candidate(
+            "Viral infection",
+            [1],
+            "The positive NS1 Antigen strongly supports a viral infection.",
+        )],
+    )
+
+    result = analyze(request, {"clusters": [c], "overallInterpretation": "A process may fit."})
+    rendered = result.model_dump_json().lower()
+
+    assert "highly specific" not in rendered
+    assert "strongly supports" not in rendered
+    assert sanitize_reasoning(
+        request,
+        "The positive NS1 Antigen is a highly specific marker for a viral process.",
+    ) == "The positive NS1 Antigen may be compatible with a viral process."
+    assert result.clinicalClusters[0].candidates[0].rationale == (
+        "The positive NS1 Antigen may support a viral infection."
+    )
 
 
 def test_two_structured_independent_clusters_and_two_candidates_survive():

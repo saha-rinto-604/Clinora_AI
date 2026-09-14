@@ -419,7 +419,10 @@ public class PatientReportAiAnalysisService {
 
     private AnalysisView viewForJob(UUID reportId, AnalysisContext context, JobRow job) {
         boolean stale = !job.inputFingerprint().equals(context.fingerprint());
-        AnalysisResultRow result = job.status().equals("SUCCEEDED") ? resultForJob(job.id()).orElse(null) : null;
+        JobRow displayedJob = job.status().equals("SUCCEEDED")
+            ? job
+            : latestSuccessfulJob(job.patientUserId(), reportId, job.id()).orElse(null);
+        AnalysisResultRow result = displayedJob == null ? null : resultForJob(displayedJob.id()).orElse(null);
         ReportAnalysisResponse response = result == null ? null : parseResponse(result.resultJson());
         return new AnalysisView(
             reportId,
@@ -438,7 +441,10 @@ public class PatientReportAiAnalysisService {
             job.schemaVersion(),
             job.requestedAt(),
             job.startedAt(),
-            job.completedAt()
+            job.completedAt(),
+            displayedJob == null ? null : displayedJob.id(),
+            displayedJob == null ? null : displayedJob.completedAt(),
+            displayedJob != null && !displayedJob.id().equals(job.id())
         );
     }
 
@@ -457,7 +463,7 @@ public class PatientReportAiAnalysisService {
             FROM medical_report_extraction_results er
             JOIN medical_report_extraction_jobs ej ON ej.id = er.job_id
             WHERE er.report_id = ? AND ej.patient_user_id = ?
-              AND ej.status = 'SUCCEEDED'
+              AND ej.status = 'SUCCEEDED' AND er.review_status = 'VERIFIED'
             ORDER BY er.created_at DESC, er.id DESC
             LIMIT 1
             """,
@@ -595,6 +601,21 @@ public class PatientReportAiAnalysisService {
             (rs, rowNum) -> jobRow(rs),
             patientUserId,
             reportId
+        ).stream().findFirst();
+    }
+
+    private Optional<JobRow> latestSuccessfulJob(UUID patientUserId, UUID reportId, UUID excludedJobId) {
+        return jdbc.query(
+            """
+            SELECT id, report_id, patient_user_id, extraction_result_id, input_fingerprint, status,
+                failure_code, model_name, model_revision, prompt_version, schema_version,
+                requested_at, started_at, completed_at
+            FROM medical_report_ai_analysis_jobs
+            WHERE patient_user_id = ? AND report_id = ? AND status = 'SUCCEEDED' AND id <> ?
+            ORDER BY completed_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (rs, rowNum) -> jobRow(rs), patientUserId, reportId, excludedJobId
         ).stream().findFirst();
     }
 
@@ -894,19 +915,22 @@ public class PatientReportAiAnalysisService {
         String schemaVersion,
         Instant requestedAt,
         Instant startedAt,
-        Instant completedAt
+        Instant completedAt,
+        UUID displayedJobId,
+        Instant displayedCompletedAt,
+        boolean displayedPreviousResult
     ) {
         static AnalysisView notReady(UUID reportId, String readinessCode) {
             return new AnalysisView(
                 reportId, false, readinessCode, null, "NOT_READY", null, null, false, null,
-                null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, false
             );
         }
 
         static AnalysisView notRequested(UUID reportId) {
             return new AnalysisView(
                 reportId, true, null, null, "NOT_REQUESTED", null, null, false, null,
-                null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, false
             );
         }
     }

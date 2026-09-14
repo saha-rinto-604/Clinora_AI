@@ -86,7 +86,13 @@ def test_secondary_reader_only_row_is_retained_as_review_required() -> None:
     assert reconciled[0].reviewRequired is True
 
 
-def _stub_document(monkeypatch, primary: list[Observation]) -> None:
+def _stub_document(
+    monkeypatch,
+    primary: list[Observation],
+    *,
+    candidate_rows: int | None = None,
+    known_label_mentions: int | None = None,
+) -> None:
     image = Image.new("RGB", (1000, 1000), "white")
     blocks = [TextBlock("Hemoglobin", 0.99, 100, 400, 300, 430)]
     monkeypatch.setattr(engine_v3, "_validate_source", lambda *_: "image/jpeg")
@@ -97,14 +103,22 @@ def _stub_document(monkeypatch, primary: list[Observation]) -> None:
         lambda *_: EngineOutput("PADDLE_PP_STRUCTURE_V3", "3.5.0", [EnginePage(blocks, 1000, 1000)], []),
     )
     monkeypatch.setattr(engine_v3, "parse_observations", lambda *_: primary)
-    monkeypatch.setattr(engine_v3, "estimate_lab_row_candidates", lambda *_: len(primary))
-    monkeypatch.setattr(engine_v3, "estimate_known_lab_label_mentions", lambda *_: len(primary))
+    monkeypatch.setattr(
+        engine_v3,
+        "estimate_lab_row_candidates",
+        lambda *_: len(primary) if candidate_rows is None else candidate_rows,
+    )
+    monkeypatch.setattr(
+        engine_v3,
+        "estimate_known_lab_label_mentions",
+        lambda *_: len(primary) if known_label_mentions is None else known_label_mentions,
+    )
     monkeypatch.setattr(engine_v3, "medgemma_assist_enabled", lambda: True)
 
 
 def test_medgemma_timeout_returns_primary_ocr_result(monkeypatch) -> None:
     primary = [observation("Hemoglobin", 10.4, confidence=0.80, review_required=True)]
-    _stub_document(monkeypatch, primary)
+    _stub_document(monkeypatch, primary, candidate_rows=2)
     monkeypatch.setattr(engine_v3, "medgemma_extract_page", lambda *_args, **_kwargs: (_ for _ in ()).throw(MedGemmaAssistTimeout()))
 
     result = engine_v3.extract_document(b"jpeg", "image/jpeg", "report.jpeg")
@@ -116,7 +130,7 @@ def test_medgemma_timeout_returns_primary_ocr_result(monkeypatch) -> None:
 
 def test_medgemma_unavailable_returns_primary_ocr_result(monkeypatch) -> None:
     primary = [observation("Hemoglobin", 10.4, confidence=0.80, review_required=True)]
-    _stub_document(monkeypatch, primary)
+    _stub_document(monkeypatch, primary, known_label_mentions=2)
     monkeypatch.setattr(engine_v3, "medgemma_extract_page", lambda *_args, **_kwargs: (_ for _ in ()).throw(MedGemmaAssistUnavailable()))
 
     result = engine_v3.extract_document(b"jpeg", "image/jpeg", "report.jpeg")
@@ -139,6 +153,24 @@ def test_clean_ocr_does_not_invoke_vision_assist(monkeypatch) -> None:
     assert result.observations == primary
     assert result.warnings == []
     assert result.qualityState == "HIGH_CONFIDENCE"
+
+
+def test_structurally_complete_review_required_ocr_skips_vision_assist(monkeypatch) -> None:
+    primary = [observation("Hemoglobin", 10.4, confidence=0.80, review_required=True)]
+    _stub_document(monkeypatch, primary)
+    monkeypatch.setattr(
+        engine_v3,
+        "medgemma_extract_page",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("reviewRequired alone invoked vision")
+        ),
+    )
+
+    result = engine_v3.extract_document(b"jpeg", "image/jpeg", "report.jpeg")
+
+    assert result.observations == primary
+    assert result.warnings == []
+    assert result.qualityState == "REVIEW_REQUIRED"
 
 
 def test_suspicious_row_creates_a_targeted_crop() -> None:

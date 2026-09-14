@@ -44,3 +44,25 @@ def test_unsupported_complication_assertions_are_removed_without_losing_candidat
     assert "nephropathy" not in result.model_dump_json().lower()
     assert "retinopathy" not in result.model_dump_json().lower()
     assert "kidney damage" not in result.model_dump_json().lower()
+
+
+def test_unobserved_complication_candidate_is_removed_without_losing_supported_candidate():
+    request = cases()["B"]
+    raw = metabolic_output()
+    raw["clusters"][1] = cluster(
+        "Complication claim",
+        [15],
+        "High Urine Microalbumin is indicating potential kidney damage.",
+        [candidate(
+            "Diabetic nephropathy",
+            [15],
+            "High Urine Microalbumin can indicate diabetic nephropathy.",
+        )],
+    )
+
+    result = analyze(request, raw)
+    rendered = result.model_dump_json().lower()
+
+    assert result.clinicalClusters[0].candidates[0].name == "Persistent hyperglycemia"
+    assert "kidney damage" not in rendered
+    assert "diabetic nephropathy" not in rendered

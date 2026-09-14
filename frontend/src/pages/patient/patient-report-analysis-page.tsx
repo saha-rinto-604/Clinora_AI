@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '../../lib/cn';
 import {
   patientReportExtractionApi,
@@ -221,6 +222,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   const [error, setError] = useState('');
   const [selectedObservationId, setSelectedObservationId] = useState<string | null>(null);
   const [editingObservationId, setEditingObservationId] = useState<string | null>(null);
+  const [reExtractOpen, setReExtractOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -307,6 +309,31 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
     }
   }
 
+  async function reExtractReport() {
+    setAction('re-extract');
+    setError('');
+    try {
+      setExtraction(await patientReportExtractionApi.reExtract(reportId));
+      setReExtractOpen(false);
+    } catch (requestError) {
+      setError(patientReportExtractionErrorMessage(requestError, 'The original report could not be re-extracted.'));
+    } finally {
+      setAction('');
+    }
+  }
+
+  async function confirmMissingDifference(differenceId: string) {
+    setAction(`missing:${differenceId}`);
+    setError('');
+    try {
+      setExtraction(await patientReportExtractionApi.confirmMissingDifference(reportId, differenceId));
+    } catch (requestError) {
+      setError(patientReportExtractionErrorMessage(requestError, 'This missing value could not be reviewed.'));
+    } finally {
+      setAction('');
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-[var(--clinora-border-subtle)] p-6 text-sm text-[var(--clinora-text-muted)]">
@@ -356,16 +383,27 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
       {['QUEUED', 'PROCESSING'].includes(extraction.status) ? <ProcessingPanel status={extraction.status} /> : null}
 
+      {extraction.displayedPreviousResult && ['QUEUED', 'PROCESSING'].includes(extraction.status) ? (
+        <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 text-sm text-cyan-100" role="status">
+          Your current reviewed extraction remains visible while Clinora processes the original report again.
+        </div>
+      ) : null}
+
       {extraction.status === 'FAILED' ? (
         <FailurePanel
           failureCode={extraction.failureCode}
-          busy={action === 'start'}
-          onRetry={() => void startExtraction()}
+          busy={action === 'start' || action === 're-extract'}
+          onRetry={() => void (extraction.reprocessing ? reExtractReport() : startExtraction())}
         />
       ) : null}
 
-      {extraction.status === 'SUCCEEDED' ? (
+      {extraction.status === 'SUCCEEDED' || extraction.observations.length ? (
         <>
+          {extraction.status === 'SUCCEEDED' && extraction.reprocessing && !(extraction.pendingDifferenceCount ?? 0) ? (
+            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 text-sm text-emerald-100" role="status">
+              Re-extraction finished. No extracted values changed.
+            </div>
+          ) : null}
           {extraction.observations.length ? (
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.02fr)_minmax(420px,0.98fr)]">
               <ReportSourceViewer report={report} sourceUrl={sourceUrl} selected={selectedObservation} />
@@ -390,6 +428,16 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                           : 'All flagged values have been reviewed'}
                       </p>
                     </div>
+                    {extraction.status === 'SUCCEEDED' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setReExtractOpen(true)}
+                        disabled={action === 're-extract'}
+                      >
+                        <RefreshCw size={15} aria-hidden="true" /> Re-extract report
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -424,6 +472,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                           setSelectedObservationId(observation.id);
                         }}
                         reportId={reportId}
+                        readOnly={['QUEUED', 'PROCESSING'].includes(extraction.status)}
                       />
                     ))}
                 </div>
@@ -433,7 +482,31 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
             <NoStructuredResults />
           )}
 
-          {extraction.observations.length ? (
+          {(extraction.missingDifferences ?? []).length ? (
+            <section className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-5" aria-labelledby="missing-values-title">
+              <h2 id="missing-values-title" className="text-sm font-semibold text-amber-100">Values missing from the new extraction</h2>
+              <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                These values remain preserved in the previous verified version. Confirm each omission before the new extraction can replace it.
+              </p>
+              <div className="mt-4 space-y-2">
+                {(extraction.missingDifferences ?? []).map((difference) => (
+                  <div key={difference.differenceId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-slate-950/20 p-3">
+                    <div><strong className="text-sm text-white">{difference.label}</strong><p className="text-xs text-amber-200">Missing in the new extraction</p></div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void confirmMissingDifference(difference.differenceId)}
+                      disabled={action === `missing:${difference.differenceId}`}
+                    >
+                      {action === `missing:${difference.differenceId}` ? 'Confirming…' : 'Accept as missing'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {extraction.observations.length && extraction.status === 'SUCCEEDED' ? (
             <section className="flex flex-col gap-4 rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-white/[0.025] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div className="flex gap-3">
                 <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/[0.09] text-emerald-300">
@@ -446,8 +519,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
                     {extraction.reviewStatus === 'VERIFIED'
                       ? 'These reviewed values are ready. Continue to your dedicated AI insight workspace when you want a clear explanation.'
-                      : unresolved
-                        ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
+                      : (extraction.pendingDifferenceCount ?? unresolved)
+                        ? `Review ${extraction.pendingDifferenceCount ?? unresolved} changed, new, or flagged ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'value' : 'values'} before confirmation.`
                         : 'Confirm that the extracted information matches your report before requesting AI-assisted interpretation.'}
                   </p>
                 </div>
@@ -468,7 +541,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 <Button
                   variant="appPrimary"
                   onClick={() => void confirmExtraction()}
-                  disabled={Boolean(unresolved) || action === 'confirm'}
+                  disabled={Boolean(unresolved) || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}
                 >
                   <FileCheck2 size={16} aria-hidden="true" />{' '}
                   {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}
@@ -478,6 +551,22 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
           ) : null}
         </>
       ) : null}
+
+      <Dialog open={reExtractOpen} onOpenChange={(open) => action !== 're-extract' && setReExtractOpen(open)}>
+        <DialogContent>
+          <DialogTitle className="text-xl font-semibold text-white">Run extraction again?</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
+            Clinora will process the original report again. Verified corrections will not be replaced without your confirmation.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setReExtractOpen(false)} disabled={action === 're-extract'}>Cancel</Button>
+            <Button variant="appPrimary" onClick={() => void reExtractReport()} disabled={action === 're-extract'}>
+              <RefreshCw size={16} className={action === 're-extract' ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+              {action === 're-extract' ? 'Re-extracting…' : 'Re-extract'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -726,6 +815,7 @@ function ObservationCard({
   onCancelEdit,
   onSaved,
   reportId,
+  readOnly,
 }: {
   observation: PatientReportObservation;
   selected: boolean;
@@ -735,6 +825,7 @@ function ObservationCard({
   onCancelEdit: () => void;
   onSaved: (value: PatientReportExtraction) => void;
   reportId: string;
+  readOnly: boolean;
 }) {
   const needsReview = observation.reviewRequired && observation.verificationStatus === 'UNREVIEWED';
   const corrected = observation.verificationStatus === 'PATIENT_CORRECTED';
@@ -776,6 +867,11 @@ function ObservationCard({
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="truncate text-sm font-semibold text-white">{observation.label}</span>
+            {observation.changeType ? (
+              <span className="rounded-full bg-violet-300/[0.1] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-violet-200">
+                {observation.changeType === 'CHANGED' ? 'Changed on re-extraction' : 'New on re-extraction'}
+              </span>
+            ) : null}
             {needsReview ? (
               <span className="rounded-full bg-amber-300/[0.1] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-300">
                 Needs review
@@ -830,7 +926,7 @@ function ObservationCard({
               <button
                 type="button"
                 onClick={() => void confirmUnchanged()}
-                disabled={confirming}
+                disabled={confirming || readOnly}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-300/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {confirming ? (
@@ -844,7 +940,7 @@ function ObservationCard({
             <button
               type="button"
               onClick={onEdit}
-              disabled={confirming}
+              disabled={confirming || readOnly}
               className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <PencilLine size={14} aria-hidden="true" /> Edit result

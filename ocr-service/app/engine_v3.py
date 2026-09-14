@@ -210,9 +210,20 @@ def _should_use_medgemma_assist(
         return False
     if medgemma_assist_mode() == "always":
         return True
-    if any(reason != "evaluation mode" for region in regions for reason in region.reasons):
-        return True
-    return candidate_rows > len(observations) or known_label_mentions > len(observations)
+    # Review flags and low OCR confidence remain useful provenance, but are not
+    # by themselves evidence that a second reader can recover missing facts.
+    # In suspect mode, spend the bounded vision budget only on deterministic
+    # structural gaps or explicit reconstruction failures.
+    structural_gap = candidate_rows > len(observations) or known_label_mentions > len(observations)
+    recoverable_region = any(
+        reason in {
+            "malformed multi-label row",
+            "recognized analyte text without a parsed row",
+        }
+        for region in regions
+        for reason in region.reasons
+    )
+    return structural_gap or recoverable_region
 
 
 def _targeted_assist_regions(

@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '../../lib/cn';
 import { patientReportAiApi, patientReportAiErrorMessage } from '../../features/patient-reports/patient-report-ai-api';
 import type {
@@ -60,6 +61,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState('');
+  const [rerunOpen, setRerunOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -104,6 +106,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
     setError('');
     try {
       setAnalysis(await patientReportAiApi.request(reportId, force));
+      if (force) setRerunOpen(false);
     } catch (requestError) {
       setError(patientReportAiErrorMessage(requestError, 'Clinora could not start your report insight.'));
     } finally {
@@ -118,6 +121,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
 
   const verified = extraction.status === 'SUCCEEDED' && extraction.reviewStatus === 'VERIFIED';
   const status = analysis.status;
+  const analysisActive = ['QUEUED', 'PROCESSING'].includes(status);
 
   return (
     <div className="space-y-6 pb-8">
@@ -146,9 +150,9 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
               </p>
             </div>
           </div>
-          <Button variant="appPrimary" size="sm" onClick={() => void requestInsight(true)} disabled={requesting}>
+          <Button variant="appPrimary" size="sm" onClick={() => setRerunOpen(true)} disabled={requesting || analysisActive}>
             <RefreshCw size={15} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
-            {requesting ? 'Starting…' : 'Refresh insight'}
+            {requesting ? 'Re-running analysis…' : 'Re-run AI analysis'}
           </Button>
         </div>
       ) : null}
@@ -157,7 +161,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         <InsightReady report={report} extraction={extraction} busy={requesting} onStart={() => void requestInsight()} />
       ) : null}
 
-      {verified && ['QUEUED', 'PROCESSING'].includes(status) ? (
+      {verified && analysisActive ? (
         <InsightLab status={status} report={report} extraction={extraction} analysis={analysis} />
       ) : null}
 
@@ -165,20 +169,36 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         <InsightFailure
           failureCode={analysis.failureCode}
           busy={requesting}
-          onRetry={() => void requestInsight()}
+          onRetry={() => analysis.result ? setRerunOpen(true) : void requestInsight()}
           reportId={reportId}
         />
       ) : null}
 
-      {verified && status === 'SUCCEEDED' && analysis.result ? (
+      {verified && analysis.result ? (
         <InsightResult
           report={report}
           extraction={extraction}
           analysis={analysis}
-          busy={requesting}
-          onRunAgain={() => void requestInsight(true)}
+          busy={requesting || analysisActive}
+          onRunAgain={() => setRerunOpen(true)}
         />
       ) : null}
+
+      <Dialog open={rerunOpen} onOpenChange={(open) => !requesting && !analysisActive && setRerunOpen(open)}>
+        <DialogContent>
+          <DialogTitle className="text-xl font-semibold text-white">Run Clinora AI again?</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
+            Clinora will create a new interpretation using your latest verified report values.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setRerunOpen(false)} disabled={requesting}>Cancel</Button>
+            <Button variant="appPrimary" onClick={() => void requestInsight(true)} disabled={requesting || analysisActive}>
+              <RefreshCw size={16} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+              {requesting ? 'Re-running analysis…' : 'Re-run AI analysis'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -497,6 +517,7 @@ function InsightResult({
     : result.analysisStatus === 'POSSIBLE_CLINICAL_PATTERN' && result.clinicalPatterns.length > 0;
   const { outside, within, unavailable } = observationSummary(extraction.observations);
   const keyOutside = outside.slice(0, 4);
+  const analysisTimestamp = analysis.displayedCompletedAt ?? analysis.completedAt;
 
   return (
     <div className="clinora-ai-insight-theme overflow-hidden rounded-[30px] border border-slate-200 bg-[#f5f7fb] text-slate-950 shadow-[0_26px_80px_rgba(15,23,42,0.18)]">
@@ -644,6 +665,11 @@ function InsightResult({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
+          {analysisTimestamp ? (
+            <span className="text-xs font-medium text-slate-500">
+              Updated {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(analysisTimestamp))}
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={onRunAgain}
@@ -651,7 +677,7 @@ function InsightResult({
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-4 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-300/[0.1] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw size={16} className={busy ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
-            {busy ? 'Starting fresh analysis…' : 'Run analysis again'}
+            {busy ? 'Re-running analysis…' : 'Re-run AI analysis'}
           </button>
           <Link
             to="/patient/doctors"

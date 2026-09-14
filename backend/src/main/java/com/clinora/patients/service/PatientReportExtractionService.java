@@ -17,8 +17,10 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -89,19 +91,61 @@ public class PatientReportExtractionService {
             }
         }
 
+        return queue(report, patientUserId, reportId, "INITIAL", null);
+    }
+
+    @Transactional
+    public ExtractionView reExtract(UUID patientUserId, UUID reportId) {
+        PatientMedicalReport report = requireOwnedActiveReport(patientUserId, reportId);
+        lockReport(reportId);
+        Optional<JobRow> active = activeJob(reportId);
+        if (active.isPresent()) return viewForJob(patientUserId, reportId, active.get());
+
+        try {
+            if (!storage.exists(report.getObjectKey())) {
+                throw new PatientApiException(
+                    HttpStatus.CONFLICT,
+                    "REPORT_SOURCE_UNAVAILABLE",
+                    "The original report file is unavailable. Keep the current results and contact support before trying again."
+                );
+            }
+        } catch (PatientApiException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new PatientApiException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "REPORT_SOURCE_UNAVAILABLE",
+                "Clinora could not safely access the original report file. Your current results are unchanged."
+            );
+        }
+
+        UUID baselineResultId = latestProtectedResult(reportId).map(ResultRow::id).orElse(null);
+        return queue(report, patientUserId, reportId, "RE_EXTRACTION", baselineResultId);
+    }
+
+    private ExtractionView queue(
+        PatientMedicalReport report,
+        UUID patientUserId,
+        UUID reportId,
+        String requestKind,
+        UUID baselineResultId
+    ) {
+
         Instant now = clock.instant();
         UUID jobId = UUID.randomUUID();
         jdbc.update(
             """
             INSERT INTO medical_report_extraction_jobs (
                 id, report_id, patient_user_id, source_checksum, status, pipeline_profile,
-                requested_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, 'QUEUED', 'clinora-lab-v1', ?, ?, ?)
+                request_kind, baseline_result_id, requested_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, 'QUEUED', 'clinora-lab-v1', ?, ?, ?, ?, ?)
             """,
             jobId,
             reportId,
             patientUserId,
             report.getSha256Checksum(),
+            requestKind,
+            baselineResultId,
             Timestamp.from(now),
             Timestamp.from(now),
             Timestamp.from(now)
@@ -112,8 +156,10 @@ public class PatientReportExtractionService {
             PatientTimelineService.TimelineCategory.REPORTS,
             "MEDICAL_REPORT",
             reportId,
-            "Report data extraction requested",
-            "Clinora queued this report for secure information extraction.",
+            requestKind.equals("RE_EXTRACTION") ? "Report re-extraction requested" : "Report data extraction requested",
+            requestKind.equals("RE_EXTRACTION")
+                ? "Clinora queued the original report for extraction again. Existing reviewed values remain protected."
+                : "Clinora queued this report for secure information extraction.",
             now,
             "report-extraction-requested:" + jobId
         );
@@ -176,6 +222,7 @@ public class PatientReportExtractionService {
             deriveRangeFlag(effectiveNumericValue, command.referenceLow(), command.referenceHigh()),
             Timestamp.from(now), observationId
         );
+        resolveDifferenceForObservation(observationId, now);
         refreshReviewStatus(previous.resultId(), now);
         return view(patientUserId, reportId);
     }
@@ -212,7 +259,34 @@ public class PatientReportExtractionService {
                 "This extracted value was already reviewed. Refresh the report and try again."
             );
         }
+        resolveDifferenceForObservation(observationId, now);
         refreshReviewStatus(observation.resultId(), now);
+        return view(patientUserId, reportId);
+    }
+
+    @Transactional
+    public ExtractionView confirmMissingDifference(UUID patientUserId, UUID reportId, UUID differenceId) {
+        requireOwnedReport(patientUserId, reportId);
+        Instant now = clock.instant();
+        int changed = jdbc.update(
+            """
+            UPDATE medical_report_extraction_differences d
+            SET resolution_status = 'ACCEPTED', resolved_at = ?
+            FROM medical_report_extraction_results r
+            JOIN medical_report_extraction_jobs j ON j.id = r.job_id
+            WHERE d.id = ? AND d.extraction_result_id = r.id
+              AND d.change_type = 'MISSING' AND d.resolution_status = 'PENDING'
+              AND r.report_id = ? AND j.patient_user_id = ?
+            """,
+            Timestamp.from(now), differenceId, reportId, patientUserId
+        );
+        if (changed != 1) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "RE_EXTRACTION_DIFFERENCE_ALREADY_REVIEWED",
+                "This re-extraction difference was already reviewed. Refresh the report to continue."
+            );
+        }
         return view(patientUserId, reportId);
     }
 
@@ -253,6 +327,18 @@ public class PatientReportExtractionService {
                 HttpStatus.CONFLICT,
                 "REPORT_EXTRACTION_REVIEW_REQUIRED",
                 "Review the flagged extracted values before confirming this report."
+            );
+        }
+        Integer pendingDifferences = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM medical_report_extraction_differences WHERE extraction_result_id = ? AND resolution_status = 'PENDING'",
+            Integer.class,
+            result.id()
+        );
+        if (pendingDifferences != null && pendingDifferences > 0) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "RE_EXTRACTION_REVIEW_REQUIRED",
+                "Review each changed, new, or missing value before replacing the verified extraction."
             );
         }
         Instant now = clock.instant();
@@ -301,7 +387,8 @@ public class PatientReportExtractionService {
         if (updated != 1) return null;
         return jdbc.query(
             """
-            SELECT j.id, j.report_id, j.patient_user_id, r.object_key, r.original_filename, r.mime_type
+            SELECT j.id, j.report_id, j.patient_user_id, r.object_key, r.original_filename, r.mime_type,
+                j.request_kind, j.baseline_result_id
             FROM medical_report_extraction_jobs j
             JOIN patient_medical_reports r ON r.id = j.report_id
             WHERE j.id = ?
@@ -312,7 +399,9 @@ public class PatientReportExtractionService {
                 rs.getObject("patient_user_id", UUID.class),
                 rs.getString("object_key"),
                 rs.getString("original_filename"),
-                rs.getString("mime_type")
+                rs.getString("mime_type"),
+                rs.getString("request_kind"),
+                rs.getObject("baseline_result_id", UUID.class)
             ),
             jobId
         ).stream().findFirst().orElse(null);
@@ -353,6 +442,7 @@ public class PatientReportExtractionService {
         for (Observation observation : observations) {
             insertObservation(resultId, observation, now);
         }
+        if (work.baselineResultId() != null) compareWithProtectedResult(resultId, work.baselineResultId(), now);
         jdbc.update(
             """
             UPDATE medical_report_extraction_jobs
@@ -456,35 +546,173 @@ public class PatientReportExtractionService {
         );
     }
 
-    private ExtractionView viewForJob(UUID patientUserId, UUID reportId, JobRow job) {
-        if (!job.patientUserId().equals(patientUserId) || !job.reportId().equals(reportId)) {
-            throw new PatientApiException(HttpStatus.NOT_FOUND, "REPORT_NOT_FOUND", "Medical report was not found.");
-        }
-        if (!job.status().equals("SUCCEEDED")) {
-            return new ExtractionView(
-                reportId, job.id(), job.status(), null, null, null, null, null,
-                List.of(), job.failureCode(), job.requestedAt(), job.startedAt(), job.completedAt()
+    private void compareWithProtectedResult(UUID resultId, UUID baselineResultId, Instant now) {
+        List<ComparisonObservation> current = comparisonObservations(resultId);
+        List<ComparisonObservation> remainingBaseline = new ArrayList<>(comparisonObservations(baselineResultId));
+        boolean differencesFound = false;
+        for (ComparisonObservation observation : current) {
+            int matchIndex = findMatch(remainingBaseline, observation.normalizedLabel());
+            ComparisonObservation baseline = matchIndex < 0 ? null : remainingBaseline.remove(matchIndex);
+            String changeType = baseline == null ? "NEW" : sameClinicalValue(observation, baseline) ? null : "CHANGED";
+            if (changeType == null) continue;
+            differencesFound = true;
+            insertDifference(resultId, baselineResultId, observation.id(), baseline == null ? null : baseline.id(), changeType, now);
+            jdbc.update(
+                "UPDATE medical_report_observations SET review_required = TRUE, updated_at = ? WHERE id = ?",
+                Timestamp.from(now), observation.id()
             );
         }
-        ResultRow result = requireResult(job.id());
-        List<ObservationView> observations = jdbc.query(
+        for (ComparisonObservation baseline : remainingBaseline) {
+            differencesFound = true;
+            insertDifference(resultId, baselineResultId, null, baseline.id(), "MISSING", now);
+        }
+        if (differencesFound) {
+            jdbc.update(
+                "UPDATE medical_report_extraction_results SET review_status = 'REVIEW_REQUIRED', updated_at = ? WHERE id = ?",
+                Timestamp.from(now), resultId
+            );
+        }
+    }
+
+    private List<ComparisonObservation> comparisonObservations(UUID resultId) {
+        return jdbc.query(
             """
-            SELECT id, source_label, effective_label, effective_value_type, ocr_raw_value, effective_numeric_value,
+            SELECT id, normalized_label, effective_label, effective_value_type, effective_numeric_value,
                 effective_text_value, effective_comparator, effective_unit, reference_range_raw,
-                reference_low, reference_high, source_flag, derived_range_flag, page_number,
-                bounding_box_json::text AS bounding_box_json, ocr_confidence, review_required,
-                verification_status
+                reference_low, reference_high, source_flag
             FROM medical_report_observations
             WHERE extraction_result_id = ?
             ORDER BY page_number, created_at, id
             """,
+            (rs, rowNum) -> new ComparisonObservation(
+                rs.getObject("id", UUID.class), rs.getString("normalized_label"), rs.getString("effective_label"),
+                rs.getString("effective_value_type"), rs.getBigDecimal("effective_numeric_value"),
+                rs.getString("effective_text_value"), rs.getString("effective_comparator"),
+                rs.getString("effective_unit"), rs.getString("reference_range_raw"),
+                rs.getBigDecimal("reference_low"), rs.getBigDecimal("reference_high"), rs.getString("source_flag")
+            ),
+            resultId
+        );
+    }
+
+    private int findMatch(List<ComparisonObservation> observations, String normalizedLabel) {
+        for (int index = 0; index < observations.size(); index++) {
+            if (Objects.equals(normalizeComparisonText(observations.get(index).normalizedLabel()), normalizeComparisonText(normalizedLabel))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private boolean sameClinicalValue(ComparisonObservation current, ComparisonObservation baseline) {
+        return Objects.equals(cleanNullable(current.effectiveLabel()), cleanNullable(baseline.effectiveLabel()))
+            && Objects.equals(current.valueType(), baseline.valueType())
+            && sameNumber(current.numericValue(), baseline.numericValue())
+            && Objects.equals(cleanNullable(current.textValue()), cleanNullable(baseline.textValue()))
+            && Objects.equals(cleanNullable(current.comparator()), cleanNullable(baseline.comparator()))
+            && Objects.equals(cleanNullable(current.unit()), cleanNullable(baseline.unit()))
+            && Objects.equals(cleanNullable(current.referenceRangeRaw()), cleanNullable(baseline.referenceRangeRaw()))
+            && sameNumber(current.referenceLow(), baseline.referenceLow())
+            && sameNumber(current.referenceHigh(), baseline.referenceHigh())
+            && Objects.equals(cleanNullable(current.sourceFlag()), cleanNullable(baseline.sourceFlag()));
+    }
+
+    private boolean sameNumber(BigDecimal left, BigDecimal right) {
+        return left == null ? right == null : right != null && left.compareTo(right) == 0;
+    }
+
+    private String normalizeComparisonText(String value) {
+        return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private void insertDifference(
+        UUID resultId,
+        UUID baselineResultId,
+        UUID observationId,
+        UUID baselineObservationId,
+        String changeType,
+        Instant now
+    ) {
+        jdbc.update(
+            """
+            INSERT INTO medical_report_extraction_differences (
+                id, extraction_result_id, baseline_result_id, observation_id,
+                baseline_observation_id, change_type, resolution_status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+            """,
+            UUID.randomUUID(), resultId, baselineResultId, observationId, baselineObservationId,
+            changeType, Timestamp.from(now)
+        );
+    }
+
+    private void resolveDifferenceForObservation(UUID observationId, Instant now) {
+        jdbc.update(
+            """
+            UPDATE medical_report_extraction_differences
+            SET resolution_status = 'ACCEPTED', resolved_at = ?
+            WHERE observation_id = ? AND resolution_status = 'PENDING'
+            """,
+            Timestamp.from(now), observationId
+        );
+    }
+
+    private ExtractionView viewForJob(UUID patientUserId, UUID reportId, JobRow job) {
+        if (!job.patientUserId().equals(patientUserId) || !job.reportId().equals(reportId)) {
+            throw new PatientApiException(HttpStatus.NOT_FOUND, "REPORT_NOT_FOUND", "Medical report was not found.");
+        }
+        if (job.status().equals("SUCCEEDED")) return viewWithResult(reportId, job, requireResult(job.id()), false);
+        Optional<JobRow> previous = latestSuccessfulJob(reportId, job.id());
+        if (previous.isPresent()) return viewWithResult(reportId, job, requireResult(previous.get().id()), true);
+        return new ExtractionView(
+            reportId, job.id(), job.status(), null, null, null, null, null,
+            List.of(), List.of(), 0, job.failureCode(), "RE_EXTRACTION".equals(job.requestKind()), false,
+            job.baselineResultId(), job.requestedAt(), job.startedAt(), job.completedAt()
+        );
+    }
+
+    private ExtractionView viewWithResult(UUID reportId, JobRow job, ResultRow result, boolean displayedPreviousResult) {
+        List<ObservationView> observations = jdbc.query(
+            """
+            SELECT o.id, o.source_label, o.effective_label, o.effective_value_type, o.ocr_raw_value, o.effective_numeric_value,
+                o.effective_text_value, o.effective_comparator, o.effective_unit, o.reference_range_raw,
+                o.reference_low, o.reference_high, o.source_flag, o.derived_range_flag, o.page_number,
+                o.bounding_box_json::text AS bounding_box_json, o.ocr_confidence, o.review_required,
+                o.verification_status, d.id AS difference_id, d.change_type
+            FROM medical_report_observations o
+            LEFT JOIN medical_report_extraction_differences d ON d.observation_id = o.id
+            WHERE o.extraction_result_id = ?
+            ORDER BY o.page_number, o.created_at, o.id
+            """,
             (rs, rowNum) -> observationView(rs),
+            result.id()
+        );
+        List<MissingDifferenceView> missing = jdbc.query(
+            """
+            SELECT d.id, o.id AS observation_id, o.effective_label, o.effective_value_type,
+                o.effective_numeric_value, o.effective_text_value, o.effective_comparator, o.effective_unit
+            FROM medical_report_extraction_differences d
+            JOIN medical_report_observations o ON o.id = d.baseline_observation_id
+            WHERE d.extraction_result_id = ? AND d.change_type = 'MISSING' AND d.resolution_status = 'PENDING'
+            ORDER BY o.effective_label, d.id
+            """,
+            (rs, rowNum) -> new MissingDifferenceView(
+                rs.getObject("id", UUID.class), rs.getObject("observation_id", UUID.class),
+                rs.getString("effective_label"), rs.getString("effective_value_type"),
+                rs.getBigDecimal("effective_numeric_value"), rs.getString("effective_text_value"),
+                rs.getString("effective_comparator"), rs.getString("effective_unit")
+            ),
+            result.id()
+        );
+        Integer pending = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM medical_report_extraction_differences WHERE extraction_result_id = ? AND resolution_status = 'PENDING'",
+            Integer.class,
             result.id()
         );
         return new ExtractionView(
             reportId, job.id(), job.status(), result.id(), result.documentType(), result.pageCount(),
-            result.overallConfidence(), result.reviewStatus(), List.copyOf(observations), null,
-            job.requestedAt(), job.startedAt(), job.completedAt()
+            result.overallConfidence(), result.reviewStatus(), List.copyOf(observations), List.copyOf(missing),
+            pending == null ? 0 : pending, job.failureCode(), "RE_EXTRACTION".equals(job.requestKind()),
+            displayedPreviousResult, job.baselineResultId(), job.requestedAt(), job.startedAt(), job.completedAt()
         );
     }
 
@@ -509,7 +737,8 @@ public class PatientReportExtractionService {
             rs.getString("effective_comparator"), rs.getString("effective_unit"), rs.getString("reference_range_raw"),
             rs.getBigDecimal("reference_low"), rs.getBigDecimal("reference_high"), rs.getString("source_flag"),
             rs.getString("derived_range_flag"), rs.getInt("page_number"), box, rs.getBigDecimal("ocr_confidence"),
-            rs.getBoolean("review_required"), rs.getString("verification_status")
+            rs.getBoolean("review_required"), rs.getString("verification_status"),
+            rs.getObject("difference_id", UUID.class), rs.getString("change_type")
         );
     }
 
@@ -586,7 +815,7 @@ public class PatientReportExtractionService {
         return jdbc.query(
             """
             SELECT id, report_id, patient_user_id, source_checksum, status, failure_code,
-                requested_at, started_at, completed_at
+                request_kind, baseline_result_id, requested_at, started_at, completed_at
             FROM medical_report_extraction_jobs
             WHERE report_id = ?
             ORDER BY requested_at DESC, created_at DESC
@@ -597,11 +826,60 @@ public class PatientReportExtractionService {
         ).stream().findFirst();
     }
 
+    private Optional<JobRow> activeJob(UUID reportId) {
+        return jdbc.query(
+            """
+            SELECT id, report_id, patient_user_id, source_checksum, status, failure_code,
+                request_kind, baseline_result_id, requested_at, started_at, completed_at
+            FROM medical_report_extraction_jobs
+            WHERE report_id = ? AND status IN ('QUEUED', 'PROCESSING')
+            ORDER BY requested_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (rs, rowNum) -> jobRow(rs), reportId
+        ).stream().findFirst();
+    }
+
+    private Optional<JobRow> latestSuccessfulJob(UUID reportId, UUID excludedJobId) {
+        return jdbc.query(
+            """
+            SELECT id, report_id, patient_user_id, source_checksum, status, failure_code,
+                request_kind, baseline_result_id, requested_at, started_at, completed_at
+            FROM medical_report_extraction_jobs
+            WHERE report_id = ? AND status = 'SUCCEEDED' AND id <> ?
+            ORDER BY completed_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (rs, rowNum) -> jobRow(rs), reportId, excludedJobId
+        ).stream().findFirst();
+    }
+
+    private Optional<ResultRow> latestProtectedResult(UUID reportId) {
+        return jdbc.query(
+            """
+            SELECT er.id, er.document_type, er.page_count, er.overall_confidence, er.review_status
+            FROM medical_report_extraction_results er
+            JOIN medical_report_extraction_jobs ej ON ej.id = er.job_id
+            WHERE er.report_id = ? AND ej.status = 'SUCCEEDED'
+              AND (er.review_status = 'VERIFIED' OR EXISTS (
+                  SELECT 1 FROM medical_report_observations o
+                  WHERE o.extraction_result_id = er.id AND o.verification_status <> 'UNREVIEWED'
+              ))
+            ORDER BY er.created_at DESC
+            LIMIT 1
+            """,
+            (rs, rowNum) -> new ResultRow(
+                rs.getObject("id", UUID.class), rs.getString("document_type"), rs.getInt("page_count"),
+                rs.getBigDecimal("overall_confidence"), rs.getString("review_status")
+            ), reportId
+        ).stream().findFirst();
+    }
+
     private JobRow requireJob(UUID jobId) {
         return jdbc.query(
             """
             SELECT id, report_id, patient_user_id, source_checksum, status, failure_code,
-                requested_at, started_at, completed_at
+                request_kind, baseline_result_id, requested_at, started_at, completed_at
             FROM medical_report_extraction_jobs WHERE id = ?
             """,
             (rs, rowNum) -> jobRow(rs),
@@ -613,6 +891,7 @@ public class PatientReportExtractionService {
         return new JobRow(
             rs.getObject("id", UUID.class), rs.getObject("report_id", UUID.class), rs.getObject("patient_user_id", UUID.class),
             rs.getString("source_checksum"), rs.getString("status"), rs.getString("failure_code"),
+            rs.getString("request_kind"), rs.getObject("baseline_result_id", UUID.class),
             instant(rs, "requested_at"), instant(rs, "started_at"), instant(rs, "completed_at")
         );
     }
@@ -688,7 +967,7 @@ public class PatientReportExtractionService {
         List<JobRow> staleJobs = jdbc.query(
             """
             SELECT id, report_id, patient_user_id, source_checksum, status, failure_code,
-                requested_at, started_at, completed_at
+                request_kind, baseline_result_id, requested_at, started_at, completed_at
             FROM medical_report_extraction_jobs
             WHERE status = 'PROCESSING' AND started_at IS NOT NULL AND started_at <= ?
             ORDER BY started_at ASC
@@ -842,9 +1121,27 @@ public class PatientReportExtractionService {
         String sourceChecksum,
         String status,
         String failureCode,
+        String requestKind,
+        UUID baselineResultId,
         Instant requestedAt,
         Instant startedAt,
         Instant completedAt
+    ) {
+    }
+
+    private record ComparisonObservation(
+        UUID id,
+        String normalizedLabel,
+        String effectiveLabel,
+        String valueType,
+        BigDecimal numericValue,
+        String textValue,
+        String comparator,
+        String unit,
+        String referenceRangeRaw,
+        BigDecimal referenceLow,
+        BigDecimal referenceHigh,
+        String sourceFlag
     ) {
     }
 
@@ -877,8 +1174,20 @@ public class PatientReportExtractionService {
         UUID patientUserId,
         String objectKey,
         String filename,
-        String mimeType
+        String mimeType,
+        String requestKind,
+        UUID baselineResultId
     ) {
+        public WorkItem(
+            UUID jobId,
+            UUID reportId,
+            UUID patientUserId,
+            String objectKey,
+            String filename,
+            String mimeType
+        ) {
+            this(jobId, reportId, patientUserId, objectKey, filename, mimeType, "INITIAL", null);
+        }
     }
 
     public record SourceObject(byte[] bytes, String filename, String contentType) {
@@ -920,7 +1229,21 @@ public class PatientReportExtractionService {
         BoundingBoxView boundingBox,
         BigDecimal confidence,
         boolean reviewRequired,
-        String verificationStatus
+        String verificationStatus,
+        UUID differenceId,
+        String changeType
+    ) {
+    }
+
+    public record MissingDifferenceView(
+        UUID differenceId,
+        UUID previousObservationId,
+        String label,
+        String valueType,
+        BigDecimal numericValue,
+        String textValue,
+        String comparator,
+        String unit
     ) {
     }
 
@@ -934,7 +1257,12 @@ public class PatientReportExtractionService {
         BigDecimal overallConfidence,
         String reviewStatus,
         List<ObservationView> observations,
+        List<MissingDifferenceView> missingDifferences,
+        int pendingDifferenceCount,
         String failureCode,
+        boolean reprocessing,
+        boolean displayedPreviousResult,
+        UUID baselineResultId,
         Instant requestedAt,
         Instant startedAt,
         Instant completedAt
@@ -942,7 +1270,7 @@ public class PatientReportExtractionService {
         static ExtractionView notRequested(UUID reportId) {
             return new ExtractionView(
                 reportId, null, "NOT_REQUESTED", null, null, null, null, null,
-                List.of(), null, null, null, null
+                List.of(), List.of(), 0, null, false, false, null, null, null, null
             );
         }
     }
