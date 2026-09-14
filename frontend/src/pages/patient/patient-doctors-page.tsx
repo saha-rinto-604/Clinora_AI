@@ -1,10 +1,11 @@
-import { ArrowRight, CalendarDays, Search, ShieldCheck, Stethoscope } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, CalendarDays, Search, ShieldCheck, Stethoscope } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { AppSurface, EmptyState, StatusPill } from '../../components/app/app-ui';
 import { buttonVariants } from '../../components/ui/button-variants';
 import { Skeleton } from '../../components/ui/feedback';
 import { appointmentApi, appointmentError, type DoctorSummary } from '../../features/appointments/appointment-api';
+import { ProfileAvatar } from '../../features/profile/profile-image';
 
 export function PatientDoctorsPage() {
   const [query, setQuery] = useState('');
@@ -40,15 +41,13 @@ export function PatientDoctorsPage() {
   const visibleDoctors = availableOnly ? doctors.filter((doctor) => doctor.nextAvailableAt) : doctors;
 
   return (
-    <div className="mx-auto w-full max-w-[1120px] pb-8">
+    <div className="mx-auto w-full max-w-[1160px] pb-8">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
-            Book care
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">Book care</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Find a Doctor</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-            Choose an approved Clinora Doctor and an available appointment time.
+            Compare verified Clinora Doctors using professional context and real published availability.
           </p>
         </div>
         <Link to="/patient/appointments" className={buttonVariants({ variant: 'appSecondary' })}>
@@ -107,16 +106,15 @@ export function PatientDoctorsPage() {
       <section className="mt-6" aria-labelledby="doctor-results-title">
         <div className="flex items-center justify-between gap-3">
           <h2 id="doctor-results-title" className="text-xl font-semibold text-white">
-            Available Clinora Doctors
+            Clinora Doctors
           </h2>
-          {!loading ? (
-            <span className="text-xs text-[var(--clinora-text-faint)]">{visibleDoctors.length} shown</span>
-          ) : null}
+          {!loading ? <span className="text-xs text-[var(--clinora-text-faint)]">{visibleDoctors.length} shown</span> : null}
         </div>
+
         {loading ? (
-          <div className="mt-4 space-y-3">
-            <Skeleton className="h-40 rounded-2xl" />
-            <Skeleton className="h-40 rounded-2xl" />
+          <div className="mt-4 grid gap-3">
+            <Skeleton className="h-44 rounded-[24px]" />
+            <Skeleton className="h-44 rounded-[24px]" />
           </div>
         ) : null}
         {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
@@ -127,13 +125,14 @@ export function PatientDoctorsPage() {
               title="No matching Doctors"
               copy={
                 query || specialty || availableOnly
-                  ? 'Try changing the name, specialty or availability filter.'
+                  ? 'Try changing the name, specialty, or availability filter.'
                   : 'No approved Clinora Doctors are currently available for booking.'
               }
             />
           </AppSurface>
         ) : null}
-        <div className="mt-4 space-y-3">
+
+        <div className="mt-4 grid gap-4">
           {visibleDoctors.map((doctor) => (
             <DoctorResult key={doctor.id} doctor={doctor} />
           ))}
@@ -144,53 +143,56 @@ export function PatientDoctorsPage() {
 }
 
 function DoctorResult({ doctor }: { doctor: DoctorSummary }) {
+  const organization = [doctor.currentPosition, doctor.currentOrganization].filter(Boolean).join(' · ');
   return (
-    <AppSurface as="article" variant="interactive" padding="compact" className="group">
-      <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-sm font-bold text-[var(--clinora-info-foreground)]">
-          {initials(doctor.displayName)}
-        </div>
+    <AppSurface as="article" variant="interactive" padding="compact" className="group overflow-hidden">
+      <div className="grid gap-5 md:grid-cols-[auto_minmax(0,1fr)_15rem] md:items-center">
+        <ProfileAvatar
+          source={{ kind: 'patient-doctor', doctorId: doctor.id }}
+          name={doctor.displayName}
+          size="lg"
+          className="rounded-[20px]"
+        />
+
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-white">{doctor.displayName}</h3>
+            <h3 className="text-lg font-semibold text-white sm:text-xl">{doctor.displayName}</h3>
             <StatusPill tone="success">
-              <ShieldCheck size={12} aria-hidden="true" />
-              Clinora approved
+              <ShieldCheck size={12} aria-hidden="true" /> Clinora verified
             </StatusPill>
           </div>
-          <p className="mt-1 text-sm font-medium text-[var(--clinora-info-foreground)]">{doctor.specialization}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--clinora-info-foreground)]">{doctor.specialization}</p>
           <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-            {doctor.yearsExperience == null
-              ? 'Experience verified during onboarding'
-              : `${doctor.yearsExperience} years experience`}
-            {doctor.currentOrganization ? ` · ${doctor.currentOrganization}` : ''}
+            {doctor.professionalTitle || 'Medical professional'}
+            {doctor.yearsExperience == null ? '' : ` · ${doctor.yearsExperience} years experience`}
           </p>
-          <p className="mt-3 inline-flex items-center gap-2 text-xs text-[var(--clinora-text-faint)]">
-            <CalendarDays size={14} aria-hidden="true" />
-            {doctor.nextAvailableAt
-              ? `Next available ${formatSlot(doctor.nextAvailableAt)}`
-              : 'No future availability published yet'}
-          </p>
+          {organization ? (
+            <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-[var(--clinora-text-muted)]">
+              <BriefcaseBusiness size={14} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+              {organization}
+            </p>
+          ) : null}
         </div>
-        <Link
-          to={`/patient/doctors/${doctor.id}`}
-          className={buttonVariants({ variant: doctor.nextAvailableAt ? 'appPrimary' : 'appSecondary' })}
-        >
-          View profile <ArrowRight size={15} aria-hidden="true" />
-        </Link>
+
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 md:text-right">
+          <p className="flex items-center gap-2 text-xs font-medium text-[var(--clinora-text-faint)] md:justify-end">
+            <CalendarDays size={14} aria-hidden="true" /> Next appointment
+          </p>
+          <p className="mt-2 text-sm font-semibold text-white">
+            {doctor.nextAvailableAt ? formatSlot(doctor.nextAvailableAt) : 'No future time published'}
+          </p>
+          <Link
+            to={`/patient/doctors/${doctor.id}`}
+            className={`${buttonVariants({ variant: doctor.nextAvailableAt ? 'appPrimary' : 'appSecondary' })} mt-4 w-full`}
+          >
+            View profile <ArrowRight size={15} aria-hidden="true" />
+          </Link>
+        </div>
       </div>
     </AppSurface>
   );
 }
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
+
 function formatSlot(value: string) {
   return new Date(value).toLocaleString(undefined, {
     weekday: 'short',

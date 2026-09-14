@@ -104,6 +104,8 @@ function renderRoute(user: typeof adminUser | null = adminUser, status?: 'unknow
         <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
           <Route path="/admin/access-reviews" element={<AccessReviewsPage />} />
         </Route>
+        <Route path="/doctor" element={<div>Doctor home</div>} />
+        <Route path="/patient" element={<div>Patient home</div>} />
         <Route path="/account" element={<div>Account security</div>} />
         <Route path="/login" element={<div>Login</div>} />
       </Routes>
@@ -186,10 +188,14 @@ describe('System Admin access review workbench', () => {
     expect(await screen.findByText('Internal Medicine')).toBeInTheDocument();
   });
 
-  it.each(['PATIENT', 'DOCTOR', 'RESEARCHER'])('denies %s access through the route guard', async (role) => {
+  it.each([
+    ['PATIENT', 'Patient home'],
+    ['DOCTOR', 'Doctor home'],
+    ['RESEARCHER', 'Account security'],
+  ])('denies %s access through the route guard', async (role, destination) => {
     renderRoute({ ...adminUser, role, email: `${role.toLowerCase()}@example.test` });
 
-    expect(await screen.findByText('Account security')).toBeInTheDocument();
+    expect(await screen.findByText(destination)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Access Reviews' })).not.toBeInTheDocument();
   });
 

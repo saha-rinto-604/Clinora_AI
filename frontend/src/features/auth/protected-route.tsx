@@ -1,5 +1,6 @@
 import { LoaderCircle } from 'lucide-react';
 import { Navigate, Outlet, useLocation } from 'react-router';
+import { roleLandingPath } from './auth-navigation';
 import { useAuthStore } from './auth-store';
 
 interface ProtectedRouteProps {
@@ -23,11 +24,11 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps = {}) {
   }
 
   if (status === 'anonymous' || !user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/account" replace state={{ deniedFrom: location.pathname }} />;
+    return <Navigate to={roleLandingPath(user.role)} replace state={{ deniedFrom: location.pathname }} />;
   }
 
   return <Outlet />;

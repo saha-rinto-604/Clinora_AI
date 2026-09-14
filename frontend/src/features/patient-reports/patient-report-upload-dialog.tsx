@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FileText, RefreshCw, UploadCloud, X } from 'lucide-react';
+import { FileText, HeartPulse, RefreshCw, UploadCloud, UsersRound, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -15,14 +15,26 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
 const ACCEPTED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
-const uploadMetadataSchema = z.object({
-  reportName: z.string().trim().min(1, 'Enter a clear report name.').max(160, 'Use 160 characters or fewer.'),
-  reportType: z.enum(patientReportTypes),
-  reportDate: z
-    .string()
-    .refine((value) => !value || value <= todayForDateInput(), 'The date on the report cannot be in the future.'),
-  providerLaboratory: z.string().trim().max(200, 'Use 200 characters or fewer.'),
-});
+const uploadMetadataSchema = z
+  .object({
+    reportName: z.string().trim().min(1, 'Enter a clear report name.').max(160, 'Use 160 characters or fewer.'),
+    reportType: z.enum(patientReportTypes),
+    subjectType: z.enum(['SELF', 'OTHER']),
+    subjectLabel: z.string().trim().max(120, 'Use 120 characters or fewer.'),
+    reportDate: z
+      .string()
+      .refine((value) => !value || value <= todayForDateInput(), 'The date on the report cannot be in the future.'),
+    providerLaboratory: z.string().trim().max(200, 'Use 200 characters or fewer.'),
+  })
+  .superRefine((value, context) => {
+    if (value.subjectType === 'OTHER' && !value.subjectLabel.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['subjectLabel'],
+        message: 'Add a private label for the person this report belongs to.',
+      });
+    }
+  });
 
 type UploadMetadataValues = z.infer<typeof uploadMetadataSchema>;
 
@@ -46,16 +58,22 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
     getValues,
     setValue,
     reset,
+    watch,
     formState: { errors },
   } = useForm<UploadMetadataValues>({
     resolver: zodResolver(uploadMetadataSchema),
     defaultValues: {
       reportName: '',
       reportType: 'LAB_RESULTS',
+      subjectType: 'SELF',
+      subjectLabel: '',
       reportDate: '',
       providerLaboratory: '',
     },
   });
+
+
+  const subjectType = watch('subjectType');
 
   const resetDialog = () => {
     reset();
@@ -121,6 +139,8 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
         {
           reportName: values.reportName.trim(),
           reportType: values.reportType,
+          subjectType: values.subjectType,
+          subjectLabel: values.subjectType === 'OTHER' ? values.subjectLabel.trim() : null,
           reportDate: values.reportDate || null,
           providerLaboratory: values.providerLaboratory.trim() || null,
           file,
@@ -244,6 +264,73 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
               </p>
 
               <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <FormField className="sm:col-span-2">
+                  <Label>Who is this report for?</Label>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Who this report belongs to">
+                    <label
+                      className={cn(
+                        'flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors',
+                        subjectType === 'SELF'
+                          ? 'border-cyan-300/35 bg-cyan-300/[0.07]'
+                          : 'border-[var(--clinora-border-subtle)] bg-white/[0.02] hover:bg-white/[0.035]',
+                      )}
+                    >
+                      <input type="radio" value="SELF" className="sr-only" disabled={uploading} {...register('subjectType')} />
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-cyan-300/[0.08] text-cyan-200">
+                        <HeartPulse size={17} aria-hidden="true" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-semibold text-white">Me</span>
+                        <span className="mt-1 block text-xs leading-5 text-[var(--clinora-text-muted)]">
+                          Part of my Health Record and eligible for my care workflows.
+                        </span>
+                      </span>
+                    </label>
+                    <label
+                      className={cn(
+                        'flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors',
+                        subjectType === 'OTHER'
+                          ? 'border-violet-300/30 bg-violet-300/[0.06]'
+                          : 'border-[var(--clinora-border-subtle)] bg-white/[0.02] hover:bg-white/[0.035]',
+                      )}
+                    >
+                      <input type="radio" value="OTHER" className="sr-only" disabled={uploading} {...register('subjectType')} />
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-violet-300/[0.08] text-violet-200">
+                        <UsersRound size={17} aria-hidden="true" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-semibold text-white">Someone else</span>
+                        <span className="mt-1 block text-xs leading-5 text-[var(--clinora-text-muted)]">
+                          Kept separate from my Health Record, trends and Doctor sharing.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </FormField>
+
+                {subjectType === 'OTHER' ? (
+                  <FormField className="sm:col-span-2">
+                    <Label htmlFor="patient-report-subject">Private person label</Label>
+                    <Input
+                      id="patient-report-subject"
+                      placeholder="e.g. Mother, Father, Family member or a private label"
+                      autoComplete="off"
+                      disabled={uploading}
+                      required
+                      aria-invalid={Boolean(errors.subjectLabel)}
+                      {...register('subjectLabel')}
+                    />
+                    <p className="text-xs leading-5 text-[var(--clinora-text-faint)]">
+                      This label is for organizing your private library. Clinora will not add this report to your own longitudinal record.
+                    </p>
+                    {errors.subjectLabel ? (
+                      <FormMessage role="alert" className="text-rose-300">
+                        {errors.subjectLabel.message}
+                      </FormMessage>
+                    ) : null}
+                  </FormField>
+                ) : null}
+
                 <FormField className="sm:col-span-2">
                   <Label htmlFor="patient-report-name">Report name</Label>
                   <Input

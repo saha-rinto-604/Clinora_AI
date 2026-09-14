@@ -1,0 +1,2004 @@
+/* Reference-locked Patient report workspaces.
+ * Page-only styles: the existing Clinora Patient shell, sidebar, logo and navigation are intentionally untouched.
+ */
+
+.clinora-reference-eyebrow,
+.clinora-reference-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #42dff5;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.clinora-reference-section-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+}
+
+.clinora-reference-icon-well {
+  display: inline-grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 0.72rem;
+  background: rgba(14, 165, 233, 0.1);
+  color: #57e6f7;
+}
+
+.clinora-reference-primary-button,
+.clinora-reference-secondary-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.72rem;
+  padding: 0 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.clinora-reference-primary-button {
+  border: 1px solid transparent;
+  background: linear-gradient(100deg, #20bde8, #1bc8b7);
+  color: #00151b;
+}
+
+.clinora-reference-secondary-button {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.035);
+  color: #dceaf2;
+}
+
+.clinora-reference-primary-button:hover {
+  filter: brightness(1.06);
+}
+
+.clinora-reference-secondary-button:hover {
+  border-color: rgba(103, 232, 249, 0.25);
+  background: rgba(103, 232, 249, 0.055);
+  color: #ecfeff;
+}
+
+.clinora-reference-primary-button:focus-visible,
+.clinora-reference-secondary-button:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.88);
+  outline-offset: 2px;
+}
+
+.clinora-reference-error {
+  border: 1px solid rgba(251, 113, 133, 0.25);
+  border-radius: 0.85rem;
+  background: rgba(190, 24, 93, 0.08);
+  padding: 0.8rem 1rem;
+  color: #fecdd3;
+  font-size: 0.82rem;
+}
+
+.clinora-reference-error button {
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+/* -----------------------------------------
+   Report library / Analysis start
+   ----------------------------------------- */
+
+.clinora-report-start-reference {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+}
+
+.clinora-report-start-reference__header {
+  position: relative;
+  min-height: 8.9rem;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.1);
+  isolation: isolate;
+}
+
+.clinora-report-start-reference__header::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #020713 0%, rgba(2, 7, 19, 0.98) 42%, rgba(2, 7, 19, 0.5) 72%, #020713 100%);
+  content: '';
+  pointer-events: none;
+}
+
+.clinora-report-start-reference__copy {
+  position: relative;
+  z-index: 2;
+  max-width: 42rem;
+  padding: 0.4rem 0 1.25rem;
+}
+
+.clinora-report-start-reference__copy h1 {
+  margin-top: 0.65rem;
+  color: #f8fafc;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+.clinora-report-start-reference__copy > p {
+  max-width: 38rem;
+  margin-top: 0.7rem;
+  color: #98aabc;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.clinora-report-start-reference__art {
+  position: absolute;
+  inset: 0 0 0 42%;
+  z-index: -2;
+  background-image: url('/assets/biomedical/clinora-ai-analysis-lab-header.webp');
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.82;
+  filter: saturate(0.92) contrast(1.08) brightness(0.82);
+}
+
+.clinora-report-start-reference__launch {
+  overflow: hidden;
+  border: 1px solid rgba(45, 212, 191, 0.16);
+  border-radius: 0.95rem;
+  background: linear-gradient(115deg, rgba(6, 28, 39, 0.94), rgba(4, 14, 25, 0.95));
+}
+
+.clinora-report-start-reference__launch-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.2rem;
+}
+
+.clinora-report-start-reference__launch-main h2 {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 720;
+  letter-spacing: -0.015em;
+}
+
+.clinora-report-start-reference__launch-main p {
+  max-width: 45rem;
+  margin-top: 0.25rem;
+  color: #8298ab;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.clinora-report-start-reference__launch-actions {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.clinora-report-start-reference__steps {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 0.8rem;
+  align-items: center;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 0.78rem 1.25rem 0.85rem;
+}
+
+.clinora-report-start-reference__steps > div {
+  min-width: 0;
+}
+
+.clinora-report-start-reference__steps strong,
+.clinora-report-start-reference__steps span {
+  display: block;
+}
+
+.clinora-report-start-reference__steps strong {
+  color: #dff7fb;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.clinora-report-start-reference__steps span {
+  margin-top: 0.15rem;
+  color: #71899d;
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.clinora-report-start-reference__steps > svg {
+  color: #2bd9ec;
+}
+
+.clinora-report-library-reference {
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(5, 19, 30, 0.92), rgba(3, 12, 22, 0.94));
+}
+
+.clinora-report-library-reference__heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.82rem 1rem;
+}
+
+.clinora-report-library-reference__heading--filters {
+  grid-template-columns: auto minmax(16rem, 1fr) auto auto;
+}
+
+.clinora-report-library-reference__heading h2 {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.clinora-report-library-reference__heading p {
+  margin-top: 0.16rem;
+  color: #7890a4;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.clinora-report-library-reference__view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #58e2f4;
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+.clinora-report-library-reference__filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.clinora-report-library-reference__filters select {
+  min-height: 2.35rem;
+  min-width: 7.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 0.65rem;
+  background: #06131f;
+  padding: 0 1.75rem 0 0.72rem;
+  color: #c5d4df;
+  font-size: 0.68rem;
+}
+
+.clinora-report-library-reference__search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 0.55rem 1rem;
+  color: #668298;
+}
+
+.clinora-report-library-reference__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #d7e6ee;
+  font-size: 0.76rem;
+}
+
+.clinora-report-library-reference__search input::placeholder {
+  color: #526c80;
+}
+
+.clinora-report-library-reference__rows {
+  display: grid;
+}
+
+.clinora-report-library-reference__row {
+  display: grid;
+  grid-template-columns: 2.15rem minmax(12rem, 1.55fr) minmax(8rem, 0.7fr) minmax(8rem, 0.72fr) minmax(6rem, 0.55fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  min-height: 3.65rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.085);
+  padding: 0.45rem 0.9rem;
+  text-align: left;
+  transition: background-color 150ms ease;
+}
+
+.clinora-report-library-reference__row:first-child {
+  border-top: 0;
+}
+
+.clinora-report-library-reference__row:hover {
+  background: rgba(34, 211, 238, 0.035);
+}
+
+.clinora-report-library-reference__row:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.8);
+  outline-offset: -2px;
+}
+
+.clinora-report-library-reference__file {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 0.62rem;
+  background: rgba(148, 163, 184, 0.055);
+  color: #c3d2dd;
+}
+
+.clinora-report-library-reference__identity,
+.clinora-report-library-reference__fact > span {
+  min-width: 0;
+}
+
+.clinora-report-library-reference__identity strong,
+.clinora-report-library-reference__identity span,
+.clinora-report-library-reference__fact strong,
+.clinora-report-library-reference__fact small {
+  display: block;
+}
+
+.clinora-report-library-reference__identity strong {
+  overflow: hidden;
+  color: #eef7fb;
+  font-size: 0.77rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-report-library-reference__identity span,
+.clinora-report-library-reference__fact small {
+  margin-top: 0.12rem;
+  overflow: hidden;
+  color: #657f93;
+  font-size: 0.59rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-report-library-reference__fact {
+  display: flex;
+  min-width: 0;
+  gap: 0.48rem;
+  align-items: center;
+  color: #87a3b7;
+}
+
+.clinora-report-library-reference__fact strong {
+  overflow: hidden;
+  color: #cddbe4;
+  font-size: 0.66rem;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-report-library-reference__subject {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  border-radius: 999px;
+  background: rgba(6, 182, 212, 0.08);
+  padding: 0.32rem 0.6rem;
+  color: #5ee6f7;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.clinora-report-library-reference__subject.is-other {
+  border-color: rgba(167, 139, 250, 0.2);
+  background: rgba(124, 58, 237, 0.1);
+  color: #c4b5fd;
+}
+
+.clinora-report-library-reference__analyze {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #50dff2;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.clinora-report-library-reference__empty {
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 1rem;
+  color: #7890a3;
+  font-size: 0.75rem;
+}
+
+/* -----------------------------------------
+   OCR verification workstation
+   ----------------------------------------- */
+
+.clinora-report-review-reference {
+  display: grid;
+  gap: 0.85rem;
+  padding-bottom: 1.5rem;
+}
+
+.clinora-report-review-reference__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: end;
+  padding-bottom: 0.2rem;
+}
+
+.clinora-report-review-reference__back,
+.clinora-ai-reference-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #93a8ba;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.clinora-report-review-reference__back:hover,
+.clinora-ai-reference-header__back:hover {
+  color: #f1f5f9;
+}
+
+.clinora-report-review-reference__title-line {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.7rem;
+}
+
+.clinora-report-review-reference__title-line h1 {
+  min-width: 0;
+  overflow: hidden;
+  color: #f7fafc;
+  font-size: clamp(1.2rem, 2.1vw, 1.7rem);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-report-review-reference__title-line > span {
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.07);
+  padding: 0.28rem 0.68rem;
+  color: #bdd8e6;
+  font-size: 0.66rem;
+}
+
+.clinora-report-review-reference__identity > p {
+  margin-top: 0.35rem;
+  color: #8097aa;
+  font-size: 0.68rem;
+}
+
+.clinora-report-review-reference__progress {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(10.5rem, 1fr));
+  gap: 0.55rem;
+}
+
+.clinora-report-review-reference__progress-step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  min-height: 3.25rem;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 0.75rem;
+  background: rgba(3, 17, 28, 0.9);
+  padding: 0.55rem 0.65rem;
+}
+
+.clinora-report-review-reference__progress-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  color: #5d7890;
+}
+
+.clinora-report-review-reference__progress-step.is-done .clinora-report-review-reference__progress-icon {
+  color: #33d8ef;
+}
+
+.clinora-report-review-reference__progress-step.is-active .clinora-report-review-reference__progress-icon {
+  color: #35d7f0;
+}
+
+.clinora-report-review-reference__progress-step strong,
+.clinora-report-review-reference__progress-step small {
+  display: block;
+}
+
+.clinora-report-review-reference__progress-step strong {
+  color: #e7f2f7;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.clinora-report-review-reference__progress-step small {
+  margin-top: 0.08rem;
+  color: #6e879b;
+  font-size: 0.59rem;
+}
+
+.clinora-report-review-reference__progress-ring {
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 2px solid rgba(34, 211, 238, 0.38);
+  border-top-color: #38dff3;
+  border-radius: 50%;
+  animation: clinora-reference-spin 1s linear infinite;
+}
+
+.clinora-report-review-reference__workspace {
+  display: grid;
+  grid-template-columns: minmax(25rem, 0.76fr) minmax(36rem, 1.24fr);
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.clinora-report-review-reference__source,
+.clinora-report-review-reference__results {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  border-radius: 0.85rem;
+  background: rgba(3, 14, 24, 0.93);
+}
+
+.clinora-report-review-reference__source {
+  display: flex;
+  min-height: 39rem;
+  flex-direction: column;
+}
+
+.clinora-report-review-reference__source-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 0.75rem 0.9rem;
+}
+
+.clinora-report-review-reference__source-head h2 {
+  color: #f1f7fa;
+  font-size: 0.95rem;
+  font-weight: 720;
+}
+
+.clinora-report-review-reference__source-head p {
+  margin-top: 0.12rem;
+  color: #71899c;
+  font-size: 0.63rem;
+}
+
+.clinora-report-review-reference__viewer-tools {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 0.58rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.clinora-report-review-reference__viewer-tools button,
+.clinora-report-review-reference__viewer-tools a {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  color: #8ca6b9;
+}
+
+.clinora-report-review-reference__viewer-tools button:hover,
+.clinora-report-review-reference__viewer-tools a:hover {
+  background: rgba(103, 232, 249, 0.07);
+  color: #d9fbff;
+}
+
+.clinora-report-review-reference__viewer-tools button:disabled,
+.clinora-report-review-reference__viewer-tools .is-disabled {
+  cursor: default;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.clinora-report-review-reference__viewer-tools > span {
+  min-width: 3.15rem;
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+  border-left: 1px solid rgba(148, 163, 184, 0.12);
+  color: #cedde6;
+  font-size: 0.68rem;
+  line-height: 2rem;
+  text-align: center;
+}
+
+.clinora-report-review-reference__document-stage {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  place-items: stretch;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, rgba(21, 94, 117, 0.11), transparent 48%), #020a11;
+  padding: 0.65rem;
+}
+
+.clinora-report-review-reference__document-loading {
+  display: grid;
+  min-height: 31rem;
+  place-items: center;
+  color: #728a9d;
+  font-size: 0.75rem;
+}
+
+.clinora-report-review-reference__pdf {
+  width: 100%;
+  min-height: 33rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: #fff;
+}
+
+.clinora-report-review-reference__image-scroll {
+  display: flex;
+  min-height: 33rem;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  border-radius: 0.4rem;
+}
+
+.clinora-report-review-reference__image-wrap {
+  position: relative;
+  min-width: min(100%, 28rem);
+  max-width: none;
+  transition: width 140ms ease;
+}
+
+.clinora-report-review-reference__image-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  border-radius: 0.35rem;
+}
+
+.clinora-report-review-reference__source-highlight {
+  position: absolute;
+  border: 2px solid #22d3ee;
+  border-radius: 0.35rem;
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 0 1px rgba(2, 6, 23, 0.7), 0 0 1rem rgba(34, 211, 238, 0.16);
+  pointer-events: none;
+}
+
+.clinora-report-review-reference__page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
+  padding: 0.45rem;
+  color: #8ea6b8;
+  font-size: 0.65rem;
+}
+
+.clinora-report-review-reference__page-nav button {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 0.45rem;
+  color: #40d9ed;
+}
+
+.clinora-report-review-reference__page-nav button:hover:not(:disabled) {
+  background: rgba(34, 211, 238, 0.07);
+}
+
+.clinora-report-review-reference__page-nav button:disabled {
+  color: #334a5d;
+}
+
+.clinora-report-review-reference__results {
+  display: flex;
+  min-height: 39rem;
+  flex-direction: column;
+}
+
+.clinora-report-review-reference__results-head {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.85rem 1rem 0.75rem;
+}
+
+.clinora-report-review-reference__results-head h2 {
+  margin-top: 0.28rem;
+  color: #f4f8fb;
+  font-size: 1.15rem;
+  font-weight: 720;
+  letter-spacing: -0.025em;
+}
+
+.clinora-report-review-reference__results-head p:not(.clinora-reference-section-label) {
+  max-width: 40rem;
+  margin-top: 0.28rem;
+  color: #8198aa;
+  font-size: 0.67rem;
+  line-height: 1.5;
+}
+
+.clinora-report-review-reference__help {
+  display: inline-flex;
+  min-height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(56, 189, 248, 0.17);
+  border-radius: 0.6rem;
+  background: rgba(8, 145, 178, 0.06);
+  padding: 0 0.65rem;
+  color: #55e2f4;
+  font-size: 0.65rem;
+  font-weight: 720;
+}
+
+.clinora-report-review-reference__help-note {
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  background: rgba(34, 211, 238, 0.035);
+  padding: 0.55rem 1rem;
+  color: #9bb1bf;
+  font-size: 0.65rem;
+  line-height: 1.5;
+}
+
+.clinora-report-review-reference__summary {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.35rem 1rem 0.75rem;
+  border: 1px solid rgba(34, 211, 238, 0.13);
+  border-radius: 0.75rem;
+  background: rgba(7, 34, 47, 0.52);
+  padding: 0.65rem 0.75rem;
+}
+
+.clinora-report-review-reference__summary strong,
+.clinora-report-review-reference__summary small {
+  display: block;
+}
+
+.clinora-report-review-reference__summary strong {
+  color: #f0f8fb;
+  font-size: 1.05rem;
+  font-weight: 760;
+}
+
+.clinora-report-review-reference__summary strong span {
+  color: #a4c5d2;
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.clinora-report-review-reference__summary small {
+  margin-top: 0.1rem;
+  color: #37ddbd;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.clinora-report-review-reference__summary small.needs-review {
+  color: #facc15;
+}
+
+.clinora-report-review-reference__table-head {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.05fr) minmax(7rem, 0.7fr) minmax(9rem, 0.88fr) minmax(16rem, 1.15fr);
+  gap: 0.6rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
+  background: rgba(2, 11, 19, 0.72);
+  padding: 0.55rem 0.9rem;
+  color: #7791a5;
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.clinora-report-review-reference__rows {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-color: rgba(103, 232, 249, 0.18) transparent;
+  scrollbar-width: thin;
+}
+
+.clinora-report-review-reference__observation {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15.6rem, auto);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  border-left: 3px solid transparent;
+  background: transparent;
+  transition: background-color 140ms ease;
+}
+
+.clinora-report-review-reference__observation.needs-review {
+  border-left-color: #f5c518;
+}
+
+.clinora-report-review-reference__observation.is-selected {
+  border-left-color: #2bd9f0;
+  background: linear-gradient(90deg, rgba(8, 145, 178, 0.16), rgba(8, 145, 178, 0.045) 72%, transparent);
+}
+
+.clinora-report-review-reference__observation-main {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.05fr) minmax(6.5rem, 0.7fr) minmax(8.5rem, 0.88fr);
+  gap: 0.6rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.72rem 0.7rem 0.72rem 0.75rem;
+  text-align: left;
+}
+
+.clinora-report-review-reference__observation-main:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.65);
+  outline-offset: -2px;
+}
+
+.clinora-report-review-reference__test,
+.clinora-report-review-reference__result-value,
+.clinora-report-review-reference__reference-value {
+  min-width: 0;
+}
+
+.clinora-report-review-reference__test-line {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.clinora-report-review-reference__test strong {
+  overflow: hidden;
+  color: #eef7fb;
+  font-size: 0.72rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-report-review-reference__test > small {
+  display: block;
+  margin-top: 0.16rem;
+  color: #627b90;
+  font-size: 0.55rem;
+}
+
+.clinora-report-review-reference__review-badge,
+.clinora-report-review-reference__status-badge {
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.12);
+  padding: 0.18rem 0.38rem;
+  color: #fde047;
+  font-size: 0.5rem;
+  font-weight: 820;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.clinora-report-review-reference__status-badge.corrected {
+  background: rgba(34, 211, 238, 0.08);
+  color: #67e8f9;
+}
+
+.clinora-report-review-reference__status-badge.confirmed {
+  background: rgba(45, 212, 191, 0.09);
+  color: #5eead4;
+}
+
+.clinora-report-review-reference__result-value {
+  color: #f4f8fb;
+  font-size: 0.7rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.clinora-report-review-reference__reference-value {
+  color: #adc0cd;
+  font-size: 0.64rem;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.clinora-report-review-reference__reference-value small {
+  display: block;
+  margin-top: 0.18rem;
+  font-size: 0.54rem;
+  font-weight: 700;
+}
+
+.clinora-report-review-reference__row-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.45rem 0.6rem 0.45rem 0;
+}
+
+.clinora-report-review-reference__row-actions button,
+.clinora-report-review-reference__reviewed-label {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.5rem;
+  padding: 0 0.4rem;
+  color: #51dff1;
+  font-size: 0.6rem;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.clinora-report-review-reference__row-actions button:hover {
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.clinora-report-review-reference__row-actions button.is-confirm,
+.clinora-report-review-reference__reviewed-label {
+  color: #54e5c6;
+}
+
+.clinora-report-review-reference__row-actions button:disabled {
+  opacity: 0.55;
+}
+
+.clinora-report-review-reference__row-error {
+  grid-column: 1 / -1;
+  padding: 0 0.8rem 0.55rem;
+  color: #fda4af;
+  font-size: 0.62rem;
+}
+
+.clinora-report-review-reference__editor {
+  grid-column: 1 / -1;
+  border-top: 1px solid rgba(103, 232, 249, 0.13);
+  background: rgba(2, 15, 24, 0.95);
+}
+
+.clinora-report-review-reference__confirm-bar {
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 8;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  border-radius: 0.85rem;
+  background: rgba(3, 19, 29, 0.96);
+  padding: 0.65rem 0.8rem;
+  box-shadow: 0 0.7rem 2.4rem rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.clinora-report-review-reference__confirm-bar > div {
+  display: flex;
+  min-width: 0;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.clinora-report-review-reference__confirm-icon {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  border-radius: 0.65rem;
+  background: rgba(13, 148, 136, 0.09);
+  color: #4de1c2;
+}
+
+.clinora-report-review-reference__confirm-bar strong,
+.clinora-report-review-reference__confirm-bar small {
+  display: block;
+}
+
+.clinora-report-review-reference__confirm-bar strong {
+  color: #f0f7fa;
+  font-size: 0.78rem;
+}
+
+.clinora-report-review-reference__confirm-bar small {
+  margin-top: 0.08rem;
+  color: #778fa2;
+  font-size: 0.62rem;
+}
+
+/* -----------------------------------------
+   AI insight / clinical intelligence
+   ----------------------------------------- */
+
+.clinora-ai-reference-header {
+  position: relative;
+  min-height: 8.65rem;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.12);
+  isolation: isolate;
+}
+
+.clinora-ai-reference-header::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #020713 0%, rgba(2, 7, 19, 0.98) 36%, rgba(2, 7, 19, 0.5) 60%, rgba(2, 7, 19, 0.24) 79%, #020713 100%);
+  content: '';
+}
+
+.clinora-ai-reference-header__copy {
+  position: relative;
+  z-index: 2;
+  max-width: 45rem;
+  padding: 0.05rem 0 1rem;
+}
+
+.clinora-ai-reference-header__copy > .clinora-reference-section-label {
+  margin-top: 0.55rem;
+}
+
+.clinora-ai-reference-header h1 {
+  margin-top: 0.25rem;
+  color: #f8fafc;
+  font-size: clamp(2rem, 3vw, 2.65rem);
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+.clinora-ai-reference-header__meta {
+  margin-top: 0.3rem;
+  color: #8098ab;
+  font-size: 0.72rem;
+}
+
+.clinora-ai-reference-header__trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.clinora-ai-reference-header__trust-chip {
+  display: inline-flex;
+  min-height: 1.8rem;
+  align-items: center;
+  gap: 0.38rem;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 0.48rem;
+  background: rgba(8, 37, 51, 0.68);
+  padding: 0 0.65rem;
+  color: #c7dbe5;
+  font-size: 0.59rem;
+  font-weight: 660;
+}
+
+.clinora-ai-reference-header__trust-chip svg {
+  color: #48dff2;
+}
+
+.clinora-ai-reference-header__art {
+  position: absolute;
+  inset: 0 0 0 38%;
+  z-index: -2;
+  background-image: url('/assets/biomedical/clinora-ai-insight-lab-header.webp');
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.84;
+  filter: saturate(0.94) contrast(1.08) brightness(0.82);
+}
+
+.clinora-ai-reference-header__art > span {
+  position: absolute;
+  top: 2rem;
+  left: 31%;
+  max-width: 8rem;
+  color: rgba(103, 232, 249, 0.72);
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.clinora-ai-reference {
+  display: grid;
+  gap: 0.45rem;
+  color: #dce8ee;
+}
+
+.clinora-ai-reference__top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.05fr) minmax(17rem, 0.95fr);
+  gap: 0.5rem;
+}
+
+.clinora-ai-reference__interpretation,
+.clinora-ai-reference__intelligence,
+.clinora-ai-reference__related,
+.clinora-ai-reference__evidence,
+.clinora-ai-reference__summary,
+.clinora-ai-reference__verified,
+.clinora-ai-reference__questions,
+.clinora-ai-reference__about,
+.clinora-ai-reference__context {
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, rgba(5, 24, 35, 0.94), rgba(3, 15, 25, 0.96));
+}
+
+.clinora-ai-reference__interpretation {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(14rem, 0.6fr);
+  gap: 1.15rem;
+  align-items: center;
+  padding: 1rem 1.1rem;
+}
+
+.clinora-ai-reference__interpretation-copy h2 {
+  max-width: 38rem;
+  margin-top: 0.35rem;
+  color: #f8fafc;
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
+  font-weight: 730;
+  letter-spacing: -0.035em;
+  line-height: 1.13;
+}
+
+.clinora-ai-reference__interpretation-copy > p {
+  max-width: 42rem;
+  margin-top: 0.52rem;
+  color: #96aabc;
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.clinora-ai-reference__checks {
+  display: grid;
+  gap: 0.42rem;
+  border-left: 1px solid rgba(103, 232, 249, 0.17);
+  padding-left: 1rem;
+}
+
+.clinora-ai-reference__checks span {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  color: #b6c8d3;
+  font-size: 0.59rem;
+}
+
+.clinora-ai-reference__checks svg {
+  flex: 0 0 auto;
+  color: #6ce8e6;
+}
+
+.clinora-ai-reference__intelligence {
+  position: relative;
+  display: grid;
+  min-height: 100%;
+  align-content: space-between;
+  overflow: hidden;
+  padding: 1rem 1.1rem;
+  isolation: isolate;
+}
+
+.clinora-ai-reference__intelligence::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 75% 40%, rgba(21, 164, 196, 0.18), transparent 48%);
+  content: '';
+}
+
+.clinora-ai-reference__wave {
+  position: absolute;
+  top: 2.6rem;
+  right: -1.5rem;
+  width: 14rem;
+  height: 4rem;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(34, 211, 238, 0.16), transparent 65%),
+    repeating-linear-gradient(155deg, transparent 0 6px, rgba(56, 189, 248, 0.08) 6px 7px, transparent 7px 13px);
+  opacity: 0.68;
+  transform: skewY(-6deg);
+}
+
+.clinora-ai-reference__intelligence h3 {
+  position: relative;
+  z-index: 1;
+  color: #f4f8fa;
+  font-size: 0.88rem;
+  font-weight: 730;
+  line-height: 1.25;
+}
+
+.clinora-ai-reference__intelligence-points {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-top: 1.6rem;
+}
+
+.clinora-ai-reference__intelligence-points span {
+  display: grid;
+  gap: 0.35rem;
+  color: #7898aa;
+  font-size: 0.48rem;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.clinora-ai-reference__intelligence-points svg {
+  color: #34d6ec;
+}
+
+.clinora-ai-reference__related {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.95rem;
+}
+
+.clinora-ai-reference__related h2 {
+  margin-top: 0.2rem;
+  color: #f4f8fb;
+  font-size: 1rem;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.clinora-ai-reference__related > div > p:not(.clinora-reference-section-label) {
+  margin-top: 0.25rem;
+  color: #8ca2b2;
+  font-size: 0.64rem;
+  line-height: 1.5;
+}
+
+.clinora-ai-reference__related-stack {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.clinora-ai-reference__candidate-list {
+  display: grid;
+  gap: 0.38rem;
+  margin-top: 0.5rem;
+}
+
+.clinora-ai-reference__candidate {
+  overflow: hidden;
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.clinora-ai-reference__candidate summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.52rem 0;
+  list-style: none;
+}
+
+.clinora-ai-reference__candidate summary::-webkit-details-marker {
+  display: none;
+}
+
+.clinora-ai-reference__candidate summary span {
+  color: #6ee7f8;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.clinora-ai-reference__candidate summary strong {
+  min-width: 0;
+  color: #d9f6fb;
+  font-size: 0.64rem;
+  font-weight: 760;
+}
+
+.clinora-ai-reference__candidate summary svg {
+  color: #5f879b;
+  transition: transform 160ms ease;
+}
+
+.clinora-ai-reference__candidate[open] summary svg {
+  transform: rotate(90deg);
+}
+
+.clinora-ai-reference__candidate > p {
+  margin: -0.08rem 0 0.48rem;
+  color: #8ba2b2;
+  font-size: 0.58rem;
+  line-height: 1.46;
+}
+
+.clinora-ai-reference__candidate--context {
+  margin-top: 0.48rem;
+}
+
+.clinora-ai-reference__candidate-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.clinora-ai-reference__candidate-context > section {
+  min-width: 0;
+  border-left: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 0.58rem 0.62rem 0.62rem;
+}
+
+.clinora-ai-reference__candidate-context > section:first-child {
+  border-left: 0;
+}
+
+.clinora-ai-reference__candidate-context strong {
+  color: #dbe9ee;
+  font-size: 0.56rem;
+  font-weight: 760;
+}
+
+.clinora-ai-reference__candidate-context p,
+.clinora-ai-reference__candidate-context li {
+  margin-top: 0.2rem;
+  color: #7891a3;
+  font-size: 0.53rem;
+  line-height: 1.43;
+}
+
+.clinora-ai-reference__candidate-context ul {
+  margin: 0.12rem 0 0;
+  padding-left: 0.82rem;
+  list-style: disc;
+}
+
+.clinora-ai-reference__relevance {
+  flex: 0 0 auto;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 0.5rem;
+  background: rgba(6, 182, 212, 0.07);
+  padding: 0.38rem 0.65rem;
+  color: #84edf8;
+  font-size: 0.51rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.clinora-ai-reference__relevance.is-neutral {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.05);
+  color: #8ea8b8;
+}
+
+.clinora-ai-reference__evidence,
+.clinora-ai-reference__verified {
+  padding: 0.7rem 0.8rem 0.8rem;
+}
+
+.clinora-ai-reference__section-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 0.1rem 0.5rem;
+}
+
+.clinora-ai-reference__section-heading h2 {
+  margin-top: 0.15rem;
+  color: #eaf4f8;
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+
+.clinora-ai-reference__section-heading p:not(.clinora-reference-section-label) {
+  margin-top: 0.15rem;
+  color: #71899c;
+  font-size: 0.56rem;
+}
+
+.clinora-ai-reference__section-heading > span {
+  color: #618093;
+  font-size: 0.55rem;
+}
+
+.clinora-ai-reference__evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.clinora-ai-reference__evidence-tile {
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 0.58rem;
+  background: rgba(8, 30, 42, 0.62);
+  padding: 0.62rem 0.7rem;
+}
+
+.clinora-ai-reference__evidence-tile.is-outside {
+  border-color: rgba(251, 113, 133, 0.22);
+}
+
+.clinora-ai-reference__evidence-title {
+  display: flex;
+  min-width: 0;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clinora-ai-reference__evidence-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #e9f3f7;
+  font-size: 0.65rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-ai-reference__range-pill {
+  flex: 0 0 auto;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.38rem;
+  padding: 0.15rem 0.35rem;
+  color: #8da3b3;
+  font-size: 0.48rem;
+  font-weight: 750;
+}
+
+.clinora-ai-reference__range-pill.is-good {
+  border-color: rgba(52, 211, 153, 0.28);
+  color: #62e4bc;
+}
+
+.clinora-ai-reference__range-pill.is-alert {
+  border-color: rgba(251, 113, 133, 0.35);
+  background: rgba(190, 24, 93, 0.08);
+  color: #fb8798;
+}
+
+.clinora-ai-reference__evidence-value {
+  margin-top: 0.4rem;
+  color: #f1f7fa;
+  font-size: 0.82rem;
+  font-weight: 760;
+  line-height: 1.15;
+}
+
+.clinora-ai-reference__evidence-tile > small {
+  display: block;
+  margin-top: 0.15rem;
+  color: #778fa0;
+  font-size: 0.52rem;
+}
+
+.clinora-ai-reference__evidence-tile > p {
+  display: -webkit-box;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  color: #839aaa;
+  font-size: 0.54rem;
+  line-height: 1.42;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.clinora-ai-reference__empty {
+  padding: 0.8rem 0;
+  color: #71899b;
+  font-size: 0.65rem;
+}
+
+.clinora-ai-reference__summary {
+  display: grid;
+  grid-template-columns: 2.5rem 1.05fr 1.05fr 1.4fr;
+  gap: 0.45rem;
+  align-items: stretch;
+  padding: 0.6rem 0.7rem;
+}
+
+.clinora-ai-reference__summary-metric,
+.clinora-ai-reference__overview {
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 0.52rem;
+  background: rgba(255, 255, 255, 0.018);
+  padding: 0.45rem 0.58rem;
+}
+
+.clinora-ai-reference__summary-metric {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.55rem;
+  align-items: center;
+}
+
+.clinora-ai-reference__summary-metric > span {
+  grid-column: 1 / -1;
+  color: #688296;
+  font-size: 0.49rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.clinora-ai-reference__summary-metric strong {
+  grid-row: 2 / span 2;
+  color: #f17a8c;
+  font-size: 1.45rem;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.clinora-ai-reference__summary-metric.is-good strong {
+  color: #5ce0bc;
+}
+
+.clinora-ai-reference__summary-metric p {
+  color: #a1b3c0;
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+
+.clinora-ai-reference__overview {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.clinora-ai-reference__overview > strong {
+  color: #cbd9e2;
+  font-size: 0.6rem;
+}
+
+.clinora-ai-reference__overview dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem 0.7rem;
+}
+
+.clinora-ai-reference__overview dl > div {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: space-between;
+}
+
+.clinora-ai-reference__overview dt,
+.clinora-ai-reference__overview dd {
+  font-size: 0.5rem;
+}
+
+.clinora-ai-reference__overview dt {
+  color: #6f8799;
+}
+
+.clinora-ai-reference__overview dd {
+  color: #c4d4de;
+  font-weight: 700;
+}
+
+.clinora-ai-reference__tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.clinora-ai-reference__value-table {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0.52rem;
+}
+
+.clinora-ai-reference__value-head,
+.clinora-ai-reference__value-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1.15fr) minmax(5.5rem, 0.7fr) minmax(6rem, 0.8fr) minmax(4.5rem, 0.55fr);
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.clinora-ai-reference__value-head {
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.35rem 0.55rem;
+  color: #638095;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.clinora-ai-reference__value-row {
+  min-height: 1.62rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.07);
+  padding: 0.25rem 0.55rem;
+  color: #98abb9;
+  font-size: 0.54rem;
+}
+
+.clinora-ai-reference__value-row strong {
+  overflow: hidden;
+  color: #d8e5eb;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinora-ai-reference__table-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #8096a7;
+}
+
+.clinora-ai-reference__table-status i {
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.clinora-ai-reference__table-status.is-good i {
+  background: #34d399;
+}
+
+.clinora-ai-reference__table-status.is-alert i {
+  background: #fb7185;
+}
+
+.clinora-ai-reference__bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.28fr;
+  gap: 0.45rem;
+}
+
+.clinora-ai-reference__questions,
+.clinora-ai-reference__about {
+  padding: 0.65rem 0.8rem;
+}
+
+.clinora-ai-reference__questions ul,
+.clinora-ai-reference__about ul {
+  margin-top: 0.45rem;
+}
+
+.clinora-ai-reference__questions li {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 0.65rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.07);
+  padding: 0.35rem 0;
+}
+
+.clinora-ai-reference__questions li:first-child {
+  border-top: 0;
+}
+
+.clinora-ai-reference__questions li strong {
+  color: #cedde5;
+  font-size: 0.57rem;
+}
+
+.clinora-ai-reference__questions li span,
+.clinora-ai-reference__questions > p,
+.clinora-ai-reference__about > p,
+.clinora-ai-reference__about li {
+  color: #8198aa;
+  font-size: 0.55rem;
+  line-height: 1.45;
+}
+
+.clinora-ai-reference__about > p {
+  margin-top: 0.45rem;
+}
+
+.clinora-ai-reference__about ul {
+  padding-left: 0.9rem;
+  list-style: disc;
+}
+
+.clinora-ai-reference__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  padding-top: 0.1rem;
+}
+
+.clinora-ai-reference__analysis-meta {
+  margin-left: auto;
+  color: #607b90;
+  font-size: 0.55rem;
+}
+
+.clinora-ai-reference__analysis-meta summary {
+  cursor: pointer;
+  color: #7c95a7;
+  font-weight: 700;
+  text-align: right;
+}
+
+.clinora-ai-reference__analysis-meta span {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+@keyframes clinora-reference-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clinora-report-review-reference__progress-ring {
+    animation: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .clinora-report-library-reference__heading--filters {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .clinora-report-library-reference__filters {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    justify-content: flex-end;
+  }
+  .clinora-report-review-reference__header {
+    grid-template-columns: 1fr;
+  }
+  .clinora-report-review-reference__progress {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .clinora-report-review-reference__workspace {
+    grid-template-columns: minmax(21rem, 0.8fr) minmax(31rem, 1.2fr);
+  }
+  .clinora-report-review-reference__table-head {
+    grid-template-columns: minmax(8rem, 1fr) minmax(6rem, 0.65fr) minmax(7rem, 0.8fr) minmax(13rem, 1fr);
+  }
+  .clinora-report-review-reference__observation {
+    grid-template-columns: minmax(0, 1fr) minmax(12.5rem, auto);
+  }
+  .clinora-report-review-reference__observation-main {
+    grid-template-columns: minmax(7rem, 1fr) minmax(5.5rem, 0.65fr) minmax(6.8rem, 0.8fr);
+  }
+  .clinora-ai-reference__evidence-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .clinora-report-start-reference__art,
+  .clinora-ai-reference-header__art {
+    left: 48%;
+    opacity: 0.55;
+  }
+  .clinora-report-start-reference__launch-main {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .clinora-report-start-reference__launch-actions {
+    grid-column: 2;
+  }
+  .clinora-report-library-reference__row {
+    grid-template-columns: 2.15rem minmax(10rem, 1.4fr) minmax(7rem, 0.7fr) minmax(6rem, 0.55fr) auto;
+  }
+  .clinora-report-library-reference__row .clinora-report-library-reference__fact:nth-of-type(2) {
+    display: none;
+  }
+  .clinora-report-review-reference__workspace {
+    grid-template-columns: 1fr;
+  }
+  .clinora-report-review-reference__source {
+    min-height: 31rem;
+  }
+  .clinora-report-review-reference__source,
+  .clinora-report-review-reference__results {
+    position: static;
+  }
+  .clinora-ai-reference__top-grid {
+    grid-template-columns: 1fr;
+  }
+  .clinora-ai-reference__intelligence {
+    min-height: 8rem;
+  }
+  .clinora-ai-reference__summary {
+    grid-template-columns: 2.5rem 1fr 1fr;
+  }
+  .clinora-ai-reference__overview {
+    grid-column: 2 / -1;
+  }
+  .clinora-ai-reference__tables,
+  .clinora-ai-reference__bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .clinora-report-start-reference__header,
+  .clinora-ai-reference-header {
+    min-height: auto;
+  }
+  .clinora-report-start-reference__art,
+  .clinora-ai-reference-header__art {
+    display: none;
+  }
+  .clinora-report-start-reference__launch-main {
+    grid-template-columns: 1fr;
+  }
+  .clinora-report-start-reference__launch-main > .clinora-reference-icon-well {
+    display: none;
+  }
+  .clinora-report-start-reference__launch-actions {
+    grid-column: 1;
+    flex-wrap: wrap;
+  }
+  .clinora-report-start-reference__steps {
+    grid-template-columns: 1fr;
+  }
+  .clinora-report-start-reference__steps > svg {
+    display: none;
+  }
+  .clinora-report-library-reference__heading,
+  .clinora-report-library-reference__heading--filters {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .clinora-report-library-reference__view-all,
+  .clinora-report-library-reference__filters {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-content: flex-start;
+  }
+  .clinora-report-library-reference__filters {
+    overflow-x: auto;
+  }
+  .clinora-report-library-reference__row {
+    grid-template-columns: 2.15rem minmax(0, 1fr) auto;
+  }
+  .clinora-report-library-reference__fact,
+  .clinora-report-library-reference__subject {
+    display: none;
+  }
+  .clinora-report-review-reference__progress {
+    grid-template-columns: 1fr;
+  }
+  .clinora-report-review-reference__results-head {
+    flex-direction: column;
+  }
+  .clinora-report-review-reference__table-head {
+    display: none;
+  }
+  .clinora-report-review-reference__observation {
+    grid-template-columns: 1fr;
+  }
+  .clinora-report-review-reference__observation-main {
+    grid-template-columns: 1fr 1fr;
+  }
+  .clinora-report-review-reference__reference-value {
+    grid-column: 1 / -1;
+  }
+  .clinora-report-review-reference__row-actions {
+    justify-content: flex-start;
+    padding: 0 0.7rem 0.55rem;
+  }
+  .clinora-report-review-reference__confirm-bar {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .clinora-ai-reference__interpretation {
+    grid-template-columns: 1fr;
+  }
+  .clinora-ai-reference__checks {
+    border-top: 1px solid rgba(103, 232, 249, 0.17);
+    border-left: 0;
+    padding-top: 0.75rem;
+    padding-left: 0;
+  }
+  .clinora-ai-reference__related {
+    flex-wrap: wrap;
+  }
+  .clinora-ai-reference__relevance {
+    margin-left: 3.25rem;
+  }
+  .clinora-ai-reference__candidate summary {
+    grid-template-columns: 1fr auto;
+  }
+  .clinora-ai-reference__candidate summary span {
+    grid-column: 1 / -1;
+  }
+  .clinora-ai-reference__candidate-context,
+  .clinora-ai-reference__evidence-grid {
+    grid-template-columns: 1fr;
+  }
+  .clinora-ai-reference__candidate-context > section {
+    border-top: 1px solid rgba(148, 163, 184, 0.08);
+    border-left: 0;
+  }
+  .clinora-ai-reference__summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .clinora-ai-reference__summary > .clinora-reference-icon-well {
+    display: none;
+  }
+  .clinora-ai-reference__overview {
+    grid-column: 1 / -1;
+  }
+  .clinora-ai-reference__value-head,
+  .clinora-ai-reference__value-row {
+    grid-template-columns: minmax(7rem, 1fr) minmax(5rem, 0.7fr) minmax(4rem, 0.55fr);
+  }
+  .clinora-ai-reference__value-head span:nth-child(3),
+  .clinora-ai-reference__value-row > span:nth-child(3) {
+    display: none;
+  }
+  .clinora-ai-reference__questions li {
+    grid-template-columns: 1fr;
+    gap: 0.18rem;
+  }
+  .clinora-ai-reference__analysis-meta {
+    width: 100%;
+    margin-left: 0;
+  }
+  .clinora-ai-reference__analysis-meta summary {
+    text-align: left;
+  }
+}

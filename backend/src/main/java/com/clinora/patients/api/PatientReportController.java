@@ -1,6 +1,7 @@
 package com.clinora.patients.api;
 
 import com.clinora.common.api.ApiResponse;
+import com.clinora.patients.domain.PatientReportSubjectType;
 import com.clinora.patients.domain.PatientReportType;
 import com.clinora.patients.service.PatientReportMutationService;
 import com.clinora.patients.service.PatientReportService;
@@ -59,6 +60,8 @@ public class PatientReportController {
         @AuthenticationPrincipal Jwt jwt,
         @RequestParam @NotBlank @Size(max = 160) String reportName,
         @RequestParam @NotNull PatientReportType reportType,
+        @RequestParam(defaultValue = "SELF") PatientReportSubjectType subjectType,
+        @RequestParam(required = false) @Size(max = 120) String subjectLabel,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reportDate,
         @RequestParam(required = false) @Size(max = 200) String providerLaboratory,
         @RequestPart("file") MultipartFile file,
@@ -66,7 +69,7 @@ public class PatientReportController {
     ) {
         ReportView report = mutations.upload(
             userId(jwt),
-            new UploadReportCommand(reportName, reportType, reportDate, providerLaboratory),
+            new UploadReportCommand(reportName, reportType, subjectType, subjectLabel, reportDate, providerLaboratory),
             file,
             ip(request),
             userAgent(request)
@@ -79,13 +82,15 @@ public class PatientReportController {
         @AuthenticationPrincipal Jwt jwt,
         @RequestParam(required = false) @Size(max = 100) String query,
         @RequestParam(required = false) PatientReportType reportType,
+        @RequestParam(required = false) PatientReportSubjectType subjectType,
+        @RequestParam(required = false) @Size(max = 120) String subjectLabel,
         @RequestParam(defaultValue = "ACTIVE") ReportCollection collection,
         @RequestParam(defaultValue = "1") @Min(1) int page,
         @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size
     ) {
         return ApiResponse.success(
             "Medical reports loaded.",
-            reports.list(userId(jwt), query, reportType, collection, page, size)
+            reports.list(userId(jwt), query, reportType, subjectType, subjectLabel, collection, page, size)
         );
     }
 

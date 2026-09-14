@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
+import './styles-r3.css';
 import { LandingPage } from './components/landing/landing-page';
 import { PublicLayout } from './components/public/public-layout';
 import { AuthLayout } from './features/auth/auth-layout';
@@ -36,16 +37,23 @@ import { PatientReportAnalysisPage } from './pages/patient/patient-report-analys
 import { PatientReportAiInsightPage } from './pages/patient/patient-report-ai-insight-page';
 import { PatientReportDetailPage } from './pages/patient/patient-report-detail-page';
 import { PatientReportsPage } from './pages/patient/patient-reports-page';
-import { PatientPortalPage } from './pages/patient/patient-portal-page';
+import { PatientPortalPage } from './pages/patient/patient-portal-r3-page';
 import { PatientHealthRecordPage } from './pages/patient/patient-health-record-page';
 import { PatientTimelinePage } from './pages/patient/patient-timeline-page';
 import { PatientDoctorsPage } from './pages/patient/patient-doctors-page';
-import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-page';
+import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-r3-page';
 import { PatientAppointmentsPage } from './pages/patient/patient-appointments-page';
 import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
 import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
 import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-page';
-import { DoctorAvailabilityPage } from './pages/doctor/doctor-availability-page';
+import { DoctorLayout, DoctorShell } from './features/doctor/doctor-layout-r3';
+import { DoctorAppointmentPage } from './pages/doctor/doctor-appointment-page';
+import { DoctorAvailabilityWorkspacePage } from './pages/doctor/doctor-availability-r3-page';
+import { DoctorDashboardPage } from './pages/doctor/doctor-dashboard-r3-page';
+import { DoctorProfilePage } from './pages/doctor/doctor-profile-r3-page';
+import { DoctorReportComparePage } from './pages/doctor/doctor-report-compare-page';
+import { DoctorReportReviewPage } from './pages/doctor/doctor-report-review-page';
+import { DoctorSchedulePage } from './pages/doctor/doctor-schedule-r3-page';
 
 export function AppRoutes() {
   return (
@@ -106,7 +114,15 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['DOCTOR']} />}>
-        <Route path="doctor/availability" element={<DoctorAvailabilityPage />} />
+        <Route element={<DoctorLayout />}>
+          <Route path="doctor" element={<DoctorDashboardPage />} />
+          <Route path="doctor/schedule" element={<DoctorSchedulePage />} />
+          <Route path="doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />
+          <Route path="doctor/appointments/:appointmentId/reports/compare" element={<DoctorReportComparePage />} />
+          <Route path="doctor/appointments/:appointmentId/reports/:reportId" element={<DoctorReportReviewPage />} />
+          <Route path="doctor/availability" element={<DoctorAvailabilityWorkspacePage />} />
+          <Route path="doctor/profile" element={<DoctorProfilePage />} />
+        </Route>
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
@@ -120,13 +136,21 @@ export function AppRoutes() {
 
 function RoleAwareAccountPage() {
   const role = useAuthStore((state) => state.user?.role);
-  return role === 'PATIENT' ? (
-    <PatientShell>
-      <AccountPage embedded />
-    </PatientShell>
-  ) : (
-    <AccountPage />
-  );
+  if (role === 'PATIENT') {
+    return (
+      <PatientShell>
+        <AccountPage embedded />
+      </PatientShell>
+    );
+  }
+  if (role === 'DOCTOR') {
+    return (
+      <DoctorShell>
+        <AccountPage embedded />
+      </DoctorShell>
+    );
+  }
+  return <AccountPage />;
 }
 
 export function App() {

@@ -25,6 +25,10 @@ export const patientReportApi = {
     const form = new FormData();
     form.append('reportName', input.reportName);
     form.append('reportType', input.reportType);
+    form.append('subjectType', input.subjectType ?? 'SELF');
+    if ((input.subjectType ?? 'SELF') === 'OTHER' && input.subjectLabel?.trim()) {
+      form.append('subjectLabel', input.subjectLabel.trim());
+    }
     if (input.reportDate) form.append('reportDate', input.reportDate);
     if (input.providerLaboratory) form.append('providerLaboratory', input.providerLaboratory);
     form.append('file', input.file);

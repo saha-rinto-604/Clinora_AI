@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { z } from 'zod';
 import { apiErrorMessage, authApi } from '../../features/auth/auth-api';
+import { postLoginDestination } from '../../features/auth/auth-navigation';
 import { AuthCard, AuthHeading, Field, FormNotice, PasswordField, SubmitButton } from '../../features/auth/auth-ui';
 
 const schema = z.object({
@@ -27,8 +28,7 @@ export function LoginPage() {
     try {
       const session = await authApi.login(values.email, values.password);
       const state = location.state as { from?: string } | null;
-      const defaultRoute = session.user.role === 'PATIENT' ? '/patient' : '/account';
-      navigate(state?.from ?? defaultRoute, { replace: true });
+      navigate(postLoginDestination(session.user.role, state?.from), { replace: true });
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to sign in. Please try again.'));
     }

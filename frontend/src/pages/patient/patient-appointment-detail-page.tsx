@@ -34,7 +34,7 @@ export function PatientAppointmentDetailPage() {
     const [detail, currentShares, reportPage] = await Promise.all([
       appointmentApi.detail(appointmentId),
       appointmentApi.shares(appointmentId),
-      patientReportApi.list({ collection: 'ACTIVE', page: 1, size: 50 }),
+      patientReportApi.list({ collection: 'ACTIVE', subjectType: 'SELF', page: 1, size: 50 }),
     ]);
     setAppointment(detail);
     setShares(currentShares);
@@ -49,7 +49,7 @@ export function PatientAppointmentDetailPage() {
     Promise.all([
       appointmentApi.detail(appointmentId),
       appointmentApi.shares(appointmentId),
-      patientReportApi.list({ collection: 'ACTIVE', page: 1, size: 50 }),
+      patientReportApi.list({ collection: 'ACTIVE', subjectType: 'SELF', page: 1, size: 50 }),
     ])
       .then(async ([detail, currentShares, reportPage]) => {
         if (!active) return;

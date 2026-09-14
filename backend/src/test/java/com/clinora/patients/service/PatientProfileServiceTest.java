@@ -22,6 +22,7 @@ import com.clinora.patients.domain.PatientChronicCondition;
 import com.clinora.patients.domain.PatientGender;
 import com.clinora.patients.domain.PatientMedication;
 import com.clinora.patients.domain.PatientProfile;
+import com.clinora.patients.domain.PatientReportSubjectType;
 import com.clinora.patients.repository.PatientAllergyRepository;
 import com.clinora.patients.repository.PatientChronicConditionRepository;
 import com.clinora.patients.repository.PatientMedicationRepository;
@@ -188,8 +189,12 @@ class PatientProfileServiceTest {
             .thenReturn(List.of(new PatientChronicCondition(PROFILE_ID, "Asthma", NOW)));
         when(fixture.medications.findAllByPatientProfileIdOrderByNameAsc(PROFILE_ID))
             .thenReturn(List.of(new PatientMedication(PROFILE_ID, "Inhaler", NOW)));
-        when(fixture.reports.findFirstByPatientUserIdAndArchivedAtIsNullOrderByCreatedAtDesc(USER_ID))
-            .thenReturn(Optional.empty());
+        when(fixture.reports.countByPatientUserIdAndSubjectTypeAndArchivedAtIsNull(
+            USER_ID, PatientReportSubjectType.SELF
+        )).thenReturn(0L);
+        when(fixture.reports.findFirstByPatientUserIdAndSubjectTypeAndArchivedAtIsNullOrderByCreatedAtDesc(
+            USER_ID, PatientReportSubjectType.SELF
+        )).thenReturn(Optional.empty());
 
         var dashboard = fixture.service.dashboard(USER_ID);
 

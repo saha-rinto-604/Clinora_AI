@@ -54,9 +54,8 @@ export function PatientCoreExperience({
                   Turn a report into results you can verify
                 </h2>
                 <p className="mt-1.5 text-sm leading-6 text-[var(--clinora-text-muted)]">
-                  Upload a laboratory report or choose one already stored in Clinora. Clinora extracts reported
-                  laboratory values and lets you verify them against the original before later AI-assisted
-                  interpretation.
+                  Choose a report already stored in Clinora. Clinora extracts reported laboratory values and lets you
+                  verify them against the original before later AI-assisted interpretation.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-medium text-[var(--clinora-text-faint)]">
                   <span>Extract</span>
@@ -74,11 +73,7 @@ export function PatientCoreExperience({
               >
                 <ScanText size={16} aria-hidden="true" /> Analyze a report <ArrowRight size={15} aria-hidden="true" />
               </Link>
-              <Button
-                variant="appSecondary"
-                className="focus-visible:outline-cyan-300"
-                onClick={onUpload}
-              >
+              <Button variant="appSecondary" className="focus-visible:outline-cyan-300" onClick={onUpload}>
                 <UploadCloud size={16} aria-hidden="true" /> Upload new report
               </Button>
             </div>
@@ -98,8 +93,8 @@ export function PatientCoreExperience({
                   Nearby help, organized on a live map
                 </h2>
                 <p className="mt-1.5 text-sm leading-6 text-[var(--clinora-text-muted)]">
-                  Create a blood request, alert opted-in Clinora patients with the matching blood group inside a
-                  5 km area, and coordinate after someone accepts.
+                  Create a blood request, alert opted-in Clinora patients with the matching blood group inside a 5 km
+                  area, and coordinate after someone accepts.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium text-[var(--clinora-text-faint)]">
                   <span className="inline-flex items-center gap-1.5">
@@ -118,7 +113,10 @@ export function PatientCoreExperience({
             </Link>
           </article>
 
-          <article className="bg-[linear-gradient(150deg,rgba(8,145,178,0.06),rgba(15,23,42,0.14)_58%,transparent)] p-5 sm:p-6" data-medical-reports-panel="true">
+          <article
+            className="bg-[linear-gradient(150deg,rgba(8,145,178,0.06),rgba(15,23,42,0.14)_58%,transparent)] p-5 sm:p-6"
+            data-medical-reports-panel="true"
+          >
             <div className="flex items-start gap-4">
               <IconWell className="h-10 w-10" tone="info">
                 <FileText size={19} aria-hidden="true" />
@@ -134,7 +132,10 @@ export function PatientCoreExperience({
                     </StatusPill>
                   ) : null}
                 </div>
-                <h2 id="medical-reports-title" className="mt-1.5 text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl">
+                <h2
+                  id="medical-reports-title"
+                  className="mt-1.5 text-lg font-semibold tracking-[-0.025em] text-white sm:text-xl"
+                >
                   Medical reports
                 </h2>
                 <p className="mt-1.5 text-sm leading-6 text-[var(--clinora-text-muted)]">
@@ -185,11 +186,21 @@ export function PatientCoreExperience({
   );
 }
 
-function CinematicCoreMedia({ reducedMotion }: { reducedMotion: boolean }) {
+export function CinematicCoreMedia({
+  reducedMotion,
+  integrated = false,
+}: {
+  reducedMotion: boolean;
+  integrated?: boolean;
+}) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] overflow-hidden sm:h-[23rem] lg:inset-0 lg:h-auto"
+      className={
+        integrated
+          ? 'patient-home__media'
+          : 'pointer-events-none absolute inset-x-0 top-0 h-[20rem] overflow-hidden sm:h-[23rem] lg:inset-0 lg:h-auto'
+      }
       data-core-experience-media="cinematic"
     >
       {reducedMotion ? (
@@ -214,8 +225,14 @@ function CinematicCoreMedia({ reducedMotion }: { reducedMotion: boolean }) {
           <source src={CORE_VIDEO} type="video/mp4" />
         </video>
       )}
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,42,47,0.5)_0%,rgba(5,42,47,0.22)_32%,transparent_62%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,18,24,0.04)_0%,rgba(3,18,24,0.12)_38%,rgba(3,18,24,0.7)_76%,rgba(3,18,24,0.98)_100%)]" />
+      {integrated ? (
+        <div className="patient-home__media-scrim" />
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,42,47,0.5)_0%,rgba(5,42,47,0.22)_32%,transparent_62%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,18,24,0.04)_0%,rgba(3,18,24,0.12)_38%,rgba(3,18,24,0.7)_76%,rgba(3,18,24,0.98)_100%)]" />
+        </>
+      )}
     </div>
   );
 }

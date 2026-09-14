@@ -55,6 +55,14 @@ const report: PatientReport = {
   updatedAt: '2026-08-30T08:00:00Z',
 };
 
+const otherReport: PatientReport = {
+  ...report,
+  id: '77777777-7777-7777-7777-777777777777',
+  reportName: 'Family lipid report',
+  subjectType: 'OTHER',
+  subjectLabel: 'Mother',
+};
+
 const reportPage: PatientReportPage = {
   items: [report],
   page: 1,
@@ -65,6 +73,14 @@ const reportPage: PatientReportPage = {
   hasNext: false,
   activeCount: 1,
   archivedCount: 0,
+};
+
+const otherReportPage: PatientReportPage = {
+  ...reportPage,
+  items: [
+    otherReport,
+    { ...report, id: '88888888-8888-8888-8888-888888888888', reportName: 'Leaked self report', subjectType: 'SELF' },
+  ],
 };
 
 const extraction: PatientReportExtraction = {
@@ -147,7 +163,9 @@ function renderWorkspace() {
 describe('Phase 9P-R2 Patient report analysis UX', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.list.mockResolvedValue(reportPage);
+    mocks.list.mockImplementation((query: { subjectType?: string }) =>
+      Promise.resolve(query.subjectType === 'OTHER' ? otherReportPage : reportPage),
+    );
     mocks.detail.mockResolvedValue(report);
     mocks.content.mockResolvedValue(new Blob(['image'], { type: 'image/png' }));
     mocks.getExtraction.mockResolvedValue(extraction);
@@ -174,6 +192,14 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     expect(screen.getByRole('heading', { name: 'Start with your report' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Choose existing/i })).toHaveAttribute('href', '#existing-reports');
     expect(await screen.findByText('CBC report')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Personal lab reports' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Other lab reports' })).toBeInTheDocument();
+    expect(screen.getByText('Family lipid report')).toBeInTheDocument();
+    expect(screen.queryByText('Leaked self report')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'All lab reports' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Me' })).not.toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledWith(expect.objectContaining({ subjectType: 'SELF' }));
+    expect(mocks.list).toHaveBeenCalledWith(expect.objectContaining({ subjectType: 'OTHER' }));
     expect(screen.queryByText(report.id)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Upload report' }));
@@ -185,14 +211,14 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     renderWorkspace();
 
     expect(await screen.findByRole('heading', { name: 'Review what Clinora read' })).toBeInTheDocument();
-    expect(screen.getAllByText('Reference on report')).toHaveLength(3);
+    expect(screen.getByText('Reference on report')).toBeInTheDocument();
     expect(screen.getByText('Not confidently captured — compare with source')).toBeInTheDocument();
     expect(screen.queryByText('Reference range not available on this report')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Result 37.5; report reference range/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByText('MCHC').closest('button')!);
-    expect(screen.getByText('Source for MCHC · page 1')).toBeInTheDocument();
-    expect(screen.getByLabelText(/Result 37.5; report reference range 31.5 to 34.5/i)).toBeInTheDocument();
+    expect(screen.getByText('Source for MCHC')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'View on report' })).toHaveLength(extraction.observations.length);
 
     await user.click(screen.getAllByRole('button', { name: 'Edit result' })[0]);
     expect(screen.getByText('What Clinora originally extracted')).toBeInTheDocument();
@@ -280,7 +306,7 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
 
   it('renders the compact analysis start without automated accessibility violations', async () => {
     const { container } = renderStart();
-    await screen.findByText('CBC report');
+    expect(await screen.findByText('CBC report')).toBeInTheDocument();
     expect(await axe(container)).toHaveNoViolations();
   });
 });
