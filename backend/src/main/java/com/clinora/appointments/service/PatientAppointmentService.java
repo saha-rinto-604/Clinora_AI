@@ -3,6 +3,7 @@ package com.clinora.appointments.service;
 import com.clinora.notifications.service.PatientNotificationService;
 import com.clinora.notifications.service.PatientNotificationService.NotificationCategory;
 import com.clinora.patients.api.PatientApiException;
+import com.clinora.patients.service.PatientReportDisplayName;
 import com.clinora.patients.service.PatientTimelineService;
 import com.clinora.patients.service.PatientTimelineService.TimelineCategory;
 import java.sql.Timestamp;
@@ -47,7 +48,8 @@ public class PatientAppointmentService {
         String cleanedSpecialty = text(specialty, 180);
         List<DoctorView> items = jdbc.query(
             """
-            SELECT p.doctor_user_id, p.display_name, p.professional_title, p.specialization,
+            SELECT p.doctor_user_id, p.display_name,
+                   COALESCE(p.display_title, p.professional_title) AS professional_title, p.specialization,
                    p.years_experience, p.current_organization, p.current_position,
                    p.registration_jurisdiction, p.registration_authority, p.registration_type,
                    p.registration_valid_until,
@@ -78,7 +80,8 @@ public class PatientAppointmentService {
         requireActiveUser(patientUserId, "PATIENT");
         List<DoctorView> doctors = jdbc.query(
             """
-            SELECT p.doctor_user_id, p.display_name, p.professional_title, p.specialization,
+            SELECT p.doctor_user_id, p.display_name,
+                   COALESCE(p.display_title, p.professional_title) AS professional_title, p.specialization,
                    p.years_experience, p.current_organization, p.current_position,
                    p.registration_jurisdiction, p.registration_authority, p.registration_type,
                    p.registration_valid_until,
@@ -400,18 +403,33 @@ public class PatientAppointmentService {
         appointment(patientUserId, appointmentId);
         return jdbc.query(
             """
-            SELECT s.report_id, r.report_name, r.report_type, r.report_date, s.shared_at, s.revoked_at
+            SELECT s.report_id, r.report_name, r.report_type, r.report_date, r.provider_laboratory,
+                   r.original_filename, s.shared_at, s.revoked_at
             FROM appointment_report_shares s
             JOIN patient_medical_reports r ON r.id = s.report_id
             WHERE s.appointment_id = ? AND s.patient_user_id = ?
+              AND r.subject_type = 'SELF'
             ORDER BY s.shared_at DESC
             """,
-            (rs, rowNum) -> new ReportShareView(
-                rs.getObject("report_id", UUID.class), rs.getString("report_name"), rs.getString("report_type"),
-                rs.getDate("report_date") == null ? null : rs.getDate("report_date").toLocalDate(),
-                rs.getTimestamp("shared_at").toInstant(),
-                rs.getTimestamp("revoked_at") == null ? null : rs.getTimestamp("revoked_at").toInstant()
-            ),
+            (rs, rowNum) -> {
+                java.time.LocalDate reportDate = rs.getDate("report_date") == null
+                    ? null
+                    : rs.getDate("report_date").toLocalDate();
+                return new ReportShareView(
+                    rs.getObject("report_id", UUID.class),
+                    PatientReportDisplayName.resolve(
+                        rs.getString("report_name"),
+                        rs.getString("original_filename"),
+                        rs.getString("report_type"),
+                        reportDate,
+                        rs.getString("provider_laboratory")
+                    ),
+                    rs.getString("report_type"),
+                    reportDate,
+                    rs.getTimestamp("shared_at").toInstant(),
+                    rs.getTimestamp("revoked_at") == null ? null : rs.getTimestamp("revoked_at").toInstant()
+                );
+            },
             appointmentId, patientUserId
         );
     }
@@ -444,10 +462,10 @@ public class PatientAppointmentService {
 
     private void addShareInternal(UUID patientUserId, UUID appointmentId, UUID reportId, Instant now) {
         Integer owned = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM patient_medical_reports WHERE id = ? AND patient_user_id = ? AND archived_at IS NULL",
+            "SELECT COUNT(*) FROM patient_medical_reports WHERE id = ? AND patient_user_id = ? AND subject_type = 'SELF' AND archived_at IS NULL",
             Integer.class, reportId, patientUserId
         );
-        if (owned == null || owned != 1) throw badRequest("REPORT_NOT_SHAREABLE", "Choose an active medical report from your own report library.");
+        if (owned == null || owned != 1) throw badRequest("REPORT_NOT_SHAREABLE", "Choose an active report that belongs to your own health record.");
         UUID doctorUserId = jdbc.queryForObject("SELECT doctor_user_id FROM appointments WHERE id = ? AND patient_user_id = ?", UUID.class, appointmentId, patientUserId);
         jdbc.update(
             """
@@ -521,8 +539,12 @@ public class PatientAppointmentService {
               professional_title = EXCLUDED.professional_title,
               specialization = EXCLUDED.specialization,
               years_experience = EXCLUDED.years_experience,
-              current_organization = EXCLUDED.current_organization,
-              current_position = EXCLUDED.current_position,
+              current_organization = CASE
+                  WHEN doctor_booking_profiles.profile_version = 0 THEN EXCLUDED.current_organization
+                  ELSE doctor_booking_profiles.current_organization END,
+              current_position = CASE
+                  WHEN doctor_booking_profiles.profile_version = 0 THEN EXCLUDED.current_position
+                  ELSE doctor_booking_profiles.current_position END,
               registration_jurisdiction = EXCLUDED.registration_jurisdiction,
               registration_authority = EXCLUDED.registration_authority,
               registration_type = EXCLUDED.registration_type,

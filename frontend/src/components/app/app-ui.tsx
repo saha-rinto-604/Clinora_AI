@@ -169,6 +169,7 @@ export function EmptyState({
   icon,
   iconTone = 'info',
   title,
+  titleAs: Title = 'h3',
   copy,
   action,
   className,
@@ -176,6 +177,7 @@ export function EmptyState({
   icon?: ReactNode;
   iconTone?: 'info' | 'success' | 'warning' | 'danger' | 'neutral';
   title: string;
+  titleAs?: 'h2' | 'h3';
   copy: string;
   action?: ReactNode;
   className?: string;
@@ -183,7 +185,9 @@ export function EmptyState({
   return (
     <div className={cn('flex flex-col items-start', className)}>
       {icon ? <IconWell tone={iconTone}>{icon}</IconWell> : null}
-      <h3 className={cn('text-base font-semibold text-[var(--clinora-text-primary)]', icon ? 'mt-4' : '')}>{title}</h3>
+      <Title className={cn('text-base font-semibold text-[var(--clinora-text-primary)]', icon ? 'mt-4' : '')}>
+        {title}
+      </Title>
       <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--clinora-text-muted)]">{copy}</p>
       {action ? <div className="mt-5">{action}</div> : null}
     </div>

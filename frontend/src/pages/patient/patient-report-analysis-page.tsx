@@ -1,21 +1,31 @@
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Eye,
   FileCheck2,
+  FlaskConical,
   FileText,
+  Maximize2,
+  Minus,
   PencilLine,
+  Plus,
   RefreshCw,
+  Search,
   ScanText,
   ShieldCheck,
   Sparkles,
   UploadCloud,
+  UserRound,
+  UsersRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '../../lib/cn';
 import {
   patientReportExtractionApi,
@@ -28,8 +38,14 @@ import type {
 } from '../../features/patient-reports/patient-report-extraction-types';
 import { patientReportApi, patientReportErrorMessage } from '../../features/patient-reports/patient-report-api';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
-import { patientReportDisplayName, patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
+import {
+  patientReportDisplayName,
+  patientReportSubjectLabel,
+  patientReportTypeLabels,
+  type PatientReport,
+} from '../../features/patient-reports/patient-report-types';
 import './patient-report-analysis-processing.css';
+import './patient-report-reference-workspaces.css';
 export function PatientReportAnalysisPage() {
   const { reportId } = useParams();
   return reportId ? <AnalysisWorkspace reportId={reportId} /> : <AnalysisStart />;
@@ -37,170 +53,172 @@ export function PatientReportAnalysisPage() {
 
 function AnalysisStart() {
   const navigate = useNavigate();
-  const [reports, setReports] = useState<PatientReport[]>([]);
+  const [personalReports, setPersonalReports] = useState<PatientReport[]>([]);
+  const [otherReports, setOtherReports] = useState<PatientReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [reportTypeFilter, setReportTypeFilter] = useState<'' | PatientReport['reportType']>('');
+  const [sortOrder, setSortOrder] = useState<'report-date' | 'uploaded'>('report-date');
 
   const loadReports = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const page = await patientReportApi.list({ collection: 'ACTIVE', page: 1, size: 8 });
-      setReports(page.items);
+      const [personalPage, otherPage] = await Promise.all([
+        patientReportApi.list({ collection: 'ACTIVE', subjectType: 'SELF', page: 1, size: 4 }),
+        patientReportApi.list({
+          collection: 'ACTIVE',
+          subjectType: 'OTHER',
+          reportType: reportTypeFilter || undefined,
+          query: query.trim() || undefined,
+          page: 1,
+          size: 12,
+        }),
+      ]);
+      setPersonalReports(personalPage.items);
+      setOtherReports(otherPage.items);
     } catch (requestError) {
       setError(patientReportErrorMessage(requestError, 'Your medical reports could not be loaded.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [query, reportTypeFilter]);
 
   useEffect(() => {
-    void loadReports();
+    const timer = window.setTimeout(() => void loadReports(), 180);
+    return () => window.clearTimeout(timer);
   }, [loadReports]);
 
+  const sortedOtherReports = useMemo(() => {
+    return otherReports.filter((report) => report.subjectType === 'OTHER').sort((left, right) => {
+      if (sortOrder === 'uploaded') return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+      const leftDate = left.reportDate ? Date.parse(`${left.reportDate}T00:00:00Z`) : Date.parse(left.createdAt);
+      const rightDate = right.reportDate ? Date.parse(`${right.reportDate}T00:00:00Z`) : Date.parse(right.createdAt);
+      return rightDate - leftDate;
+    });
+  }, [otherReports, sortOrder]);
+
   return (
-    <div className="space-y-8">
-      <header className="max-w-3xl">
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/[0.07] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
-          <ScanText size={14} aria-hidden="true" /> AI report analysis
+    <div className="clinora-report-start-reference">
+      <header className="clinora-report-start-reference__header">
+        <div className="clinora-report-start-reference__copy">
+          <div className="clinora-reference-eyebrow">
+            <ScanText size={14} aria-hidden="true" /> Clinora AI analysis
+          </div>
+          <h1>Analyze a medical report</h1>
+          <p>
+            Upload your laboratory report, verify the values, and get clear, patient-friendly insights powered by Clinora AI.
+          </p>
         </div>
-        <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-          Analyze a medical report
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--clinora-text-muted)] sm:text-base">
-          Extract laboratory values, verify them against the original report, then continue to a dedicated AI insight
-          workspace for a clear, patient-friendly explanation.
-        </p>
+        <div className="clinora-report-start-reference__art" aria-hidden="true" />
       </header>
 
-      <section
-        aria-labelledby="analysis-start-title"
-        className="rounded-[var(--clinora-radius-lg)] border border-cyan-300/15 bg-[linear-gradient(115deg,rgba(8,145,178,0.08),rgba(255,255,255,0.018)_55%)] p-5 sm:p-6"
-      >
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]">
-              <UploadCloud size={20} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 id="analysis-start-title" className="text-base font-semibold text-white">
-                Start with your report
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-                Upload a PDF, JPG or PNG, or choose a report already saved in Medical Reports. The original remains
-                unchanged while you review Clinora's transcription.
-              </p>
-            </div>
+      <section className="clinora-report-start-reference__launch" aria-labelledby="analysis-start-title">
+        <div className="clinora-report-start-reference__launch-main">
+          <span className="clinora-reference-icon-well">
+            <UploadCloud size={20} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 id="analysis-start-title">Start with your report</h2>
+            <p>
+              Upload a PDF, JPG or PNG, or choose a report already saved in Medical Reports. The original remains unchanged while you review Clinora&apos;s analysis.
+            </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="clinora-report-start-reference__launch-actions">
             <Button variant="appPrimary" onClick={() => setUploadOpen(true)}>
               <UploadCloud size={16} aria-hidden="true" /> Upload report
             </Button>
-            <a
-              href="#existing-reports"
-              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-white/[0.09] bg-white/[0.035] px-4 text-sm font-semibold text-slate-200 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
-            >
+            <a href="#existing-reports" className="clinora-reference-secondary-button">
               Choose existing <ChevronRight size={15} aria-hidden="true" />
             </a>
           </div>
         </div>
-        <div className="mt-5 grid gap-3 border-t border-white/[0.07] pt-4 text-xs text-[var(--clinora-text-muted)] sm:grid-cols-3">
-          <p>
-            <span className="font-semibold text-slate-300">1 · Extract</span>
-            <br />
-            Clinora reads reported laboratory values.
-          </p>
-          <p>
-            <span className="font-semibold text-slate-300">2 · Verify</span>
-            <br />
-            Compare uncertain values with the source.
-          </p>
-          <p>
-            <span className="font-semibold text-slate-300">3 · Understand</span>
-            <br />
-            Continue to a dedicated AI insight after verification.
-          </p>
+        <div className="clinora-report-start-reference__steps" aria-label="Report analysis workflow">
+          <div><strong>1 · Extract</strong><span>Clinora reads reported laboratory values.</span></div>
+          <ChevronRight size={15} aria-hidden="true" />
+          <div><strong>2 · Verify</strong><span>Compare uncertain values with the source.</span></div>
+          <ChevronRight size={15} aria-hidden="true" />
+          <div><strong>3 · Understand</strong><span>Get a clear, patient-friendly insight after verification.</span></div>
         </div>
       </section>
 
-      <section id="existing-reports" className="scroll-mt-24">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      {error ? (
+        <div className="clinora-reference-error" role="alert">
+          {error}{' '}
+          <button type="button" onClick={() => void loadReports()}>Try again</button>
+        </div>
+      ) : null}
+
+      <section id="existing-reports" className="clinora-report-library-reference scroll-mt-24" aria-labelledby="personal-lab-reports-title">
+        <div className="clinora-report-library-reference__heading">
+          <span className="clinora-reference-icon-well"><UserRound size={19} aria-hidden="true" /></span>
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--clinora-text-faint)]">
-              Medical Reports
-            </p>
-            <h2 className="mt-1 text-xl font-semibold tracking-[-0.025em] text-white">Select a report to analyze</h2>
+            <h2 id="personal-lab-reports-title">Personal lab reports</h2>
+            <p>Reports that belong to you and can contribute to your own Clinora Health Record.</p>
           </div>
-          <Link
-            to="/patient/reports"
-            className="text-sm font-semibold text-[var(--clinora-info-foreground)] hover:text-cyan-200"
-          >
-            Open report vault
+          <Link to="/patient/reports" className="clinora-report-library-reference__view-all">
+            View all <ChevronRight size={14} aria-hidden="true" />
           </Link>
         </div>
+        <ReportPreviewRows
+          reports={personalReports}
+          loading={loading}
+          emptyText="No personal reports are ready for analysis yet."
+          onAnalyze={(report) => navigate(`/patient/analyze/${report.id}`)}
+        />
+      </section>
 
-        {error ? (
-          <div
-            className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/[0.07] p-4 text-sm text-rose-200"
-            role="alert"
-          >
-            {error}{' '}
-            <button
-              type="button"
-              onClick={() => void loadReports()}
-              className="font-semibold underline underline-offset-4"
-            >
-              Try again
-            </button>
+      <section className="clinora-report-library-reference" aria-labelledby="other-lab-reports-title">
+        <div className="clinora-report-library-reference__heading clinora-report-library-reference__heading--filters">
+          <span className="clinora-reference-icon-well"><UsersRound size={19} aria-hidden="true" /></span>
+          <div>
+            <h2 id="other-lab-reports-title">Other lab reports</h2>
+            <p>Reports uploaded for family members or someone else. These stay separate from your own Clinora Health Record.</p>
           </div>
-        ) : null}
-
-        <div className="mt-5 grid gap-3">
-          {loading ? (
-            <div className="rounded-2xl border border-[var(--clinora-border-subtle)] bg-white/[0.025] p-5 text-sm text-[var(--clinora-text-muted)]">
-              Loading your reports…
-            </div>
-          ) : reports.length ? (
-            reports.map((report) => (
-              <button
-                key={report.id}
-                type="button"
-                onClick={() => navigate(`/patient/analyze/${report.id}`)}
-                className="group flex min-h-20 items-center gap-4 rounded-2xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-raised)] p-4 text-left transition-colors hover:border-cyan-300/20 hover:bg-white/[0.05]"
+          <div className="clinora-report-library-reference__filters" aria-label="Filter other reports">
+            <label>
+              <span className="sr-only">Report type</span>
+              <select
+                value={reportTypeFilter}
+                onChange={(event) => setReportTypeFilter(event.target.value as '' | PatientReport['reportType'])}
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.045] text-slate-300">
-                  <FileText size={19} aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-white">{patientReportDisplayName(report)}</span>
-                  <span className="mt-1 block text-xs text-[var(--clinora-text-faint)]">
-                    {patientReportTypeLabels[report.reportType]}
-                    {report.reportDate ? ` · ${formatDate(report.reportDate)}` : ''}
-                  </span>
-                </span>
-                <span className="hidden text-xs font-semibold text-[var(--clinora-info-foreground)] sm:inline">
-                  Analyze
-                </span>
-                <ChevronRight
-                  size={17}
-                  className="text-slate-600 transition-transform group-hover:translate-x-0.5"
-                  aria-hidden="true"
-                />
-              </button>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-dashed border-[var(--clinora-border-interactive)] p-7 text-center">
-              <p className="text-sm font-semibold text-white">No active medical reports yet</p>
-              <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
-                Upload your first report to begin.
-              </p>
-              <Button variant="appPrimary" size="sm" className="mt-4" onClick={() => setUploadOpen(true)}>
-                <UploadCloud size={15} aria-hidden="true" /> Upload report
-              </Button>
-            </div>
-          )}
+                <option value="">All report types</option>
+                {Object.entries(patientReportTypeLabels).map(([type, label]) => (
+                  <option key={type} value={type}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Sort reports</span>
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as 'report-date' | 'uploaded')}>
+                <option value="report-date">Sort by date</option>
+                <option value="uploaded">Recently uploaded</option>
+              </select>
+            </label>
+          </div>
+          <Link to="/patient/reports" className="clinora-report-library-reference__view-all">
+            View all <ChevronRight size={14} aria-hidden="true" />
+          </Link>
         </div>
+        <div className="clinora-report-library-reference__search">
+          <Search size={15} aria-hidden="true" />
+          <label className="sr-only" htmlFor="analysis-report-search">Search reports</label>
+          <input
+            id="analysis-report-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search reports, providers or person labels"
+          />
+        </div>
+        <ReportPreviewRows
+          reports={sortedOtherReports}
+          loading={loading}
+          emptyText="No other-person reports match these filters."
+          onAnalyze={(report) => navigate(`/patient/analyze/${report.id}`)}
+        />
       </section>
 
       <PatientReportUploadDialog
@@ -208,6 +226,51 @@ function AnalysisStart() {
         onOpenChange={setUploadOpen}
         onUploaded={(report) => navigate(`/patient/analyze/${report.id}`)}
       />
+    </div>
+  );
+}
+
+function ReportPreviewRows({
+  reports,
+  loading,
+  emptyText,
+  onAnalyze,
+}: {
+  reports: PatientReport[];
+  loading: boolean;
+  emptyText: string;
+  onAnalyze: (report: PatientReport) => void;
+}) {
+  if (loading) {
+    return <div className="clinora-report-library-reference__empty">Loading reports…</div>;
+  }
+  if (!reports.length) {
+    return <div className="clinora-report-library-reference__empty">{emptyText}</div>;
+  }
+  return (
+    <div className="clinora-report-library-reference__rows">
+      {reports.map((report) => (
+        <button key={report.id} type="button" className="clinora-report-library-reference__row" onClick={() => onAnalyze(report)}>
+          <span className="clinora-report-library-reference__file"><FileText size={17} aria-hidden="true" /></span>
+          <span className="clinora-report-library-reference__identity">
+            <strong>{patientReportDisplayName(report)}</strong>
+            <span>{report.providerLaboratory?.trim() || patientReportTypeLabels[report.reportType]}</span>
+          </span>
+          <span className="clinora-report-library-reference__fact">
+            <CalendarDays size={14} aria-hidden="true" />
+            <span><strong>{report.reportDate ? formatDate(report.reportDate) : formatUploadedDate(report.createdAt)}</strong><small>{report.reportDate ? 'Report date' : 'Uploaded'}</small></span>
+          </span>
+          <span className="clinora-report-library-reference__fact">
+            <FlaskConical size={14} aria-hidden="true" />
+            <span><strong>{patientReportTypeLabels[report.reportType]}</strong><small>Report type</small></span>
+          </span>
+          <span className={cn('clinora-report-library-reference__subject', (report.subjectType ?? 'SELF') === 'OTHER' && 'is-other')}>
+            {(report.subjectType ?? 'SELF') === 'SELF' ? <UserRound size={13} aria-hidden="true" /> : <UsersRound size={13} aria-hidden="true" />}
+            {patientReportSubjectLabel(report)}
+          </span>
+          <span className="clinora-report-library-reference__analyze">Analyze <ChevronRight size={14} aria-hidden="true" /></span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -221,6 +284,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   const [error, setError] = useState('');
   const [selectedObservationId, setSelectedObservationId] = useState<string | null>(null);
   const [editingObservationId, setEditingObservationId] = useState<string | null>(null);
+  const [showReviewHelp, setShowReviewHelp] = useState(false);
+  const [reExtractOpen, setReExtractOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -283,6 +348,23 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
     extraction?.observations.filter((item) => item.reviewRequired && item.verificationStatus === 'UNREVIEWED').length ??
     0;
 
+  useEffect(() => {
+    if (selectedObservationId || !extraction?.observations.length) return;
+    const firstReview = extraction.observations.find(
+      (item) => item.reviewRequired && item.verificationStatus === 'UNREVIEWED',
+    );
+    setSelectedObservationId((firstReview ?? extraction.observations[0]).id);
+  }, [extraction, selectedObservationId]);
+
+  const reviewRows = useMemo(() => {
+    if (!extraction) return [];
+    return [...extraction.observations].sort(
+      (a, b) =>
+        Number(b.reviewRequired && b.verificationStatus === 'UNREVIEWED') -
+        Number(a.reviewRequired && a.verificationStatus === 'UNREVIEWED'),
+    );
+  }, [extraction]);
+
   async function startExtraction() {
     setAction('start');
     setError('');
@@ -307,6 +389,31 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
     }
   }
 
+  async function reExtractReport() {
+    setAction('re-extract');
+    setError('');
+    try {
+      setExtraction(await patientReportExtractionApi.reExtract(reportId));
+      setReExtractOpen(false);
+    } catch (requestError) {
+      setError(patientReportExtractionErrorMessage(requestError, 'The original report could not be re-extracted.'));
+    } finally {
+      setAction('');
+    }
+  }
+
+  async function confirmMissingDifference(differenceId: string) {
+    setAction(`missing:${differenceId}`);
+    setError('');
+    try {
+      setExtraction(await patientReportExtractionApi.confirmMissingDifference(reportId, differenceId));
+    } catch (requestError) {
+      setError(patientReportExtractionErrorMessage(requestError, 'This missing value could not be reviewed.'));
+    } finally {
+      setAction('');
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-[var(--clinora-border-subtle)] p-6 text-sm text-[var(--clinora-text-muted)]">
@@ -320,35 +427,27 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <Link
-            to="/patient/analyze"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--clinora-text-muted)] hover:text-white"
-          >
-            <ArrowLeft size={14} aria-hidden="true" /> AI Report Analysis
+    <div className="clinora-report-review-reference">
+      <header className="clinora-report-review-reference__header">
+        <div className="clinora-report-review-reference__identity">
+          <Link to="/patient/analyze" className="clinora-report-review-reference__back">
+            <ArrowLeft size={14} aria-hidden="true" /> Back to AI Report Analysis
           </Link>
-          <h1 className="mt-3 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl">
-            {patientReportDisplayName(report)}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
+          <div className="clinora-report-review-reference__title-line">
+            <h1>{patientReportDisplayName(report)}</h1>
+            <span>{patientReportTypeLabels[report.reportType]}</span>
+          </div>
+          <p>
             {patientReportTypeLabels[report.reportType]}
-            {report.reportDate ? ` · ${formatDate(report.reportDate)}` : ''}
-            {report.providerLaboratory ? ` · ${report.providerLaboratory}` : ''}
+            <span aria-hidden="true"> · </span>
+            Uploaded {formatUploadedDate(report.createdAt)}
+            {report.providerLaboratory ? <><span aria-hidden="true"> · </span>{report.providerLaboratory}</> : null}
           </p>
         </div>
         <AnalysisProgress extraction={extraction} />
       </header>
 
-      {error ? (
-        <div
-          className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.07] p-4 text-sm text-rose-200"
-          role="alert"
-        >
-          {error}
-        </div>
-      ) : null}
+      {error ? <div className="clinora-reference-error" role="alert">{error}</div> : null}
 
       {extraction.status === 'NOT_REQUESTED' ? (
         <StartExtractionPanel busy={action === 'start'} onStart={() => void startExtraction()} />
@@ -356,130 +455,182 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
       {['QUEUED', 'PROCESSING'].includes(extraction.status) ? <ProcessingPanel status={extraction.status} /> : null}
 
+      {extraction.displayedPreviousResult && ['QUEUED', 'PROCESSING'].includes(extraction.status) ? (
+        <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 text-sm text-cyan-100" role="status">
+          Your current reviewed extraction remains visible while Clinora processes the original report again.
+        </div>
+      ) : null}
+
       {extraction.status === 'FAILED' ? (
         <FailurePanel
           failureCode={extraction.failureCode}
-          busy={action === 'start'}
-          onRetry={() => void startExtraction()}
+          busy={action === 'start' || action === 're-extract'}
+          onRetry={() => void (extraction.reprocessing ? reExtractReport() : startExtraction())}
         />
       ) : null}
 
-      {extraction.status === 'SUCCEEDED' ? (
+      {(extraction.status === 'SUCCEEDED' || extraction.observations.length > 0) && extraction.observations.length ? (
         <>
-          {extraction.observations.length ? (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.02fr)_minmax(420px,0.98fr)]">
-              <ReportSourceViewer report={report} sourceUrl={sourceUrl} selected={selectedObservation} />
-              <section className="rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-raised)]">
-                <div className="border-b border-[var(--clinora-border-subtle)] p-5 sm:p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--clinora-text-faint)]">
-                        Extracted results
-                      </p>
-                      <h2 className="mt-1 text-xl font-semibold text-white">Review what Clinora read</h2>
-                      <p className="mt-2 max-w-xl text-xs leading-5 text-[var(--clinora-text-muted)]">
-                        Compare important values with the original report. Corrections change Clinora's transcription,
-                        not your original medical document.
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-right">
-                      <p className="text-sm font-semibold text-white">{extraction.observations.length} results</p>
-                      <p className={cn('text-[11px]', unresolved ? 'text-amber-300' : 'text-emerald-300')}>
-                        {unresolved
-                          ? `${unresolved} ${unresolved === 1 ? 'needs' : 'need'} review`
-                          : 'All flagged values have been reviewed'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hidden grid-cols-[minmax(150px,1.15fr)_minmax(100px,0.7fr)_minmax(160px,1fr)_auto] gap-3 border-b border-white/[0.055] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:grid">
-                  <span>Test</span>
-                  <span>Result</span>
-                  <span>Reference on report</span>
-                  <span className="text-right">Action</span>
-                </div>
-                <div className="max-h-[680px] divide-y divide-white/[0.055] overflow-y-auto">
-                  {[...extraction.observations]
-                    .sort(
-                      (a, b) =>
-                        Number(b.reviewRequired && b.verificationStatus === 'UNREVIEWED') -
-                        Number(a.reviewRequired && a.verificationStatus === 'UNREVIEWED'),
-                    )
-                    .map((observation) => (
-                      <ObservationCard
-                        key={observation.id}
-                        observation={observation}
-                        selected={observation.id === selectedObservationId}
-                        editing={observation.id === editingObservationId}
-                        onSelect={() => setSelectedObservationId(observation.id)}
-                        onEdit={() => {
-                          setSelectedObservationId(observation.id);
-                          setEditingObservationId(observation.id);
-                        }}
-                        onCancelEdit={() => setEditingObservationId(null)}
-                        onSaved={(next) => {
-                          setExtraction(next);
-                          setEditingObservationId(null);
-                          setSelectedObservationId(observation.id);
-                        }}
-                        reportId={reportId}
-                      />
-                    ))}
-                </div>
-              </section>
+          {extraction.status === 'SUCCEEDED' && extraction.reprocessing && !(extraction.pendingDifferenceCount ?? 0) ? (
+            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 text-sm text-emerald-100" role="status">
+              Re-extraction finished. No extracted values changed.
             </div>
-          ) : (
-            <NoStructuredResults />
-          )}
+          ) : null}
+          <div className="clinora-report-review-reference__workspace">
+            <ReportSourceViewer
+              report={report}
+              sourceUrl={sourceUrl}
+              selected={selectedObservation}
+              pageCount={extraction.pageCount ?? 1}
+            />
 
-          {extraction.observations.length ? (
-            <section className="flex flex-col gap-4 rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-white/[0.025] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <div className="flex gap-3">
-                <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/[0.09] text-emerald-300">
-                  <ShieldCheck size={18} aria-hidden="true" />
-                </span>
+            <section className="clinora-report-review-reference__results" aria-labelledby="review-what-clinora-read-title">
+              <div className="clinora-report-review-reference__results-head">
                 <div>
-                  <h2 className="text-sm font-semibold text-white">
-                    {extraction.reviewStatus === 'VERIFIED' ? 'Report data verified' : 'Confirm the extracted results'}
-                  </h2>
-                  <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
-                    {extraction.reviewStatus === 'VERIFIED'
-                      ? 'These reviewed values are ready. Continue to your dedicated AI insight workspace when you want a clear explanation.'
-                      : unresolved
-                        ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
-                        : 'Confirm that the extracted information matches your report before requesting AI-assisted interpretation.'}
-                  </p>
+                  <p className="clinora-reference-section-label">Extracted results</p>
+                  <h2 id="review-what-clinora-read-title">Review what Clinora read</h2>
+                  <p>Compare important values with the original report. Corrections change Clinora&apos;s transcription, not your original document.</p>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {extraction.status === 'SUCCEEDED' ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReExtractOpen(true)}
+                      disabled={action === 're-extract'}
+                    >
+                      <RefreshCw size={15} aria-hidden="true" /> Re-extract report
+                    </Button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="clinora-report-review-reference__help"
+                    aria-expanded={showReviewHelp}
+                    onClick={() => setShowReviewHelp((value) => !value)}
+                  >
+                    <CircleAlert size={14} aria-hidden="true" /> How to review?
+                  </button>
                 </div>
               </div>
-              {extraction.reviewStatus === 'VERIFIED' ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-4 text-sm font-semibold text-emerald-200">
-                    <CheckCircle2 size={16} aria-hidden="true" /> Verified
-                  </span>
-                  <Link
-                    to={`/patient/analyze/${reportId}/insight`}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 px-4 text-sm font-semibold text-slate-950 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 motion-reduce:transform-none"
-                  >
-                    <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
-                  </Link>
+
+              {showReviewHelp ? (
+                <div className="clinora-report-review-reference__help-note">
+                  Select a row to locate it on the source. Confirm values that match the report, or edit only Clinora&apos;s transcription when something was read incorrectly.
                 </div>
-              ) : (
-                <Button
-                  variant="appPrimary"
-                  onClick={() => void confirmExtraction()}
-                  disabled={Boolean(unresolved) || action === 'confirm'}
-                >
-                  <FileCheck2 size={16} aria-hidden="true" />{' '}
-                  {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}
-                </Button>
-              )}
+              ) : null}
+
+              <div className="clinora-report-review-reference__summary" aria-live="polite">
+                <span className="clinora-reference-icon-well"><FileText size={18} aria-hidden="true" /></span>
+                <div>
+                  <strong>{extraction.observations.length} <span>results extracted</span></strong>
+                  <small className={(extraction.pendingDifferenceCount ?? unresolved) ? 'needs-review' : 'complete'}>
+                    {(extraction.pendingDifferenceCount ?? unresolved)
+                      ? `${extraction.pendingDifferenceCount ?? unresolved} ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'needs' : 'need'} review`
+                      : 'All flagged values have been reviewed'}
+                  </small>
+                </div>
+              </div>
+
+              <div className="clinora-report-review-reference__table-head" aria-hidden="true">
+                <span>Test</span><span>Result</span><span>Reference on report</span><span>Action</span>
+              </div>
+              <div className="clinora-report-review-reference__rows">
+                {reviewRows.map((observation) => (
+                  <ObservationCard
+                    key={observation.id}
+                    observation={observation}
+                    selected={observation.id === selectedObservationId}
+                    editing={observation.id === editingObservationId}
+                    onSelect={() => setSelectedObservationId(observation.id)}
+                    onEdit={() => {
+                      setSelectedObservationId(observation.id);
+                      setEditingObservationId(observation.id);
+                    }}
+                    onCancelEdit={() => setEditingObservationId(null)}
+                    onSaved={(next) => {
+                      setExtraction(next);
+                      setEditingObservationId(null);
+                      setSelectedObservationId(observation.id);
+                    }}
+                    reportId={reportId}
+                    readOnly={['QUEUED', 'PROCESSING'].includes(extraction.status)}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {(extraction.missingDifferences ?? []).length ? (
+            <section className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-5" aria-labelledby="missing-values-title">
+              <h2 id="missing-values-title" className="text-sm font-semibold text-amber-100">Values missing from the new extraction</h2>
+              <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                These values remain preserved in the previous verified version. Confirm each omission before the new extraction can replace it.
+              </p>
+              <div className="mt-4 space-y-2">
+                {(extraction.missingDifferences ?? []).map((difference) => (
+                  <div key={difference.differenceId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-slate-950/20 p-3">
+                    <div><strong className="text-sm text-white">{difference.label}</strong><p className="text-xs text-amber-200">Missing in the new extraction</p></div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void confirmMissingDifference(difference.differenceId)}
+                      disabled={action === `missing:${difference.differenceId}`}
+                    >
+                      {action === `missing:${difference.differenceId}` ? 'Confirming…' : 'Accept as missing'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </section>
           ) : null}
+
+          <section className="clinora-report-review-reference__confirm-bar">
+            <div>
+              <span className="clinora-report-review-reference__confirm-icon"><ShieldCheck size={20} aria-hidden="true" /></span>
+              <span>
+                <strong>{extraction.reviewStatus === 'VERIFIED' ? 'Report data verified' : 'Confirm the extracted results'}</strong>
+                <small>
+                  {extraction.reviewStatus === 'VERIFIED'
+                    ? 'Your reviewed values are ready for Clinora AI insight.'
+                    : (extraction.pendingDifferenceCount ?? unresolved)
+                      ? `Review ${extraction.pendingDifferenceCount ?? unresolved} changed, new, or flagged ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'value' : 'values'} before confirmation.`
+                      : 'All extracted values are ready for your confirmation.'}
+                </small>
+              </span>
+            </div>
+            {extraction.reviewStatus === 'VERIFIED' ? (
+              <Link to={`/patient/analyze/${reportId}/insight`} className="clinora-reference-primary-button">
+                <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
+              </Link>
+            ) : (
+              <Button variant="appPrimary" onClick={() => void confirmExtraction()} disabled={Boolean(unresolved) || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}>
+                <FileCheck2 size={16} aria-hidden="true" /> {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}
+              </Button>
+            )}
+          </section>
         </>
       ) : null}
+
+      {extraction.status === 'SUCCEEDED' && !extraction.observations.length ? <NoStructuredResults /> : null}
+
+      <Dialog open={reExtractOpen} onOpenChange={(open) => action !== 're-extract' && setReExtractOpen(open)}>
+        <DialogContent>
+          <DialogTitle className="text-xl font-semibold text-white">Run extraction again?</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
+            Clinora will process the original report again. Verified corrections will not be replaced without your confirmation.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setReExtractOpen(false)} disabled={action === 're-extract'}>Cancel</Button>
+            <Button variant="appPrimary" onClick={() => void reExtractReport()} disabled={action === 're-extract'}>
+              <RefreshCw size={16} className={action === 're-extract' ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+              {action === 're-extract' ? 'Re-extracting…' : 'Re-extract'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 }
 
 function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () => void }) {
@@ -657,61 +808,83 @@ function ReportSourceViewer({
   report,
   sourceUrl,
   selected,
+  pageCount,
 }: {
   report: PatientReport;
   sourceUrl: string;
   selected: PatientReportObservation | null;
+  pageCount: number;
 }) {
-  const page = selected?.pageNumber ?? 1;
+  const [zoom, setZoom] = useState(100);
+  const [visiblePage, setVisiblePage] = useState(selected?.pageNumber ?? 1);
+
+  useEffect(() => {
+    if (selected?.pageNumber) setVisiblePage(selected.pageNumber);
+  }, [selected?.pageNumber]);
+
+  const safePageCount = Math.max(1, pageCount || 1);
+  const page = Math.min(Math.max(1, visiblePage), safePageCount);
+  const changeZoom = (delta: number) => setZoom((value) => Math.min(160, Math.max(70, value + delta)));
+
   return (
-    <section className="overflow-hidden rounded-[var(--clinora-radius-lg)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] xl:sticky xl:top-24 xl:self-start">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--clinora-border-subtle)] px-5 py-4">
+    <section className="clinora-report-review-reference__source">
+      <div className="clinora-report-review-reference__source-head">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--clinora-text-faint)]">
-            Original report
-          </p>
-          <p className="mt-1 text-xs text-[var(--clinora-text-muted)]">
-            {selected ? `Source for ${selected.label} · page ${page}` : 'Select a result to locate its source.'}
-          </p>
+          <h2>Original report</h2>
+          <p>{selected ? `Source for ${selected.label}` : 'Select a result to locate its source.'}</p>
         </div>
-        {selected ? (
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.045] px-2.5 py-1.5 text-[11px] font-semibold text-slate-300">
-            <Eye size={13} aria-hidden="true" /> Page {page}
-          </span>
-        ) : null}
+        <div className="clinora-report-review-reference__viewer-tools" aria-label="Document view controls">
+          <button type="button" onClick={() => changeZoom(-10)} aria-label="Zoom out" disabled={zoom <= 70}>
+            <Minus size={15} aria-hidden="true" />
+          </button>
+          <span>{zoom}%</span>
+          <button type="button" onClick={() => changeZoom(10)} aria-label="Zoom in" disabled={zoom >= 160}>
+            <Plus size={15} aria-hidden="true" />
+          </button>
+          <a href={sourceUrl || undefined} target="_blank" rel="noreferrer" aria-label="Open source report in new tab" className={!sourceUrl ? 'is-disabled' : ''}>
+            <Maximize2 size={15} aria-hidden="true" />
+          </a>
+        </div>
       </div>
-      <div className="relative min-h-[520px] bg-black/20 p-3 sm:p-4 xl:min-h-[680px]">
+
+      <div className="clinora-report-review-reference__document-stage">
         {!sourceUrl ? (
-          <div className="grid min-h-[500px] place-items-center text-sm text-[var(--clinora-text-muted)]">
-            Loading original report…
-          </div>
+          <div className="clinora-report-review-reference__document-loading">Loading original report…</div>
         ) : report.mimeType === 'application/pdf' ? (
           <iframe
             title={`Original report: ${patientReportDisplayName(report)}`}
-            src={`${sourceUrl}#page=${page}&view=FitH`}
-            className="h-[650px] w-full rounded-xl border-0 bg-white"
+            src={`${sourceUrl}#page=${page}&zoom=${zoom}`}
+            className="clinora-report-review-reference__pdf"
           />
         ) : (
-          <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl bg-white">
-            <img
-              src={sourceUrl}
-              alt={`Original report: ${patientReportDisplayName(report)}`}
-              className="max-h-[650px] max-w-full object-contain"
-            />
-            {selected?.boundingBox ? (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute rounded border-2 border-cyan-400 bg-cyan-300/10 shadow-[0_0_0_2px_rgba(0,0,0,0.18)]"
-                style={{
-                  left: `${selected.boundingBox.x * 100}%`,
-                  top: `${selected.boundingBox.y * 100}%`,
-                  width: `${selected.boundingBox.width * 100}%`,
-                  height: `${selected.boundingBox.height * 100}%`,
-                }}
-              />
-            ) : null}
+          <div className="clinora-report-review-reference__image-scroll">
+            <div className="clinora-report-review-reference__image-wrap" style={{ width: `${zoom}%` }}>
+              <img src={sourceUrl} alt={`Original report: ${patientReportDisplayName(report)}`} />
+              {selected?.boundingBox && selected.pageNumber === page ? (
+                <span
+                  aria-hidden="true"
+                  className="clinora-report-review-reference__source-highlight"
+                  style={{
+                    left: `${selected.boundingBox.x * 100}%`,
+                    top: `${selected.boundingBox.y * 100}%`,
+                    width: `${selected.boundingBox.width * 100}%`,
+                    height: `${selected.boundingBox.height * 100}%`,
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
         )}
+      </div>
+
+      <div className="clinora-report-review-reference__page-nav">
+        <button type="button" onClick={() => setVisiblePage((value) => Math.max(1, value - 1))} disabled={page <= 1} aria-label="Previous report page">
+          <ChevronLeft size={15} aria-hidden="true" />
+        </button>
+        <span>Page {page} of {safePageCount}</span>
+        <button type="button" onClick={() => setVisiblePage((value) => Math.min(safePageCount, value + 1))} disabled={page >= safePageCount} aria-label="Next report page">
+          <ChevronRight size={15} aria-hidden="true" />
+        </button>
       </div>
     </section>
   );
@@ -726,6 +899,7 @@ function ObservationCard({
   onCancelEdit,
   onSaved,
   reportId,
+  readOnly,
 }: {
   observation: PatientReportObservation;
   selected: boolean;
@@ -735,6 +909,7 @@ function ObservationCard({
   onCancelEdit: () => void;
   onSaved: (value: PatientReportExtraction) => void;
   reportId: string;
+  readOnly: boolean;
 }) {
   const needsReview = observation.reviewRequired && observation.verificationStatus === 'UNREVIEWED';
   const corrected = observation.verificationStatus === 'PATIENT_CORRECTED';
@@ -757,147 +932,59 @@ function ObservationCard({
   return (
     <article
       className={cn(
-        'border-l-2 transition-colors',
-        needsReview
-          ? 'border-l-amber-300 bg-amber-300/[0.035]'
-          : selected
-            ? 'border-l-cyan-300 bg-cyan-300/[0.045]'
-            : corrected
-              ? 'border-l-cyan-300/40 bg-cyan-300/[0.018]'
-              : 'border-l-transparent bg-transparent hover:bg-white/[0.02]',
+        'clinora-report-review-reference__observation',
+        needsReview && 'needs-review',
+        selected && 'is-selected',
       )}
     >
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-pressed={selected}
-        className="grid w-full gap-3 px-4 py-3.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-300 sm:grid-cols-[minmax(150px,1.15fr)_minmax(100px,0.7fr)_minmax(160px,1fr)_auto] sm:items-center"
-      >
-        <span className="min-w-0">
-          <span className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-sm font-semibold text-white">{observation.label}</span>
-            {needsReview ? (
-              <span className="rounded-full bg-amber-300/[0.1] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-300">
-                Needs review
+      <button type="button" className="clinora-report-review-reference__observation-main" onClick={onSelect} aria-pressed={selected}>
+        <span className="clinora-report-review-reference__test">
+          <span className="clinora-report-review-reference__test-line">
+            <strong>{observation.label}</strong>
+            {observation.changeType ? (
+              <span className="clinora-report-review-reference__status-badge changed">
+                {observation.changeType === 'CHANGED' ? 'Changed on re-extraction' : 'New on re-extraction'}
               </span>
             ) : null}
-            {corrected ? (
-              <span className="rounded-full bg-cyan-300/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-cyan-200">
-                Corrected
-              </span>
-            ) : null}
-            {confirmed ? (
-              <span className="rounded-full bg-emerald-300/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-200">
-                Confirmed
-              </span>
-            ) : null}
+            {needsReview ? <span className="clinora-report-review-reference__review-badge">Needs review</span> : null}
+            {corrected ? <span className="clinora-report-review-reference__status-badge corrected">Corrected</span> : null}
+            {confirmed ? <span className="clinora-report-review-reference__status-badge confirmed">Confirmed</span> : null}
           </span>
-          <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
-            Page {observation.pageNumber}
-            {confirmed ? ' · Confirmed by you' : ''}
-          </span>
+          <small>Page {observation.pageNumber}</small>
         </span>
-        <span>
-          <span className="block text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:hidden">
-            Result
-          </span>
-          <span className="mt-1 block text-sm font-semibold text-white sm:mt-0">{observationValue(observation)}</span>
-        </span>
-        <span>
-          <span className="block text-[10px] font-bold uppercase tracking-[0.11em] text-[var(--clinora-text-faint)] sm:hidden">
-            Reference on report
-          </span>
-          <span className="mt-1 block text-xs leading-5 text-slate-300 sm:mt-0">
-            {observation.referenceRangeRaw ?? 'Not confidently captured — compare with source'}
-          </span>
+        <span className="clinora-report-review-reference__result-value">{observationValue(observation)}</span>
+        <span className="clinora-report-review-reference__reference-value">
+          {observation.referenceRangeRaw ?? 'Not confidently captured — compare with source'}
           {rangeLabel(observation.derivedRangeFlag) ? (
-            <span className={cn('mt-1 block text-[11px] font-semibold', rangeTone(observation.derivedRangeFlag))}>
-              {rangeLabel(observation.derivedRangeFlag)}
-            </span>
+            <small className={rangeTone(observation.derivedRangeFlag)}>{rangeLabel(observation.derivedRangeFlag)}</small>
           ) : null}
         </span>
-        <span className="inline-flex min-h-10 items-center gap-1.5 text-xs font-semibold text-slate-400 sm:justify-end">
-          <Eye size={14} aria-hidden="true" /> View on report
-        </span>
       </button>
-      <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-3">
-        <div className="min-w-0 flex-1">
-          {selected ? <ReferenceRangeVisualization observation={observation} /> : null}
-        </div>
-        {!editing ? (
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            {needsReview ? (
-              <button
-                type="button"
-                onClick={() => void confirmUnchanged()}
-                disabled={confirming}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-300/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {confirming ? (
-                  <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                ) : (
-                  <CheckCircle2 size={14} aria-hidden="true" />
-                )}
-                {confirming ? 'Confirming…' : 'Looks correct'}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={onEdit}
-              disabled={confirming}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--clinora-info-foreground)] hover:bg-cyan-300/[0.05] hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <PencilLine size={14} aria-hidden="true" /> Edit result
-            </button>
-          </div>
+
+      <div className="clinora-report-review-reference__row-actions">
+        {needsReview ? (
+          <button type="button" onClick={() => void confirmUnchanged()} disabled={confirming || readOnly} className="is-confirm">
+            {confirming ? <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
+            {confirming ? 'Confirming…' : 'Looks correct'}
+          </button>
+        ) : confirmed || corrected ? (
+          <span className="clinora-report-review-reference__reviewed-label"><CheckCircle2 size={14} aria-hidden="true" /> Reviewed</span>
         ) : null}
+        <button type="button" onClick={onEdit} disabled={confirming || readOnly}>
+          <PencilLine size={14} aria-hidden="true" /> Edit result
+        </button>
+        <button type="button" onClick={onSelect}>
+          <Eye size={14} aria-hidden="true" /> View on report
+        </button>
       </div>
-      {reviewError ? (
-        <p role="alert" className="px-4 pb-3 text-xs font-medium text-rose-300">
-          {reviewError}
-        </p>
-      ) : null}
-      {editing ? (
-        <CorrectionEditor observation={observation} reportId={reportId} onCancel={onCancelEdit} onSaved={onSaved} />
+
+      {reviewError ? <p role="alert" className="clinora-report-review-reference__row-error">{reviewError}</p> : null}
+      {editing && !readOnly ? (
+        <div className="clinora-report-review-reference__editor">
+          <CorrectionEditor observation={observation} reportId={reportId} onCancel={onCancelEdit} onSaved={onSaved} />
+        </div>
       ) : null}
     </article>
-  );
-}
-
-function ReferenceRangeVisualization({ observation }: { observation: PatientReportObservation }) {
-  if (observation.numericValue == null || observation.referenceLow == null || observation.referenceHigh == null)
-    return null;
-  if (observation.referenceHigh <= observation.referenceLow) return null;
-  const span = observation.referenceHigh - observation.referenceLow;
-  const displayMin = observation.referenceLow - span * 0.35;
-  const displayMax = observation.referenceHigh + span * 0.35;
-  const marker = Math.max(2, Math.min(98, ((observation.numericValue - displayMin) / (displayMax - displayMin)) * 100));
-  const rangeStart = ((observation.referenceLow - displayMin) / (displayMax - displayMin)) * 100;
-  const rangeEnd = ((observation.referenceHigh - displayMin) / (displayMax - displayMin)) * 100;
-  return (
-    <span
-      className="mt-3 block max-w-sm"
-      aria-label={`Result ${observation.numericValue}; report reference range ${observation.referenceLow} to ${observation.referenceHigh}`}
-    >
-      <span className="relative block h-2 rounded-full bg-white/[0.06]">
-        <span
-          className="absolute inset-y-0 rounded-full bg-emerald-300/25"
-          style={{ left: `${rangeStart}%`, width: `${rangeEnd - rangeStart}%` }}
-        />
-        <span
-          className={cn(
-            'absolute top-1/2 h-3.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full',
-            observation.derivedRangeFlag === 'WITHIN_REPORTED_RANGE' ? 'bg-emerald-300' : 'bg-amber-300',
-          )}
-          style={{ left: `${marker}%` }}
-        />
-      </span>
-      <span className="mt-1.5 flex justify-between text-[10px] text-[var(--clinora-text-faint)]">
-        <span>{observation.referenceLow}</span>
-        <span>Report reference range</span>
-        <span>{observation.referenceHigh}</span>
-      </span>
-    </span>
   );
 }
 
@@ -1099,30 +1186,45 @@ function AnalysisProgress({ extraction }: { extraction: PatientReportExtraction 
   const extractionDone = extraction.status === 'SUCCEEDED';
   const verified = extraction.reviewStatus === 'VERIFIED';
   return (
-    <div className="grid min-w-[300px] grid-cols-3 overflow-hidden rounded-2xl border border-[var(--clinora-border-subtle)] bg-white/[0.025]">
-      <ProgressStep label="Report secured" done />
+    <div className="clinora-report-review-reference__progress" aria-label="Report analysis progress">
+      <ProgressStep icon={ShieldCheck} title="Report secured" text="File encrypted" done />
       <ProgressStep
-        label="Data extracted"
+        icon={FileCheck2}
+        title="Data extracted"
+        text={extractionDone ? 'OCR complete' : ['QUEUED', 'PROCESSING'].includes(extraction.status) ? 'OCR in progress' : 'Waiting to start'}
         done={extractionDone}
         active={['QUEUED', 'PROCESSING'].includes(extraction.status)}
       />
-      <ProgressStep label="Results reviewed" done={verified} active={extractionDone && !verified} />
+      <ProgressStep
+        icon={CheckCircle2}
+        title="Results reviewed"
+        text={verified ? 'Verified by you' : extractionDone ? 'In progress' : 'Waiting'}
+        done={verified}
+        active={extractionDone && !verified}
+      />
     </div>
   );
 }
 
-function ProgressStep({ label, done, active = false }: { label: string; done: boolean; active?: boolean }) {
+function ProgressStep({
+  icon: Icon,
+  title,
+  text,
+  done,
+  active = false,
+}: {
+  icon: typeof ShieldCheck;
+  title: string;
+  text: string;
+  done: boolean;
+  active?: boolean;
+}) {
   return (
-    <div className="border-l border-white/[0.06] px-3 py-3 first:border-l-0">
-      <span
-        className={cn(
-          'block text-[10px] font-bold uppercase tracking-[0.1em]',
-          done ? 'text-emerald-300' : active ? 'text-cyan-200' : 'text-slate-600',
-        )}
-      >
-        {done ? 'Complete' : active ? 'Current' : 'Pending'}
+    <div className={cn('clinora-report-review-reference__progress-step', done && 'is-done', active && 'is-active')}>
+      <span className="clinora-report-review-reference__progress-icon">
+        {done ? <CheckCircle2 size={17} aria-hidden="true" /> : active ? <span className="clinora-report-review-reference__progress-ring" aria-hidden="true" /> : <Icon size={17} aria-hidden="true" />}
       </span>
-      <span className="mt-1 block text-[11px] font-medium text-slate-300">{label}</span>
+      <span><strong>{title}</strong><small>{text}</small></span>
     </div>
   );
 }
@@ -1175,6 +1277,12 @@ function optionalNumber(value: string): number | null | undefined {
   if (!value.trim()) return null;
   const parsed = Number(value.replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function formatUploadedDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Date unavailable';
+  return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatDate(value: string) {

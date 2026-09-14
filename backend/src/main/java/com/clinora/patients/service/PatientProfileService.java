@@ -10,6 +10,7 @@ import com.clinora.patients.domain.PatientChronicCondition;
 import com.clinora.patients.domain.PatientGender;
 import com.clinora.patients.domain.PatientMedication;
 import com.clinora.patients.domain.PatientProfile;
+import com.clinora.patients.domain.PatientReportSubjectType;
 import com.clinora.patients.repository.PatientAllergyRepository;
 import com.clinora.patients.repository.PatientChronicConditionRepository;
 import com.clinora.patients.repository.PatientMedicationRepository;
@@ -76,12 +77,18 @@ public class PatientProfileService {
     @Transactional(readOnly = true)
     public PatientDashboardView dashboard(UUID userId) {
         PatientProfileView profile = profile(userId);
-        long activeReportCount = reports.countByPatientUserIdAndArchivedAtIsNull(userId);
+        long activeReportCount = reports.countByPatientUserIdAndSubjectTypeAndArchivedAtIsNull(userId, PatientReportSubjectType.SELF);
         DashboardReportView latestReport = reports
-            .findFirstByPatientUserIdAndArchivedAtIsNullOrderByCreatedAtDesc(userId)
+            .findFirstByPatientUserIdAndSubjectTypeAndArchivedAtIsNullOrderByCreatedAtDesc(userId, PatientReportSubjectType.SELF)
             .map(report -> new DashboardReportView(
                 report.getId(),
-                report.getReportName(),
+                PatientReportDisplayName.resolve(
+                    report.getReportName(),
+                    report.getOriginalFilename(),
+                    report.getReportType().name(),
+                    report.getReportDate(),
+                    report.getProviderLaboratory()
+                ),
                 report.getReportType(),
                 report.getReportDate(),
                 report.getProviderLaboratory(),

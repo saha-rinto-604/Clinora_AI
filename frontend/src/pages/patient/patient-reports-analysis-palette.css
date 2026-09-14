@@ -1,0 +1,22 @@
+/* Medical Reports shares the exact blue-black + cyan/teal palette used by the AI Report Analysis workspace.
+   Scope is page-only: no logo, Patient shell, navigation, layout, or report behavior is changed. */
+.clinora-medical-reports-analysis-palette {
+  --clinora-surface-1: #05131e;
+  --clinora-surface-2: #05131e;
+  --clinora-surface-hero: #061c27;
+  --clinora-surface-nested: #06131f;
+  --clinora-surface-hover: rgba(34, 211, 238, 0.035);
+  --clinora-border-subtle: rgba(148, 163, 184, 0.08);
+  --clinora-border-interactive: rgba(34, 211, 238, 0.24);
+  --clinora-info-soft: rgba(6, 182, 212, 0.08);
+  --clinora-info-foreground: #58e2f4;
+  --clinora-accent-cyan: #42dff5;
+  --clinora-accent-teal: #1bc8b7;
+  --clinora-primary-gradient: linear-gradient(100deg, #20bde8, #1bc8b7);
+  --clinora-focus-ring-soft: rgba(103, 232, 249, 0.08);
+}
+
+.clinora-medical-reports-analysis-palette [data-surface-variant='elevated'] {
+  border-color: rgba(34, 211, 238, 0.14);
+  background: linear-gradient(180deg, rgba(5, 19, 30, 0.92), rgba(3, 12, 22, 0.94));
+}

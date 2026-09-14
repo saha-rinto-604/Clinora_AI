@@ -31,6 +31,13 @@ public class PatientMedicalReport {
     @Column(name = "report_type", nullable = false, length = 40)
     private PatientReportType reportType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subject_type", nullable = false, length = 16)
+    private PatientReportSubjectType subjectType;
+
+    @Column(name = "subject_label", length = 120)
+    private String subjectLabel;
+
     @Column(name = "report_date")
     private LocalDate reportDate;
 
@@ -72,6 +79,8 @@ public class PatientMedicalReport {
         UUID patientUserId,
         String reportName,
         PatientReportType reportType,
+        PatientReportSubjectType subjectType,
+        String subjectLabel,
         LocalDate reportDate,
         String providerLaboratory,
         String objectKey,
@@ -84,6 +93,8 @@ public class PatientMedicalReport {
         this.patientUserId = patientUserId;
         this.reportName = reportName;
         this.reportType = reportType;
+        this.subjectType = subjectType == null ? PatientReportSubjectType.SELF : subjectType;
+        this.subjectLabel = this.subjectType == PatientReportSubjectType.SELF ? null : subjectLabel;
         this.reportDate = reportDate;
         this.providerLaboratory = providerLaboratory;
         this.objectKey = objectKey;
@@ -93,6 +104,37 @@ public class PatientMedicalReport {
         this.sha256Checksum = sha256Checksum;
         this.createdAt = now;
         this.updatedAt = now;
+    }
+
+    /** Backward-compatible constructor for existing fixtures: legacy reports belong to the account holder. */
+    public PatientMedicalReport(
+        UUID patientUserId,
+        String reportName,
+        PatientReportType reportType,
+        LocalDate reportDate,
+        String providerLaboratory,
+        String objectKey,
+        String originalFilename,
+        String mimeType,
+        long sizeBytes,
+        String sha256Checksum,
+        Instant now
+    ) {
+        this(
+            patientUserId,
+            reportName,
+            reportType,
+            PatientReportSubjectType.SELF,
+            null,
+            reportDate,
+            providerLaboratory,
+            objectKey,
+            originalFilename,
+            mimeType,
+            sizeBytes,
+            sha256Checksum,
+            now
+        );
     }
 
     public void updateMetadata(
@@ -131,6 +173,8 @@ public class PatientMedicalReport {
     public UUID getPatientUserId() { return patientUserId; }
     public String getReportName() { return reportName; }
     public PatientReportType getReportType() { return reportType; }
+    public PatientReportSubjectType getSubjectType() { return subjectType; }
+    public String getSubjectLabel() { return subjectLabel; }
     public LocalDate getReportDate() { return reportDate; }
     public String getProviderLaboratory() { return providerLaboratory; }
     public String getObjectKey() { return objectKey; }

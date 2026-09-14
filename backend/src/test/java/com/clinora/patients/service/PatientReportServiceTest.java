@@ -17,6 +17,7 @@ import com.clinora.audit.AuthAuditService;
 import com.clinora.config.PatientReportStorageProperties;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.domain.PatientMedicalReport;
+import com.clinora.patients.domain.PatientReportSubjectType;
 import com.clinora.patients.domain.PatientReportType;
 import com.clinora.patients.repository.PatientMedicalReportRepository;
 import com.clinora.patients.service.PatientReportService.ContentAccess;
@@ -91,6 +92,74 @@ class PatientReportServiceTest {
             REPORT_ID.toString(),
             null
         );
+    }
+
+    @Test
+    void uploadKeepsOtherPersonReportsExplicitlyIsolated() {
+        Fixture fixture = new Fixture();
+        fixture.activePatient();
+        when(fixture.reports.save(any(PatientMedicalReport.class))).thenAnswer(invocation -> {
+            PatientMedicalReport report = invocation.getArgument(0);
+            ReflectionTestUtils.setField(report, "id", REPORT_ID);
+            return report;
+        });
+        byte[] pdf = "%PDF-1.7\nFamily report\n%%EOF\n".getBytes(StandardCharsets.US_ASCII);
+
+        var view = fixture.service.upload(
+            USER_ID,
+            new UploadReportCommand(
+                "Mother CBC",
+                PatientReportType.LAB_RESULTS,
+                PatientReportSubjectType.OTHER,
+                "  Mother  ",
+                LocalDate.of(2026, 8, 25),
+                "City Lab"
+            ),
+            new MockMultipartFile("file", "mother-cbc.pdf", "application/pdf", pdf),
+            null,
+            null
+        );
+
+        assertEquals(PatientReportSubjectType.OTHER, view.subjectType());
+        assertEquals("Mother", view.subjectLabel());
+        verify(fixture.reports).save(org.mockito.ArgumentMatchers.argThat(report ->
+            report.getSubjectType() == PatientReportSubjectType.OTHER
+                && "Mother".equals(report.getSubjectLabel())
+        ));
+    }
+
+    @Test
+    void uploadRequiresAPrivateLabelForOtherPersonReports() {
+        Fixture fixture = new Fixture();
+        fixture.activePatient();
+        MockMultipartFile pdf = new MockMultipartFile(
+            "file",
+            "family-report.pdf",
+            "application/pdf",
+            "%PDF-1.7\n%%EOF".getBytes(StandardCharsets.US_ASCII)
+        );
+
+        PatientApiException exception = assertThrows(
+            PatientApiException.class,
+            () -> fixture.service.upload(
+                USER_ID,
+                new UploadReportCommand(
+                    "Family report",
+                    PatientReportType.LAB_RESULTS,
+                    PatientReportSubjectType.OTHER,
+                    "   ",
+                    null,
+                    null
+                ),
+                pdf,
+                null,
+                null
+            )
+        );
+
+        assertEquals("REPORT_SUBJECT_LABEL_INVALID", exception.getErrorCode());
+        verify(fixture.storage, never()).put(any(), any(), any());
+        verify(fixture.reports, never()).save(any());
     }
 
     @Test
@@ -331,6 +400,45 @@ class PatientReportServiceTest {
         assertEquals(11, page.archivedCount());
         assertEquals(1, page.items().size());
         assertTrue(page.hasPrevious());
+    }
+
+    @Test
+    void listCanFilterReportsBySubjectWithoutChangingLegacyPaging() {
+        Fixture fixture = new Fixture();
+        fixture.activePatient();
+        PatientMedicalReport report = report();
+        var pageable = PageRequest.of(0, 12);
+        when(fixture.reports.search(
+            USER_ID,
+            false,
+            PatientReportType.LAB_RESULTS,
+            PatientReportSubjectType.OTHER,
+            "Mother",
+            "cbc",
+            pageable
+        )).thenReturn(new PageImpl<>(List.of(report), pageable, 1));
+
+        var page = fixture.service.list(
+            USER_ID,
+            " cbc ",
+            PatientReportType.LAB_RESULTS,
+            PatientReportSubjectType.OTHER,
+            " Mother ",
+            ReportCollection.ACTIVE,
+            1,
+            12
+        );
+
+        assertEquals(1, page.totalItems());
+        verify(fixture.reports).search(
+            USER_ID,
+            false,
+            PatientReportType.LAB_RESULTS,
+            PatientReportSubjectType.OTHER,
+            "Mother",
+            "cbc",
+            pageable
+        );
     }
 
     @Test

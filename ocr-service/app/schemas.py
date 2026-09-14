@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -14,6 +16,7 @@ class Observation(BaseModel):
     sourceLabel: str
     normalizedLabel: str
     valueType: str
+    rawValue: str | None = None
     numericValue: float | None = None
     textValue: str | None = None
     comparator: str | None = None
@@ -37,5 +40,6 @@ class ExtractionResponse(BaseModel):
     overallConfidence: float | None = Field(default=None, ge=0.0, le=1.0)
     parserVersion: str = "clinora-lab-parser-v1"
     normalizerVersion: str = "clinora-lab-normalizer-v1"
+    qualityState: Literal["HIGH_CONFIDENCE", "REVIEW_REQUIRED", "INSUFFICIENT"] = "REVIEW_REQUIRED"
     observations: list[Observation]
     warnings: list[str] = Field(default_factory=list)

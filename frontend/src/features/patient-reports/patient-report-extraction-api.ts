@@ -20,6 +20,13 @@ export const patientReportExtractionApi = {
     return response.data.data;
   },
 
+  async reExtract(reportId: string) {
+    const response = await apiClient.post<ApiEnvelope<PatientReportExtraction>>(
+      `/patient/reports/${reportId}/extraction/re-extract`,
+    );
+    return response.data.data;
+  },
+
   async correct(reportId: string, observationId: string, input: PatientReportObservationCorrectionInput) {
     const response = await apiClient.patch<ApiEnvelope<PatientReportExtraction>>(
       `/patient/reports/${reportId}/extraction/observations/${observationId}`,
@@ -38,6 +45,13 @@ export const patientReportExtractionApi = {
   async confirm(reportId: string) {
     const response = await apiClient.post<ApiEnvelope<PatientReportExtraction>>(
       `/patient/reports/${reportId}/extraction/confirm`,
+    );
+    return response.data.data;
+  },
+
+  async confirmMissingDifference(reportId: string, differenceId: string) {
+    const response = await apiClient.post<ApiEnvelope<PatientReportExtraction>>(
+      `/patient/reports/${reportId}/extraction/differences/${differenceId}/confirm-missing`,
     );
     return response.data.data;
   },

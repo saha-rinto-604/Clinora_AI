@@ -6,6 +6,7 @@ import com.clinora.audit.AuthAuditService;
 import com.clinora.config.PatientReportStorageProperties;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.domain.PatientMedicalReport;
+import com.clinora.patients.domain.PatientReportSubjectType;
 import com.clinora.patients.domain.PatientReportType;
 import com.clinora.patients.repository.PatientMedicalReportRepository;
 import com.clinora.patients.storage.PatientReportStoragePort;
@@ -72,6 +73,7 @@ public class PatientReportService {
         requireActivePatient(patientUserId);
         String reportName = requiredText(command.reportName(), 160, "REPORT_NAME_INVALID", "Enter a report name.");
         PatientReportType reportType = requiredReportType(command.reportType());
+        ReportSubject subject = reportSubject(command.subjectType(), command.subjectLabel());
         String provider = optionalText(command.providerLaboratory(), 200, "REPORT_PROVIDER_INVALID");
         validateReportDate(command.reportDate());
 
@@ -101,6 +103,8 @@ public class PatientReportService {
             patientUserId,
             reportName,
             reportType,
+            subject.type(),
+            subject.label(),
             command.reportDate(),
             provider,
             objectKey,
@@ -139,6 +143,8 @@ public class PatientReportService {
         UUID patientUserId,
         String query,
         PatientReportType reportType,
+        PatientReportSubjectType subjectType,
+        String subjectLabel,
         ReportCollection collection,
         int page,
         int size
@@ -147,9 +153,46 @@ public class PatientReportService {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(50, Math.max(1, size));
         String searchText = optionalText(query, 100, "REPORT_SEARCH_INVALID");
-        if (searchText == null) {
-            searchText = "";
-        }
+        String subjectSearch = optionalText(subjectLabel, 120, "REPORT_SUBJECT_LABEL_INVALID");
+        if (searchText == null) searchText = "";
+        if (subjectSearch == null) subjectSearch = "";
+        Page<PatientMedicalReport> result = reports.search(
+            patientUserId,
+            collection == ReportCollection.ARCHIVED,
+            reportType,
+            subjectType,
+            subjectSearch,
+            searchText,
+            PageRequest.of(safePage - 1, safeSize)
+        );
+        return new ReportPageView(
+            result.getContent().stream().map(this::view).toList(),
+            safePage,
+            safeSize,
+            result.getTotalElements(),
+            result.getTotalPages(),
+            result.hasPrevious(),
+            result.hasNext(),
+            reports.countByPatientUserIdAndArchivedAtIsNull(patientUserId),
+            reports.countByPatientUserIdAndArchivedAtIsNotNull(patientUserId)
+        );
+    }
+
+    /** Compatibility overload used by existing callers that do not filter by report subject. */
+    @Transactional(readOnly = true)
+    public ReportPageView list(
+        UUID patientUserId,
+        String query,
+        PatientReportType reportType,
+        ReportCollection collection,
+        int page,
+        int size
+    ) {
+        requireActivePatient(patientUserId);
+        int safePage = Math.max(1, page);
+        int safeSize = Math.min(50, Math.max(1, size));
+        String searchText = optionalText(query, 100, "REPORT_SEARCH_INVALID");
+        if (searchText == null) searchText = "";
         Page<PatientMedicalReport> result = reports.search(
             patientUserId,
             collection == ReportCollection.ARCHIVED,
@@ -467,6 +510,20 @@ public class PatientReportService {
         }
     }
 
+    private ReportSubject reportSubject(PatientReportSubjectType type, String label) {
+        PatientReportSubjectType safeType = type == null ? PatientReportSubjectType.SELF : type;
+        if (safeType == PatientReportSubjectType.SELF) {
+            return new ReportSubject(PatientReportSubjectType.SELF, null);
+        }
+        String safeLabel = requiredText(
+            label,
+            120,
+            "REPORT_SUBJECT_LABEL_INVALID",
+            "Add a private label for the person this report belongs to."
+        );
+        return new ReportSubject(PatientReportSubjectType.OTHER, safeLabel);
+    }
+
     private PatientReportType requiredReportType(PatientReportType reportType) {
         if (reportType == null) {
             throw badRequest("REPORT_TYPE_INVALID", "Choose a report type.");
@@ -511,8 +568,16 @@ public class PatientReportService {
     private ReportView view(PatientMedicalReport report) {
         return new ReportView(
             report.getId(),
-            report.getReportName(),
+            PatientReportDisplayName.resolve(
+                report.getReportName(),
+                report.getOriginalFilename(),
+                report.getReportType().name(),
+                report.getReportDate(),
+                report.getProviderLaboratory()
+            ),
             report.getReportType(),
+            report.getSubjectType(),
+            report.getSubjectLabel(),
             report.getReportDate(),
             report.getProviderLaboratory(),
             report.getOriginalFilename(),
@@ -525,15 +590,28 @@ public class PatientReportService {
         );
     }
 
+    private record ReportSubject(PatientReportSubjectType type, String label) {
+    }
+
     public enum ReportCollection { ACTIVE, ARCHIVED }
     public enum ContentAccess { VIEW, DOWNLOAD }
 
     public record UploadReportCommand(
         String reportName,
         PatientReportType reportType,
+        PatientReportSubjectType subjectType,
+        String subjectLabel,
         LocalDate reportDate,
         String providerLaboratory
     ) {
+        public UploadReportCommand(
+            String reportName,
+            PatientReportType reportType,
+            LocalDate reportDate,
+            String providerLaboratory
+        ) {
+            this(reportName, reportType, PatientReportSubjectType.SELF, null, reportDate, providerLaboratory);
+        }
     }
 
     public record UpdateReportCommand(
@@ -548,6 +626,8 @@ public class PatientReportService {
         UUID id,
         String reportName,
         PatientReportType reportType,
+        PatientReportSubjectType subjectType,
+        String subjectLabel,
         LocalDate reportDate,
         String providerLaboratory,
         String originalFilename,

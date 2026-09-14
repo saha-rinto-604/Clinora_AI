@@ -7,7 +7,12 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../com
 import { FormField, FormMessage, Input, Label, Select } from '../../components/ui/form';
 import { patientReportApi, patientReportErrorMessage } from './patient-report-api';
 import { todayForDateInput } from './patient-report-format';
-import { patientReportTypeLabels, patientReportTypes, type PatientReport } from './patient-report-types';
+import {
+  patientReportDisplayName,
+  patientReportTypeLabels,
+  patientReportTypes,
+  type PatientReport,
+} from './patient-report-types';
 
 const metadataSchema = z.object({
   reportName: z.string().trim().min(1, 'Enter a clear report name.').max(160, 'Use 160 characters or fewer.'),
@@ -68,16 +73,17 @@ export function PatientReportMetadataDialog({
         <div className="border-b border-[var(--clinora-border-subtle)] px-5 py-5 sm:px-7">
           <DialogTitle className="text-xl font-semibold text-white">Edit report details</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
-            Update how this report is identified. The original file remains unchanged.
+            Give this report a name you will recognize later. Clinora keeps the original file and provenance unchanged.
           </DialogDescription>
         </div>
         <form onSubmit={submit} className="grid gap-5 px-5 py-6 sm:px-7" noValidate>
           <FormField>
-            <Label htmlFor="edit-report-name">Report name</Label>
+            <Label htmlFor="edit-report-name">Display title</Label>
             <Input
               id="edit-report-name"
               disabled={isSubmitting}
               aria-invalid={Boolean(errors.reportName)}
+              placeholder="For example: Annual CBC — September 2026"
               {...register('reportName')}
             />
             {errors.reportName ? (
@@ -147,7 +153,7 @@ export function PatientReportMetadataDialog({
 
 function valuesFor(report: PatientReport): MetadataValues {
   return {
-    reportName: report.reportName,
+    reportName: patientReportDisplayName(report),
     reportType: report.reportType,
     reportDate: report.reportDate ?? '',
     providerLaboratory: report.providerLaboratory ?? '',

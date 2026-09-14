@@ -30,6 +30,7 @@ import {
   type PatientProfile,
   type UpdatePatientProfileInput,
 } from '../../features/patient/patient-types';
+import { ProfileImageEditor } from '../../features/profile/profile-image';
 import { cn } from '../../lib/cn';
 
 const phonePattern = /^[+0-9() .-]{7,32}$/;
@@ -212,6 +213,19 @@ export function PatientProfilePage() {
           .
         </p>
       </header>
+
+      <section
+        aria-labelledby="patient-profile-photo-title"
+        className="mt-7 flex flex-col gap-5 rounded-[24px] border border-white/[0.08] bg-[#0b1424]/95 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+      >
+        <div className="max-w-xl">
+          <p id="patient-profile-photo-title" className="text-base font-semibold text-white">Profile photo</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized appointment context.
+          </p>
+        </div>
+        <ProfileImageEditor name={`${profile.firstName} ${profile.lastName}`.trim() || 'Patient'} compact />
+      </section>
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
         <ProfileSignalRail profile={profile} active={activeView} onSelect={(section) => requestView(section)} />

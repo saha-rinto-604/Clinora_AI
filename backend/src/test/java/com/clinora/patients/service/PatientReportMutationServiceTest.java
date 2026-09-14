@@ -4,13 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.clinora.config.PatientReportSecurityProperties;
 import com.clinora.patients.api.PatientApiException;
+import com.clinora.patients.domain.PatientReportSubjectType;
 import com.clinora.patients.domain.PatientReportType;
 import com.clinora.patients.security.PatientReportMalwareScanner;
 import com.clinora.patients.security.PatientReportMalwareScanner.ScanResult;
+import com.clinora.patients.service.PatientReportService.ReportView;
 import com.clinora.patients.service.PatientReportService.UploadReportCommand;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -67,6 +70,48 @@ class PatientReportMutationServiceTest {
         verify(reports, never()).upload(USER_ID, command, file, "127.0.0.1", "JUnit");
     }
 
+    @Test
+    void otherPersonUploadDoesNotEnterThePatientsOwnHealthTimeline() {
+        PatientReportService reports = mock(PatientReportService.class);
+        PatientTimelineService timeline = mock(PatientTimelineService.class);
+        PatientReportMalwareScanner scanner = mock(PatientReportMalwareScanner.class);
+        PatientReportSecurityProperties security = new PatientReportSecurityProperties();
+        PatientReportMutationService service = new PatientReportMutationService(reports, timeline, scanner, security, CLOCK);
+        MockMultipartFile file = pdf();
+        UploadReportCommand command = new UploadReportCommand(
+            "Mother CBC",
+            PatientReportType.LAB_RESULTS,
+            PatientReportSubjectType.OTHER,
+            "Mother",
+            LocalDate.of(2026, 8, 25),
+            "City Diagnostic Centre"
+        );
+        UUID reportId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        ReportView otherReport = new ReportView(
+            reportId,
+            "Mother CBC",
+            PatientReportType.LAB_RESULTS,
+            PatientReportSubjectType.OTHER,
+            "Mother",
+            LocalDate.of(2026, 8, 25),
+            "City Diagnostic Centre",
+            "mother-cbc.pdf",
+            "application/pdf",
+            128,
+            false,
+            null,
+            CLOCK.instant(),
+            CLOCK.instant()
+        );
+        when(scanner.scan(file)).thenReturn(ScanResult.CLEAN);
+        when(reports.upload(USER_ID, command, file, "127.0.0.1", "JUnit")).thenReturn(otherReport);
+
+        service.upload(USER_ID, command, file, "127.0.0.1", "JUnit");
+
+        verify(reports).upload(USER_ID, command, file, "127.0.0.1", "JUnit");
+        verifyNoInteractions(timeline);
+    }
+
     private static UploadReportCommand command() {
         return new UploadReportCommand(
             "Annual blood panel",
@@ -85,4 +130,3 @@ class PatientReportMutationServiceTest {
         );
     }
 }
-

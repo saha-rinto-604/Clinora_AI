@@ -68,6 +68,7 @@ public class OcrClient {
         BigDecimal overallConfidence,
         String parserVersion,
         String normalizerVersion,
+        String qualityState,
         List<Observation> observations,
         List<String> warnings
     ) {
@@ -77,6 +78,7 @@ public class OcrClient {
         String sourceLabel,
         String normalizedLabel,
         String valueType,
+        String rawValue,
         BigDecimal numericValue,
         String textValue,
         String comparator,

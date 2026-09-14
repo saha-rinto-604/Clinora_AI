@@ -238,40 +238,73 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
     mocks.getAi.mockResolvedValue(noConditionSucceeded);
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Your report shows a clinical pattern worth discussing.' })).toBeInTheDocument();
-    expect(screen.getByText('Clinical pattern worth discussing')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' })).toBeInTheDocument();
+    expect(screen.getByText('No clear pattern')).toBeInTheDocument();
     expect(screen.getByText('02')).toBeInTheDocument();
     expect(screen.getByText('01')).toBeInTheDocument();
     expect(screen.getByText(/more than one red-cell process/i)).toBeInTheDocument();
-    expect(screen.getByText('Hemoglobin')).toBeInTheDocument();
-    expect(screen.getByText('9.8 g/dL')).toBeInTheDocument();
-    expect(screen.getByText('Lower than expected')).toBeInTheDocument();
+    expect(screen.getAllByText('Hemoglobin').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('9.8 g/dL').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lower than expected').length).toBeGreaterThan(0);
   });
 
   it('shows possible conditions with reasoning, exact evidence, missing information, and alternatives', async () => {
     mocks.getAi.mockResolvedValue(conditionSucceeded);
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Your verified report may fit one or more possible conditions.' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Possible conditions to discuss' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your verified report contains 1 clinical pattern worth discussing.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Iron-deficiency anemia' })).toBeInTheDocument();
     expect(screen.getByText('Iron-deficiency anemia')).toBeInTheDocument();
-    expect(screen.getByText('Why this may fit')).toBeInTheDocument();
-    expect(screen.getByText('Evidence from your verified report')).toBeInTheDocument();
+    expect(screen.getByText('Clinical context')).toBeInTheDocument();
+    expect(screen.getByText('Evidence from your report')).toBeInTheDocument();
     expect(screen.getByText('What information is still missing')).toBeInTheDocument();
     expect(screen.getByText('Other possibilities to consider')).toBeInTheDocument();
-    expect(screen.getByText('9.8 g/dL')).toBeInTheDocument();
-    expect(screen.getByText('76 fL')).toBeInTheDocument();
+    expect(screen.getAllByText('9.8 g/dL').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('76 fL').length).toBeGreaterThan(0);
     expect(screen.queryByText(/report support/i)).not.toBeInTheDocument();
   });
 
-  it('lets the patient run a fresh analysis again from a completed insight', async () => {
+  it('confirms a separate AI rerun and uses the force contract', async () => {
     const user = userEvent.setup();
     mocks.getAi.mockResolvedValue(conditionSucceeded);
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: 'Run analysis again' }));
+    await user.click(await screen.findByRole('button', { name: 'Re-run AI analysis' }));
+    const dialog = screen.getByRole('dialog', { name: 'Run Clinora AI again?' });
+    expect(within(dialog).getByText(/latest verified report values/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Re-run AI analysis' }));
 
     expect(mocks.requestAi).toHaveBeenCalledWith(report.id, true);
+  });
+
+  it('keeps the previous successful result visible while a rerun is processing', async () => {
+    mocks.getAi.mockResolvedValue({
+      ...conditionSucceeded,
+      jobId: 'new-job-id',
+      status: 'PROCESSING',
+      displayedPreviousResult: true,
+      displayedJobId: conditionSucceeded.jobId,
+    });
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Analyzing your verified report' })).toBeInTheDocument();
+    expect(screen.getByText('Iron-deficiency anemia')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-running analysis…' })).toBeDisabled();
+  });
+
+  it('preserves the previous result after a failed rerun and never exposes internal model branding', async () => {
+    mocks.getAi.mockResolvedValue({
+      ...conditionSucceeded,
+      jobId: 'failed-job-id',
+      status: 'FAILED',
+      failureCode: 'AI_SERVICE_UNAVAILABLE',
+      displayedPreviousResult: true,
+    });
+    renderPage();
+
+    expect(await screen.findByText('Iron-deficiency anemia')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your insight is not ready yet' })).toBeInTheDocument();
+    expect(screen.queryByText(/MedGemma/i)).not.toBeInTheDocument();
   });
 
   it('keeps the ready state accessible', async () => {
@@ -351,14 +384,16 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     expect(await screen.findByRole('heading', { name: 'Your report contains 2 clinically related patterns.' })).toBeInTheDocument();
     const redCell = screen.getByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     const thyroid = screen.getByRole('article', { name: 'Clinical finding 2: Thyroid hormone pattern' });
-    expect(within(redCell).getByText('Hemoglobin')).toBeInTheDocument();
+    expect(within(redCell).getByRole('heading', { name: 'Red-cell pattern' })).toBeInTheDocument();
+    expect(within(thyroid).getByRole('heading', { name: 'Thyroid hormone pattern' })).toBeInTheDocument();
     expect(within(redCell).queryByText('TSH')).not.toBeInTheDocument();
-    expect(within(thyroid).getByText('TSH')).toBeInTheDocument();
     expect(within(thyroid).queryByText('Hemoglobin')).not.toBeInTheDocument();
-    expect(within(thyroid).getByText('0.1 mIU/L')).toBeInTheDocument();
-    expect(within(thyroid).getByText('Reference 0.4 - 4')).toBeInTheDocument();
-    expect(within(thyroid).getByText('Lower than expected')).toBeInTheDocument();
-    const summary = screen.getByRole('heading', { name: 'Verified report summary' });
+    const evidence = screen.getByRole('region', { name: 'Key verified laboratory findings' });
+    expect(within(evidence).getByText('Hemoglobin')).toBeInTheDocument();
+    expect(within(evidence).getByText('TSH')).toBeInTheDocument();
+    expect(within(evidence).getByText('0.1 mIU/L')).toBeInTheDocument();
+    expect(within(evidence).getByText('Ref: 0.4 - 4')).toBeInTheDocument();
+    const summary = screen.getByRole('region', { name: 'Verified report summary' });
     expect(thyroid.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container).not.toHaveTextContent(/MedGemma/i);
     expect(container).not.toHaveTextContent(/Â|â€|Ã‚/);
@@ -378,10 +413,12 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     }]);
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
-    const alternatives = within(cluster).getAllByRole('region', { name: /^Possible condition:/ });
-    expect(alternatives).toHaveLength(2);
-    expect(within(alternatives[0]).getByText('Ferritin and iron studies')).toBeInTheDocument();
-    expect(within(alternatives[1]).getByText('Family history and hemoglobin studies')).toBeInTheDocument();
+    const firstCandidate = within(cluster).getByText('Iron-deficiency anemia').closest('details');
+    const secondCandidate = within(cluster).getByText('Thalassemia trait').closest('details');
+    expect(firstCandidate).not.toBeNull();
+    expect(secondCandidate).not.toBeNull();
+    expect(within(firstCandidate!).getByText('Ferritin and iron studies')).toBeInTheDocument();
+    expect(within(secondCandidate!).getByText('Family history and hemoglobin studies')).toBeInTheDocument();
   });
 
   it('preserves a pattern-only clinical interpretation without adding a condition', async () => {
@@ -389,7 +426,7 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     expect(within(cluster).getByText(redCellCluster.interpretation)).toBeInTheDocument();
-    expect(within(cluster).getByText('Verified support')).toBeInTheDocument();
+    expect(within(cluster).getByText('Clinical context')).toBeInTheDocument();
     expect(within(cluster).queryByText('Possible condition')).not.toBeInTheDocument();
     expect(screen.queryByText('Iron-deficiency anemia')).not.toBeInTheDocument();
   });
@@ -403,9 +440,10 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     expect(within(cluster).getByText('Iron-deficiency anemia')).toBeInTheDocument();
-    expect(within(cluster).getByText('Other verified context')).toBeInTheDocument();
-    expect(within(cluster).getByText('Within expected range')).toBeInTheDocument();
-    expect(within(cluster).queryByText(/unknown evidence/)).not.toBeInTheDocument();
+    const evidence = screen.getByRole('region', { name: 'Key verified laboratory findings' });
+    expect(within(evidence).getByText('Absolute Lymphocytes')).toBeInTheDocument();
+    expect(within(evidence).getByText('Within expected range')).toBeInTheDocument();
+    expect(screen.queryByText(/unknown evidence/)).not.toBeInTheDocument();
   });
 
   it('shows contradictory evidence only when provided and grounded', async () => {
@@ -417,14 +455,13 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     expect(within(cluster).getByText('What does not fully match')).toBeInTheDocument();
-    expect(within(cluster).getByText('Absolute Lymphocytes')).toBeInTheDocument();
-    expect(within(cluster).getByText('Within expected range')).toBeInTheDocument();
+    expect(within(cluster).getByText(/Absolute Lymphocytes · 2000 \/cumm · Within expected range/)).toBeInTheDocument();
   });
 
   it('treats explicit empty clusters as authoritative and does not revive legacy candidates', async () => {
     useClusters([]);
     renderPage();
-    expect(await screen.findByRole('heading', { name: 'More context is needed to interpret these findings.' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'More context is needed to interpret these verified findings.' })).toBeInTheDocument();
     expect(screen.queryByText('Iron-deficiency anemia')).not.toBeInTheDocument();
     expect(screen.queryByRole('article', { name: /^Clinical finding/ })).not.toBeInTheDocument();
   });
@@ -435,8 +472,9 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' })).toBeInTheDocument();
     expect(screen.queryByText('Possible condition')).not.toBeInTheDocument();
-    expect(screen.getByText('2000 /cumm')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Verified report summary' })).toBeInTheDocument();
+    const verifiedValues = screen.getByRole('region', { name: 'Verified laboratory values' });
+    expect(within(verifiedValues).getByText('2000 /cumm')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Verified report summary' })).toBeInTheDocument();
   });
 
   it('preserves historical conditions when backend serializes absent v1.0 clusters as an empty list', async () => {
@@ -446,7 +484,7 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     });
     renderPage();
     expect(await screen.findByText('Iron-deficiency anemia')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Possible conditions to discuss' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Iron-deficiency anemia' })).toBeInTheDocument();
   });
 });
 
@@ -474,11 +512,14 @@ describe('Phase 10P-R5.1 grounded display', () => {
     const group = await screen.findByRole('article', { name: 'Clinical finding 1: PDW + related findings pattern' });
     expect(within(group).getByRole('heading', { name: 'PDW + related findings pattern' })).toBeInTheDocument();
     expect(screen.queryByText('Old unvalidated model title')).not.toBeInTheDocument();
-    expect(within(group).getAllByText('Range status unavailable')).toHaveLength(17);
-    expect(within(group).getByText('Other verified context')).toBeInTheDocument();
-    expect(within(group).getByText('19 fL')).toBeInTheDocument();
-    expect(within(group).getByText('Reference 9 - 17')).toBeInTheDocument();
+    const verifiedValues = screen.getByRole('region', { name: 'Verified laboratory values' });
+    expect(within(verifiedValues).getAllByText('Range status unavailable')).toHaveLength(17);
+    expect(screen.getAllByText('19 fL').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('9 - 17').length).toBeGreaterThan(0);
+    for (const item of context) {
+      expect(within(verifiedValues).getByText(item.label)).toBeInTheDocument();
+    }
     expect(within(group).queryByText('Possible condition')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Verified report summary' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Verified report summary' })).toBeInTheDocument();
   });
 });
