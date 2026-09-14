@@ -42,6 +42,11 @@ management:
         enabled: true
 
 clinora:
+  health-summary:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-2.5-flash}
+      api-base-url: ${GEMINI_API_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
   auth:
     issuer: ${AUTH_JWT_ISSUER:clinora-ai}
     access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:15m}

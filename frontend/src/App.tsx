@@ -39,6 +39,7 @@ import { PatientReportDetailPage } from './pages/patient/patient-report-detail-p
 import { PatientReportsPage } from './pages/patient/patient-reports-page';
 import { PatientPortalPage } from './pages/patient/patient-portal-r3-page';
 import { PatientHealthRecordPage } from './pages/patient/patient-health-record-page';
+import { PatientHealthSummaryPage } from './pages/patient/patient-health-summary-page';
 import { PatientTimelinePage } from './pages/patient/patient-timeline-page';
 import { PatientDoctorsPage } from './pages/patient/patient-doctors-page';
 import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-r3-page';
@@ -103,6 +104,7 @@ export function AppRoutes() {
           <Route path="patient/reports" element={<PatientReportsPage />} />
           <Route path="patient/reports/:reportId" element={<PatientReportDetailPage />} />
           <Route path="patient/history" element={<PatientHealthRecordPage />} />
+          <Route path="patient/summary" element={<PatientHealthSummaryPage />} />
           <Route path="patient/timeline" element={<PatientTimelinePage />} />
           <Route path="patient/doctors" element={<PatientDoctorsPage />} />
           <Route path="patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />

@@ -33,7 +33,10 @@ export function HealthRecordTabs() {
       className="mt-5 flex w-fit rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-1"
     >
       <NavLink end to="/patient/history" className={({ isActive }) => tabClass(isActive)}>
-        Overview
+        Health Record
+      </NavLink>
+      <NavLink to="/patient/summary" className={({ isActive }) => tabClass(isActive)}>
+        Summary
       </NavLink>
       <NavLink to="/patient/timeline" className={({ isActive }) => tabClass(isActive)}>
         Timeline

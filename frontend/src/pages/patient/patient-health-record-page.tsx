@@ -10,25 +10,20 @@ import {
   HealthRecordTabs,
   ProfileSourceLabel,
 } from '../../features/patient-record/health-record-shell';
-import { HealthTrendsSection } from '../../features/patient-record/health-trends';
+import { LongitudinalHealthRecordSection } from '../../features/patient-record/longitudinal-health-record';
 import {
   patientRecordApi,
   patientRecordError,
   type HealthRecord,
   type HealthRecordAppointment,
-  type HealthTrends,
   type SourcedHealthValue,
 } from '../../features/patient-record/patient-record-api';
-import { bloodGroupLabels } from '../../features/patient/patient-types';
 import { patientReportTypeLabels } from '../../features/patient-reports/patient-report-types';
 
 export function PatientHealthRecordPage() {
   const [record, setRecord] = useState<HealthRecord | null>(null);
   const [recordLoading, setRecordLoading] = useState(true);
   const [recordError, setRecordError] = useState('');
-  const [trends, setTrends] = useState<HealthTrends | null>(null);
-  const [trendsLoading, setTrendsLoading] = useState(true);
-  const [trendsError, setTrendsError] = useState('');
 
   const loadRecord = useCallback(async () => {
     setRecordLoading(true);
@@ -41,22 +36,9 @@ export function PatientHealthRecordPage() {
       setRecordLoading(false);
     }
   }, []);
-  const loadTrends = useCallback(async () => {
-    setTrendsLoading(true);
-    setTrendsError('');
-    try {
-      setTrends(await patientRecordApi.healthTrends());
-    } catch (error) {
-      setTrendsError(patientRecordError(error, 'Health Trends could not be refreshed.'));
-    } finally {
-      setTrendsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     void loadRecord();
-    void loadTrends();
-  }, [loadRecord, loadTrends]);
+  }, [loadRecord]);
 
   if (recordLoading) return <HealthRecordSkeleton />;
   if (recordError || !record) return <RecordError message={recordError} retry={loadRecord} />;
@@ -80,6 +62,9 @@ export function PatientHealthRecordPage() {
             </Link>
           </div>
         </AppSurface>
+        <div className="mt-8">
+          <LongitudinalHealthRecordSection />
+        </div>
       </div>
     );
   }
@@ -92,27 +77,7 @@ export function PatientHealthRecordPage() {
       <div className="mt-9 space-y-10">
         <ClinicalEssentials record={record} />
 
-        <section aria-labelledby="measurements-section-title">
-          <div className="mb-5">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--clinora-info-foreground)]">
-              Longitudinal health
-            </p>
-            <h2 id="measurements-section-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">
-              Measurements
-            </h2>
-          </div>
-          <div className="grid items-start gap-6 lg:grid-cols-12">
-            <CurrentMeasurements record={record} />
-            <div className="min-w-0 lg:col-span-8">
-              <HealthTrendsSection
-                trends={trends}
-                loading={trendsLoading}
-                error={trendsError}
-                retry={() => void loadTrends()}
-              />
-            </div>
-          </div>
-        </section>
+        <LongitudinalHealthRecordSection />
 
         <div className="grid items-start gap-9 lg:grid-cols-2 lg:gap-12">
           <MedicalReports record={record} />
@@ -203,32 +168,6 @@ function ClinicalGroup({
         <p className="mt-4 text-sm leading-6 text-[var(--clinora-text-muted)]">{empty}</p>
       )}
     </div>
-  );
-}
-
-function CurrentMeasurements({ record }: { record: HealthRecord }) {
-  const measurements = record.currentMeasurements;
-  return (
-    <aside
-      className="border-y border-[var(--clinora-border-subtle)] py-5 lg:col-span-4"
-      aria-labelledby="current-measurements-title"
-    >
-      <h3 id="current-measurements-title" className="text-sm font-semibold text-white">
-        Current measurements
-      </h3>
-      <dl className="mt-4 divide-y divide-[var(--clinora-border-subtle)]">
-        <Datum
-          label="Blood group"
-          value={measurements.bloodGroup ? bloodGroupLabels[measurements.bloodGroup] : 'Not recorded'}
-        />
-        <Datum label="Height" value={measurements.heightCm == null ? 'Not recorded' : `${measurements.heightCm} cm`} />
-        <Datum label="Weight" value={measurements.weightKg == null ? 'Not recorded' : `${measurements.weightKg} kg`} />
-        <Datum label="BMI" value={measurements.bmi == null ? 'Not available' : measurements.bmi.toFixed(1)} />
-      </dl>
-      <div className="mt-4">
-        <ProfileSourceLabel />
-      </div>
-    </aside>
   );
 }
 
@@ -363,14 +302,6 @@ function SectionHeading({
       <Link to={to} className="text-sm font-semibold text-[var(--clinora-info-foreground)]">
         {action} <ArrowRight size={14} className="inline" aria-hidden="true" />
       </Link>
-    </div>
-  );
-}
-function Datum({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <dt className="text-sm text-[var(--clinora-text-muted)]">{label}</dt>
-      <dd className="text-sm font-semibold text-white">{value}</dd>
     </div>
   );
 }
