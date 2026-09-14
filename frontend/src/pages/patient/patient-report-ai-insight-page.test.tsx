@@ -264,14 +264,47 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
     expect(screen.queryByText(/report support/i)).not.toBeInTheDocument();
   });
 
-  it('lets the patient run a fresh analysis again from a completed insight', async () => {
+  it('confirms a separate AI rerun and uses the force contract', async () => {
     const user = userEvent.setup();
     mocks.getAi.mockResolvedValue(conditionSucceeded);
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: 'Run analysis again' }));
+    await user.click(await screen.findByRole('button', { name: 'Re-run AI analysis' }));
+    const dialog = screen.getByRole('dialog', { name: 'Run Clinora AI again?' });
+    expect(within(dialog).getByText(/latest verified report values/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Re-run AI analysis' }));
 
     expect(mocks.requestAi).toHaveBeenCalledWith(report.id, true);
+  });
+
+  it('keeps the previous successful result visible while a rerun is processing', async () => {
+    mocks.getAi.mockResolvedValue({
+      ...conditionSucceeded,
+      jobId: 'new-job-id',
+      status: 'PROCESSING',
+      displayedPreviousResult: true,
+      displayedJobId: conditionSucceeded.jobId,
+    });
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Analyzing your verified report' })).toBeInTheDocument();
+    expect(screen.getByText('Iron-deficiency anemia')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-running analysis…' })).toBeDisabled();
+  });
+
+  it('preserves the previous result after a failed rerun and never exposes internal model branding', async () => {
+    mocks.getAi.mockResolvedValue({
+      ...conditionSucceeded,
+      jobId: 'failed-job-id',
+      status: 'FAILED',
+      failureCode: 'AI_SERVICE_UNAVAILABLE',
+      displayedPreviousResult: true,
+    });
+    renderPage();
+
+    expect(await screen.findByText('Iron-deficiency anemia')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your insight is not ready yet' })).toBeInTheDocument();
+    expect(screen.queryByText(/MedGemma/i)).not.toBeInTheDocument();
   });
 
   it('keeps the ready state accessible', async () => {

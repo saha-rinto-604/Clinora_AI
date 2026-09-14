@@ -49,6 +49,7 @@ class PatientReportAiAnalysisServiceTest {
     private static final UUID EXTRACTION_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID OBSERVATION_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final UUID JOB_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");
+    private static final UUID PRIOR_JOB_ID = UUID.fromString("66666666-6666-4666-8666-666666666666");
     private static final Instant NOW = Instant.parse("2026-09-02T08:00:00Z");
 
     @Test
@@ -149,6 +150,41 @@ class PatientReportAiAnalysisServiceTest {
         assertEquals(JOB_ID, view.jobId());
         assertTrue(view.stale());
         assertNotEquals("fingerprint-for-the-old-confirmed-values", fixture.requestedFingerprint);
+    }
+
+    @Test
+    void failedRerunKeepsPreviousSuccessfulAnalysisVisible() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("8.0"));
+        fixture.noReusableJob();
+        fixture.latestPriorJob("current-fingerprint");
+        fixture.successfulPriorJob();
+        fixture.priorAnalysisResult();
+
+        AnalysisView view = fixture.service.view(PATIENT_ID, REPORT_ID);
+
+        assertEquals("FAILED", view.status());
+        assertTrue(view.displayedPreviousResult());
+        assertEquals("NO_CLEAR_ABNORMAL_PATTERN", view.result().analysisStatus());
+    }
+
+    @Test
+    void successfulRerunBecomesTheLatestDisplayedAnalysis() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("8.0"));
+        fixture.successfulReusableJob();
+        fixture.analysisResult(JOB_ID);
+
+        AnalysisView view = fixture.service.view(PATIENT_ID, REPORT_ID);
+
+        assertEquals("SUCCEEDED", view.status());
+        assertEquals(JOB_ID, view.displayedJobId());
+        assertFalse(view.displayedPreviousResult());
+        assertEquals("NO_CLEAR_ABNORMAL_PATTERN", view.result().analysisStatus());
     }
 
     @Test
@@ -508,6 +544,63 @@ class PatientReportAiAnalysisServiceTest {
                 eq(PATIENT_ID),
                 eq(REPORT_ID)
             )).thenAnswer(invocation -> List.of(mapJob(invocation, fingerprint, "FAILED")));
+        }
+
+        private void successfulReusableJob() throws Exception {
+            when(jdbc.query(
+                contains("input_fingerprint = ?"), any(RowMapper.class),
+                eq(PATIENT_ID), eq(REPORT_ID), anyString()
+            )).thenAnswer(invocation -> List.of(mapJob(invocation, invocation.getArgument(4), "SUCCEEDED")));
+        }
+
+        private void successfulPriorJob() throws Exception {
+            when(jdbc.query(
+                contains("status = 'SUCCEEDED' AND id <> ?"),
+                any(RowMapper.class),
+                eq(PATIENT_ID), eq(REPORT_ID), eq(JOB_ID)
+            )).thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                RowMapper<Object> mapper = invocation.getArgument(1);
+                ResultSet rs = mock(ResultSet.class);
+                when(rs.getObject("id", UUID.class)).thenReturn(PRIOR_JOB_ID);
+                when(rs.getObject("report_id", UUID.class)).thenReturn(REPORT_ID);
+                when(rs.getObject("patient_user_id", UUID.class)).thenReturn(PATIENT_ID);
+                when(rs.getObject("extraction_result_id", UUID.class)).thenReturn(EXTRACTION_ID);
+                when(rs.getString("input_fingerprint")).thenReturn("prior-fingerprint");
+                when(rs.getString("status")).thenReturn("SUCCEEDED");
+                when(rs.getString("model_name")).thenReturn("google/medgemma-1.5-4b-it");
+                when(rs.getString("model_revision")).thenReturn("main");
+                when(rs.getString("prompt_version")).thenReturn("patient-lab-report-v1");
+                when(rs.getString("schema_version")).thenReturn("1.0");
+                when(rs.getTimestamp("completed_at")).thenReturn(Timestamp.from(NOW.minusSeconds(60)));
+                return List.of(mapper.mapRow(rs, 0));
+            });
+        }
+
+        private void priorAnalysisResult() throws Exception {
+            analysisResult(PRIOR_JOB_ID);
+        }
+
+        private void analysisResult(UUID jobId) throws Exception {
+            when(jdbc.query(
+                contains("FROM medical_report_ai_analysis_results"),
+                any(RowMapper.class),
+                eq(jobId)
+            )).thenAnswer(invocation -> {
+                @SuppressWarnings("unchecked")
+                RowMapper<Object> mapper = invocation.getArgument(1);
+                ResultSet rs = mock(ResultSet.class);
+                when(rs.getObject("id", UUID.class)).thenReturn(UUID.randomUUID());
+                when(rs.getString("analysis_status")).thenReturn("NO_CLEAR_ABNORMAL_PATTERN");
+                when(rs.getString("result_json")).thenReturn(new ObjectMapper().writeValueAsString(
+                    new ReportAnalysisResponse(
+                        "NO_CLEAR_ABNORMAL_PATTERN", "No clear abnormal pattern.", List.of(), List.of(), List.of(),
+                        "Discuss the verified report with your clinician.", List.of(),
+                        "google/medgemma-1.5-4b-it", "main", "patient-lab-report-v1", "1.0"
+                    )
+                ));
+                return List.of(mapper.mapRow(rs, 0));
+            });
         }
 
         private void processingJob() throws Exception {

@@ -317,7 +317,7 @@ function ResultView({ analysis }: { analysis: PatientReportAiAnalysis }) {
       </div>
 
       <div className="border-t border-white/[0.07] px-5 py-3 text-[10px] leading-5 text-[var(--clinora-text-faint)] sm:px-6">
-        Model: {result.modelName} · Prompt: {result.promptVersion} · Contract: {result.schemaVersion}
+        Clinora AI · Analysis version {result.promptVersion} · Contract {result.schemaVersion}
       </div>
     </div>
   );

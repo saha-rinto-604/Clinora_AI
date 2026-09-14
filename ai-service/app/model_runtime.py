@@ -97,10 +97,13 @@ def _llama_response_schema(allowed_observation_ids: Iterable[str] | None = None)
     evidence["clinicalRelevance"]["maxLength"] = 180
     for properties in (cluster, candidate):
         for field in ("missingEvidence", "alternatives"):
-            properties[field]["maxItems"] = 1
+            properties[field]["maxItems"] = 2
             properties[field]["items"]["maxLength"] = 160
-    candidate["missingEvidence"]["minItems"] = 1
-    candidate["alternatives"]["minItems"] = 1
+    # Keep these arrays present for a stable JSON contract, but do not force the
+    # 4B model to invent filler. Grounded evidence/rationale determine whether a
+    # candidate survives; missing-information/alternative text is enrichment.
+    candidate["missingEvidence"].pop("minItems", None)
+    candidate["alternatives"].pop("minItems", None)
     for field in ("supportingObservationIds", "contradictoryObservationIds"):
         candidate[field]["maxItems"] = 6
 

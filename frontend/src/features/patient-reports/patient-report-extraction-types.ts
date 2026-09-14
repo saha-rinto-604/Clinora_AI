@@ -29,6 +29,19 @@ export interface PatientReportObservation {
   confidence: number | null;
   reviewRequired: boolean;
   verificationStatus: PatientReportObservationVerification;
+  differenceId?: string | null;
+  changeType?: 'CHANGED' | 'NEW' | null;
+}
+
+export interface PatientReportMissingDifference {
+  differenceId: string;
+  previousObservationId: string;
+  label: string;
+  valueType: 'NUMERIC' | 'TEXT' | 'QUALITATIVE';
+  numericValue: number | null;
+  textValue: string | null;
+  comparator: string | null;
+  unit: string | null;
 }
 
 export interface PatientReportExtraction {
@@ -41,7 +54,12 @@ export interface PatientReportExtraction {
   overallConfidence: number | null;
   reviewStatus: PatientReportExtractionReviewStatus;
   observations: PatientReportObservation[];
+  missingDifferences?: PatientReportMissingDifference[];
+  pendingDifferenceCount?: number;
   failureCode: string | null;
+  reprocessing?: boolean;
+  displayedPreviousResult?: boolean;
+  baselineResultId?: string | null;
   requestedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;

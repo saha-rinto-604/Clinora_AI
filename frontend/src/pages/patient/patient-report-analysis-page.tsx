@@ -25,6 +25,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '../../lib/cn';
 import {
   patientReportExtractionApi,
@@ -284,6 +285,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   const [selectedObservationId, setSelectedObservationId] = useState<string | null>(null);
   const [editingObservationId, setEditingObservationId] = useState<string | null>(null);
   const [showReviewHelp, setShowReviewHelp] = useState(false);
+  const [reExtractOpen, setReExtractOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -347,7 +349,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
     0;
 
   useEffect(() => {
-    if (selectedObservationId || extraction?.status !== 'SUCCEEDED' || !extraction.observations.length) return;
+    if (selectedObservationId || !extraction?.observations.length) return;
     const firstReview = extraction.observations.find(
       (item) => item.reviewRequired && item.verificationStatus === 'UNREVIEWED',
     );
@@ -382,6 +384,31 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
       setExtraction(await patientReportExtractionApi.confirm(reportId));
     } catch (requestError) {
       setError(patientReportExtractionErrorMessage(requestError, 'The extracted results could not be confirmed.'));
+    } finally {
+      setAction('');
+    }
+  }
+
+  async function reExtractReport() {
+    setAction('re-extract');
+    setError('');
+    try {
+      setExtraction(await patientReportExtractionApi.reExtract(reportId));
+      setReExtractOpen(false);
+    } catch (requestError) {
+      setError(patientReportExtractionErrorMessage(requestError, 'The original report could not be re-extracted.'));
+    } finally {
+      setAction('');
+    }
+  }
+
+  async function confirmMissingDifference(differenceId: string) {
+    setAction(`missing:${differenceId}`);
+    setError('');
+    try {
+      setExtraction(await patientReportExtractionApi.confirmMissingDifference(reportId, differenceId));
+    } catch (requestError) {
+      setError(patientReportExtractionErrorMessage(requestError, 'This missing value could not be reviewed.'));
     } finally {
       setAction('');
     }
@@ -428,12 +455,27 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
       {['QUEUED', 'PROCESSING'].includes(extraction.status) ? <ProcessingPanel status={extraction.status} /> : null}
 
-      {extraction.status === 'FAILED' ? (
-        <FailurePanel failureCode={extraction.failureCode} busy={action === 'start'} onRetry={() => void startExtraction()} />
+      {extraction.displayedPreviousResult && ['QUEUED', 'PROCESSING'].includes(extraction.status) ? (
+        <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 text-sm text-cyan-100" role="status">
+          Your current reviewed extraction remains visible while Clinora processes the original report again.
+        </div>
       ) : null}
 
-      {extraction.status === 'SUCCEEDED' && extraction.observations.length ? (
+      {extraction.status === 'FAILED' ? (
+        <FailurePanel
+          failureCode={extraction.failureCode}
+          busy={action === 'start' || action === 're-extract'}
+          onRetry={() => void (extraction.reprocessing ? reExtractReport() : startExtraction())}
+        />
+      ) : null}
+
+      {(extraction.status === 'SUCCEEDED' || extraction.observations.length > 0) && extraction.observations.length ? (
         <>
+          {extraction.status === 'SUCCEEDED' && extraction.reprocessing && !(extraction.pendingDifferenceCount ?? 0) ? (
+            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 text-sm text-emerald-100" role="status">
+              Re-extraction finished. No extracted values changed.
+            </div>
+          ) : null}
           <div className="clinora-report-review-reference__workspace">
             <ReportSourceViewer
               report={report}
@@ -449,14 +491,26 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   <h2 id="review-what-clinora-read-title">Review what Clinora read</h2>
                   <p>Compare important values with the original report. Corrections change Clinora&apos;s transcription, not your original document.</p>
                 </div>
-                <button
-                  type="button"
-                  className="clinora-report-review-reference__help"
-                  aria-expanded={showReviewHelp}
-                  onClick={() => setShowReviewHelp((value) => !value)}
-                >
-                  <CircleAlert size={14} aria-hidden="true" /> How to review?
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {extraction.status === 'SUCCEEDED' ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReExtractOpen(true)}
+                      disabled={action === 're-extract'}
+                    >
+                      <RefreshCw size={15} aria-hidden="true" /> Re-extract report
+                    </Button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="clinora-report-review-reference__help"
+                    aria-expanded={showReviewHelp}
+                    onClick={() => setShowReviewHelp((value) => !value)}
+                  >
+                    <CircleAlert size={14} aria-hidden="true" /> How to review?
+                  </button>
+                </div>
               </div>
 
               {showReviewHelp ? (
@@ -469,8 +523,10 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 <span className="clinora-reference-icon-well"><FileText size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>{extraction.observations.length} <span>results extracted</span></strong>
-                  <small className={unresolved ? 'needs-review' : 'complete'}>
-                    {unresolved ? `${unresolved} ${unresolved === 1 ? 'needs' : 'need'} review` : 'All flagged values have been reviewed'}
+                  <small className={(extraction.pendingDifferenceCount ?? unresolved) ? 'needs-review' : 'complete'}>
+                    {(extraction.pendingDifferenceCount ?? unresolved)
+                      ? `${extraction.pendingDifferenceCount ?? unresolved} ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'needs' : 'need'} review`
+                      : 'All flagged values have been reviewed'}
                   </small>
                 </div>
               </div>
@@ -497,11 +553,36 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                       setSelectedObservationId(observation.id);
                     }}
                     reportId={reportId}
+                    readOnly={['QUEUED', 'PROCESSING'].includes(extraction.status)}
                   />
                 ))}
               </div>
             </section>
           </div>
+
+          {(extraction.missingDifferences ?? []).length ? (
+            <section className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-5" aria-labelledby="missing-values-title">
+              <h2 id="missing-values-title" className="text-sm font-semibold text-amber-100">Values missing from the new extraction</h2>
+              <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                These values remain preserved in the previous verified version. Confirm each omission before the new extraction can replace it.
+              </p>
+              <div className="mt-4 space-y-2">
+                {(extraction.missingDifferences ?? []).map((difference) => (
+                  <div key={difference.differenceId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-slate-950/20 p-3">
+                    <div><strong className="text-sm text-white">{difference.label}</strong><p className="text-xs text-amber-200">Missing in the new extraction</p></div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void confirmMissingDifference(difference.differenceId)}
+                      disabled={action === `missing:${difference.differenceId}`}
+                    >
+                      {action === `missing:${difference.differenceId}` ? 'Confirming…' : 'Accept as missing'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="clinora-report-review-reference__confirm-bar">
             <div>
@@ -511,8 +592,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 <small>
                   {extraction.reviewStatus === 'VERIFIED'
                     ? 'Your reviewed values are ready for Clinora AI insight.'
-                    : unresolved
-                      ? `Review ${unresolved} flagged ${unresolved === 1 ? 'value' : 'values'} before confirmation.`
+                    : (extraction.pendingDifferenceCount ?? unresolved)
+                      ? `Review ${extraction.pendingDifferenceCount ?? unresolved} changed, new, or flagged ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'value' : 'values'} before confirmation.`
                       : 'All extracted values are ready for your confirmation.'}
                 </small>
               </span>
@@ -522,7 +603,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
               </Link>
             ) : (
-              <Button variant="appPrimary" onClick={() => void confirmExtraction()} disabled={Boolean(unresolved) || action === 'confirm'}>
+              <Button variant="appPrimary" onClick={() => void confirmExtraction()} disabled={Boolean(unresolved) || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}>
                 <FileCheck2 size={16} aria-hidden="true" /> {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}
               </Button>
             )}
@@ -531,6 +612,22 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
       ) : null}
 
       {extraction.status === 'SUCCEEDED' && !extraction.observations.length ? <NoStructuredResults /> : null}
+
+      <Dialog open={reExtractOpen} onOpenChange={(open) => action !== 're-extract' && setReExtractOpen(open)}>
+        <DialogContent>
+          <DialogTitle className="text-xl font-semibold text-white">Run extraction again?</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
+            Clinora will process the original report again. Verified corrections will not be replaced without your confirmation.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setReExtractOpen(false)} disabled={action === 're-extract'}>Cancel</Button>
+            <Button variant="appPrimary" onClick={() => void reExtractReport()} disabled={action === 're-extract'}>
+              <RefreshCw size={16} className={action === 're-extract' ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+              {action === 're-extract' ? 'Re-extracting…' : 'Re-extract'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -802,6 +899,7 @@ function ObservationCard({
   onCancelEdit,
   onSaved,
   reportId,
+  readOnly,
 }: {
   observation: PatientReportObservation;
   selected: boolean;
@@ -811,6 +909,7 @@ function ObservationCard({
   onCancelEdit: () => void;
   onSaved: (value: PatientReportExtraction) => void;
   reportId: string;
+  readOnly: boolean;
 }) {
   const needsReview = observation.reviewRequired && observation.verificationStatus === 'UNREVIEWED';
   const corrected = observation.verificationStatus === 'PATIENT_CORRECTED';
@@ -842,6 +941,11 @@ function ObservationCard({
         <span className="clinora-report-review-reference__test">
           <span className="clinora-report-review-reference__test-line">
             <strong>{observation.label}</strong>
+            {observation.changeType ? (
+              <span className="clinora-report-review-reference__status-badge changed">
+                {observation.changeType === 'CHANGED' ? 'Changed on re-extraction' : 'New on re-extraction'}
+              </span>
+            ) : null}
             {needsReview ? <span className="clinora-report-review-reference__review-badge">Needs review</span> : null}
             {corrected ? <span className="clinora-report-review-reference__status-badge corrected">Corrected</span> : null}
             {confirmed ? <span className="clinora-report-review-reference__status-badge confirmed">Confirmed</span> : null}
@@ -859,14 +963,14 @@ function ObservationCard({
 
       <div className="clinora-report-review-reference__row-actions">
         {needsReview ? (
-          <button type="button" onClick={() => void confirmUnchanged()} disabled={confirming} className="is-confirm">
+          <button type="button" onClick={() => void confirmUnchanged()} disabled={confirming || readOnly} className="is-confirm">
             {confirming ? <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
             {confirming ? 'Confirming…' : 'Looks correct'}
           </button>
         ) : confirmed || corrected ? (
           <span className="clinora-report-review-reference__reviewed-label"><CheckCircle2 size={14} aria-hidden="true" /> Reviewed</span>
         ) : null}
-        <button type="button" onClick={onEdit} disabled={confirming}>
+        <button type="button" onClick={onEdit} disabled={confirming || readOnly}>
           <PencilLine size={14} aria-hidden="true" /> Edit result
         </button>
         <button type="button" onClick={onSelect}>
@@ -875,7 +979,7 @@ function ObservationCard({
       </div>
 
       {reviewError ? <p role="alert" className="clinora-report-review-reference__row-error">{reviewError}</p> : null}
-      {editing ? (
+      {editing && !readOnly ? (
         <div className="clinora-report-review-reference__editor">
           <CorrectionEditor observation={observation} reportId={reportId} onCancel={onCancelEdit} onSaved={onSaved} />
         </div>

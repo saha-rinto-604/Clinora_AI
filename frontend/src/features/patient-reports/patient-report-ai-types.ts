@@ -90,4 +90,7 @@ export interface PatientReportAiAnalysis {
   requestedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  displayedJobId?: string | null;
+  displayedCompletedAt?: string | null;
+  displayedPreviousResult?: boolean;
 }

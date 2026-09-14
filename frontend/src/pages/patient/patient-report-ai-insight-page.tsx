@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '../../lib/cn';
 import { patientReportAiApi, patientReportAiErrorMessage } from '../../features/patient-reports/patient-report-ai-api';
 import type {
@@ -38,10 +39,7 @@ import type {
   PatientReportExtraction,
   PatientReportObservation,
 } from '../../features/patient-reports/patient-report-extraction-types';
-import {
-  patientObservationRangeState,
-  type PatientObservationRangeState,
-} from '../../features/patient-reports/patient-report-range-state';
+import { patientObservationRangeState } from '../../features/patient-reports/patient-report-range-state';
 import { patientReportDisplayName, patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
 import './patient-report-ai-insight-theme.css';
 import './patient-report-reference-workspaces.css';
@@ -59,6 +57,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState('');
+  const [rerunOpen, setRerunOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -103,6 +102,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
     setError('');
     try {
       setAnalysis(await patientReportAiApi.request(reportId, force));
+      if (force) setRerunOpen(false);
     } catch (requestError) {
       setError(patientReportAiErrorMessage(requestError, 'Clinora could not start your report insight.'));
     } finally {
@@ -117,6 +117,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
 
   const verified = extraction.status === 'SUCCEEDED' && extraction.reviewStatus === 'VERIFIED';
   const status = analysis.status;
+  const analysisActive = ['QUEUED', 'PROCESSING'].includes(status);
 
   return (
     <div className="space-y-6 pb-8">
@@ -145,9 +146,9 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
               </p>
             </div>
           </div>
-          <Button variant="appPrimary" size="sm" onClick={() => void requestInsight(true)} disabled={requesting}>
+          <Button variant="appPrimary" size="sm" onClick={() => setRerunOpen(true)} disabled={requesting || analysisActive}>
             <RefreshCw size={15} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
-            {requesting ? 'Starting…' : 'Refresh insight'}
+            {requesting ? 'Re-running analysis…' : 'Re-run AI analysis'}
           </Button>
         </div>
       ) : null}
@@ -156,7 +157,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         <InsightReady report={report} extraction={extraction} busy={requesting} onStart={() => void requestInsight()} />
       ) : null}
 
-      {verified && ['QUEUED', 'PROCESSING'].includes(status) ? (
+      {verified && analysisActive ? (
         <InsightLab status={status} report={report} extraction={extraction} analysis={analysis} />
       ) : null}
 
@@ -164,20 +165,36 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         <InsightFailure
           failureCode={analysis.failureCode}
           busy={requesting}
-          onRetry={() => void requestInsight()}
+          onRetry={() => analysis.result ? setRerunOpen(true) : void requestInsight()}
           reportId={reportId}
         />
       ) : null}
 
-      {verified && status === 'SUCCEEDED' && analysis.result ? (
+      {verified && analysis.result ? (
         <InsightResult
           report={report}
           extraction={extraction}
           analysis={analysis}
-          busy={requesting}
-          onRunAgain={() => void requestInsight(true)}
+          busy={requesting || analysisActive}
+          onRunAgain={() => setRerunOpen(true)}
         />
       ) : null}
+
+      <Dialog open={rerunOpen} onOpenChange={(open) => !requesting && !analysisActive && setRerunOpen(open)}>
+        <DialogContent>
+          <DialogTitle className="text-xl font-semibold text-white">Run Clinora AI again?</DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
+            Clinora will create a new interpretation using your latest verified report values.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setRerunOpen(false)} disabled={requesting}>Cancel</Button>
+            <Button variant="appPrimary" onClick={() => void requestInsight(true)} disabled={requesting || analysisActive}>
+              <RefreshCw size={16} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+              {requesting ? 'Re-running analysis…' : 'Re-run AI analysis'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -390,7 +407,7 @@ function InsightLab({
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-slate-200 pt-5 text-xs font-medium text-slate-500">
           <span className="inline-flex items-center gap-1.5"><FileCheck2 size={14} className="text-emerald-600" aria-hidden="true" /> Verified values only</span>
           <span className="inline-flex items-center gap-1.5"><LockKeyhole size={14} className="text-blue-600" aria-hidden="true" /> Private Clinora processing</span>
-          <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-cyan-700" aria-hidden="true" /> Validation required before display</span>
+          <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-cyan-700" aria-hidden="true" /> Safety checked before display</span>
         </div>
       </div>
     </section>
@@ -546,6 +563,7 @@ function InsightResult({
     extraction.observations.slice(0, firstHalfCount),
     extraction.observations.slice(firstHalfCount),
   ].filter((items) => items.length > 0);
+  const analysisTimestamp = analysis.displayedCompletedAt ?? analysis.completedAt;
 
   return (
     <div className="clinora-ai-reference">
@@ -685,9 +703,14 @@ function InsightResult({
       </section>
 
       <div className="clinora-ai-reference__actions">
+        {analysisTimestamp ? (
+          <span className="text-xs font-medium text-slate-500">
+            Updated {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(analysisTimestamp))}
+          </span>
+        ) : null}
         <button type="button" onClick={onRunAgain} disabled={busy} className="clinora-reference-secondary-button">
           <RefreshCw size={15} className={busy ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
-          {busy ? 'Starting fresh analysis…' : 'Run analysis again'}
+          {busy ? 'Re-running analysis…' : 'Re-run AI analysis'}
         </button>
         <Link to="/patient/doctors" className="clinora-reference-primary-button"><Stethoscope size={15} aria-hidden="true" /> Find a doctor</Link>
         <Link to={`/patient/analyze/${report.id}`} className="clinora-reference-secondary-button"><FileCheck2 size={15} aria-hidden="true" /> View verified report</Link>
@@ -714,6 +737,7 @@ function ClusterRelatedFinding({
     .filter((item) => item.role === 'CONTRADICTS')
     .map((item) => observationMap.get(item.observationId))
     .filter((item): item is PatientReportObservation => Boolean(item));
+  const candidateNames = new Set(cluster.candidates.map((candidate) => candidate.name.trim().toLocaleLowerCase()));
 
   return (
     <article
@@ -753,7 +777,9 @@ function ClusterRelatedFinding({
                     />
                     <CandidateContext
                       title="Other possibilities to consider"
-                      items={candidate.alternatives}
+                      items={candidate.alternatives.filter(
+                        (alternative) => !candidateNames.has(alternative.trim().toLocaleLowerCase()),
+                      )}
                       empty="No alternative possibility was returned."
                     />
                   </div>
@@ -900,7 +926,6 @@ function observationSummary(observations: PatientReportObservation[]) {
   return { outside, within, unavailable };
 }
 
-type ObservationRangeState = PatientObservationRangeState;
 const rangeState = patientObservationRangeState;
 
 function InsightNotReady({ reportId, readinessCode }: { reportId: string; readinessCode: string | null }) {
