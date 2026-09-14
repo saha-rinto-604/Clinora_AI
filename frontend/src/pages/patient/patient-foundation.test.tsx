@@ -160,7 +160,9 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getAllByText('Health Record').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Blood Network').length).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole('link', { name: /blood network/i }).some((link) => link.getAttribute('href') === '/patient/blood-network'),
+      screen
+        .getAllByRole('link', { name: /blood network/i })
+        .some((link) => link.getAttribute('href') === '/patient/blood-network'),
     ).toBe(true);
     expect(screen.getAllByText('Appointments').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Find a Doctor').length).toBeGreaterThan(0);

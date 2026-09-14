@@ -86,20 +86,29 @@ describe('Doctor professional profile R1', () => {
   });
 
   it('separates editable presentation fields from read-only verified credentials', async () => {
-    render(<MemoryRouter><DoctorProfilePage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <DoctorProfilePage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByRole('heading', { name: 'Dr. Arafat Hossain' })).toBeInTheDocument();
     expect(screen.getByText('Verified credentials')).toBeInTheDocument();
     expect(screen.getByText('medical-license.pdf')).toBeInTheDocument();
     expect(screen.getByText('SYNTHETIC-1001')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /replace.*license|delete.*license|edit.*registration/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /replace.*license|delete.*license|edit.*registration/i }),
+    ).not.toBeInTheDocument();
   });
-
 
   it('keeps unsaved profile edits visible when a save request fails', async () => {
     const user = userEvent.setup();
     mocks.update.mockRejectedValueOnce(new Error('Profile changed in another session. Reload before saving.'));
-    render(<MemoryRouter><DoctorProfilePage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <DoctorProfilePage />
+      </MemoryRouter>,
+    );
 
     const title = await screen.findByLabelText('Display title');
     await user.clear(title);
@@ -113,19 +122,25 @@ describe('Doctor professional profile R1', () => {
 
   it('sends only profile presentation and operational fields through normal save', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><DoctorProfilePage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <DoctorProfilePage />
+      </MemoryRouter>,
+    );
 
     const title = await screen.findByLabelText('Display title');
     await user.clear(title);
     await user.type(title, 'Senior Consultant');
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
 
-    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
-      version: 3,
-      displayTitle: 'Senior Consultant',
-      preferredTimezone: 'Asia/Dhaka',
-      defaultConsultationMinutes: 30,
-    }));
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: 3,
+        displayTitle: 'Senior Consultant',
+        preferredTimezone: 'Asia/Dhaka',
+        defaultConsultationMinutes: 30,
+      }),
+    );
     const sent = mocks.update.mock.calls[0][0];
     expect(sent).not.toHaveProperty('registrationNumber');
     expect(sent).not.toHaveProperty('qualifications');

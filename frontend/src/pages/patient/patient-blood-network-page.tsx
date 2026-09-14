@@ -90,7 +90,9 @@ export function PatientBloodNetworkPage() {
         }
 
         if (!data.currentUser.latitude && data.currentUser.address && !data.mapsConfigured) {
-          setError('Add GOOGLE_MAPS_API_KEY to the backend environment so Clinora can geocode your Health Profile address.');
+          setError(
+            'Add GOOGLE_MAPS_API_KEY to the backend environment so Clinora can geocode your Health Profile address.',
+          );
         } else {
           setError('');
         }
@@ -126,20 +128,21 @@ export function PatientBloodNetworkPage() {
   }, [syncFromServer]);
 
   const people = useMemo(
-    () => request
-      ? request.owner
-        ? request.matches.filter((person) => person.responseStatus !== 'DECLINED' && person.responseStatus !== 'WITHDRAWN')
-        : []
-      : overview?.nearbyPeople ?? [],
+    () =>
+      request
+        ? request.owner
+          ? request.matches.filter(
+              (person) => person.responseStatus !== 'DECLINED' && person.responseStatus !== 'WITHDRAWN',
+            )
+          : []
+        : (overview?.nearbyPeople ?? []),
     [overview?.nearbyPeople, request],
   );
   const selectedPerson = people.find((person) => person.userId === selectedPersonId) ?? null;
   const currentLatitude = overview?.currentUser.latitude;
   const currentLongitude = overview?.currentUser.longitude;
   const currentLocation = useMemo<LatLngPoint | null>(() => {
-    return currentLatitude != null && currentLongitude != null
-      ? { lat: currentLatitude, lng: currentLongitude }
-      : null;
+    return currentLatitude != null && currentLongitude != null ? { lat: currentLatitude, lng: currentLongitude } : null;
   }, [currentLatitude, currentLongitude]);
 
   const activeRequestId = request?.id ?? null;
@@ -152,7 +155,7 @@ export function PatientBloodNetworkPage() {
           ? selectedPerson.userId
           : null
         : request?.myResponseStatus === 'ACCEPTED'
-          ? overview?.currentUser.userId ?? null
+          ? (overview?.currentUser.userId ?? null)
           : null
       : null;
 
@@ -253,7 +256,13 @@ export function PatientBloodNetworkPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.045] px-3 text-xs font-semibold text-emerald-100">
             <Activity size={14} className={syncing ? 'animate-pulse' : ''} aria-hidden="true" />
-            <span>{syncing ? 'Syncing Clinora data…' : lastSyncedAt ? `Live · ${formatClock(lastSyncedAt)}` : 'Live from Clinora'}</span>
+            <span>
+              {syncing
+                ? 'Syncing Clinora data…'
+                : lastSyncedAt
+                  ? `Live · ${formatClock(lastSyncedAt)}`
+                  : 'Live from Clinora'}
+            </span>
           </div>
           <Button variant="appPrimary" onClick={() => setRequestOpen(true)}>
             <Droplets size={16} aria-hidden="true" /> Request blood
@@ -262,7 +271,10 @@ export function PatientBloodNetworkPage() {
       </header>
 
       {error ? (
-        <div role="alert" className="mt-5 rounded-2xl border border-rose-300/20 bg-rose-300/[0.065] px-4 py-3 text-sm text-rose-100">
+        <div
+          role="alert"
+          className="mt-5 rounded-2xl border border-rose-300/20 bg-rose-300/[0.065] px-4 py-3 text-sm text-rose-100"
+        >
           {error}
         </div>
       ) : null}
@@ -281,7 +293,10 @@ export function PatientBloodNetworkPage() {
           />
           <div className="pointer-events-none absolute left-4 right-4 top-4 z-30 flex flex-wrap items-start justify-between gap-3">
             <div className="pointer-events-auto rounded-2xl border border-white/10 bg-slate-950/88 p-2.5 shadow-2xl backdrop-blur-xl">
-              <label htmlFor="blood-map-group" className="mb-1.5 block px-1 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">
+              <label
+                htmlFor="blood-map-group"
+                className="mb-1.5 block px-1 text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500"
+              >
                 Showing blood group
               </label>
               <select
@@ -333,7 +348,11 @@ export function PatientBloodNetworkPage() {
               onRequest={() => setRequestOpen(true)}
             />
           ) : (
-            <DiscoveryPanel people={people} loading={loading} onSelect={(person) => setSelectedPersonId(person.userId)} />
+            <DiscoveryPanel
+              people={people}
+              loading={loading}
+              onSelect={(person) => setSelectedPersonId(person.userId)}
+            />
           )}
         </aside>
       </div>
@@ -383,7 +402,9 @@ function AvailabilityPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-cyan-200">Blood Network availability</p>
-          <h2 className="mt-1.5 text-lg font-semibold text-white">{available ? 'Available for nearby requests' : 'Not currently available'}</h2>
+          <h2 className="mt-1.5 text-lg font-semibold text-white">
+            {available ? 'Available for nearby requests' : 'Not currently available'}
+          </h2>
           <p className="mt-2 text-xs leading-5 text-slate-400">
             {current?.address
               ? `Matching area: ${current.geocodedAddress ?? current.address}`
@@ -401,7 +422,12 @@ function AvailabilityPanel({
             available ? 'border-emerald-300/30 bg-emerald-400/20' : 'border-white/10 bg-white/[0.05]',
           )}
         >
-          <span className={cn('absolute top-1 h-5 w-5 rounded-full transition', available ? 'left-6 bg-emerald-300' : 'left-1 bg-slate-500')} />
+          <span
+            className={cn(
+              'absolute top-1 h-5 w-5 rounded-full transition',
+              available ? 'left-6 bg-emerald-300' : 'left-1 bg-slate-500',
+            )}
+          />
         </button>
       </div>
       <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
@@ -443,16 +469,21 @@ function DiscoveryPanel({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-white">{person.displayName}</span>
-              <span className="mt-0.5 block text-xs text-slate-500">{distanceLabel(person.distanceMeters)} away · approximate location</span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                {distanceLabel(person.distanceMeters)} away · approximate location
+              </span>
             </span>
             <ArrowRight size={14} className="text-slate-600" aria-hidden="true" />
           </button>
         ))}
         {!people.length ? (
           <div className="rounded-xl border border-white/[0.06] bg-slate-950/30 px-4 py-5">
-            <p className="text-sm font-semibold text-slate-300">{loading ? 'Loading nearby people…' : 'No matching people are nearby right now'}</p>
+            <p className="text-sm font-semibold text-slate-300">
+              {loading ? 'Loading nearby people…' : 'No matching people are nearby right now'}
+            </p>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Clinora reads this from opted-in patient profiles in the current 5 km area. Try another blood group or check again later.
+              Clinora reads this from opted-in patient profiles in the current 5 km area. Try another blood group or
+              check again later.
             </p>
           </div>
         ) : null}
@@ -482,12 +513,18 @@ function PersonPreview({
             <p className="mt-0.5 text-xs text-slate-400">{distanceLabel(person.distanceMeters)} away</p>
           </div>
         </div>
-        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-slate-400 hover:text-white" aria-label="Close person preview">
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-slate-400 hover:text-white"
+          aria-label="Close person preview"
+        >
           <XCircle size={17} aria-hidden="true" />
         </button>
       </div>
       <div className="mt-4 rounded-xl border border-white/[0.07] bg-slate-950/30 px-3 py-3 text-xs leading-5 text-slate-400">
-        This is an approximate matching position. Send a blood request first; the individual phone number and precise driving route unlock only if this person accepts.
+        This is an approximate matching position. Send a blood request first; the individual phone number and precise
+        driving route unlock only if this person accepts.
       </div>
       <Button variant="appPrimary" className="mt-4 w-full" onClick={onRequest}>
         <Droplets size={15} aria-hidden="true" /> Request blood to contact
@@ -535,12 +572,21 @@ function RequestWorkspace({
           <p className="mt-1 text-sm font-medium text-slate-300">{request.hospitalName}</p>
           <p className="mt-1.5 text-xs leading-5 text-slate-500">{request.hospitalAddress}</p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-400 hover:text-white" aria-label="Close request focus">
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-400 hover:text-white"
+          aria-label="Close request focus"
+        >
           <XCircle size={17} aria-hidden="true" />
         </button>
       </div>
 
-      {request.note ? <p className="mt-4 rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-3 text-xs leading-5 text-slate-300">{request.note}</p> : null}
+      {request.note ? (
+        <p className="mt-4 rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-3 text-xs leading-5 text-slate-300">
+          {request.note}
+        </p>
+      ) : null}
 
       {request.owner ? (
         <>
@@ -566,16 +612,21 @@ function RequestWorkspace({
                         : 'border-white/[0.07] bg-slate-950/30 hover:border-white/[0.13]',
                     )}
                   >
-                    <span className={cn(
-                      'grid h-9 w-9 place-items-center rounded-xl text-xs font-black',
-                      person.responseStatus === 'ACCEPTED' ? 'bg-emerald-300/[0.09] text-emerald-200' : 'bg-cyan-300/[0.08] text-cyan-100',
-                    )}>
+                    <span
+                      className={cn(
+                        'grid h-9 w-9 place-items-center rounded-xl text-xs font-black',
+                        person.responseStatus === 'ACCEPTED'
+                          ? 'bg-emerald-300/[0.09] text-emerald-200'
+                          : 'bg-cyan-300/[0.08] text-cyan-100',
+                      )}
+                    >
                       {bloodGroupLabel(person.bloodGroup)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-white">{person.displayName}</span>
                       <span className="mt-0.5 block text-xs text-slate-500">
-                        {distanceLabel(person.distanceMeters)} · {person.responseStatus === 'ACCEPTED' ? 'accepted' : person.responseStatus.toLowerCase()}
+                        {distanceLabel(person.distanceMeters)} ·{' '}
+                        {person.responseStatus === 'ACCEPTED' ? 'accepted' : person.responseStatus.toLowerCase()}
                       </span>
                     </span>
                     <ArrowRight size={14} className="text-slate-600" aria-hidden="true" />
@@ -596,16 +647,27 @@ function RequestWorkspace({
 
           {request.status === 'ACTIVE' ? (
             <div className="mt-5 flex gap-2 border-t border-white/[0.07] pt-5">
-              <Button variant="appSecondary" className="flex-1" disabled={busy !== ''} onClick={() => void onUpdate('CANCEL')}>
+              <Button
+                variant="appSecondary"
+                className="flex-1"
+                disabled={busy !== ''}
+                onClick={() => void onUpdate('CANCEL')}
+              >
                 Cancel request
               </Button>
-              <Button variant="appPrimary" className="flex-1" disabled={busy !== ''} onClick={() => void onUpdate('FULFILL')}>
+              <Button
+                variant="appPrimary"
+                className="flex-1"
+                disabled={busy !== ''}
+                onClick={() => void onUpdate('FULFILL')}
+              >
                 <CheckCircle2 size={15} /> Mark fulfilled
               </Button>
             </div>
           ) : (
             <div className="mt-5 rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-3 text-xs leading-5 text-slate-400">
-              This request is {request.status.toLowerCase()}. Nearby coordination and route sharing are no longer active.
+              This request is {request.status.toLowerCase()}. Nearby coordination and route sharing are no longer
+              active.
             </div>
           )}
         </>
@@ -641,12 +703,18 @@ function MatchCoordinationCard({
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-200">Selected match</p>
           <h3 className="mt-1 text-base font-semibold text-white">{person.displayName}</h3>
-          <p className="mt-1 text-xs text-slate-400">{bloodGroupLabel(person.bloodGroup)} · {distanceLabel(person.distanceMeters)} straight-line</p>
+          <p className="mt-1 text-xs text-slate-400">
+            {bloodGroupLabel(person.bloodGroup)} · {distanceLabel(person.distanceMeters)} straight-line
+          </p>
         </div>
-        <span className={cn(
-          'rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider',
-          accepted ? 'border-emerald-300/20 bg-emerald-300/[0.055] text-emerald-200' : 'border-amber-300/20 bg-amber-300/[0.05] text-amber-200',
-        )}>
+        <span
+          className={cn(
+            'rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider',
+            accepted
+              ? 'border-emerald-300/20 bg-emerald-300/[0.055] text-emerald-200'
+              : 'border-amber-300/20 bg-amber-300/[0.05] text-amber-200',
+          )}
+        >
           {accepted ? 'Accepted' : person.responseStatus.toLowerCase()}
         </span>
       </div>
@@ -657,7 +725,13 @@ function MatchCoordinationCard({
             <InfoTile label="Phone" value={person.phone ?? 'No phone saved'} />
             <InfoTile
               label="Driving route"
-              value={route ? `${distanceLabel(route.distanceMeters)} · ${durationLabel(route.durationSeconds)}` : routeLoading ? 'Calculating…' : 'Unavailable'}
+              value={
+                route
+                  ? `${distanceLabel(route.distanceMeters)} · ${durationLabel(route.durationSeconds)}`
+                  : routeLoading
+                    ? 'Calculating…'
+                    : 'Unavailable'
+              }
             />
           </div>
           {routeError ? <p className="mt-3 text-xs leading-5 text-amber-200">{routeError}</p> : null}
@@ -670,7 +744,8 @@ function MatchCoordinationCard({
             </a>
           ) : null}
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
-            The map uses the accepted participant's precise saved location only for this active request. The route line, road distance and ETA come from Google Routes.
+            The map uses the accepted participant's precise saved location only for this active request. The route line,
+            road distance and ETA come from Google Routes.
           </p>
         </>
       ) : (
@@ -701,7 +776,9 @@ function DonorRequestPanel({
   return (
     <>
       {request.myDistanceMeters != null ? (
-        <p className="mt-3 text-xs font-semibold text-cyan-200">{distanceLabel(request.myDistanceMeters)} from your saved matching area</p>
+        <p className="mt-3 text-xs font-semibold text-cyan-200">
+          {distanceLabel(request.myDistanceMeters)} from your saved matching area
+        </p>
       ) : null}
 
       {accepted ? (
@@ -714,7 +791,13 @@ function DonorRequestPanel({
                 <InfoTile label="Phone" value={request.requesterContact.phone ?? 'No phone saved'} />
                 <InfoTile
                   label="Driving route"
-                  value={route ? `${distanceLabel(route.distanceMeters)} · ${durationLabel(route.durationSeconds)}` : routeLoading ? 'Calculating…' : 'Unavailable'}
+                  value={
+                    route
+                      ? `${distanceLabel(route.distanceMeters)} · ${durationLabel(route.durationSeconds)}`
+                      : routeLoading
+                        ? 'Calculating…'
+                        : 'Unavailable'
+                  }
                 />
               </div>
               {request.requesterContact.phone ? (
@@ -728,7 +811,9 @@ function DonorRequestPanel({
               {routeError ? <p className="mt-3 text-xs leading-5 text-amber-200">{routeError}</p> : null}
             </>
           ) : (
-            <p className="mt-2 text-xs leading-5 text-slate-400">The request is accepted. Contact details will appear when available from the requester's saved profile.</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              The request is accepted. Contact details will appear when available from the requester's saved profile.
+            </p>
           )}
         </div>
       ) : request.status === 'ACTIVE' ? (
@@ -765,9 +850,10 @@ function RequestActivityPanel({
   onOpen: (item: BloodRequestSummary) => void;
 }) {
   const items = tab === 'nearby' ? nearby : mine;
-  const empty = tab === 'nearby'
-    ? 'No active matching blood requests are within your 5 km area right now.'
-    : 'Requests you create will appear here with their persisted status.';
+  const empty =
+    tab === 'nearby'
+      ? 'No active matching blood requests are within your 5 km area right now.'
+      : 'Requests you create will appear here with their persisted status.';
   return (
     <section className={cn('rounded-[26px] border border-white/[0.075] bg-white/[0.03] p-5 sm:p-6', className)}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -779,14 +865,20 @@ function RequestActivityPanel({
           <button
             type="button"
             onClick={() => onTabChange('nearby')}
-            className={cn('min-h-9 rounded-lg px-3 text-xs font-semibold transition', tab === 'nearby' ? 'bg-cyan-300/[0.1] text-cyan-100' : 'text-slate-500 hover:text-slate-300')}
+            className={cn(
+              'min-h-9 rounded-lg px-3 text-xs font-semibold transition',
+              tab === 'nearby' ? 'bg-cyan-300/[0.1] text-cyan-100' : 'text-slate-500 hover:text-slate-300',
+            )}
           >
             Nearby requests
           </button>
           <button
             type="button"
             onClick={() => onTabChange('mine')}
-            className={cn('min-h-9 rounded-lg px-3 text-xs font-semibold transition', tab === 'mine' ? 'bg-cyan-300/[0.1] text-cyan-100' : 'text-slate-500 hover:text-slate-300')}
+            className={cn(
+              'min-h-9 rounded-lg px-3 text-xs font-semibold transition',
+              tab === 'mine' ? 'bg-cyan-300/[0.1] text-cyan-100' : 'text-slate-500 hover:text-slate-300',
+            )}
           >
             My requests
           </button>
@@ -795,7 +887,12 @@ function RequestActivityPanel({
 
       <div className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07]">
         {items.map((item) => (
-          <button key={item.id} type="button" onClick={() => onOpen(item)} className="flex w-full items-center gap-3 py-4 text-left transition hover:bg-white/[0.015]">
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onOpen(item)}
+            className="flex w-full items-center gap-3 py-4 text-left transition hover:bg-white/[0.015]"
+          >
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-300/[0.08] text-xs font-black text-rose-100">
               {bloodGroupLabel(item.bloodGroup)}
             </span>
@@ -803,7 +900,9 @@ function RequestActivityPanel({
               <span className="block truncate text-sm font-semibold text-white">{item.hospitalName}</span>
               <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                 {item.distanceMeters > 0 ? <span>{distanceLabel(item.distanceMeters)} away</span> : null}
-                <span>{item.unitsNeeded} {item.unitsNeeded === 1 ? 'unit' : 'units'}</span>
+                <span>
+                  {item.unitsNeeded} {item.unitsNeeded === 1 ? 'unit' : 'units'}
+                </span>
                 <span>{formatRequestTime(item.createdAt)}</span>
               </span>
             </span>
@@ -826,7 +925,13 @@ function RequestStatus({ status }: { status: BloodRequestSummary['status'] }) {
         : status === 'CANCELLED'
           ? 'border-slate-400/15 bg-slate-400/[0.05] text-slate-400'
           : 'border-amber-300/20 bg-amber-300/[0.05] text-amber-200';
-  return <span className={cn('shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider', style)}>{status.toLowerCase()}</span>;
+  return (
+    <span
+      className={cn('shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider', style)}
+    >
+      {status.toLowerCase()}
+    </span>
+  );
 }
 
 function InfoTile({ label, value }: { label: string; value: string }) {
@@ -885,54 +990,117 @@ function CreateRequestPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/72 p-3 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="blood-request-title">
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/72 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="blood-request-title"
+    >
       <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#0a1422] p-5 shadow-2xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-rose-200">Create request</p>
-            <h2 id="blood-request-title" className="mt-1.5 text-2xl font-semibold text-white">Find nearby blood support</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">Clinora will notify opted-in patients with the selected blood group within 5 km of the request location.</p>
+            <h2 id="blood-request-title" className="mt-1.5 text-2xl font-semibold text-white">
+              Find nearby blood support
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Clinora will notify opted-in patients with the selected blood group within 5 km of the request location.
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-400 hover:text-white" aria-label="Close request form">
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-400 hover:text-white"
+            aria-label="Close request form"
+          >
             <XCircle size={18} />
           </button>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field label="Blood group">
-            <select value={bloodGroup} onChange={(event) => setBloodGroup(event.target.value as BloodGroup)} className={inputClass}>
-              {bloodGroupOptions.map((group) => <option key={group.value} value={group.value} className="bg-slate-950">{group.label}</option>)}
+            <select
+              value={bloodGroup}
+              onChange={(event) => setBloodGroup(event.target.value as BloodGroup)}
+              className={inputClass}
+            >
+              {bloodGroupOptions.map((group) => (
+                <option key={group.value} value={group.value} className="bg-slate-950">
+                  {group.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Units needed">
-            <input type="number" min={1} max={20} value={unitsNeeded} onChange={(event) => setUnitsNeeded(Math.max(1, Math.min(20, Number(event.target.value) || 1)))} className={inputClass} />
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={unitsNeeded}
+              onChange={(event) => setUnitsNeeded(Math.max(1, Math.min(20, Number(event.target.value) || 1)))}
+              className={inputClass}
+            />
           </Field>
           <Field label="Hospital / donation centre" className="sm:col-span-2">
-            <input value={hospitalName} onChange={(event) => setHospitalName(event.target.value)} maxLength={180} placeholder="e.g. Dhaka Medical College Hospital" className={inputClass} />
+            <input
+              value={hospitalName}
+              onChange={(event) => setHospitalName(event.target.value)}
+              maxLength={180}
+              placeholder="e.g. Dhaka Medical College Hospital"
+              className={inputClass}
+            />
           </Field>
           <Field label="Request location address" className="sm:col-span-2">
-            <textarea value={hospitalAddress} onChange={(event) => setHospitalAddress(event.target.value)} maxLength={500} rows={2} placeholder="Hospital or donation-centre address" className={inputClass} />
+            <textarea
+              value={hospitalAddress}
+              onChange={(event) => setHospitalAddress(event.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="Hospital or donation-centre address"
+              className={inputClass}
+            />
           </Field>
           <Field label="Needed by">
-            <input type="datetime-local" value={neededBy} onChange={(event) => setNeededBy(event.target.value)} className={inputClass} />
+            <input
+              type="datetime-local"
+              value={neededBy}
+              onChange={(event) => setNeededBy(event.target.value)}
+              className={inputClass}
+            />
           </Field>
           <div className="rounded-xl border border-cyan-300/12 bg-cyan-300/[0.045] px-3 py-3 text-xs leading-5 text-cyan-100">
             <LocateFixed size={14} className="mb-2" aria-hidden="true" />
             Clinora geocodes this address on the backend, then uses that point for the real 5 km matching area.
           </div>
           <Field label="Context for nearby patients" className="sm:col-span-2">
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={600} rows={3} placeholder="Keep this brief. Do not include unnecessary medical details." className={inputClass} />
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              maxLength={600}
+              rows={3}
+              placeholder="Keep this brief. Do not include unnecessary medical details."
+              className={inputClass}
+            />
           </Field>
         </div>
 
         <div className="mt-6 rounded-xl border border-white/[0.07] bg-slate-950/35 px-3.5 py-3 text-xs leading-5 text-slate-400">
           <ShieldCheck size={14} className="mr-2 inline text-cyan-300" aria-hidden="true" />
-          Matching is a coordination aid, not donor medical clearance. The receiving blood bank or hospital performs final donor and transfusion suitability checks.
+          Matching is a coordination aid, not donor medical clearance. The receiving blood bank or hospital performs
+          final donor and transfusion suitability checks.
         </div>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="appSecondary" onClick={onClose} disabled={busy === 'create-request'}>Cancel</Button>
+          <Button variant="appSecondary" onClick={onClose} disabled={busy === 'create-request'}>
+            Cancel
+          </Button>
           <Button variant="appPrimary" onClick={() => void submit()} disabled={busy === 'create-request'}>
-            {busy === 'create-request' ? 'Finding nearby people…' : <><Navigation size={15} /> Send nearby request</>}
+            {busy === 'create-request' ? (
+              'Finding nearby people…'
+            ) : (
+              <>
+                <Navigation size={15} /> Send nearby request
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -941,11 +1109,21 @@ function CreateRequestPanel({
 }
 
 function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
-  return <label className={cn('grid gap-1.5 text-xs font-semibold text-slate-300', className)}><span>{label}</span>{children}</label>;
+  return (
+    <label className={cn('grid gap-1.5 text-xs font-semibold text-slate-300', className)}>
+      <span>{label}</span>
+      {children}
+    </label>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-white/[0.07] bg-slate-950/30 px-3 py-3"><p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p><p className="mt-1 text-lg font-semibold text-white">{value}</p></div>;
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-slate-950/30 px-3 py-3">
+      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
 }
 
 function formatClock(date: Date) {
@@ -958,7 +1136,8 @@ function formatRequestTime(value: string) {
   return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-const inputClass = 'min-h-11 w-full rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10';
+const inputClass =
+  'min-h-11 w-full rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/10';
 
 function retainServerSnapshot<T>(current: T | null, incoming: T): T {
   return current != null && JSON.stringify(current) === JSON.stringify(incoming) ? current : incoming;

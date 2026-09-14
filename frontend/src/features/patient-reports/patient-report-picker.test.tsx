@@ -138,5 +138,4 @@ describe('PatientReportPicker', () => {
     expect(limitButtons.length).toBeGreaterThan(0);
     limitButtons.forEach((button) => expect(button).toBeDisabled());
   });
-
 });

@@ -173,7 +173,12 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     mocks.detail.mockResolvedValue(report);
     mocks.content.mockResolvedValue(new Blob(['image'], { type: 'image/png' }));
     mocks.getExtraction.mockResolvedValue(extraction);
-    mocks.reExtract.mockResolvedValue({ ...extraction, status: 'QUEUED', reprocessing: true, displayedPreviousResult: true });
+    mocks.reExtract.mockResolvedValue({
+      ...extraction,
+      status: 'QUEUED',
+      reprocessing: true,
+      displayedPreviousResult: true,
+    });
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:cbc-report') });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
   });
@@ -316,7 +321,9 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Re-extract report' }));
     const dialog = screen.getByRole('dialog', { name: 'Run extraction again?' });
-    expect(within(dialog).getByText(/Verified corrections will not be replaced without your confirmation/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Verified corrections will not be replaced without your confirmation/),
+    ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Re-extract' }));
 
     expect(mocks.reExtract).toHaveBeenCalledWith(report.id);
@@ -333,10 +340,18 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
         { ...extraction.observations[0], changeType: 'CHANGED', differenceId: 'change-1', reviewRequired: true },
         { ...extraction.observations[1], changeType: 'NEW', differenceId: 'new-1', reviewRequired: true },
       ],
-      missingDifferences: [{
-        differenceId: 'missing-1', previousObservationId: 'old-1', label: 'Platelets', valueType: 'NUMERIC',
-        numericValue: 160000, textValue: null, comparator: null, unit: '/Cmm',
-      }],
+      missingDifferences: [
+        {
+          differenceId: 'missing-1',
+          previousObservationId: 'old-1',
+          label: 'Platelets',
+          valueType: 'NUMERIC',
+          numericValue: 160000,
+          textValue: null,
+          comparator: null,
+          unit: '/Cmm',
+        },
+      ],
     });
     renderWorkspace();
 

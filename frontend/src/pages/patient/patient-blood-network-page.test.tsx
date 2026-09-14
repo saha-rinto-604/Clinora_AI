@@ -149,7 +149,9 @@ describe('Patient Blood Network coordination', () => {
     expect(await screen.findByText(donor.phone)).toBeInTheDocument();
     expect(screen.queryByText(requester.phone)).not.toBeInTheDocument();
     await waitFor(() => expect(mocks.route).toHaveBeenCalledWith('request-id', donor.userId));
-    await waitFor(() => expect(screen.getByTestId('blood-network-map')).toHaveAttribute('data-current-location', 'null'));
+    await waitFor(() =>
+      expect(screen.getByTestId('blood-network-map')).toHaveAttribute('data-current-location', 'null'),
+    );
   });
 
   it('keeps contact and route hidden while the donor response is pending', async () => {

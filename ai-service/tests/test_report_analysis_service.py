@@ -274,8 +274,8 @@ class ReportAnalysisServiceTests(unittest.TestCase):
                 request
             )
 
-        self.assertEqual(raised.exception.reason_code, "MALFORMED_JSON")
-        self.assertIn("line=1", raised.exception.diagnostics)
+        self.assertEqual(raised.exception.reason_code, "CANDIDATE_OUTPUT_INVALID")
+        self.assertIn("candidate_reason=MODEL_CANDIDATE_JSON_INVALID", raised.exception.diagnostics)
 
     def test_rejects_token_limit_truncation_before_parsing(self) -> None:
         request, _ = request_with_observation()
@@ -291,17 +291,16 @@ class ReportAnalysisServiceTests(unittest.TestCase):
         self.assertEqual(raised.exception.reason_code, "OUTPUT_TRUNCATED")
         self.assertIn("completion_tokens=256", raised.exception.diagnostics)
 
-    def test_reports_schema_type_error_without_logging_model_values(self) -> None:
+    def test_legacy_schema_type_error_falls_back_without_exposing_model_values(self) -> None:
         request, observation_id = request_with_observation()
         payload = safe_payload(observation_id)
         payload["clinicalPatterns"] = "not-a-list"
 
-        with self.assertRaises(InvalidModelOutputError) as raised:
-            ReportAnalysisService(FakeRuntime(payload)).analyze(request)  # type: ignore[arg-type]
+        result = ReportAnalysisService(FakeRuntime(payload)).analyze(request)  # type: ignore[arg-type]
 
-        self.assertEqual(raised.exception.reason_code, "SCHEMA_VALIDATION_FAILED")
-        self.assertIn("clinicalPatterns:list_type", raised.exception.diagnostics)
-        self.assertNotIn("not-a-list", raised.exception.diagnostics)
+        self.assertEqual(str(result.analysisStatus), "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(result.clinicalPatterns, [])
+        self.assertNotIn("not-a-list", result.model_dump_json())
     def test_canonicalizes_status_from_clinical_patterns_without_repair(self) -> None:
         request, observation_id = request_with_observation()
         payload = safe_payload(observation_id)
@@ -410,7 +409,8 @@ class ReportAnalysisServiceTests(unittest.TestCase):
         with self.assertRaises(InvalidModelOutputError) as raised:
             ReportAnalysisService(runtime).analyze(request)  # type: ignore[arg-type]
 
-        self.assertEqual(raised.exception.reason_code, "MALFORMED_JSON")
+        self.assertEqual(raised.exception.reason_code, "CANDIDATE_OUTPUT_INVALID")
+        self.assertIn("candidate_reason=MODEL_CANDIDATE_JSON_INVALID", raised.exception.diagnostics)
         self.assertEqual(len(runtime.calls), 2)
 
     def test_preserves_medgemma_structured_inference_with_evidence_links(self) -> None:
@@ -493,8 +493,8 @@ class ReportAnalysisServiceTests(unittest.TestCase):
 
         self.assertEqual(len(runtime.calls), 1)
         self.assertNotIn("Hemoglobin is high", result.summary)
-        self.assertEqual(result.notableFindings[0].observationId, observation_id)
-        self.assertIn("within the supplied reference range", result.notableFindings[0].interpretation)
+        self.assertEqual(result.notableFindings, [])
+        self.assertEqual(str(result.analysisStatus), "NO_CLEAR_ABNORMAL_PATTERN")
     def test_drops_pattern_supported_only_by_in_range_observations_fail_closed(self) -> None:
         request, observation_id = request_with_normal_observation()
         payload = safe_payload(observation_id)
@@ -596,7 +596,8 @@ class ReportAnalysisServiceTests(unittest.TestCase):
         result = ReportAnalysisService(runtime).analyze(request)  # type: ignore[arg-type]
 
         self.assertEqual(len(runtime.calls), 1)
-        self.assertIn("within the supplied reference range", result.notableFindings[0].interpretation)
+        self.assertEqual(result.notableFindings, [])
+        self.assertEqual(str(result.analysisStatus), "NO_CLEAR_ABNORMAL_PATTERN")
     def test_does_not_confuse_mch_with_mchc_in_mixed_direction_prose(self) -> None:
         mch_id = uuid4()
         mchc_id = uuid4()
@@ -803,7 +804,7 @@ class ReportAnalysisServiceTests(unittest.TestCase):
         self.assertIn("more than one explanation", result.patientExplanation)
         self.assertEqual(result.clinicalPatterns, [])
 
-    def test_preserves_fact_free_pattern_level_reasoning_when_no_condition_is_named(self) -> None:
+    def test_uses_grounded_fallback_when_legacy_payload_names_no_condition(self) -> None:
         request, observation_id = request_with_observation()
         payload = safe_payload(observation_id)
         payload["analysisStatus"] = "NO_CLEAR_ABNORMAL_PATTERN"
@@ -816,7 +817,8 @@ class ReportAnalysisServiceTests(unittest.TestCase):
         result = ReportAnalysisService(FakeRuntime(payload)).analyze(request)  # type: ignore[arg-type]
 
         self.assertEqual(result.clinicalPatterns, [])
-        self.assertIn("more than one red-cell production process", result.patientExplanation)
+        self.assertNotIn("more than one red-cell production process", result.patientExplanation)
+        self.assertIn("more than one explanation", result.patientExplanation)
         self.assertIn("Hemoglobin (lower than expected)", result.patientExplanation)
 
     def test_discards_fact_claims_from_no_condition_pattern_reasoning(self) -> None:
@@ -840,7 +842,7 @@ class ReportAnalysisServiceTests(unittest.TestCase):
 
         result = ReportAnalysisService(FakeRuntime(payload)).analyze(request)  # type: ignore[arg-type]
 
-        self.assertEqual(str(result.analysisStatus), "NO_CLEAR_ABNORMAL_PATTERN")
+        self.assertEqual(str(result.analysisStatus), "INSUFFICIENT_EVIDENCE")
         self.assertEqual(result.clinicalPatterns, [])
 
 

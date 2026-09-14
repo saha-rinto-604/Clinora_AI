@@ -72,7 +72,6 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
     },
   });
 
-
   const subjectType = watch('subjectType');
 
   const resetDialog = () => {
@@ -266,7 +265,11 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
               <div className="mt-5 grid gap-5 sm:grid-cols-2">
                 <FormField className="sm:col-span-2">
                   <Label>Who is this report for?</Label>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Who this report belongs to">
+                  <div
+                    className="mt-2 grid gap-2 sm:grid-cols-2"
+                    role="radiogroup"
+                    aria-label="Who this report belongs to"
+                  >
                     <label
                       className={cn(
                         'flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors',
@@ -275,7 +278,13 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
                           : 'border-[var(--clinora-border-subtle)] bg-white/[0.02] hover:bg-white/[0.035]',
                       )}
                     >
-                      <input type="radio" value="SELF" className="sr-only" disabled={uploading} {...register('subjectType')} />
+                      <input
+                        type="radio"
+                        value="SELF"
+                        className="sr-only"
+                        disabled={uploading}
+                        {...register('subjectType')}
+                      />
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-cyan-300/[0.08] text-cyan-200">
                         <HeartPulse size={17} aria-hidden="true" />
                       </span>
@@ -294,7 +303,13 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
                           : 'border-[var(--clinora-border-subtle)] bg-white/[0.02] hover:bg-white/[0.035]',
                       )}
                     >
-                      <input type="radio" value="OTHER" className="sr-only" disabled={uploading} {...register('subjectType')} />
+                      <input
+                        type="radio"
+                        value="OTHER"
+                        className="sr-only"
+                        disabled={uploading}
+                        {...register('subjectType')}
+                      />
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-violet-300/[0.08] text-violet-200">
                         <UsersRound size={17} aria-hidden="true" />
                       </span>
@@ -321,7 +336,8 @@ export function PatientReportUploadDialog({ open, onOpenChange, onUploaded }: Pa
                       {...register('subjectLabel')}
                     />
                     <p className="text-xs leading-5 text-[var(--clinora-text-faint)]">
-                      This label is for organizing your private library. Clinora will not add this report to your own longitudinal record.
+                      This label is for organizing your private library. Clinora will not add this report to your own
+                      longitudinal record.
                     </p>
                     {errors.subjectLabel ? (
                       <FormMessage role="alert" className="text-rose-300">
@@ -456,8 +472,5 @@ function reportNameFromFilename(filename: string) {
   const compact = stem.replace(/[-_\s]/g, '');
   if (/^[0-9a-f]{24,}$/i.test(compact)) return 'Medical report';
 
-  return stem
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .slice(0, 160);
+  return stem.replace(/[_-]+/g, ' ').trim().slice(0, 160);
 }

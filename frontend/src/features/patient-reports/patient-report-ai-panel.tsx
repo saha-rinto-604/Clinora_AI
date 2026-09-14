@@ -100,8 +100,8 @@ export function PatientReportAiPanel({ reportId }: PatientReportAiPanelProps) {
                 AI report insight
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-                Clinora interprets only your confirmed structured report values. This
-                interpretation is educational decision support, not a diagnosis or treatment plan.
+                Clinora interprets only your confirmed structured report values. This interpretation is educational
+                decision support, not a diagnosis or treatment plan.
               </p>
             </div>
           </div>
@@ -269,8 +269,8 @@ function ResultView({ analysis }: { analysis: PatientReportAiAnalysis }) {
         <div className="border-t border-white/[0.07] p-5 sm:p-6">
           <SectionHeading eyebrow="Clinical reasoning" title="No forced condition list" />
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-            Clinora AI did not identify a sufficiently supported clinical pattern from the confirmed values provided. That
-            is a valid result and does not mean that a complete clinical evaluation would find nothing important.
+            Clinora AI did not identify a sufficiently supported clinical pattern from the confirmed values provided.
+            That is a valid result and does not mean that a complete clinical evaluation would find nothing important.
           </p>
         </div>
       )}

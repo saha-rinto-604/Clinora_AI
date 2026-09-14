@@ -92,12 +92,14 @@ function AnalysisStart() {
   }, [loadReports]);
 
   const sortedOtherReports = useMemo(() => {
-    return otherReports.filter((report) => report.subjectType === 'OTHER').sort((left, right) => {
-      if (sortOrder === 'uploaded') return Date.parse(right.createdAt) - Date.parse(left.createdAt);
-      const leftDate = left.reportDate ? Date.parse(`${left.reportDate}T00:00:00Z`) : Date.parse(left.createdAt);
-      const rightDate = right.reportDate ? Date.parse(`${right.reportDate}T00:00:00Z`) : Date.parse(right.createdAt);
-      return rightDate - leftDate;
-    });
+    return otherReports
+      .filter((report) => report.subjectType === 'OTHER')
+      .sort((left, right) => {
+        if (sortOrder === 'uploaded') return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+        const leftDate = left.reportDate ? Date.parse(`${left.reportDate}T00:00:00Z`) : Date.parse(left.createdAt);
+        const rightDate = right.reportDate ? Date.parse(`${right.reportDate}T00:00:00Z`) : Date.parse(right.createdAt);
+        return rightDate - leftDate;
+      });
   }, [otherReports, sortOrder]);
 
   return (
@@ -109,7 +111,8 @@ function AnalysisStart() {
           </div>
           <h1>Analyze a medical report</h1>
           <p>
-            Upload your laboratory report, verify the values, and get clear, patient-friendly insights powered by Clinora AI.
+            Upload your laboratory report, verify the values, and get clear, patient-friendly insights powered by
+            Clinora AI.
           </p>
         </div>
         <div className="clinora-report-start-reference__art" aria-hidden="true" />
@@ -123,7 +126,8 @@ function AnalysisStart() {
           <div className="min-w-0">
             <h2 id="analysis-start-title">Start with your report</h2>
             <p>
-              Upload a PDF, JPG or PNG, or choose a report already saved in Medical Reports. The original remains unchanged while you review Clinora&apos;s analysis.
+              Upload a PDF, JPG or PNG, or choose a report already saved in Medical Reports. The original remains
+              unchanged while you review Clinora&apos;s analysis.
             </p>
           </div>
           <div className="clinora-report-start-reference__launch-actions">
@@ -136,24 +140,41 @@ function AnalysisStart() {
           </div>
         </div>
         <div className="clinora-report-start-reference__steps" aria-label="Report analysis workflow">
-          <div><strong>1 · Extract</strong><span>Clinora reads reported laboratory values.</span></div>
+          <div>
+            <strong>1 · Extract</strong>
+            <span>Clinora reads reported laboratory values.</span>
+          </div>
           <ChevronRight size={15} aria-hidden="true" />
-          <div><strong>2 · Verify</strong><span>Compare uncertain values with the source.</span></div>
+          <div>
+            <strong>2 · Verify</strong>
+            <span>Compare uncertain values with the source.</span>
+          </div>
           <ChevronRight size={15} aria-hidden="true" />
-          <div><strong>3 · Understand</strong><span>Get a clear, patient-friendly insight after verification.</span></div>
+          <div>
+            <strong>3 · Understand</strong>
+            <span>Get a clear, patient-friendly insight after verification.</span>
+          </div>
         </div>
       </section>
 
       {error ? (
         <div className="clinora-reference-error" role="alert">
           {error}{' '}
-          <button type="button" onClick={() => void loadReports()}>Try again</button>
+          <button type="button" onClick={() => void loadReports()}>
+            Try again
+          </button>
         </div>
       ) : null}
 
-      <section id="existing-reports" className="clinora-report-library-reference scroll-mt-24" aria-labelledby="personal-lab-reports-title">
+      <section
+        id="existing-reports"
+        className="clinora-report-library-reference scroll-mt-24"
+        aria-labelledby="personal-lab-reports-title"
+      >
         <div className="clinora-report-library-reference__heading">
-          <span className="clinora-reference-icon-well"><UserRound size={19} aria-hidden="true" /></span>
+          <span className="clinora-reference-icon-well">
+            <UserRound size={19} aria-hidden="true" />
+          </span>
           <div>
             <h2 id="personal-lab-reports-title">Personal lab reports</h2>
             <p>Reports that belong to you and can contribute to your own Clinora Health Record.</p>
@@ -172,10 +193,15 @@ function AnalysisStart() {
 
       <section className="clinora-report-library-reference" aria-labelledby="other-lab-reports-title">
         <div className="clinora-report-library-reference__heading clinora-report-library-reference__heading--filters">
-          <span className="clinora-reference-icon-well"><UsersRound size={19} aria-hidden="true" /></span>
+          <span className="clinora-reference-icon-well">
+            <UsersRound size={19} aria-hidden="true" />
+          </span>
           <div>
             <h2 id="other-lab-reports-title">Other lab reports</h2>
-            <p>Reports uploaded for family members or someone else. These stay separate from your own Clinora Health Record.</p>
+            <p>
+              Reports uploaded for family members or someone else. These stay separate from your own Clinora Health
+              Record.
+            </p>
           </div>
           <div className="clinora-report-library-reference__filters" aria-label="Filter other reports">
             <label>
@@ -186,13 +212,18 @@ function AnalysisStart() {
               >
                 <option value="">All report types</option>
                 {Object.entries(patientReportTypeLabels).map(([type, label]) => (
-                  <option key={type} value={type}>{label}</option>
+                  <option key={type} value={type}>
+                    {label}
+                  </option>
                 ))}
               </select>
             </label>
             <label>
               <span className="sr-only">Sort reports</span>
-              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as 'report-date' | 'uploaded')}>
+              <select
+                value={sortOrder}
+                onChange={(event) => setSortOrder(event.target.value as 'report-date' | 'uploaded')}
+              >
                 <option value="report-date">Sort by date</option>
                 <option value="uploaded">Recently uploaded</option>
               </select>
@@ -204,7 +235,9 @@ function AnalysisStart() {
         </div>
         <div className="clinora-report-library-reference__search">
           <Search size={15} aria-hidden="true" />
-          <label className="sr-only" htmlFor="analysis-report-search">Search reports</label>
+          <label className="sr-only" htmlFor="analysis-report-search">
+            Search reports
+          </label>
           <input
             id="analysis-report-search"
             type="search"
@@ -250,25 +283,51 @@ function ReportPreviewRows({
   return (
     <div className="clinora-report-library-reference__rows">
       {reports.map((report) => (
-        <button key={report.id} type="button" className="clinora-report-library-reference__row" onClick={() => onAnalyze(report)}>
-          <span className="clinora-report-library-reference__file"><FileText size={17} aria-hidden="true" /></span>
+        <button
+          key={report.id}
+          type="button"
+          className="clinora-report-library-reference__row"
+          onClick={() => onAnalyze(report)}
+        >
+          <span className="clinora-report-library-reference__file">
+            <FileText size={17} aria-hidden="true" />
+          </span>
           <span className="clinora-report-library-reference__identity">
             <strong>{patientReportDisplayName(report)}</strong>
             <span>{report.providerLaboratory?.trim() || patientReportTypeLabels[report.reportType]}</span>
           </span>
           <span className="clinora-report-library-reference__fact">
             <CalendarDays size={14} aria-hidden="true" />
-            <span><strong>{report.reportDate ? formatDate(report.reportDate) : formatUploadedDate(report.createdAt)}</strong><small>{report.reportDate ? 'Report date' : 'Uploaded'}</small></span>
+            <span>
+              <strong>
+                {report.reportDate ? formatDate(report.reportDate) : formatUploadedDate(report.createdAt)}
+              </strong>
+              <small>{report.reportDate ? 'Report date' : 'Uploaded'}</small>
+            </span>
           </span>
           <span className="clinora-report-library-reference__fact">
             <FlaskConical size={14} aria-hidden="true" />
-            <span><strong>{patientReportTypeLabels[report.reportType]}</strong><small>Report type</small></span>
+            <span>
+              <strong>{patientReportTypeLabels[report.reportType]}</strong>
+              <small>Report type</small>
+            </span>
           </span>
-          <span className={cn('clinora-report-library-reference__subject', (report.subjectType ?? 'SELF') === 'OTHER' && 'is-other')}>
-            {(report.subjectType ?? 'SELF') === 'SELF' ? <UserRound size={13} aria-hidden="true" /> : <UsersRound size={13} aria-hidden="true" />}
+          <span
+            className={cn(
+              'clinora-report-library-reference__subject',
+              (report.subjectType ?? 'SELF') === 'OTHER' && 'is-other',
+            )}
+          >
+            {(report.subjectType ?? 'SELF') === 'SELF' ? (
+              <UserRound size={13} aria-hidden="true" />
+            ) : (
+              <UsersRound size={13} aria-hidden="true" />
+            )}
             {patientReportSubjectLabel(report)}
           </span>
-          <span className="clinora-report-library-reference__analyze">Analyze <ChevronRight size={14} aria-hidden="true" /></span>
+          <span className="clinora-report-library-reference__analyze">
+            Analyze <ChevronRight size={14} aria-hidden="true" />
+          </span>
         </button>
       ))}
     </div>
@@ -441,13 +500,22 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
             {patientReportTypeLabels[report.reportType]}
             <span aria-hidden="true"> · </span>
             Uploaded {formatUploadedDate(report.createdAt)}
-            {report.providerLaboratory ? <><span aria-hidden="true"> · </span>{report.providerLaboratory}</> : null}
+            {report.providerLaboratory ? (
+              <>
+                <span aria-hidden="true"> · </span>
+                {report.providerLaboratory}
+              </>
+            ) : null}
           </p>
         </div>
         <AnalysisProgress extraction={extraction} />
       </header>
 
-      {error ? <div className="clinora-reference-error" role="alert">{error}</div> : null}
+      {error ? (
+        <div className="clinora-reference-error" role="alert">
+          {error}
+        </div>
+      ) : null}
 
       {extraction.status === 'NOT_REQUESTED' ? (
         <StartExtractionPanel busy={action === 'start'} onStart={() => void startExtraction()} />
@@ -456,7 +524,10 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
       {['QUEUED', 'PROCESSING'].includes(extraction.status) ? <ProcessingPanel status={extraction.status} /> : null}
 
       {extraction.displayedPreviousResult && ['QUEUED', 'PROCESSING'].includes(extraction.status) ? (
-        <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 text-sm text-cyan-100" role="status">
+        <div
+          className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 text-sm text-cyan-100"
+          role="status"
+        >
           Your current reviewed extraction remains visible while Clinora processes the original report again.
         </div>
       ) : null}
@@ -472,7 +543,10 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
       {(extraction.status === 'SUCCEEDED' || extraction.observations.length > 0) && extraction.observations.length ? (
         <>
           {extraction.status === 'SUCCEEDED' && extraction.reprocessing && !(extraction.pendingDifferenceCount ?? 0) ? (
-            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 text-sm text-emerald-100" role="status">
+            <div
+              className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 text-sm text-emerald-100"
+              role="status"
+            >
               Re-extraction finished. No extracted values changed.
             </div>
           ) : null}
@@ -484,12 +558,18 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
               pageCount={extraction.pageCount ?? 1}
             />
 
-            <section className="clinora-report-review-reference__results" aria-labelledby="review-what-clinora-read-title">
+            <section
+              className="clinora-report-review-reference__results"
+              aria-labelledby="review-what-clinora-read-title"
+            >
               <div className="clinora-report-review-reference__results-head">
                 <div>
                   <p className="clinora-reference-section-label">Extracted results</p>
                   <h2 id="review-what-clinora-read-title">Review what Clinora read</h2>
-                  <p>Compare important values with the original report. Corrections change Clinora&apos;s transcription, not your original document.</p>
+                  <p>
+                    Compare important values with the original report. Corrections change Clinora&apos;s transcription,
+                    not your original document.
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {extraction.status === 'SUCCEEDED' ? (
@@ -515,14 +595,19 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
               {showReviewHelp ? (
                 <div className="clinora-report-review-reference__help-note">
-                  Select a row to locate it on the source. Confirm values that match the report, or edit only Clinora&apos;s transcription when something was read incorrectly.
+                  Select a row to locate it on the source. Confirm values that match the report, or edit only
+                  Clinora&apos;s transcription when something was read incorrectly.
                 </div>
               ) : null}
 
               <div className="clinora-report-review-reference__summary" aria-live="polite">
-                <span className="clinora-reference-icon-well"><FileText size={18} aria-hidden="true" /></span>
+                <span className="clinora-reference-icon-well">
+                  <FileText size={18} aria-hidden="true" />
+                </span>
                 <div>
-                  <strong>{extraction.observations.length} <span>results extracted</span></strong>
+                  <strong>
+                    {extraction.observations.length} <span>results extracted</span>
+                  </strong>
                   <small className={(extraction.pendingDifferenceCount ?? unresolved) ? 'needs-review' : 'complete'}>
                     {(extraction.pendingDifferenceCount ?? unresolved)
                       ? `${extraction.pendingDifferenceCount ?? unresolved} ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'needs' : 'need'} review`
@@ -532,7 +617,10 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
               </div>
 
               <div className="clinora-report-review-reference__table-head" aria-hidden="true">
-                <span>Test</span><span>Result</span><span>Reference on report</span><span>Action</span>
+                <span>Test</span>
+                <span>Result</span>
+                <span>Reference on report</span>
+                <span>Action</span>
               </div>
               <div className="clinora-report-review-reference__rows">
                 {reviewRows.map((observation) => (
@@ -561,15 +649,27 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
           </div>
 
           {(extraction.missingDifferences ?? []).length ? (
-            <section className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-5" aria-labelledby="missing-values-title">
-              <h2 id="missing-values-title" className="text-sm font-semibold text-amber-100">Values missing from the new extraction</h2>
+            <section
+              className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-5"
+              aria-labelledby="missing-values-title"
+            >
+              <h2 id="missing-values-title" className="text-sm font-semibold text-amber-100">
+                Values missing from the new extraction
+              </h2>
               <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
-                These values remain preserved in the previous verified version. Confirm each omission before the new extraction can replace it.
+                These values remain preserved in the previous verified version. Confirm each omission before the new
+                extraction can replace it.
               </p>
               <div className="mt-4 space-y-2">
                 {(extraction.missingDifferences ?? []).map((difference) => (
-                  <div key={difference.differenceId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-slate-950/20 p-3">
-                    <div><strong className="text-sm text-white">{difference.label}</strong><p className="text-xs text-amber-200">Missing in the new extraction</p></div>
+                  <div
+                    key={difference.differenceId}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-slate-950/20 p-3"
+                  >
+                    <div>
+                      <strong className="text-sm text-white">{difference.label}</strong>
+                      <p className="text-xs text-amber-200">Missing in the new extraction</p>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -586,9 +686,13 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
           <section className="clinora-report-review-reference__confirm-bar">
             <div>
-              <span className="clinora-report-review-reference__confirm-icon"><ShieldCheck size={20} aria-hidden="true" /></span>
+              <span className="clinora-report-review-reference__confirm-icon">
+                <ShieldCheck size={20} aria-hidden="true" />
+              </span>
               <span>
-                <strong>{extraction.reviewStatus === 'VERIFIED' ? 'Report data verified' : 'Confirm the extracted results'}</strong>
+                <strong>
+                  {extraction.reviewStatus === 'VERIFIED' ? 'Report data verified' : 'Confirm the extracted results'}
+                </strong>
                 <small>
                   {extraction.reviewStatus === 'VERIFIED'
                     ? 'Your reviewed values are ready for Clinora AI insight.'
@@ -603,8 +707,13 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
               </Link>
             ) : (
-              <Button variant="appPrimary" onClick={() => void confirmExtraction()} disabled={Boolean(unresolved) || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}>
-                <FileCheck2 size={16} aria-hidden="true" /> {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}
+              <Button
+                variant="appPrimary"
+                onClick={() => void confirmExtraction()}
+                disabled={Boolean(unresolved) || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}
+              >
+                <FileCheck2 size={16} aria-hidden="true" />{' '}
+                {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}
               </Button>
             )}
           </section>
@@ -617,12 +726,19 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
         <DialogContent>
           <DialogTitle className="text-xl font-semibold text-white">Run extraction again?</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
-            Clinora will process the original report again. Verified corrections will not be replaced without your confirmation.
+            Clinora will process the original report again. Verified corrections will not be replaced without your
+            confirmation.
           </DialogDescription>
           <div className="mt-6 flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setReExtractOpen(false)} disabled={action === 're-extract'}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setReExtractOpen(false)} disabled={action === 're-extract'}>
+              Cancel
+            </Button>
             <Button variant="appPrimary" onClick={() => void reExtractReport()} disabled={action === 're-extract'}>
-              <RefreshCw size={16} className={action === 're-extract' ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+              <RefreshCw
+                size={16}
+                className={action === 're-extract' ? 'animate-spin motion-reduce:animate-none' : ''}
+                aria-hidden="true"
+              />
               {action === 're-extract' ? 'Re-extracting…' : 'Re-extract'}
             </Button>
           </div>
@@ -630,7 +746,6 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
       </Dialog>
     </div>
   );
-
 }
 
 function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () => void }) {
@@ -676,7 +791,9 @@ function ProcessingPanel({ status }: { status: PatientReportExtraction['status']
         <div className="relative border-b border-white/[0.07] bg-[linear-gradient(145deg,rgba(34,211,238,0.07),rgba(255,255,255,0.018))] p-6 sm:p-8 lg:border-b-0 lg:border-r">
           <div className="mx-auto max-w-sm">
             <div className="flex items-center justify-between gap-3 text-[11px] font-semibold text-slate-400">
-              <span className="inline-flex items-center gap-2"><FileText size={14} className="text-cyan-200" aria-hidden="true" /> Source document</span>
+              <span className="inline-flex items-center gap-2">
+                <FileText size={14} className="text-cyan-200" aria-hidden="true" /> Source document
+              </span>
               <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-2.5 py-1 text-cyan-100">
                 {queued ? 'Queued securely' : 'Reading now'}
               </span>
@@ -698,7 +815,11 @@ function ProcessingPanel({ status }: { status: PatientReportExtraction['status']
                   </div>
                 ))}
               </div>
-              {queued ? <span className="clinora-ocr-queue-glow" aria-hidden="true" /> : <span className="clinora-ocr-scan-band" aria-hidden="true" />}
+              {queued ? (
+                <span className="clinora-ocr-queue-glow" aria-hidden="true" />
+              ) : (
+                <span className="clinora-ocr-scan-band" aria-hidden="true" />
+              )}
               <div className="absolute inset-x-5 bottom-5 flex items-center gap-2 rounded-xl border border-emerald-300/10 bg-emerald-400/[0.05] px-3 py-2 text-[10px] font-semibold text-emerald-200">
                 <ShieldCheck size={13} aria-hidden="true" /> Original document stays unchanged
               </div>
@@ -720,18 +841,33 @@ function ProcessingPanel({ status }: { status: PatientReportExtraction['status']
           </p>
 
           <div className="mt-7 space-y-3">
-            <ExtractionStatusRow icon={CheckCircle2} title="Report secured" text="The uploaded source is stored privately and remains unchanged." state="complete" />
+            <ExtractionStatusRow
+              icon={CheckCircle2}
+              title="Report secured"
+              text="The uploaded source is stored privately and remains unchanged."
+              state="complete"
+            />
             <ExtractionStatusRow
               icon={queued ? RefreshCw : ScanText}
               title={queued ? 'Waiting for extraction' : 'Reading document data'}
-              text={queued ? 'No extraction is running yet.' : 'Text and laboratory-style results are being organized for review.'}
+              text={
+                queued
+                  ? 'No extraction is running yet.'
+                  : 'Text and laboratory-style results are being organized for review.'
+              }
               state={queued ? 'waiting' : 'active'}
             />
-            <ExtractionStatusRow icon={FileCheck2} title="Your review comes next" text="You will confirm or correct extracted values before clinical AI reasoning can begin." state="next" />
+            <ExtractionStatusRow
+              icon={FileCheck2}
+              title="Your review comes next"
+              text="You will confirm or correct extracted values before clinical AI reasoning can begin."
+              state="next"
+            />
           </div>
 
           <div className="mt-7 border-t border-white/[0.07] pt-5 text-xs leading-6 text-[var(--clinora-text-faint)]">
-            This is document extraction, not prediction. Clinora AI insight starts only after you verify the extracted report data.
+            This is document extraction, not prediction. Clinora AI insight starts only after you verify the extracted
+            report data.
           </div>
         </div>
       </div>
@@ -761,7 +897,11 @@ function ExtractionStatusRow({
           state === 'next' && 'bg-white/[0.035] text-slate-500',
         )}
       >
-        <Icon size={17} className={state === 'active' ? 'animate-pulse motion-reduce:animate-none' : ''} aria-hidden="true" />
+        <Icon
+          size={17}
+          className={state === 'active' ? 'animate-pulse motion-reduce:animate-none' : ''}
+          aria-hidden="true"
+        />
       </span>
       <div>
         <p className="text-sm font-semibold text-white">{title}</p>
@@ -841,7 +981,13 @@ function ReportSourceViewer({
           <button type="button" onClick={() => changeZoom(10)} aria-label="Zoom in" disabled={zoom >= 160}>
             <Plus size={15} aria-hidden="true" />
           </button>
-          <a href={sourceUrl || undefined} target="_blank" rel="noreferrer" aria-label="Open source report in new tab" className={!sourceUrl ? 'is-disabled' : ''}>
+          <a
+            href={sourceUrl || undefined}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open source report in new tab"
+            className={!sourceUrl ? 'is-disabled' : ''}
+          >
             <Maximize2 size={15} aria-hidden="true" />
           </a>
         </div>
@@ -878,11 +1024,23 @@ function ReportSourceViewer({
       </div>
 
       <div className="clinora-report-review-reference__page-nav">
-        <button type="button" onClick={() => setVisiblePage((value) => Math.max(1, value - 1))} disabled={page <= 1} aria-label="Previous report page">
+        <button
+          type="button"
+          onClick={() => setVisiblePage((value) => Math.max(1, value - 1))}
+          disabled={page <= 1}
+          aria-label="Previous report page"
+        >
           <ChevronLeft size={15} aria-hidden="true" />
         </button>
-        <span>Page {page} of {safePageCount}</span>
-        <button type="button" onClick={() => setVisiblePage((value) => Math.min(safePageCount, value + 1))} disabled={page >= safePageCount} aria-label="Next report page">
+        <span>
+          Page {page} of {safePageCount}
+        </span>
+        <button
+          type="button"
+          onClick={() => setVisiblePage((value) => Math.min(safePageCount, value + 1))}
+          disabled={page >= safePageCount}
+          aria-label="Next report page"
+        >
           <ChevronRight size={15} aria-hidden="true" />
         </button>
       </div>
@@ -937,7 +1095,12 @@ function ObservationCard({
         selected && 'is-selected',
       )}
     >
-      <button type="button" className="clinora-report-review-reference__observation-main" onClick={onSelect} aria-pressed={selected}>
+      <button
+        type="button"
+        className="clinora-report-review-reference__observation-main"
+        onClick={onSelect}
+        aria-pressed={selected}
+      >
         <span className="clinora-report-review-reference__test">
           <span className="clinora-report-review-reference__test-line">
             <strong>{observation.label}</strong>
@@ -947,8 +1110,12 @@ function ObservationCard({
               </span>
             ) : null}
             {needsReview ? <span className="clinora-report-review-reference__review-badge">Needs review</span> : null}
-            {corrected ? <span className="clinora-report-review-reference__status-badge corrected">Corrected</span> : null}
-            {confirmed ? <span className="clinora-report-review-reference__status-badge confirmed">Confirmed</span> : null}
+            {corrected ? (
+              <span className="clinora-report-review-reference__status-badge corrected">Corrected</span>
+            ) : null}
+            {confirmed ? (
+              <span className="clinora-report-review-reference__status-badge confirmed">Confirmed</span>
+            ) : null}
           </span>
           <small>Page {observation.pageNumber}</small>
         </span>
@@ -956,19 +1123,32 @@ function ObservationCard({
         <span className="clinora-report-review-reference__reference-value">
           {observation.referenceRangeRaw ?? 'Not confidently captured — compare with source'}
           {rangeLabel(observation.derivedRangeFlag) ? (
-            <small className={rangeTone(observation.derivedRangeFlag)}>{rangeLabel(observation.derivedRangeFlag)}</small>
+            <small className={rangeTone(observation.derivedRangeFlag)}>
+              {rangeLabel(observation.derivedRangeFlag)}
+            </small>
           ) : null}
         </span>
       </button>
 
       <div className="clinora-report-review-reference__row-actions">
         {needsReview ? (
-          <button type="button" onClick={() => void confirmUnchanged()} disabled={confirming || readOnly} className="is-confirm">
-            {confirming ? <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
+          <button
+            type="button"
+            onClick={() => void confirmUnchanged()}
+            disabled={confirming || readOnly}
+            className="is-confirm"
+          >
+            {confirming ? (
+              <RefreshCw size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 size={14} aria-hidden="true" />
+            )}
             {confirming ? 'Confirming…' : 'Looks correct'}
           </button>
         ) : confirmed || corrected ? (
-          <span className="clinora-report-review-reference__reviewed-label"><CheckCircle2 size={14} aria-hidden="true" /> Reviewed</span>
+          <span className="clinora-report-review-reference__reviewed-label">
+            <CheckCircle2 size={14} aria-hidden="true" /> Reviewed
+          </span>
         ) : null}
         <button type="button" onClick={onEdit} disabled={confirming || readOnly}>
           <PencilLine size={14} aria-hidden="true" /> Edit result
@@ -978,7 +1158,11 @@ function ObservationCard({
         </button>
       </div>
 
-      {reviewError ? <p role="alert" className="clinora-report-review-reference__row-error">{reviewError}</p> : null}
+      {reviewError ? (
+        <p role="alert" className="clinora-report-review-reference__row-error">
+          {reviewError}
+        </p>
+      ) : null}
       {editing && !readOnly ? (
         <div className="clinora-report-review-reference__editor">
           <CorrectionEditor observation={observation} reportId={reportId} onCancel={onCancelEdit} onSaved={onSaved} />
@@ -1191,7 +1375,13 @@ function AnalysisProgress({ extraction }: { extraction: PatientReportExtraction 
       <ProgressStep
         icon={FileCheck2}
         title="Data extracted"
-        text={extractionDone ? 'OCR complete' : ['QUEUED', 'PROCESSING'].includes(extraction.status) ? 'OCR in progress' : 'Waiting to start'}
+        text={
+          extractionDone
+            ? 'OCR complete'
+            : ['QUEUED', 'PROCESSING'].includes(extraction.status)
+              ? 'OCR in progress'
+              : 'Waiting to start'
+        }
         done={extractionDone}
         active={['QUEUED', 'PROCESSING'].includes(extraction.status)}
       />
@@ -1222,9 +1412,18 @@ function ProgressStep({
   return (
     <div className={cn('clinora-report-review-reference__progress-step', done && 'is-done', active && 'is-active')}>
       <span className="clinora-report-review-reference__progress-icon">
-        {done ? <CheckCircle2 size={17} aria-hidden="true" /> : active ? <span className="clinora-report-review-reference__progress-ring" aria-hidden="true" /> : <Icon size={17} aria-hidden="true" />}
+        {done ? (
+          <CheckCircle2 size={17} aria-hidden="true" />
+        ) : active ? (
+          <span className="clinora-report-review-reference__progress-ring" aria-hidden="true" />
+        ) : (
+          <Icon size={17} aria-hidden="true" />
+        )}
       </span>
-      <span><strong>{title}</strong><small>{text}</small></span>
+      <span>
+        <strong>{title}</strong>
+        <small>{text}</small>
+      </span>
     </div>
   );
 }

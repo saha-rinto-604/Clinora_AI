@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PatientReportAiAnalysis, PatientReportAiClinicalCluster } from '../../features/patient-reports/patient-report-ai-types';
+import type {
+  PatientReportAiAnalysis,
+  PatientReportAiClinicalCluster,
+} from '../../features/patient-reports/patient-report-ai-types';
 import type { PatientReportExtraction } from '../../features/patient-reports/patient-report-extraction-types';
 import type { PatientReport } from '../../features/patient-reports/patient-report-types';
 import { PatientReportAiInsightPage } from './patient-report-ai-insight-page';
@@ -25,7 +28,8 @@ vi.mock('../../features/patient-reports/patient-report-extraction-api', () => ({
 
 vi.mock('../../features/patient-reports/patient-report-ai-api', () => ({
   patientReportAiApi: { get: mocks.getAi, request: mocks.requestAi },
-  patientReportAiErrorMessage: (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
+  patientReportAiErrorMessage: (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback,
 }));
 
 const report: PatientReport = {
@@ -155,7 +159,8 @@ const noConditionSucceeded: PatientReportAiAnalysis = {
   analysisStatus: 'NO_CLEAR_ABNORMAL_PATTERN',
   result: {
     analysisStatus: 'NO_CLEAR_ABNORMAL_PATTERN',
-    summary: 'Some verified findings are outside their supplied reference ranges, but no specific condition is responsibly supported yet.',
+    summary:
+      'Some verified findings are outside their supplied reference ranges, but no specific condition is responsibly supported yet.',
     notableFindings: [],
     clinicalPatterns: [],
     discussionPoints: [
@@ -181,7 +186,8 @@ const conditionSucceeded: PatientReportAiAnalysis = {
   result: {
     ...noConditionSucceeded.result!,
     analysisStatus: 'POSSIBLE_CLINICAL_PATTERN',
-    summary: 'This verified report contains a pattern that may be compatible with iron-deficiency anemia. This is a possible explanation, not a diagnosis.',
+    summary:
+      'This verified report contains a pattern that may be compatible with iron-deficiency anemia. This is a possible explanation, not a diagnosis.',
     clinicalPatterns: [
       {
         name: 'Iron-deficiency anemia',
@@ -238,7 +244,9 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
     mocks.getAi.mockResolvedValue(noConditionSucceeded);
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('No clear pattern')).toBeInTheDocument();
     expect(screen.getByText('02')).toBeInTheDocument();
     expect(screen.getByText('01')).toBeInTheDocument();
@@ -252,7 +260,11 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
     mocks.getAi.mockResolvedValue(conditionSucceeded);
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Your verified report contains 1 clinical pattern worth discussing.' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Your verified report contains 1 clinical pattern worth discussing.',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Iron-deficiency anemia' })).toBeInTheDocument();
     expect(screen.getByText('Iron-deficiency anemia')).toBeInTheDocument();
     expect(screen.getByText('Clinical context')).toBeInTheDocument();
@@ -315,26 +327,58 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
 });
 
 const thyroidObservations = [
-  { ...extraction.observations[1], id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', label: 'TSH', numericValue: 0.1, unit: 'mIU/L', referenceLow: 0.4, referenceHigh: 4, referenceRangeRaw: '0.4 - 4' },
-  { ...extraction.observations[1], id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', label: 'Free T4', numericValue: 2.8, unit: 'ng/dL', referenceLow: 0.8, referenceHigh: 1.8, referenceRangeRaw: '0.8 - 1.8' },
+  {
+    ...extraction.observations[1],
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    label: 'TSH',
+    numericValue: 0.1,
+    unit: 'mIU/L',
+    referenceLow: 0.4,
+    referenceHigh: 4,
+    referenceRangeRaw: '0.4 - 4',
+  },
+  {
+    ...extraction.observations[1],
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    label: 'Free T4',
+    numericValue: 2.8,
+    unit: 'ng/dL',
+    referenceLow: 0.8,
+    referenceHigh: 1.8,
+    referenceRangeRaw: '0.8 - 1.8',
+  },
 ];
 
 const redCellCluster: PatientReportAiClinicalCluster = {
   title: 'Red-cell pattern',
   interpretation: 'These findings may reflect reduced iron availability for red-cell production.',
   evidence: [
-    { observationId: extraction.observations[1].id, role: 'SUPPORTS', clinicalRelevance: 'Reduced hemoglobin can reflect impaired oxygen-carrying capacity.' },
-    { observationId: extraction.observations[2].id, role: 'SUPPORTS', clinicalRelevance: 'Smaller red cells help characterize the pattern.' },
-    { observationId: extraction.observations[0].id, role: 'CONTEXT', clinicalRelevance: 'The lymphocyte count provides context without supporting a red-cell cause.' },
+    {
+      observationId: extraction.observations[1].id,
+      role: 'SUPPORTS',
+      clinicalRelevance: 'Reduced hemoglobin can reflect impaired oxygen-carrying capacity.',
+    },
+    {
+      observationId: extraction.observations[2].id,
+      role: 'SUPPORTS',
+      clinicalRelevance: 'Smaller red cells help characterize the pattern.',
+    },
+    {
+      observationId: extraction.observations[0].id,
+      role: 'CONTEXT',
+      clinicalRelevance: 'The lymphocyte count provides context without supporting a red-cell cause.',
+    },
   ],
-  candidates: [{
-    name: 'Iron-deficiency anemia',
-    rationale: 'Reduced hemoglobin with small red cells may fit limited iron availability.',
-    supportingObservationIds: [extraction.observations[1].id, extraction.observations[2].id],
-    contradictoryObservationIds: [],
-    missingEvidence: ['Ferritin and iron studies'],
-    alternatives: ['Thalassemia trait'],
-  }],
+  candidates: [
+    {
+      name: 'Iron-deficiency anemia',
+      rationale: 'Reduced hemoglobin with small red cells may fit limited iron availability.',
+      supportingObservationIds: [extraction.observations[1].id, extraction.observations[2].id],
+      contradictoryObservationIds: [],
+      missingEvidence: ['Ferritin and iron studies'],
+      alternatives: ['Thalassemia trait'],
+    },
+  ],
   missingEvidence: [],
   alternatives: [],
 };
@@ -343,17 +387,27 @@ const thyroidCluster: PatientReportAiClinicalCluster = {
   title: 'Thyroid hormone pattern',
   interpretation: 'The reduced TSH and raised Free T4 may reflect thyroid hormone excess.',
   evidence: [
-    { observationId: thyroidObservations[0].id, role: 'SUPPORTS', clinicalRelevance: 'Reduced TSH can accompany feedback from thyroid hormone excess.' },
-    { observationId: thyroidObservations[1].id, role: 'SUPPORTS', clinicalRelevance: 'Raised free hormone provides a related finding.' },
+    {
+      observationId: thyroidObservations[0].id,
+      role: 'SUPPORTS',
+      clinicalRelevance: 'Reduced TSH can accompany feedback from thyroid hormone excess.',
+    },
+    {
+      observationId: thyroidObservations[1].id,
+      role: 'SUPPORTS',
+      clinicalRelevance: 'Raised free hormone provides a related finding.',
+    },
   ],
-  candidates: [{
-    name: 'Thyroid hormone excess',
-    rationale: 'These related hormone findings may fit an independent thyroid process.',
-    supportingObservationIds: thyroidObservations.map((observation) => observation.id),
-    contradictoryObservationIds: [],
-    missingEvidence: ['Symptoms and thyroid medication history'],
-    alternatives: ['Assay interference'],
-  }],
+  candidates: [
+    {
+      name: 'Thyroid hormone excess',
+      rationale: 'These related hormone findings may fit an independent thyroid process.',
+      supportingObservationIds: thyroidObservations.map((observation) => observation.id),
+      contradictoryObservationIds: [],
+      missingEvidence: ['Symptoms and thyroid medication history'],
+      alternatives: ['Assay interference'],
+    },
+  ],
   missingEvidence: [],
   alternatives: [],
 };
@@ -364,7 +418,8 @@ function useClusters(clinicalClusters: PatientReportAiClinicalCluster[]) {
     result: {
       ...conditionSucceeded.result!,
       clinicalClusters,
-      overallInterpretation: 'There may be independent clinical processes in this report; each needs its own clinical context.',
+      overallInterpretation:
+        'There may be independent clinical processes in this report; each needs its own clinical context.',
       promptVersion: 'patient-lab-report-v5',
       schemaVersion: '1.1',
     },
@@ -375,13 +430,18 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.detail.mockResolvedValue(report);
-    mocks.getExtraction.mockResolvedValue({ ...extraction, observations: [...extraction.observations, ...thyroidObservations] });
+    mocks.getExtraction.mockResolvedValue({
+      ...extraction,
+      observations: [...extraction.observations, ...thyroidObservations],
+    });
   });
 
   it('shows independent clinical clusters before the verified report summary and keeps their evidence separate', async () => {
     useClusters([redCellCluster, thyroidCluster]);
     const { container } = renderPage();
-    expect(await screen.findByRole('heading', { name: 'Your report contains 2 clinically related patterns.' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Your report contains 2 clinically related patterns.' }),
+    ).toBeInTheDocument();
     const redCell = screen.getByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     const thyroid = screen.getByRole('article', { name: 'Clinical finding 2: Thyroid hormone pattern' });
     expect(within(redCell).getByRole('heading', { name: 'Red-cell pattern' })).toBeInTheDocument();
@@ -401,16 +461,21 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   });
 
   it('represents two candidates within one cluster with their own missing context', async () => {
-    useClusters([{
-      ...redCellCluster,
-      candidates: [redCellCluster.candidates[0], {
-        ...redCellCluster.candidates[0],
-        name: 'Thalassemia trait',
-        rationale: 'An inherited red-cell process is another possible explanation.',
-        missingEvidence: ['Family history and hemoglobin studies'],
-        alternatives: [],
-      }],
-    }]);
+    useClusters([
+      {
+        ...redCellCluster,
+        candidates: [
+          redCellCluster.candidates[0],
+          {
+            ...redCellCluster.candidates[0],
+            name: 'Thalassemia trait',
+            rationale: 'An inherited red-cell process is another possible explanation.',
+            missingEvidence: ['Family history and hemoglobin studies'],
+            alternatives: [],
+          },
+        ],
+      },
+    ]);
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     const firstCandidate = within(cluster).getByText('Iron-deficiency anemia').closest('details');
@@ -432,11 +497,25 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   });
 
   it('keeps normal context separate from support and hides references missing from the verified report', async () => {
-    useClusters([{
-      ...redCellCluster,
-      evidence: [...redCellCluster.evidence, { observationId: 'unknown-id', role: 'SUPPORTS', clinicalRelevance: 'This unknown evidence must not be rendered.' }],
-      candidates: [{ ...redCellCluster.candidates[0], supportingObservationIds: [...redCellCluster.candidates[0].supportingObservationIds, 'unknown-id'] }],
-    }]);
+    useClusters([
+      {
+        ...redCellCluster,
+        evidence: [
+          ...redCellCluster.evidence,
+          {
+            observationId: 'unknown-id',
+            role: 'SUPPORTS',
+            clinicalRelevance: 'This unknown evidence must not be rendered.',
+          },
+        ],
+        candidates: [
+          {
+            ...redCellCluster.candidates[0],
+            supportingObservationIds: [...redCellCluster.candidates[0].supportingObservationIds, 'unknown-id'],
+          },
+        ],
+      },
+    ]);
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     expect(within(cluster).getByText('Iron-deficiency anemia')).toBeInTheDocument();
@@ -447,11 +526,15 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   });
 
   it('shows contradictory evidence only when provided and grounded', async () => {
-    useClusters([{
-      ...redCellCluster,
-      evidence: redCellCluster.evidence.map((item) => item.role === 'CONTEXT' ? { ...item, role: 'CONTRADICTS' } : item),
-      candidates: [{ ...redCellCluster.candidates[0], contradictoryObservationIds: [extraction.observations[0].id] }],
-    }]);
+    useClusters([
+      {
+        ...redCellCluster,
+        evidence: redCellCluster.evidence.map((item) =>
+          item.role === 'CONTEXT' ? { ...item, role: 'CONTRADICTS' } : item,
+        ),
+        candidates: [{ ...redCellCluster.candidates[0], contradictoryObservationIds: [extraction.observations[0].id] }],
+      },
+    ]);
     renderPage();
     const cluster = await screen.findByRole('article', { name: 'Clinical finding 1: Red-cell pattern' });
     expect(within(cluster).getByText('What does not fully match')).toBeInTheDocument();
@@ -461,16 +544,28 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   it('treats explicit empty clusters as authoritative and does not revive legacy candidates', async () => {
     useClusters([]);
     renderPage();
-    expect(await screen.findByRole('heading', { name: 'More context is needed to interpret these verified findings.' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'More context is needed to interpret these verified findings.' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Iron-deficiency anemia')).not.toBeInTheDocument();
     expect(screen.queryByRole('article', { name: /^Clinical finding/ })).not.toBeInTheDocument();
   });
 
   it('shows a no-clear-pattern result for a mostly normal verified report without inventing a condition', async () => {
     mocks.getExtraction.mockResolvedValue({ ...extraction, observations: [extraction.observations[0]] });
-    mocks.getAi.mockResolvedValue({ ...noConditionSucceeded, result: { ...noConditionSucceeded.result!, schemaVersion: '1.1', clinicalClusters: [], overallInterpretation: 'No coherent abnormal pattern is apparent in the verified findings.' } });
+    mocks.getAi.mockResolvedValue({
+      ...noConditionSucceeded,
+      result: {
+        ...noConditionSucceeded.result!,
+        schemaVersion: '1.1',
+        clinicalClusters: [],
+        overallInterpretation: 'No coherent abnormal pattern is apparent in the verified findings.',
+      },
+    });
     renderPage();
-    expect(await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'No clear abnormal pattern stands out in this verified report.' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Possible condition')).not.toBeInTheDocument();
     const verifiedValues = screen.getByRole('region', { name: 'Verified laboratory values' });
     expect(within(verifiedValues).getByText('2000 /cumm')).toBeInTheDocument();
@@ -480,7 +575,12 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   it('preserves historical conditions when backend serializes absent v1.0 clusters as an empty list', async () => {
     mocks.getAi.mockResolvedValue({
       ...conditionSucceeded,
-      result: { ...conditionSucceeded.result!, schemaVersion: '1.0', clinicalClusters: [], overallInterpretation: null },
+      result: {
+        ...conditionSucceeded.result!,
+        schemaVersion: '1.0',
+        clinicalClusters: [],
+        overallInterpretation: null,
+      },
     });
     renderPage();
     expect(await screen.findByText('Iron-deficiency anemia')).toBeInTheDocument();
@@ -488,26 +588,58 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
   });
 });
 
-
 describe('Phase 10P-R5.1 grounded display', () => {
   it('uses the neutral display title and keeps all 17 unclassified context cards visible after downgrade', async () => {
     vi.clearAllMocks();
     mocks.detail.mockResolvedValue(report);
-    const pdw = { ...extraction.observations[1], id: 'pdw-verified', label: 'PDW', numericValue: 19, unit: 'fL', referenceLow: 9, referenceHigh: 17, referenceRangeRaw: '9 - 17', derivedRangeFlag: 'HIGH' };
+    const pdw = {
+      ...extraction.observations[1],
+      id: 'pdw-verified',
+      label: 'PDW',
+      numericValue: 19,
+      unit: 'fL',
+      referenceLow: 9,
+      referenceHigh: 17,
+      referenceRangeRaw: '9 - 17',
+      derivedRangeFlag: 'HIGH',
+    };
     const context = Array.from({ length: 17 }, (_, index) => ({
-      ...extraction.observations[1], id: `context-${index}`, label: `Context measurement ${index + 1}`,
-      numericValue: 8.2 + index, referenceLow: null, referenceHigh: null, referenceRangeRaw: null,
-      derivedRangeFlag: null, sourceFlag: null,
+      ...extraction.observations[1],
+      id: `context-${index}`,
+      label: `Context measurement ${index + 1}`,
+      numericValue: 8.2 + index,
+      referenceLow: null,
+      referenceHigh: null,
+      referenceRangeRaw: null,
+      derivedRangeFlag: null,
+      sourceFlag: null,
     }));
     mocks.getExtraction.mockResolvedValue({ ...extraction, observations: [pdw, ...context] });
-    useClusters([{
-      title: 'Old unvalidated model title', displayTitle: 'PDW + related findings pattern',
-      interpretation: 'These hematology findings warrant review together, but unavailable reference information limits their classification.',
-      evidence: [
-        { observationId: pdw.id, role: 'SUPPORTS', supportEligibility: 'VERIFIED_ABNORMAL', clinicalRelevance: 'Size variation warrants clinical correlation.' },
-        ...context.map((item) => ({ observationId: item.id, role: 'CONTEXT' as const, supportEligibility: 'UNKNOWN' as const, clinicalRelevance: 'Report-specific range status is unavailable.' })),
-      ], candidates: [], missingEvidence: ['Usable report-specific references'], alternatives: [],
-    }]);
+    useClusters([
+      {
+        title: 'Old unvalidated model title',
+        displayTitle: 'PDW + related findings pattern',
+        interpretation:
+          'These hematology findings warrant review together, but unavailable reference information limits their classification.',
+        evidence: [
+          {
+            observationId: pdw.id,
+            role: 'SUPPORTS',
+            supportEligibility: 'VERIFIED_ABNORMAL',
+            clinicalRelevance: 'Size variation warrants clinical correlation.',
+          },
+          ...context.map((item) => ({
+            observationId: item.id,
+            role: 'CONTEXT' as const,
+            supportEligibility: 'UNKNOWN' as const,
+            clinicalRelevance: 'Report-specific range status is unavailable.',
+          })),
+        ],
+        candidates: [],
+        missingEvidence: ['Usable report-specific references'],
+        alternatives: [],
+      },
+    ]);
     renderPage();
     const group = await screen.findByRole('article', { name: 'Clinical finding 1: PDW + related findings pattern' });
     expect(within(group).getByRole('heading', { name: 'PDW + related findings pattern' })).toBeInTheDocument();

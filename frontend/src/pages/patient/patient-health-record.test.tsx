@@ -1,9 +1,13 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { HealthRecord, HealthTrends, TimelineEvent } from '../../features/patient-record/patient-record-api';
+import type {
+  HealthMeasurement,
+  LongitudinalHealthRecord,
+} from '../../features/patient-record/longitudinal-health-api';
+import type { HealthRecord, TimelineEvent } from '../../features/patient-record/patient-record-api';
 import type { PatientProfile } from '../../features/patient/patient-types';
 import { PatientHealthRecordPage } from './patient-health-record-page';
 import { PatientProfilePage } from './patient-profile-page';
@@ -13,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   profile: vi.fn(),
   updateProfile: vi.fn(),
   history: vi.fn(),
-  healthTrends: vi.fn(),
+  longitudinalHealth: vi.fn(),
   timeline: vi.fn(),
 }));
 
@@ -25,8 +29,16 @@ vi.mock('../../features/patient-record/patient-record-api', async (importOrigina
   const actual = await importOriginal<typeof import('../../features/patient-record/patient-record-api')>();
   return {
     ...actual,
-    patientRecordApi: { history: mocks.history, healthTrends: mocks.healthTrends, timeline: mocks.timeline },
+    patientRecordApi: { history: mocks.history, timeline: mocks.timeline },
     patientRecordError: (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
+  };
+});
+
+vi.mock('../../features/patient-record/longitudinal-health-api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../features/patient-record/longitudinal-health-api')>();
+  return {
+    ...actual,
+    longitudinalHealthApi: { ...actual.longitudinalHealthApi, load: mocks.longitudinalHealth },
   };
 });
 
@@ -99,22 +111,102 @@ const record: HealthRecord = {
   lastUpdatedAt: '2026-08-30T12:00:00Z',
 };
 
-const emptyTrends: HealthTrends = { points: [] };
-const firstPoint = {
-  id: '55555555-5555-5555-5555-555555555555',
-  heightCm: 165,
-  weightKg: 64,
-  bmi: 23.5,
-  recordedAt: '2026-08-29T08:00:00Z',
-  sourceType: 'PATIENT_PROFILE' as const,
+const emptyLongitudinalRecord: LongitudinalHealthRecord = {
+  snapshot: {
+    reportsIncluded: 0,
+    reliablyDatedReports: 0,
+    dateUncertainReports: 0,
+    trackedMeasurements: 0,
+    healthAreas: 0,
+    coverageFrom: null,
+    coverageTo: null,
+  },
+  areas: [],
+  highlights: [],
+  sourceReports: [],
+  lastUpdatedAt: null,
 };
-const secondPoint = {
-  ...firstPoint,
-  id: '66666666-6666-6666-6666-666666666666',
-  weightKg: 63,
-  bmi: 23.1,
-  recordedAt: '2026-08-30T08:00:00Z',
-};
+
+function bodyMeasurement(code: string, name: string, values: number[], unit: string): HealthMeasurement {
+  const points = values.map((value, index) => ({
+    date: `2026-08-${29 + index}`,
+    value,
+    unit,
+    sourceType: 'PATIENT_PROFILE' as const,
+    sourceId: `${code}-${index}`,
+    reportId: null,
+    reportName: 'Health Profile',
+    status: 'REPORTED' as const,
+    referenceRangeRaw: null,
+  }));
+  const latestValue = values.at(-1)!;
+  const latestDate = points.at(-1)!.date;
+  return {
+    code,
+    name,
+    category: 'BODY',
+    latest: {
+      observationId: `${code}-latest`,
+      sourceType: 'PATIENT_PROFILE',
+      sourceId: `${code}-latest`,
+      reportId: null,
+      reportName: 'Health Profile',
+      reportType: 'BODY_MEASUREMENT',
+      providerLaboratory: null,
+      date: latestDate,
+      displayDate: latestDate,
+      dateReliable: true,
+      dateBasis: 'PROFILE_RECORDED_AT',
+      sourceLabel: name,
+      valueType: 'NUMERIC',
+      numericValue: latestValue,
+      textValue: null,
+      comparator: null,
+      unit,
+      normalizedValue: latestValue,
+      normalizedUnit: unit,
+      comparisonKey: unit,
+      referenceRangeRaw: null,
+      referenceLow: null,
+      referenceHigh: null,
+      status: 'REPORTED',
+      verificationStatus: 'PROFILE_RECORDED',
+      unitConvertedForTrend: false,
+      updatedAt: `${latestDate}T08:00:00Z`,
+    },
+    trend: {
+      direction: values.length >= 2 ? 'DECREASING' : 'INSUFFICIENT_DATA',
+      absoluteChange: values.length >= 2 ? latestValue - values[0] : null,
+      percentageChange: values.length >= 2 ? ((latestValue - values[0]) / values[0]) * 100 : null,
+      comparableDataPoints: values.length,
+      trendQualified: values.length >= 3,
+      chartUnit: unit,
+    },
+    graph: {
+      available: values.length >= 2,
+      fullGraphAvailable: values.length >= 3,
+      normalizedUnits: false,
+      reason: values.length >= 2 ? null : 'Not enough comparable history yet.',
+      points,
+    },
+    historyCount: values.length,
+  };
+}
+
+function bodyLongitudinalRecord(measurements: HealthMeasurement[]): LongitudinalHealthRecord {
+  return {
+    ...emptyLongitudinalRecord,
+    snapshot: {
+      ...emptyLongitudinalRecord.snapshot,
+      trackedMeasurements: measurements.length,
+      healthAreas: measurements.length ? 1 : 0,
+      coverageFrom: '2026-08-29',
+      coverageTo: measurements.some((measurement) => measurement.graph.points.length > 1) ? '2026-08-30' : '2026-08-29',
+    },
+    areas: measurements.length ? [{ code: 'BODY', title: 'Body & Vitals', measurements }] : [],
+    lastUpdatedAt: '2026-08-30T08:00:00Z',
+  };
+}
 
 function renderPage(page: React.ReactNode, route = '/patient/history') {
   return render(<MemoryRouter initialEntries={[route]}>{page}</MemoryRouter>);
@@ -126,7 +218,7 @@ describe('Health Profile and Health Record architecture', () => {
     mocks.profile.mockResolvedValue(profile);
     mocks.updateProfile.mockResolvedValue(profile);
     mocks.history.mockResolvedValue(record);
-    mocks.healthTrends.mockResolvedValue(emptyTrends);
+    mocks.longitudinalHealth.mockResolvedValue(emptyLongitudinalRecord);
     mocks.timeline.mockResolvedValue({ items: [], hasMore: false, nextBefore: null, nextBeforeId: null });
   });
 
@@ -153,7 +245,8 @@ describe('Health Profile and Health Record architecture', () => {
   it('renders Health Record as a read-only aggregate with provenance, reports, care, and no Profile controls', async () => {
     renderPage(<PatientHealthRecordPage />);
     expect(await screen.findByRole('heading', { name: 'Health Record' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Health Record' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Summary' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Timeline' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /important health information currently recorded/i }),
@@ -180,37 +273,49 @@ describe('Health Profile and Health Record architecture', () => {
   });
 
   it('does not draw a graph with zero or one trustworthy observation', async () => {
+    const user = userEvent.setup();
     const { unmount } = renderPage(<PatientHealthRecordPage />);
-    expect(await screen.findByRole('heading', { name: 'No historical measurements yet' })).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: /trend with/i })).not.toBeInTheDocument();
+    expect(await screen.findByText('No eligible longitudinal health data yet')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /history with/i })).not.toBeInTheDocument();
 
     unmount();
-    mocks.healthTrends.mockResolvedValue({ points: [firstPoint] });
+    mocks.longitudinalHealth.mockResolvedValue(
+      bodyLongitudinalRecord([bodyMeasurement('WEIGHT', 'Weight', [64], 'kg')]),
+    );
     renderPage(<PatientHealthRecordPage />);
-    expect(await screen.findByText(/one measurement recorded/i)).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: /trend with/i })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /Weight/i }));
+    expect(screen.getByText('No chronological graph yet')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /history with/i })).not.toBeInTheDocument();
   });
 
-  it('draws truthful Weight and BMI trends only from persisted points and supplies a table alternative', async () => {
+  it('draws truthful Weight and BMI changes only from reliably dated points and supplies accessible history', async () => {
     const user = userEvent.setup();
-    mocks.healthTrends.mockResolvedValue({ points: [firstPoint, secondPoint] });
+    mocks.longitudinalHealth.mockResolvedValue(
+      bodyLongitudinalRecord([
+        bodyMeasurement('WEIGHT', 'Weight', [64, 63], 'kg'),
+        bodyMeasurement('BMI', 'BMI', [23.5, 23.1], 'kg/m2'),
+      ]),
+    );
     renderPage(<PatientHealthRecordPage />);
-    expect(await screen.findByRole('img', { name: /weight trend with 2 recorded measurements/i })).toBeInTheDocument();
-    expect(screen.getByText('−1.0 kg since', { exact: false })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /Weight/i }));
+    expect(
+      screen.getByRole('img', { name: /weight history with 2 reliably dated comparable results/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 kg$/)).toBeInTheDocument();
     expect(screen.queryByText(/improved|worsened|better/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'BMI' }));
-    expect(screen.getByRole('img', { name: /bmi trend with 2 recorded measurements/i })).toBeInTheDocument();
-    const table = screen.getByRole('table');
-    expect(within(table).getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
-    expect(within(table).getByRole('columnheader', { name: 'Weight' })).toBeInTheDocument();
-    expect(within(table).getByRole('columnheader', { name: 'BMI' })).toBeInTheDocument();
+    await user.click(screen.getByText('View comparable dated history'));
+    expect(screen.getByText('Aug 29, 2026')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /BMI/i }));
+    expect(
+      screen.getByRole('img', { name: /bmi history with 2 reliably dated comparable results/i }),
+    ).toBeInTheDocument();
   });
 
-  it('keeps the Record available when only Health Trends fails', async () => {
-    mocks.healthTrends.mockRejectedValue(new Error('Trend service unavailable.'));
+  it('keeps the Record available when only the longitudinal projection fails', async () => {
+    mocks.longitudinalHealth.mockRejectedValue(new Error('Longitudinal record unavailable.'));
     renderPage(<PatientHealthRecordPage />);
     expect(await screen.findByText('Grass pollen')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent(/rest of your Health Record is still available/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not refresh your longitudinal Health Record.');
     expect(screen.getByText('Complete blood count')).toBeInTheDocument();
   });
 

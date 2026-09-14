@@ -78,19 +78,20 @@ function measurement(
 ): HealthMeasurement {
   const comparable = options.comparable ?? 1;
   const sourceType = options.sourceType ?? 'MEDICAL_REPORT';
-  const points = comparable >= 2
-    ? Array.from({ length: comparable }, (_, index) => ({
-        date: `2026-0${index + 1}-10`,
-        value: value + index,
-        unit,
-        sourceType,
-        sourceId: `${code}-source-${index}`,
-        reportId: sourceType === 'MEDICAL_REPORT' ? `report-${index + 1}` : null,
-        reportName: sourceType === 'MEDICAL_REPORT' ? `Report ${index + 1}` : 'Health Profile',
-        status: 'REPORTED' as const,
-        referenceRangeRaw: null,
-      }))
-    : [];
+  const points =
+    comparable >= 2
+      ? Array.from({ length: comparable }, (_, index) => ({
+          date: `2026-0${index + 1}-10`,
+          value: value + index,
+          unit,
+          sourceType,
+          sourceId: `${code}-source-${index}`,
+          reportId: sourceType === 'MEDICAL_REPORT' ? `report-${index + 1}` : null,
+          reportName: sourceType === 'MEDICAL_REPORT' ? `Report ${index + 1}` : 'Health Profile',
+          status: 'REPORTED' as const,
+          referenceRangeRaw: null,
+        }))
+      : [];
   return {
     code,
     name,
@@ -151,7 +152,11 @@ describe('LongitudinalHealthRecordSection', () => {
   it('renders only returned health areas, integrates Body & Vitals, and starts without arbitrary selection', async () => {
     mocks.load.mockResolvedValue(record);
 
-    render(<MemoryRouter><LongitudinalHealthRecordSection /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <LongitudinalHealthRecordSection />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('Body & Vitals')).toBeInTheDocument();
     expect(screen.getByText('Blood & Hematology')).toBeInTheDocument();
@@ -163,7 +168,11 @@ describe('LongitudinalHealthRecordSection', () => {
   it('makes trend/history selection explicit and distinguishes two-result change from qualified trend', async () => {
     const user = userEvent.setup();
     mocks.load.mockResolvedValue(record);
-    render(<MemoryRouter><LongitudinalHealthRecordSection /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <LongitudinalHealthRecordSection />
+      </MemoryRouter>,
+    );
 
     await user.click(await screen.findByRole('button', { name: /MCHC/i }));
     expect(screen.getByText('Change between reliably dated results')).toBeInTheDocument();
@@ -176,7 +185,11 @@ describe('LongitudinalHealthRecordSection', () => {
   it('limits dense categories until the patient chooses View all', async () => {
     const user = userEvent.setup();
     mocks.load.mockResolvedValue(record);
-    render(<MemoryRouter><LongitudinalHealthRecordSection /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <LongitudinalHealthRecordSection />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('+ 1 more measurement')).toBeInTheDocument();
     expect(screen.queryByText('RDW')).not.toBeInTheDocument();
@@ -201,7 +214,11 @@ describe('LongitudinalHealthRecordSection', () => {
       lastUpdatedAt: null,
     } satisfies LongitudinalHealthRecord);
 
-    render(<MemoryRouter><LongitudinalHealthRecordSection /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <LongitudinalHealthRecordSection />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('No eligible longitudinal health data yet')).toBeInTheDocument();
     expect(screen.queryByText('Blood & Hematology')).not.toBeInTheDocument();

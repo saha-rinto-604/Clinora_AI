@@ -197,8 +197,7 @@
 
 /* PROCESSING: a luminous band travels through the verified report instead of
  * sitting frozen at 58%. The original line remains the DOM target. */
-.clinora-ai-insight-theme[data-ai-status='processing']
-  .pointer-events-none.absolute.inset-x-0.h-px {
+.clinora-ai-insight-theme[data-ai-status='processing'] .pointer-events-none.absolute.inset-x-0.h-px {
   top: -3.25rem !important;
   z-index: 10;
   height: 3.25rem !important;
@@ -218,8 +217,7 @@
 }
 
 /* QUEUED: show activity without falsely implying that model inference has begun. */
-.clinora-ai-insight-theme[data-ai-status='queued']
-  .pointer-events-none.absolute.inset-x-0.h-px {
+.clinora-ai-insight-theme[data-ai-status='queued'] .pointer-events-none.absolute.inset-x-0.h-px {
   top: 50% !important;
   z-index: 8;
   height: 4.75rem !important;
@@ -282,16 +280,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clinora-ai-insight-theme[data-ai-status]
-    .pointer-events-none.absolute.inset-x-0.h-px,
+  .clinora-ai-insight-theme[data-ai-status] .pointer-events-none.absolute.inset-x-0.h-px,
   .clinora-ai-insight-theme[data-ai-status='processing'] .mt-2.space-y-2 > div,
   .clinora-ai-activity-track::after,
   .clinora-ai-queue-track::after {
     animation: none !important;
   }
 
-  .clinora-ai-insight-theme[data-ai-status='processing']
-    .pointer-events-none.absolute.inset-x-0.h-px {
+  .clinora-ai-insight-theme[data-ai-status='processing'] .pointer-events-none.absolute.inset-x-0.h-px {
     top: 50% !important;
     opacity: 0.42;
   }

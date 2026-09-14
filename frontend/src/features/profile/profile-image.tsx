@@ -167,16 +167,33 @@ export function ProfileImageEditor({ name, compact = false }: { name: string; co
             {busy ? 'Working…' : hasImage ? 'Change photo' : 'Upload photo'}
           </Button>
           {hasImage ? (
-            <Button type="button" variant="ghost" disabled={busy} className="text-slate-300" onClick={() => void remove()}>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              className="text-slate-300"
+              onClick={() => void remove()}
+            >
               <Trash2 size={15} aria-hidden="true" /> Remove
             </Button>
           ) : null}
         </div>
         {!compact ? (
-          <p className="mt-2 text-xs leading-5 text-[var(--clinora-text-faint)]">JPEG, PNG or WebP · up to 5 MB. Clinora removes unnecessary image metadata before serving supported raster photos.</p>
+          <p className="mt-2 text-xs leading-5 text-[var(--clinora-text-faint)]">
+            JPEG, PNG or WebP · up to 5 MB. Clinora removes unnecessary image metadata before serving supported raster
+            photos.
+          </p>
         ) : null}
-        {message ? <p role="status" className="mt-2 text-xs text-teal-200">{message}</p> : null}
-        {error ? <p role="alert" className="mt-2 text-xs text-rose-200">{error}</p> : null}
+        {message ? (
+          <p role="status" className="mt-2 text-xs text-teal-200">
+            {message}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="mt-2 text-xs text-rose-200">
+            {error}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -184,18 +201,22 @@ export function ProfileImageEditor({ name, compact = false }: { name: string; co
 
 function sourceFromKey(key: string): ProfileImageSource {
   if (key === 'self') return { kind: 'self' };
-  if (key.startsWith('patient-doctor:')) return { kind: 'patient-doctor', doctorId: key.slice('patient-doctor:'.length) };
-  if (key.startsWith('doctor-patient:')) return { kind: 'doctor-patient', appointmentId: key.slice('doctor-patient:'.length) };
+  if (key.startsWith('patient-doctor:'))
+    return { kind: 'patient-doctor', doctorId: key.slice('patient-doctor:'.length) };
+  if (key.startsWith('doctor-patient:'))
+    return { kind: 'doctor-patient', appointmentId: key.slice('doctor-patient:'.length) };
   return { kind: 'self' };
 }
 
 function initials(name: string) {
-  return name
-    .replace(/^Dr\.\s+/i, '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || '?';
+  return (
+    name
+      .replace(/^Dr\.\s+/i, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || '?'
+  );
 }

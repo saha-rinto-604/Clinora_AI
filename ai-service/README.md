@@ -1,4 +1,4 @@
-# Clinora AI Service — Phase 10P MedGemma
+# Clinora Report AI Service
 
 This FastAPI service is the privacy and safety boundary for Patient report interpretation. Spring calls only this
 service on port `8001`. It accepts verified structured Phase 9P observations and never receives or forwards the
@@ -20,7 +20,7 @@ MedGemma weights.
 The FastAPI adapter calls only llama.cpp's OpenAI-compatible local `/v1/chat/completions` endpoint. Generation is
 deterministic (`temperature=0`, seed `0` by default), streaming is disabled, and Clinora permits one analysis at a
 time. The adapter supplies a llama.cpp JSON schema that bounds optional output breadth and verbosity to fit the
-2048-token default generation budget, then grounds individual evidence references and factual clauses before strict public-schema and safety validation. Raw llama.cpp
+3072-token default generation budget, then grounds individual evidence references and factual clauses before strict public-schema and safety validation. Raw llama.cpp
 response envelopes are never returned to Spring or the Patient UI.
 
 ## FastAPI local development

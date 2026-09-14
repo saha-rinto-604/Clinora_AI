@@ -91,7 +91,6 @@ export type BloodNetworkOverview = {
   myRequests: BloodRequestSummary[];
 };
 
-
 export type BloodRoute = {
   requestId: string;
   matchedUserId: string;
@@ -130,13 +129,18 @@ export const bloodNetworkApi = {
     return response.data.data;
   },
   async request(requestId: string) {
-    const response = await apiClient.get<ApiEnvelope<BloodRequestDetail>>(`/patient/blood-network/requests/${requestId}`);
+    const response = await apiClient.get<ApiEnvelope<BloodRequestDetail>>(
+      `/patient/blood-network/requests/${requestId}`,
+    );
     return response.data.data;
   },
   async route(requestId: string, matchedUserId?: string) {
-    const response = await apiClient.get<ApiEnvelope<BloodRoute>>(`/patient/blood-network/requests/${requestId}/route`, {
-      params: matchedUserId ? { matchedUserId } : undefined,
-    });
+    const response = await apiClient.get<ApiEnvelope<BloodRoute>>(
+      `/patient/blood-network/requests/${requestId}/route`,
+      {
+        params: matchedUserId ? { matchedUserId } : undefined,
+      },
+    );
     return response.data.data;
   },
   async respond(requestId: string, action: 'ACCEPT' | 'DECLINE') {

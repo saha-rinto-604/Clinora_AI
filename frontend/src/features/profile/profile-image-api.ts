@@ -11,9 +11,7 @@ export interface ProfileImageMetadata {
 }
 
 export type ProfileImageSource =
-  | { kind: 'self' }
-  | { kind: 'patient-doctor'; doctorId: string }
-  | { kind: 'doctor-patient'; appointmentId: string };
+  { kind: 'self' } | { kind: 'patient-doctor'; doctorId: string } | { kind: 'doctor-patient'; appointmentId: string };
 
 function contentPath(source: ProfileImageSource) {
   switch (source.kind) {

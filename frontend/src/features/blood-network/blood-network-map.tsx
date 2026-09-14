@@ -80,7 +80,10 @@ export function BloodNetworkMap({
         });
         setMapRevision((revision) => revision + 1);
       })
-      .catch(() => !cancelled && setLoadError('Google Maps could not be loaded. Check the browser key and Maps JavaScript API.'));
+      .catch(
+        () =>
+          !cancelled && setLoadError('Google Maps could not be loaded. Check the browser key and Maps JavaScript API.'),
+      );
 
     return () => {
       cancelled = true;
@@ -103,7 +106,13 @@ export function BloodNetworkMap({
       bounds.extend(mapCurrentLocation);
       boundsPointCount += 1;
       overlays.push(
-        createHtmlMapOverlay(maps, map, mapCurrentLocation, locationMarker('You', 'Saved matching area', 'current'), 20),
+        createHtmlMapOverlay(
+          maps,
+          map,
+          mapCurrentLocation,
+          locationMarker('You', 'Saved matching area', 'current'),
+          20,
+        ),
       );
     }
 
@@ -147,7 +156,9 @@ export function BloodNetworkMap({
       const selected = person.userId === selectedPersonId;
       const node = personMarker(person, selected, selected ? mapRoute : null);
       node.addEventListener('click', () => onSelectPersonRef.current(person));
-      overlays.push(createHtmlMapOverlay(maps, map, point, node, selected ? 34 : person.responseStatus === 'ACCEPTED' ? 28 : 14));
+      overlays.push(
+        createHtmlMapOverlay(maps, map, point, node, selected ? 34 : person.responseStatus === 'ACCEPTED' ? 28 : 14),
+      );
     }
 
     if (mapRoute?.encodedPolyline) {
@@ -193,7 +204,16 @@ export function BloodNetworkMap({
       circle?.setMap(null);
       routeLines.forEach((line) => line.setMap(null));
     };
-  }, [mapCurrentLocation, mapPeople, mapRequest, mapRevision, mapRoute, radiusMeters, requestLocation, selectedPersonId]);
+  }, [
+    mapCurrentLocation,
+    mapPeople,
+    mapRequest,
+    mapRevision,
+    mapRoute,
+    radiusMeters,
+    requestLocation,
+    selectedPersonId,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -215,7 +235,10 @@ export function BloodNetworkMap({
   return (
     <div className="relative h-full min-h-[560px] overflow-hidden rounded-[inherit] bg-[#06111f]">
       <div ref={containerRef} className="absolute inset-0" aria-label="Blood Network map" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,8,18,0.16),transparent_22%,transparent_78%,rgba(2,8,18,0.22))]" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,8,18,0.16),transparent_22%,transparent_78%,rgba(2,8,18,0.22))]"
+      />
       {loadError ? (
         <div className="absolute inset-x-4 top-4 z-30 rounded-xl border border-rose-300/20 bg-slate-950/92 px-4 py-3 text-sm text-rose-100 backdrop-blur">
           {loadError}
@@ -282,7 +305,8 @@ function locationMarker(title: string, subtitle: string, tone: 'current' | 'requ
   strong.style.cssText = 'display:block;font-size:11px;font-weight:800;letter-spacing:.01em;';
   const small = document.createElement('span');
   small.textContent = subtitle;
-  small.style.cssText = 'display:block;margin-top:2px;color:#94a3b8;font-size:10px;max-width:190px;overflow:hidden;text-overflow:ellipsis;';
+  small.style.cssText =
+    'display:block;margin-top:2px;color:#94a3b8;font-size:10px;max-width:190px;overflow:hidden;text-overflow:ellipsis;';
   copy.append(strong, small);
   card.append(dot, copy);
   root.appendChild(card);
@@ -292,8 +316,12 @@ function locationMarker(title: string, subtitle: string, tone: 'current' | 'requ
 function personMarker(person: NearbyBloodNetworkPerson, selected: boolean, route: BloodRoute | null) {
   const root = document.createElement('button');
   root.type = 'button';
-  root.setAttribute('aria-label', `${person.displayName}, ${bloodGroupLabel(person.bloodGroup)}, ${distanceLabel(person.distanceMeters)} away`);
-  root.style.cssText = 'border:0;background:transparent;padding:0;cursor:pointer;font-family:Inter,ui-sans-serif,system-ui,sans-serif;pointer-events:auto;';
+  root.setAttribute(
+    'aria-label',
+    `${person.displayName}, ${bloodGroupLabel(person.bloodGroup)}, ${distanceLabel(person.distanceMeters)} away`,
+  );
+  root.style.cssText =
+    'border:0;background:transparent;padding:0;cursor:pointer;font-family:Inter,ui-sans-serif,system-ui,sans-serif;pointer-events:auto;';
   const accepted = person.responseStatus === 'ACCEPTED';
   const card = document.createElement('div');
   card.style.cssText = [
@@ -319,7 +347,9 @@ function personMarker(person: NearbyBloodNetworkPerson, selected: boolean, route
   name.style.cssText = 'display:block;font-size:11px;font-weight:800;';
   const meta = document.createElement('span');
   if (selected && accepted && person.phone) {
-    const routeMeta = route ? `${distanceLabel(route.distanceMeters)} · ${durationLabel(route.durationSeconds)}` : distanceLabel(person.distanceMeters);
+    const routeMeta = route
+      ? `${distanceLabel(route.distanceMeters)} · ${durationLabel(route.durationSeconds)}`
+      : distanceLabel(person.distanceMeters);
     meta.textContent = `${routeMeta} · ${person.phone}`;
   } else {
     meta.textContent = `${distanceLabel(person.distanceMeters)} · ${accepted ? 'Accepted' : 'Nearby'}`;

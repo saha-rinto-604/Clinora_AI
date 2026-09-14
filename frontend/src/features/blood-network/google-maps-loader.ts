@@ -5,7 +5,10 @@ export type MapInstance = {
   fitBounds: (bounds: unknown, padding?: number) => void;
   panTo: (point: LatLngPoint) => void;
   setZoom: (zoom: number) => void;
-  addListener?: (event: string, listener: (event: { latLng?: { lat: () => number; lng: () => number } }) => void) => MapsEventListener;
+  addListener?: (
+    event: string,
+    listener: (event: { latLng?: { lat: () => number; lng: () => number } }) => void,
+  ) => MapsEventListener;
 };
 
 type MapConstructor = new (

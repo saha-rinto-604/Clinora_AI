@@ -124,9 +124,10 @@ export function LongitudinalHealthRecordSection() {
 
 function SnapshotStrip({ record }: { record: LongitudinalHealthRecord }) {
   const { snapshot } = record;
-  const coverage = snapshot.coverageFrom && snapshot.coverageTo
-    ? `${formatDate(snapshot.coverageFrom)} – ${formatDate(snapshot.coverageTo)}`
-    : 'No reliable dated span yet';
+  const coverage =
+    snapshot.coverageFrom && snapshot.coverageTo
+      ? `${formatDate(snapshot.coverageFrom)} – ${formatDate(snapshot.coverageTo)}`
+      : 'No reliable dated span yet';
   return (
     <AppSurface as="div" variant="hero" padding="compact">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 xl:divide-x xl:divide-[var(--clinora-border-subtle)]">
@@ -136,7 +137,11 @@ function SnapshotStrip({ record }: { record: LongitudinalHealthRecord }) {
         <SnapshotDatum label="Reliable history" value={coverage} compact />
         <SnapshotDatum
           label="Date status"
-          value={snapshot.dateUncertainReports ? `${snapshot.dateUncertainReports} report${snapshot.dateUncertainReports === 1 ? '' : 's'} need dates` : 'All report dates available'}
+          value={
+            snapshot.dateUncertainReports
+              ? `${snapshot.dateUncertainReports} report${snapshot.dateUncertainReports === 1 ? '' : 's'} need dates`
+              : 'All report dates available'
+          }
           compact
         />
       </div>
@@ -166,8 +171,16 @@ function Highlights({ highlights }: { highlights: HealthRecordHighlight[] }) {
         {highlights.map((highlight) => (
           <AppSurface key={`${highlight.type}-${highlight.measurementCode}`} variant="nested" padding="compact">
             <div className="flex items-start gap-3">
-              <IconWell tone={abnormal(highlight.status) ? 'warning' : highlight.type === 'RETURNED_TO_RANGE' ? 'success' : 'info'}>
-                {highlight.type === 'RETURNED_TO_RANGE' ? <FileCheck2 size={16} aria-hidden="true" /> : <Activity size={16} aria-hidden="true" />}
+              <IconWell
+                tone={
+                  abnormal(highlight.status) ? 'warning' : highlight.type === 'RETURNED_TO_RANGE' ? 'success' : 'info'
+                }
+              >
+                {highlight.type === 'RETURNED_TO_RANGE' ? (
+                  <FileCheck2 size={16} aria-hidden="true" />
+                ) : (
+                  <Activity size={16} aria-hidden="true" />
+                )}
               </IconWell>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white">{highlight.title}</p>
@@ -198,9 +211,12 @@ function HealthAreaSection({
       <div className="border-b border-[var(--clinora-border-subtle)] px-5 py-4 sm:px-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 id={`health-area-${area.code}`} className="text-base font-semibold text-white">{area.title}</h3>
+            <h3 id={`health-area-${area.code}`} className="text-base font-semibold text-white">
+              {area.title}
+            </h3>
             <p className="mt-1 text-xs text-[var(--clinora-text-faint)]">
-              {area.measurements.length} {area.measurements.length === 1 ? 'tracked measurement' : 'tracked measurements'}
+              {area.measurements.length}{' '}
+              {area.measurements.length === 1 ? 'tracked measurement' : 'tracked measurements'}
             </p>
           </div>
           {area.measurements.length > DEFAULT_VISIBLE_MEASUREMENTS ? (
@@ -234,7 +250,15 @@ function HealthAreaSection({
   );
 }
 
-function MeasurementRow({ measurement, selected, onSelect }: { measurement: HealthMeasurement; selected: boolean; onSelect: () => void }) {
+function MeasurementRow({
+  measurement,
+  selected,
+  onSelect,
+}: {
+  measurement: HealthMeasurement;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   return (
     <button
       type="button"
@@ -255,7 +279,9 @@ function MeasurementRow({ measurement, selected, onSelect }: { measurement: Heal
         <p className="text-sm font-semibold tabular-nums text-white">{formatObservationValue(measurement.latest)}</p>
         <p className="mt-1 text-xs text-[var(--clinora-text-faint)]">{dateLabel(measurement.latest)}</p>
       </div>
-      <div className="hidden sm:block"><TrendLabel measurement={measurement} /></div>
+      <div className="hidden sm:block">
+        <TrendLabel measurement={measurement} />
+      </div>
       <div className="flex items-center gap-2">
         <RangePill status={measurement.latest.status} />
         <span className="hidden whitespace-nowrap text-xs font-semibold text-[var(--clinora-info-foreground)] lg:inline">
@@ -292,8 +318,12 @@ function MeasurementDetail({ measurement }: { measurement: HealthMeasurement }) 
     <AppSurface as="aside" variant="elevated" aria-labelledby="selected-measurement-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--clinora-info-foreground)]">Measurement history</p>
-          <h3 id="selected-measurement-title" className="mt-2 text-xl font-semibold tracking-[-0.025em] text-white">{measurement.name}</h3>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--clinora-info-foreground)]">
+            Measurement history
+          </p>
+          <h3 id="selected-measurement-title" className="mt-2 text-xl font-semibold tracking-[-0.025em] text-white">
+            {measurement.name}
+          </h3>
         </div>
         <RangePill status={latest.status} />
       </div>
@@ -309,8 +339,14 @@ function MeasurementDetail({ measurement }: { measurement: HealthMeasurement }) 
 
       {measurement.trend.comparableDataPoints >= 2 ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-          <DetailMetric label="Previous" value={previous ? `${formatNumber(previous.value)}${previous.unit ? ` ${previous.unit}` : ''}` : '—'} />
-          <DetailMetric label="Absolute change" value={formatSignedChange(measurement.trend.absoluteChange, measurement.trend.chartUnit)} />
+          <DetailMetric
+            label="Previous"
+            value={previous ? `${formatNumber(previous.value)}${previous.unit ? ` ${previous.unit}` : ''}` : '—'}
+          />
+          <DetailMetric
+            label="Absolute change"
+            value={formatSignedChange(measurement.trend.absoluteChange, measurement.trend.chartUnit)}
+          />
           <DetailMetric label="Percentage change" value={formatPercentage(measurement.trend.percentageChange)} />
         </div>
       ) : null}
@@ -319,20 +355,43 @@ function MeasurementDetail({ measurement }: { measurement: HealthMeasurement }) 
         <div className="mt-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-white">
-              {measurement.trend.trendQualified ? 'Trend across reliably dated results' : 'Change between reliably dated results'}
+              {measurement.trend.trendQualified
+                ? 'Trend across reliably dated results'
+                : 'Change between reliably dated results'}
             </p>
-            <span className="text-xs text-[var(--clinora-text-faint)]">{measurement.trend.comparableDataPoints} comparable results</span>
+            <span className="text-xs text-[var(--clinora-text-faint)]">
+              {measurement.trend.comparableDataPoints} comparable results
+            </span>
           </div>
-          <div className="h-64 min-w-0" role="img" aria-label={`${measurement.name} history with ${points.length} reliably dated comparable results.`}>
+          <div
+            className="h-64 min-w-0"
+            role="img"
+            aria-label={`${measurement.name} history with ${points.length} reliably dated comparable results.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={points} margin={{ top: 8, right: 12, bottom: 4, left: -10 }}>
                 <CartesianGrid stroke="rgba(148,163,184,.12)" vertical={false} />
-                <XAxis dataKey="shortDate" tick={{ fill: '#8b9bb1', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
-                <YAxis tick={{ fill: '#8b9bb1', fontSize: 11 }} tickLine={false} axisLine={false} domain={['dataMin', 'dataMax']} width={56} />
+                <XAxis
+                  dataKey="shortDate"
+                  tick={{ fill: '#8b9bb1', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={18}
+                />
+                <YAxis
+                  tick={{ fill: '#8b9bb1', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={['dataMin', 'dataMax']}
+                  width={56}
+                />
                 <Tooltip
                   contentStyle={{ background: '#081221', border: '1px solid rgba(148,163,184,.18)', borderRadius: 12 }}
                   labelStyle={{ color: '#cbd5e1' }}
-                  formatter={(value) => [`${formatNumber(Number(value))}${measurement.trend.chartUnit ? ` ${measurement.trend.chartUnit}` : ''}`, measurement.name]}
+                  formatter={(value) => [
+                    `${formatNumber(Number(value))}${measurement.trend.chartUnit ? ` ${measurement.trend.chartUnit}` : ''}`,
+                    measurement.name,
+                  ]}
                   labelFormatter={(_, payload) => payload[0]?.payload.fullDate ?? ''}
                 />
                 <Line
@@ -364,14 +423,23 @@ function MeasurementDetail({ measurement }: { measurement: HealthMeasurement }) 
 
       <dl className="mt-5 divide-y divide-[var(--clinora-border-subtle)] border-y border-[var(--clinora-border-subtle)]">
         <DetailDatum label="Supplied reference" value={referenceLabel(latest)} />
-        <DetailDatum label={latest.dateReliable ? 'Clinical date' : 'Timeline date'} value={latest.dateReliable && latest.date ? formatDate(latest.date) : formatDate(latest.displayDate)} />
+        <DetailDatum
+          label={latest.dateReliable ? 'Clinical date' : 'Timeline date'}
+          value={latest.dateReliable && latest.date ? formatDate(latest.date) : formatDate(latest.displayDate)}
+        />
         <DetailDatum label="Date source" value={dateSourceLabel(latest)} />
-        <DetailDatum label="Source" value={latest.sourceType === 'PATIENT_PROFILE' ? 'Health Profile' : latest.providerLaboratory || latest.reportName} />
+        <DetailDatum
+          label="Source"
+          value={
+            latest.sourceType === 'PATIENT_PROFILE' ? 'Health Profile' : latest.providerLaboratory || latest.reportName
+          }
+        />
       </dl>
 
       {!latest.dateReliable ? (
         <p className="mt-4 text-xs leading-5 text-[var(--clinora-warning-foreground)]">
-          Report date unavailable — the upload date is shown only for reference. This result is excluded from chronological trends and period summaries until the report date is confirmed.
+          Report date unavailable — the upload date is shown only for reference. This result is excluded from
+          chronological trends and period summaries until the report date is confirmed.
         </p>
       ) : null}
 
@@ -392,19 +460,38 @@ function MeasurementDetail({ measurement }: { measurement: HealthMeasurement }) 
   );
 }
 
-function HistoryTable({ measurement, points }: { measurement: HealthMeasurement; points: Array<HealthMeasurement['graph']['points'][number] & { fullDate: string }> }) {
+function HistoryTable({
+  measurement,
+  points,
+}: {
+  measurement: HealthMeasurement;
+  points: Array<HealthMeasurement['graph']['points'][number] & { fullDate: string }>;
+}) {
   return (
     <details className="mt-5 border-t border-[var(--clinora-border-subtle)] pt-4">
-      <summary className="cursor-pointer text-sm font-semibold text-[var(--clinora-info-foreground)]">View comparable dated history</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-[var(--clinora-info-foreground)]">
+        View comparable dated history
+      </summary>
       <div className="mt-3 space-y-2">
         {points.map((point) => (
-          <div key={`${point.sourceId}-${point.date}-${point.value}`} className="grid gap-2 rounded-lg bg-[var(--clinora-surface-nested)] px-3 py-3 sm:grid-cols-[110px_minmax(0,1fr)_auto] sm:items-center">
+          <div
+            key={`${point.sourceId}-${point.date}-${point.value}`}
+            className="grid gap-2 rounded-lg bg-[var(--clinora-surface-nested)] px-3 py-3 sm:grid-cols-[110px_minmax(0,1fr)_auto] sm:items-center"
+          >
             <span className="text-xs text-[var(--clinora-text-faint)]">{point.fullDate}</span>
-            <span className="text-sm font-medium tabular-nums text-white">{formatNumber(point.value)}{point.unit ? ` ${point.unit}` : ''}</span>
+            <span className="text-sm font-medium tabular-nums text-white">
+              {formatNumber(point.value)}
+              {point.unit ? ` ${point.unit}` : ''}
+            </span>
             <div className="flex items-center gap-2 sm:justify-end">
               <RangePill status={point.status} compact />
               {point.reportId ? (
-                <Link to={`/patient/reports/${point.reportId}`} className="text-xs font-semibold text-[var(--clinora-info-foreground)]">Source</Link>
+                <Link
+                  to={`/patient/reports/${point.reportId}`}
+                  className="text-xs font-semibold text-[var(--clinora-info-foreground)]"
+                >
+                  Source
+                </Link>
               ) : (
                 <span className="text-xs text-[var(--clinora-text-faint)]">Health Profile</span>
               )}
@@ -412,7 +499,11 @@ function HistoryTable({ measurement, points }: { measurement: HealthMeasurement;
           </div>
         ))}
       </div>
-      {measurement.graph.normalizedUnits ? <p className="mt-2 text-xs text-[var(--clinora-text-faint)]">Graph values may use normalized comparable units.</p> : null}
+      {measurement.graph.normalizedUnits ? (
+        <p className="mt-2 text-xs text-[var(--clinora-text-faint)]">
+          Graph values may use normalized comparable units.
+        </p>
+      ) : null}
     </details>
   );
 }
@@ -422,15 +513,24 @@ function TrendLabel({ measurement, detailed = false }: { measurement: HealthMeas
   if (comparableDataPoints < 2 || direction === 'INSUFFICIENT_DATA' || direction === 'NOT_COMPARABLE') {
     return <span className="text-xs text-[var(--clinora-text-faint)]">Not enough comparable history</span>;
   }
-  const content = direction === 'INCREASING'
-    ? { icon: <ArrowUp size={14} aria-hidden="true" />, label: trendQualified ? 'Increasing trend' : 'Increased' }
-    : direction === 'DECREASING'
-      ? { icon: <ArrowDown size={14} aria-hidden="true" />, label: trendQualified ? 'Decreasing trend' : 'Decreased' }
-      : direction === 'MIXED'
-        ? { icon: <Activity size={14} aria-hidden="true" />, label: 'Mixed pattern' }
-        : { icon: <Minus size={14} aria-hidden="true" />, label: trendQualified ? 'Relatively stable trend' : 'Little change' };
+  const content =
+    direction === 'INCREASING'
+      ? { icon: <ArrowUp size={14} aria-hidden="true" />, label: trendQualified ? 'Increasing trend' : 'Increased' }
+      : direction === 'DECREASING'
+        ? { icon: <ArrowDown size={14} aria-hidden="true" />, label: trendQualified ? 'Decreasing trend' : 'Decreased' }
+        : direction === 'MIXED'
+          ? { icon: <Activity size={14} aria-hidden="true" />, label: 'Mixed pattern' }
+          : {
+              icon: <Minus size={14} aria-hidden="true" />,
+              label: trendQualified ? 'Relatively stable trend' : 'Little change',
+            };
   return (
-    <span className={cn('inline-flex items-center gap-1.5 font-medium text-[var(--clinora-info-foreground)]', detailed ? 'text-sm' : 'text-xs')}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 font-medium text-[var(--clinora-info-foreground)]',
+        detailed ? 'text-sm' : 'text-xs',
+      )}
+    >
       {content.icon} {content.label}
     </span>
   );
@@ -438,7 +538,8 @@ function TrendLabel({ measurement, detailed = false }: { measurement: HealthMeas
 
 function historyAvailability(measurement: HealthMeasurement) {
   const points = measurement.trend.comparableDataPoints;
-  if (points === 0 || points === 1) return `${measurement.historyCount} result${measurement.historyCount === 1 ? '' : 's'} · Not enough dated history`;
+  if (points === 0 || points === 1)
+    return `${measurement.historyCount} result${measurement.historyCount === 1 ? '' : 's'} · Not enough dated history`;
   if (points === 2) return '2 comparable results · Change available';
   return `${points} comparable results · Trend available`;
 }
@@ -446,7 +547,11 @@ function historyAvailability(measurement: HealthMeasurement) {
 function RangePill({ status, compact = false }: { status: HealthRangeStatus; compact?: boolean }) {
   const tone = status === 'IN_RANGE' ? 'success' : abnormal(status) ? 'warning' : 'neutral';
   const label = status === 'IN_RANGE' ? 'In range' : status === 'LOW' ? 'Low' : status === 'HIGH' ? 'High' : 'Reported';
-  return <StatusPill tone={tone} className={compact ? 'min-h-6 px-2 py-0.5 text-[11px]' : undefined}>{label}</StatusPill>;
+  return (
+    <StatusPill tone={tone} className={compact ? 'min-h-6 px-2 py-0.5 text-[11px]' : undefined}>
+      {label}
+    </StatusPill>
+  );
 }
 
 function DetailMetric({ label, value }: { label: string; value: string }) {
@@ -474,8 +579,11 @@ function DataTrustNote({ dateUncertainReports }: { dateUncertainReports: number 
       <div>
         <p className="text-sm font-semibold text-white">Built from eligible verified source data</p>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--clinora-text-muted)]">
-          Clinora filters report metadata and malformed extraction noise, normalizes known biomarker aliases, and preserves source provenance. Only reliably dated compatible values create chronological graphs.
-          {dateUncertainReports ? ` ${dateUncertainReports} verified report${dateUncertainReports === 1 ? '' : 's'} currently need a report date before they can contribute to trends.` : ''}
+          Clinora filters report metadata and malformed extraction noise, normalizes known biomarker aliases, and
+          preserves source provenance. Only reliably dated compatible values create chronological graphs.
+          {dateUncertainReports
+            ? ` ${dateUncertainReports} verified report${dateUncertainReports === 1 ? '' : 's'} currently need a report date before they can contribute to trends.`
+            : ''}
         </p>
       </div>
     </div>
@@ -485,7 +593,9 @@ function DataTrustNote({ dateUncertainReports }: { dateUncertainReports: number 
 function LoadError({ message, retry }: { message: string; retry: () => Promise<void> }) {
   return (
     <AppSurface as="div" variant="attention" className="mt-6">
-      <p role="alert" className="text-sm leading-6 text-[var(--clinora-text-muted)]">{message}</p>
+      <p role="alert" className="text-sm leading-6 text-[var(--clinora-text-muted)]">
+        {message}
+      </p>
       <Button variant="appSecondary" className="mt-4" onClick={() => void retry()}>
         <RefreshCcw size={15} aria-hidden="true" /> Try again
       </Button>
@@ -521,8 +631,10 @@ function referenceLabel(observation: HealthMeasurement['latest']) {
   if (observation.referenceLow != null && observation.referenceHigh != null) {
     return `${formatNumber(observation.referenceLow)} – ${formatNumber(observation.referenceHigh)}${observation.unit ? ` ${observation.unit}` : ''}`;
   }
-  if (observation.referenceLow != null) return `≥ ${formatNumber(observation.referenceLow)}${observation.unit ? ` ${observation.unit}` : ''}`;
-  if (observation.referenceHigh != null) return `≤ ${formatNumber(observation.referenceHigh)}${observation.unit ? ` ${observation.unit}` : ''}`;
+  if (observation.referenceLow != null)
+    return `≥ ${formatNumber(observation.referenceLow)}${observation.unit ? ` ${observation.unit}` : ''}`;
+  if (observation.referenceHigh != null)
+    return `≤ ${formatNumber(observation.referenceHigh)}${observation.unit ? ` ${observation.unit}` : ''}`;
   return 'Not supplied';
 }
 
@@ -554,7 +666,11 @@ function formatNumber(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function abnormal(status: HealthRangeStatus | string | null) {

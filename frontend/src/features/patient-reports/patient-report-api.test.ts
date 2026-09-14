@@ -76,5 +76,4 @@ describe('Patient report API', () => {
     expect(body.get('subjectType')).toBe('OTHER');
     expect(body.get('subjectLabel')).toBe('Mother');
   });
-
 });

@@ -1,14 +1,33 @@
 @keyframes clinora-ocr-scan {
-  0% { top: 8%; opacity: 0; }
-  10% { opacity: 0.85; }
-  48% { opacity: 1; }
-  90% { opacity: 0.8; }
-  100% { top: 82%; opacity: 0; }
+  0% {
+    top: 8%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.85;
+  }
+  48% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 82%;
+    opacity: 0;
+  }
 }
 
 @keyframes clinora-ocr-queue-breathe {
-  0%, 100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.88); }
-  50% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.08); }
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(0.88);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
 }
 
 .clinora-ocr-scan-band {

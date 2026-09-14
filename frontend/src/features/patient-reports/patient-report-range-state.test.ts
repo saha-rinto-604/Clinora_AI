@@ -28,24 +28,32 @@ function numericObservation(overrides: Partial<PatientReportObservation>): Patie
 
 describe('patientObservationRangeState', () => {
   it('preserves R4 ranges with scientific unit exponents and verified short flags', () => {
-    expect(patientObservationRangeState(numericObservation({ numericValue: 90, referenceRangeRaw: '150-400 x10^9/L' }))).toBe('LOW');
-    expect(patientObservationRangeState(numericObservation({ numericValue: 5, referenceRangeRaw: '4-11 10³/uL' }))).toBe('IN_RANGE');
+    expect(
+      patientObservationRangeState(numericObservation({ numericValue: 90, referenceRangeRaw: '150-400 x10^9/L' })),
+    ).toBe('LOW');
+    expect(
+      patientObservationRangeState(numericObservation({ numericValue: 5, referenceRangeRaw: '4-11 10³/uL' })),
+    ).toBe('IN_RANGE');
     expect(patientObservationRangeState(numericObservation({ sourceFlag: 'H' }))).toBe('HIGH');
     expect(patientObservationRangeState(numericObservation({ sourceFlag: 'L' }))).toBe('LOW');
-    expect(patientObservationRangeState(numericObservation({ numericValue: 5, referenceRangeRaw: '4-11 18 years' }))).toBe('REPORTED');
+    expect(
+      patientObservationRangeState(numericObservation({ numericValue: 5, referenceRangeRaw: '4-11 18 years' })),
+    ).toBe('REPORTED');
   });
   it('understands one-sided upper reference expressions without inventing assay semantics', () => {
-    expect(patientObservationRangeState(numericObservation({ numericValue: 2.95, referenceRangeRaw: '< 1.00 Ratio' }))).toBe(
-      'HIGH',
-    );
-    expect(patientObservationRangeState(numericObservation({ numericValue: 0.15, referenceRangeRaw: '< 1.00 Ratio' }))).toBe(
-      'IN_RANGE',
-    );
+    expect(
+      patientObservationRangeState(numericObservation({ numericValue: 2.95, referenceRangeRaw: '< 1.00 Ratio' })),
+    ).toBe('HIGH');
+    expect(
+      patientObservationRangeState(numericObservation({ numericValue: 0.15, referenceRangeRaw: '< 1.00 Ratio' })),
+    ).toBe('IN_RANGE');
   });
 
   it('understands ordinary numeric intervals with thousands separators', () => {
     expect(
-      patientObservationRangeState(numericObservation({ numericValue: 3700, referenceRangeRaw: '4,000 - 11,000 /cmm' })),
+      patientObservationRangeState(
+        numericObservation({ numericValue: 3700, referenceRangeRaw: '4,000 - 11,000 /cmm' }),
+      ),
     ).toBe('LOW');
     expect(
       patientObservationRangeState(numericObservation({ numericValue: 6000, referenceRangeRaw: '4,000–11,000 /cmm' })),
@@ -54,7 +62,9 @@ describe('patientObservationRangeState', () => {
 
   it('understands lower-threshold references', () => {
     expect(patientObservationRangeState(numericObservation({ numericValue: 3, referenceRangeRaw: '> 5' }))).toBe('LOW');
-    expect(patientObservationRangeState(numericObservation({ numericValue: 6, referenceRangeRaw: '> 5' }))).toBe('IN_RANGE');
+    expect(patientObservationRangeState(numericObservation({ numericValue: 6, referenceRangeRaw: '> 5' }))).toBe(
+      'IN_RANGE',
+    );
   });
 
   it('leaves complex qualitative multi-cutoff references reported rather than guessing', () => {
@@ -76,7 +86,11 @@ describe('patientObservationRangeState', () => {
   });
 
   it('honors verified derived flags before conflicting source flags and accepts short source flags', () => {
-    expect(patientObservationRangeState(numericObservation({ derivedRangeFlag: 'WITHIN_REPORTED_RANGE', sourceFlag: 'HIGH' }))).toBe('IN_RANGE');
+    expect(
+      patientObservationRangeState(
+        numericObservation({ derivedRangeFlag: 'WITHIN_REPORTED_RANGE', sourceFlag: 'HIGH' }),
+      ),
+    ).toBe('IN_RANGE');
     expect(patientObservationRangeState(numericObservation({ sourceFlag: 'H' }))).toBe('HIGH');
     expect(patientObservationRangeState(numericObservation({ sourceFlag: 'L' }))).toBe('LOW');
   });

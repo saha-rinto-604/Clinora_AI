@@ -213,8 +213,8 @@ export function PatientReportsPage() {
         <DialogContent>
           <DialogTitle className="text-xl font-semibold text-white">Archive this report?</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-[var(--clinora-text-muted)]">
-            {archiveTarget ? patientReportDisplayName(archiveTarget) : 'This report'} will leave your current list but remain
-            available in Archived. You can restore it anytime.
+            {archiveTarget ? patientReportDisplayName(archiveTarget) : 'This report'} will leave your current list but
+            remain available in Archived. You can restore it anytime.
           </DialogDescription>
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="ghost" onClick={() => setArchiveTarget(null)} disabled={Boolean(busyReportId)}>

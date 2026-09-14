@@ -19,8 +19,13 @@ export interface PatientReportAiClinicalPattern {
   possibleCauses: string[];
 }
 
-export type SupportEligibility = 'VERIFIED_ABNORMAL' | 'VERIFIED_QUALITATIVE_POSITIVE'
-  | 'VERIFIED_NORMAL' | 'VERIFIED_QUALITATIVE_NEGATIVE' | 'CONTEXT_ONLY' | 'UNKNOWN';
+export type SupportEligibility =
+  | 'VERIFIED_ABNORMAL'
+  | 'VERIFIED_QUALITATIVE_POSITIVE'
+  | 'VERIFIED_NORMAL'
+  | 'VERIFIED_QUALITATIVE_NEGATIVE'
+  | 'CONTEXT_ONLY'
+  | 'UNKNOWN';
 
 export interface PatientReportAiClusterEvidence {
   supportEligibility?: SupportEligibility | null;

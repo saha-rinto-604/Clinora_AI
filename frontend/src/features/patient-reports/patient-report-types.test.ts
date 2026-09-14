@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { looksLikeOpaqueReportName, patientReportDisplayName, patientReportSecondaryContext } from './patient-report-types';
+import {
+  looksLikeOpaqueReportName,
+  patientReportDisplayName,
+  patientReportSecondaryContext,
+} from './patient-report-types';
 
 describe('patient report display names', () => {
   const report = {
@@ -80,5 +84,4 @@ describe('patient report display names', () => {
     expect(patientReportDisplayName(technical)).toMatch(/^Laboratory results · /);
     expect(patientReportSecondaryContext(technical)).toEqual(['City Lab']);
   });
-
 });

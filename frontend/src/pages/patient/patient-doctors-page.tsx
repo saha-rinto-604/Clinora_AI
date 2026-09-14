@@ -44,7 +44,9 @@ export function PatientDoctorsPage() {
     <div className="mx-auto w-full max-w-[1160px] pb-8">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">Book care</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
+            Book care
+          </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Find a Doctor</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
             Compare verified Clinora Doctors using professional context and real published availability.
@@ -108,7 +110,9 @@ export function PatientDoctorsPage() {
           <h2 id="doctor-results-title" className="text-xl font-semibold text-white">
             Clinora Doctors
           </h2>
-          {!loading ? <span className="text-xs text-[var(--clinora-text-faint)]">{visibleDoctors.length} shown</span> : null}
+          {!loading ? (
+            <span className="text-xs text-[var(--clinora-text-faint)]">{visibleDoctors.length} shown</span>
+          ) : null}
         </div>
 
         {loading ? (

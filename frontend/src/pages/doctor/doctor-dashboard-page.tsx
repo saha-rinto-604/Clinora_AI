@@ -64,7 +64,8 @@ export function DoctorDashboardPage() {
     : false;
   const profileMissingItems = data.profileMissingItems ?? [];
   const profileTotalItems = data.profileTotalItems ?? 6;
-  const profileCompletedItems = data.profileCompletedItems ?? Math.max(0, profileTotalItems - profileMissingItems.length);
+  const profileCompletedItems =
+    data.profileCompletedItems ?? Math.max(0, profileTotalItems - profileMissingItems.length);
 
   return (
     <div className="space-y-7">
@@ -96,29 +97,29 @@ export function DoctorDashboardPage() {
               />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                <StatusPill tone={activeAppointment ? 'success' : 'info'}>
-                  {activeAppointment ? 'Current patient' : 'Next patient'}
-                </StatusPill>
-                <span className="text-xs text-[var(--clinora-text-faint)]">
-                  {formatDoctorDateTime(data.nextAppointment.scheduledStart, data.nextAppointment.timezone)}
-                </span>
+                  <StatusPill tone={activeAppointment ? 'success' : 'info'}>
+                    {activeAppointment ? 'Current patient' : 'Next patient'}
+                  </StatusPill>
+                  <span className="text-xs text-[var(--clinora-text-faint)]">
+                    {formatDoctorDateTime(data.nextAppointment.scheduledStart, data.nextAppointment.timezone)}
+                  </span>
                 </div>
                 <h2
-                id="next-patient-title"
-                className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl"
-              >
-                {data.nextAppointment.patientName}
+                  id="next-patient-title"
+                  className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-3xl"
+                >
+                  {data.nextAppointment.patientName}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
                   {data.nextAppointment.reason || 'Consultation'}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3 text-xs text-[var(--clinora-text-muted)]">
-                <span>
-                  {data.nextAppointment.sharedReportCount} shared report
-                  {data.nextAppointment.sharedReportCount === 1 ? '' : 's'}
-                </span>
-                <span aria-hidden="true">•</span>
-                <span>{doctorStatusLabel(data.nextAppointment.status)}</span>
+                  <span>
+                    {data.nextAppointment.sharedReportCount} shared report
+                    {data.nextAppointment.sharedReportCount === 1 ? '' : 's'}
+                  </span>
+                  <span aria-hidden="true">•</span>
+                  <span>{doctorStatusLabel(data.nextAppointment.status)}</span>
                 </div>
               </div>
             </div>

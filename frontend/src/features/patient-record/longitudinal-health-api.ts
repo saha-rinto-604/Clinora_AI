@@ -3,12 +3,7 @@ import type { ApiEnvelope } from '../auth/auth-types';
 
 export type HealthRangeStatus = 'LOW' | 'IN_RANGE' | 'HIGH' | 'REPORTED';
 export type HealthTrendDirection =
-  | 'INCREASING'
-  | 'DECREASING'
-  | 'STABLE'
-  | 'MIXED'
-  | 'INSUFFICIENT_DATA'
-  | 'NOT_COMPARABLE';
+  'INCREASING' | 'DECREASING' | 'STABLE' | 'MIXED' | 'INSUFFICIENT_DATA' | 'NOT_COMPARABLE';
 
 export interface LongitudinalHealthSnapshot {
   reportsIncluded: number;
@@ -117,12 +112,7 @@ export interface LongitudinalHealthRecord {
   lastUpdatedAt: string | null;
 }
 
-export type HealthSummaryPeriodPreset =
-  | 'LAST_3_MONTHS'
-  | 'LAST_6_MONTHS'
-  | 'LAST_12_MONTHS'
-  | 'ALL_HISTORY'
-  | 'CUSTOM';
+export type HealthSummaryPeriodPreset = 'LAST_3_MONTHS' | 'LAST_6_MONTHS' | 'LAST_12_MONTHS' | 'ALL_HISTORY' | 'CUSTOM';
 
 export interface HealthSummaryRequest {
   period: HealthSummaryPeriodPreset;
@@ -271,7 +261,9 @@ export const longitudinalHealthApi = {
   },
 
   async providerStatus() {
-    const response = await apiClient.get<ApiEnvelope<HealthSummaryProviderStatus>>('/patient/health-record/summary/provider');
+    const response = await apiClient.get<ApiEnvelope<HealthSummaryProviderStatus>>(
+      '/patient/health-record/summary/provider',
+    );
     return response.data.data;
   },
 

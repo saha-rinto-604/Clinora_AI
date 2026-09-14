@@ -219,9 +219,12 @@ export function PatientProfilePage() {
         className="mt-7 flex flex-col gap-5 rounded-[24px] border border-white/[0.08] bg-[#0b1424]/95 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
       >
         <div className="max-w-xl">
-          <p id="patient-profile-photo-title" className="text-base font-semibold text-white">Profile photo</p>
+          <p id="patient-profile-photo-title" className="text-base font-semibold text-white">
+            Profile photo
+          </p>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized appointment context.
+            Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized
+            appointment context.
           </p>
         </div>
         <ProfileImageEditor name={`${profile.firstName} ${profile.lastName}`.trim() || 'Patient'} compact />

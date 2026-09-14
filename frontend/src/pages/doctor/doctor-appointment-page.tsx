@@ -160,7 +160,11 @@ export function DoctorAppointmentPage() {
             name={data.patient.displayName}
             size="lg"
           />
-          <AppSectionHeader eyebrow="Appointment" title={data.patient.displayName} copy={data.reason || 'Consultation'} />
+          <AppSectionHeader
+            eyebrow="Appointment"
+            title={data.patient.displayName}
+            copy={data.reason || 'Consultation'}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={doctorStatusTone(data.status)}>{doctorStatusLabel(data.status)}</StatusPill>

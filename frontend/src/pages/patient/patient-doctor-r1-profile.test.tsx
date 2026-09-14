@@ -83,13 +83,16 @@ describe('Patient-facing Doctor profile R1', () => {
   });
 
   it('uses the real Doctor photo surface in discovery instead of a generic identity icon', async () => {
-    render(<MemoryRouter><PatientDoctorsPage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PatientDoctorsPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('Dr. Arafat Hossain')).toBeInTheDocument();
     expect(screen.getByLabelText('Dr. Arafat Hossain profile photo')).toBeInTheDocument();
     expect(screen.getByText('Clinora verified')).toBeInTheDocument();
   });
-
 
   it('keeps core booking identity usable when optional professional enrichment cannot load', async () => {
     mocks.professionalProfile.mockRejectedValueOnce(new Error('temporarily unavailable'));
@@ -118,7 +121,10 @@ describe('Patient-facing Doctor profile R1', () => {
     expect(await screen.findByText('Senior Consultant Physician')).toBeInTheDocument();
     expect(screen.getByText('Adult internal medicine with a focus on longitudinal care.')).toBeInTheDocument();
     expect(screen.getByText('30 min consultation')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Professional profile' })).toHaveAttribute('href', 'https://example.test/arafat');
+    expect(screen.getByRole('link', { name: 'Professional profile' })).toHaveAttribute(
+      'href',
+      'https://example.test/arafat',
+    );
     expect(screen.queryByText(/medical-license\.pdf/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/registration number/i)).not.toBeInTheDocument();
   });

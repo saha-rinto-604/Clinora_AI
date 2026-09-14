@@ -316,7 +316,9 @@
 
 .clinora-report-library-reference__row {
   display: grid;
-  grid-template-columns: 2.15rem minmax(12rem, 1.55fr) minmax(8rem, 0.7fr) minmax(8rem, 0.72fr) minmax(6rem, 0.55fr) auto;
+  grid-template-columns:
+    2.15rem minmax(12rem, 1.55fr) minmax(8rem, 0.7fr) minmax(8rem, 0.72fr) minmax(6rem, 0.55fr)
+    auto;
   gap: 0.7rem;
   align-items: center;
   min-height: 3.65rem;
@@ -701,7 +703,9 @@
   border: 2px solid #22d3ee;
   border-radius: 0.35rem;
   background: rgba(34, 211, 238, 0.08);
-  box-shadow: 0 0 0 1px rgba(2, 6, 23, 0.7), 0 0 1rem rgba(34, 211, 238, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(2, 6, 23, 0.7),
+    0 0 1rem rgba(34, 211, 238, 0.16);
   pointer-events: none;
 }
 
@@ -1079,7 +1083,14 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, #020713 0%, rgba(2, 7, 19, 0.98) 36%, rgba(2, 7, 19, 0.5) 60%, rgba(2, 7, 19, 0.24) 79%, #020713 100%);
+  background: linear-gradient(
+    90deg,
+    #020713 0%,
+    rgba(2, 7, 19, 0.98) 36%,
+    rgba(2, 7, 19, 0.5) 60%,
+    rgba(2, 7, 19, 0.24) 79%,
+    #020713 100%
+  );
   content: '';
 }
 
@@ -1790,7 +1801,9 @@
 }
 
 @keyframes clinora-reference-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

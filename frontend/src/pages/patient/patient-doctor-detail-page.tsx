@@ -164,7 +164,9 @@ export function PatientDoctorDetailPage() {
         } catch {
           // Keep the user's current form state even if the availability refresh also fails.
         }
-        setError('That appointment time was just taken. Your reason and selected reports are still here — choose another available time.');
+        setError(
+          'That appointment time was just taken. Your reason and selected reports are still here — choose another available time.',
+        );
       } else {
         setError(
           appointmentError(
@@ -204,7 +206,9 @@ export function PatientDoctorDetailPage() {
                 Clinora verified
               </StatusPill>
             </div>
-            <p className="mt-2 text-base font-semibold text-[var(--clinora-info-foreground)]">{doctor.specialization}</p>
+            <p className="mt-2 text-base font-semibold text-[var(--clinora-info-foreground)]">
+              {doctor.specialization}
+            </p>
             <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
               <span>{professionalProfile?.displayTitle || doctor.professionalTitle || 'Medical professional'}</span>
               {professionalProfile?.yearsExperience != null
@@ -213,14 +217,19 @@ export function PatientDoctorDetailPage() {
                   ? ` · ${doctor.yearsExperience} years experience`
                   : ''}
             </p>
-            {professionalProfile?.currentPosition || professionalProfile?.currentOrganization || doctor.currentOrganization ? (
+            {professionalProfile?.currentPosition ||
+            professionalProfile?.currentOrganization ||
+            doctor.currentOrganization ? (
               <p className="mt-2 flex items-start gap-2 text-sm text-[var(--clinora-text-muted)]">
                 <BriefcaseBusiness
                   size={15}
                   className="mt-0.5 shrink-0 text-[var(--clinora-info-foreground)]"
                   aria-hidden="true"
                 />
-                {[professionalProfile?.currentPosition, professionalProfile?.currentOrganization || doctor.currentOrganization]
+                {[
+                  professionalProfile?.currentPosition,
+                  professionalProfile?.currentOrganization || doctor.currentOrganization,
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
@@ -232,7 +241,8 @@ export function PatientDoctorDetailPage() {
           <div className="flex flex-wrap gap-2 lg:max-w-52 lg:flex-col lg:items-end">
             {professionalProfile?.defaultConsultationMinutes ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-slate-300">
-                <Clock3 size={13} aria-hidden="true" /> {professionalProfile.defaultConsultationMinutes} min consultation
+                <Clock3 size={13} aria-hidden="true" /> {professionalProfile.defaultConsultationMinutes} min
+                consultation
               </span>
             ) : null}
             {safePublicUrl(professionalProfile?.professionalProfileUrl) ? (
@@ -248,7 +258,8 @@ export function PatientDoctorDetailPage() {
           </div>
         </div>
         <p className="mt-5 border-t border-[var(--clinora-border-subtle)] pt-4 text-xs leading-5 text-[var(--clinora-text-faint)]">
-          Clinora reviewed this Doctor's professional registration and onboarding evidence. Private credential identifiers and uploaded documents are never shown to Patients.
+          Clinora reviewed this Doctor's professional registration and onboarding evidence. Private credential
+          identifiers and uploaded documents are never shown to Patients.
         </p>
       </AppSurface>
 
@@ -288,7 +299,9 @@ export function PatientDoctorDetailPage() {
                               : 'border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] hover:border-white/[0.14]',
                           )}
                         >
-                          <span className={cn('block text-xs font-semibold', active ? 'text-cyan-100' : 'text-slate-300')}>
+                          <span
+                            className={cn('block text-xs font-semibold', active ? 'text-cyan-100' : 'text-slate-300')}
+                          >
                             {group.shortLabel}
                           </span>
                           <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
@@ -364,14 +377,15 @@ export function PatientDoctorDetailPage() {
               titleId="share-reports-title"
               copy="Reports are optional. Choose only the documents you want this Doctor to access for this appointment."
             />
-            <PatientReportPicker
-              selectedReports={selectedReports}
-              onChange={setSelectedReports}
-              disabled={booking}
-            />
+            <PatientReportPicker selectedReports={selectedReports} onChange={setSelectedReports} disabled={booking} />
             <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-[var(--clinora-text-faint)]">
-              <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[var(--clinora-info-foreground)]" aria-hidden="true" />
-              You can revoke appointment-scoped report access later. Cancelling the appointment revokes active shares automatically.
+              <ShieldCheck
+                size={14}
+                className="mt-0.5 shrink-0 text-[var(--clinora-info-foreground)]"
+                aria-hidden="true"
+              />
+              You can revoke appointment-scoped report access later. Cancelling the appointment revokes active shares
+              automatically.
             </p>
           </AppSurface>
         </div>
@@ -399,8 +413,12 @@ export function PatientDoctorDetailPage() {
               <Stethoscope size={17} aria-hidden="true" />
             </IconWell>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--clinora-text-faint)]">Booking review</p>
-              <h2 id="booking-review-title" className="text-lg font-semibold text-white">Your appointment</h2>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--clinora-text-faint)]">
+                Booking review
+              </p>
+              <h2 id="booking-review-title" className="text-lg font-semibold text-white">
+                Your appointment
+              </h2>
             </div>
           </div>
 
@@ -411,7 +429,13 @@ export function PatientDoctorDetailPage() {
             />
             <Review
               label="Duration"
-              value={selectedSlot ? `${durationMinutes(selectedSlot)} minutes` : consultationMinutes ? `${consultationMinutes} minutes` : 'Shown after you choose a time'}
+              value={
+                selectedSlot
+                  ? `${durationMinutes(selectedSlot)} minutes`
+                  : consultationMinutes
+                    ? `${consultationMinutes} minutes`
+                    : 'Shown after you choose a time'
+              }
             />
             <Review label="Timezone" value={timezone} />
             <Review label="Reason" value={reason.trim() || 'No note added'} muted={!reason.trim()} />
@@ -427,7 +451,10 @@ export function PatientDoctorDetailPage() {
                 {selectedReports.slice(0, 3).map((report) => {
                   const secondary = patientReportSecondaryContext(report);
                   return (
-                    <li key={report.id} className="flex items-start gap-2 rounded-lg bg-white/[0.025] px-2.5 py-2 text-xs text-slate-300">
+                    <li
+                      key={report.id}
+                      className="flex items-start gap-2 rounded-lg bg-white/[0.025] px-2.5 py-2 text-xs text-slate-300"
+                    >
                       <FileText
                         size={13}
                         className="mt-0.5 shrink-0 text-[var(--clinora-info-foreground)]"
@@ -445,16 +472,23 @@ export function PatientDoctorDetailPage() {
                   );
                 })}
                 {selectedReports.length > 3 ? (
-                  <li className="px-1 text-[11px] text-[var(--clinora-text-faint)]">+{selectedReports.length - 3} more</li>
+                  <li className="px-1 text-[11px] text-[var(--clinora-text-faint)]">
+                    +{selectedReports.length - 3} more
+                  </li>
                 ) : null}
               </ul>
             ) : (
-              <p className="mt-2 text-xs leading-5 text-[var(--clinora-text-faint)]">No reports selected. You can still book normally.</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--clinora-text-faint)]">
+                No reports selected. You can still book normally.
+              </p>
             )}
           </div>
 
           {error ? (
-            <p role="alert" className="mt-5 rounded-xl border border-rose-300/15 bg-rose-300/[0.05] p-3 text-sm leading-6 text-rose-200">
+            <p
+              role="alert"
+              className="mt-5 rounded-xl border border-rose-300/15 bg-rose-300/[0.05] p-3 text-sm leading-6 text-rose-200"
+            >
               {error}
             </p>
           ) : null}
@@ -474,7 +508,8 @@ export function PatientDoctorDetailPage() {
             )}
           </Button>
           <p className="mt-3 text-xs leading-5 text-[var(--clinora-text-faint)]">
-            Clinora verifies the selected time again when you confirm. If another Patient takes it first, your note and report selections stay here.
+            Clinora verifies the selected time again when you confirm. If another Patient takes it first, your note and
+            report selections stay here.
           </p>
         </AppSurface>
       </div>

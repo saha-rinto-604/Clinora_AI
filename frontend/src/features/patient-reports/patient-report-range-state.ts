@@ -28,9 +28,7 @@ function parseSimpleReference(raw: string | null | undefined): ParsedReference |
   const normalized = (raw ?? '').trim();
   if (!normalized) return null;
 
-  const oneSided = normalized.match(
-    /^\s*(<=|>=|<|>|≤|≥)\s*([+-]?(?:\d[\d,]*(?:\.\d+)?|\.\d+))(.*)$/u,
-  );
+  const oneSided = normalized.match(/^\s*(<=|>=|<|>|≤|≥)\s*([+-]?(?:\d[\d,]*(?:\.\d+)?|\.\d+))(.*)$/u);
   if (oneSided && safeTrailingReference(oneSided[3])) {
     const threshold = parseNumber(oneSided[2]);
     if (threshold == null) return null;
@@ -76,9 +74,7 @@ function stateFromSimpleReference(value: number, reference: ParsedReference): Pa
  * reference expressions are interpreted as a final fallback. Complex
  * qualitative/multi-cutoff assay rules remain REPORTED instead of being guessed.
  */
-export function patientObservationRangeState(
-  observation: PatientReportObservation,
-): PatientObservationRangeState {
+export function patientObservationRangeState(observation: PatientReportObservation): PatientObservationRangeState {
   if (observation.valueType === 'NUMERIC' && observation.numericValue != null) {
     if (observation.referenceLow != null && observation.numericValue < observation.referenceLow) return 'LOW';
     if (observation.referenceHigh != null && observation.numericValue > observation.referenceHigh) return 'HIGH';

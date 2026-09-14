@@ -152,7 +152,9 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-white">
-              {selectedReports.length ? `${selectedReports.length} report${selectedReports.length === 1 ? '' : 's'} selected` : 'No reports selected'}
+              {selectedReports.length
+                ? `${selectedReports.length} report${selectedReports.length === 1 ? '' : 's'} selected`
+                : 'No reports selected'}
             </p>
             <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-faint)]">
               Optional. Nothing is shared with the Doctor until you confirm this appointment.
@@ -169,31 +171,31 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
             {selectedReports.slice(0, 4).map((report) => {
               const secondary = patientReportSecondaryContext(report);
               return (
-              <li
-                key={report.id}
-                className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5"
-              >
-                <ReportIcon mimeType={report.mimeType} compact />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold text-slate-200">
-                    {patientReportDisplayName(report)}
-                  </span>
-                  {secondary.length ? (
-                    <span className="mt-0.5 block truncate text-[10px] text-[var(--clinora-text-faint)]">
-                      {secondary.join(' · ')}
-                    </span>
-                  ) : null}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeSelected(report.id)}
-                  disabled={disabled}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
-                  aria-label={`Remove ${patientReportDisplayName(report)} from this appointment`}
+                <li
+                  key={report.id}
+                  className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5"
                 >
-                  <X size={14} aria-hidden="true" />
-                </button>
-              </li>
+                  <ReportIcon mimeType={report.mimeType} compact />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold text-slate-200">
+                      {patientReportDisplayName(report)}
+                    </span>
+                    {secondary.length ? (
+                      <span className="mt-0.5 block truncate text-[10px] text-[var(--clinora-text-faint)]">
+                        {secondary.join(' · ')}
+                      </span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeSelected(report.id)}
+                    disabled={disabled}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
+                    aria-label={`Remove ${patientReportDisplayName(report)} from this appointment`}
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </li>
               );
             })}
             {selectedReports.length > 4 ? (
@@ -227,7 +229,8 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
               <div className="border-b border-[var(--clinora-border-subtle)] px-5 py-5 sm:px-7">
                 <DialogTitle className="text-xl font-semibold text-white">Choose reports to share</DialogTitle>
                 <DialogDescription className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-                  Search by a recognizable title or provider, filter by report type, and use the displayed report date to identify the right document. Original filenames stay secondary.
+                  Search by a recognizable title or provider, filter by report type, and use the displayed report date
+                  to identify the right document. Original filenames stay secondary.
                 </DialogDescription>
               </div>
 
@@ -269,9 +272,13 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--clinora-text-faint)]">
                   <span>
-                    {result ? `${result.totalItems} matching report${result.totalItems === 1 ? '' : 's'}` : 'Loading reports…'}
+                    {result
+                      ? `${result.totalItems} matching report${result.totalItems === 1 ? '' : 's'}`
+                      : 'Loading reports…'}
                   </span>
-                  <span>{selectedReports.length} of {MAX_SELECTED_REPORTS} selected for this appointment</span>
+                  <span>
+                    {selectedReports.length} of {MAX_SELECTED_REPORTS} selected for this appointment
+                  </span>
                 </div>
               </div>
 
@@ -342,7 +349,9 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
                                 {patientReportTypeLabels[report.reportType]}
                               </p>
                               {secondary.length ? (
-                                <p className="mt-1 truncate text-xs text-[var(--clinora-text-muted)]">{secondary.join(' · ')}</p>
+                                <p className="mt-1 truncate text-xs text-[var(--clinora-text-muted)]">
+                                  {secondary.join(' · ')}
+                                </p>
                               ) : null}
                             </div>
                             <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -358,7 +367,11 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
                                 onClick={() => toggle(report)}
                                 aria-pressed={selected}
                                 disabled={selectionLimitReached}
-                                title={selectionLimitReached ? `You can share up to ${MAX_SELECTED_REPORTS} reports per appointment.` : undefined}
+                                title={
+                                  selectionLimitReached
+                                    ? `You can share up to ${MAX_SELECTED_REPORTS} reports per appointment.`
+                                    : undefined
+                                }
                               >
                                 {selected ? 'Remove' : selectionLimitReached ? 'Limit reached' : 'Select'}
                               </Button>
@@ -397,7 +410,9 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
                 </div>
                 <div className="flex flex-col items-start gap-2 sm:items-end">
                   {selectedReports.length >= MAX_SELECTED_REPORTS ? (
-                    <p className="text-[11px] text-amber-100">Maximum {MAX_SELECTED_REPORTS} reports per appointment.</p>
+                    <p className="text-[11px] text-amber-100">
+                      Maximum {MAX_SELECTED_REPORTS} reports per appointment.
+                    </p>
                   ) : null}
                   <Button type="button" variant="appPrimary" onClick={() => setOpen(false)}>
                     Done · {selectedReports.length} selected
@@ -454,7 +469,9 @@ function ReportPreview({
         </button>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <DialogTitle className="truncate text-xl font-semibold text-white">{patientReportDisplayName(report)}</DialogTitle>
+            <DialogTitle className="truncate text-xl font-semibold text-white">
+              {patientReportDisplayName(report)}
+            </DialogTitle>
             <DialogDescription className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
               {[patientReportTypeLabels[report.reportType], ...secondary].join(' · ')}
             </DialogDescription>
@@ -469,7 +486,9 @@ function ReportPreview({
         {loading ? <Skeleton className="h-[58vh] rounded-2xl" /> : null}
         {error ? (
           <div className="mx-auto max-w-lg rounded-2xl border border-rose-300/15 bg-rose-300/[0.05] p-5 text-center">
-            <p role="alert" className="text-sm text-rose-200">{error}</p>
+            <p role="alert" className="text-sm text-rose-200">
+              {error}
+            </p>
           </div>
         ) : null}
         {!loading && !error && url ? (

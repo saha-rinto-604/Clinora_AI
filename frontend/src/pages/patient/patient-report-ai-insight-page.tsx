@@ -40,7 +40,11 @@ import type {
   PatientReportObservation,
 } from '../../features/patient-reports/patient-report-extraction-types';
 import { patientObservationRangeState } from '../../features/patient-reports/patient-report-range-state';
-import { patientReportDisplayName, patientReportTypeLabels, type PatientReport } from '../../features/patient-reports/patient-report-types';
+import {
+  patientReportDisplayName,
+  patientReportTypeLabels,
+  type PatientReport,
+} from '../../features/patient-reports/patient-report-types';
 import './patient-report-ai-insight-theme.css';
 import './patient-report-reference-workspaces.css';
 
@@ -124,7 +128,10 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
       <InsightHeader report={report} reportId={reportId} />
 
       {error ? (
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.07] p-4 text-sm text-rose-200" role="alert">
+        <div
+          className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.07] p-4 text-sm text-rose-200"
+          role="alert"
+        >
           {error}
         </div>
       ) : null}
@@ -146,8 +153,17 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
               </p>
             </div>
           </div>
-          <Button variant="appPrimary" size="sm" onClick={() => setRerunOpen(true)} disabled={requesting || analysisActive}>
-            <RefreshCw size={15} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+          <Button
+            variant="appPrimary"
+            size="sm"
+            onClick={() => setRerunOpen(true)}
+            disabled={requesting || analysisActive}
+          >
+            <RefreshCw
+              size={15}
+              className={requesting ? 'animate-spin motion-reduce:animate-none' : ''}
+              aria-hidden="true"
+            />
             {requesting ? 'Re-running analysis…' : 'Re-run AI analysis'}
           </Button>
         </div>
@@ -165,7 +181,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         <InsightFailure
           failureCode={analysis.failureCode}
           busy={requesting}
-          onRetry={() => analysis.result ? setRerunOpen(true) : void requestInsight()}
+          onRetry={() => (analysis.result ? setRerunOpen(true) : void requestInsight())}
           reportId={reportId}
         />
       ) : null}
@@ -187,9 +203,19 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
             Clinora will create a new interpretation using your latest verified report values.
           </DialogDescription>
           <div className="mt-6 flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setRerunOpen(false)} disabled={requesting}>Cancel</Button>
-            <Button variant="appPrimary" onClick={() => void requestInsight(true)} disabled={requesting || analysisActive}>
-              <RefreshCw size={16} className={requesting ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+            <Button variant="ghost" onClick={() => setRerunOpen(false)} disabled={requesting}>
+              Cancel
+            </Button>
+            <Button
+              variant="appPrimary"
+              onClick={() => void requestInsight(true)}
+              disabled={requesting || analysisActive}
+            >
+              <RefreshCw
+                size={16}
+                className={requesting ? 'animate-spin motion-reduce:animate-none' : ''}
+                aria-hidden="true"
+              />
               {requesting ? 'Re-running analysis…' : 'Re-run AI analysis'}
             </Button>
           </div>
@@ -282,8 +308,16 @@ function InsightReady({
           </div>
           <div className="mt-6 space-y-3 text-sm text-slate-600">
             <ReadyPointLight icon={FileCheck2} title="Verified values only" text="Uses the extraction you confirmed." />
-            <ReadyPointLight icon={ShieldCheck} title="Grounded reasoning" text="AI cannot overwrite verified lab facts." />
-            <ReadyPointLight icon={Stethoscope} title="Possible, not diagnosed" text="Condition names stay explicitly tentative." />
+            <ReadyPointLight
+              icon={ShieldCheck}
+              title="Grounded reasoning"
+              text="AI cannot overwrite verified lab facts."
+            />
+            <ReadyPointLight
+              icon={Stethoscope}
+              title="Possible, not diagnosed"
+              text="Condition names stay explicitly tentative."
+            />
           </div>
         </aside>
       </div>
@@ -350,7 +384,8 @@ function InsightLab({
               <FileCheck2 size={14} aria-hidden="true" /> Verified lab report
             </span>
             <span className="inline-flex items-center gap-2 text-xs font-semibold text-blue-700">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.62)] motion-reduce:animate-none" /> {queued ? 'Clinora AI queued securely' : 'Clinora AI analysis active'}
+              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.62)] motion-reduce:animate-none" />{' '}
+              {queued ? 'Clinora AI queued securely' : 'Clinora AI analysis active'}
             </span>
           </div>
 
@@ -405,16 +440,30 @@ function InsightLab({
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-slate-200 pt-5 text-xs font-medium text-slate-500">
-          <span className="inline-flex items-center gap-1.5"><FileCheck2 size={14} className="text-emerald-600" aria-hidden="true" /> Verified values only</span>
-          <span className="inline-flex items-center gap-1.5"><LockKeyhole size={14} className="text-blue-600" aria-hidden="true" /> Private Clinora processing</span>
-          <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-cyan-700" aria-hidden="true" /> Safety checked before display</span>
+          <span className="inline-flex items-center gap-1.5">
+            <FileCheck2 size={14} className="text-emerald-600" aria-hidden="true" /> Verified values only
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <LockKeyhole size={14} className="text-blue-600" aria-hidden="true" /> Private Clinora processing
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck size={14} className="text-cyan-700" aria-hidden="true" /> Safety checked before display
+          </span>
         </div>
       </div>
     </section>
   );
 }
 
-function ProcessStep({ title, text, state }: { title: string; text: string; state: 'complete' | 'active' | 'waiting' }) {
+function ProcessStep({
+  title,
+  text,
+  state,
+}: {
+  title: string;
+  text: string;
+  state: 'complete' | 'active' | 'waiting';
+}) {
   return (
     <div
       className={cn(
@@ -427,7 +476,9 @@ function ProcessStep({ title, text, state }: { title: string; text: string; stat
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-slate-900">{title}</p>
         {state === 'complete' ? <CheckCircle2 size={16} className="text-emerald-600" aria-hidden="true" /> : null}
-        {state === 'active' ? <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" /> : null}
+        {state === 'active' ? (
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" />
+        ) : null}
       </div>
       <p className="mt-1 text-xs leading-5 text-slate-500">{text}</p>
     </div>
@@ -570,13 +621,17 @@ function InsightResult({
       <section className="clinora-ai-reference__top-grid">
         <article className="clinora-ai-reference__interpretation" aria-labelledby="clinora-ai-interpretation-title">
           <div className="clinora-ai-reference__interpretation-copy">
-            <div className="clinora-reference-section-label"><BrainCircuit size={15} aria-hidden="true" /> Report interpretation</div>
+            <div className="clinora-reference-section-label">
+              <BrainCircuit size={15} aria-hidden="true" /> Report interpretation
+            </div>
             <h2 id="clinora-ai-interpretation-title">{interpretationTitle}</h2>
             <p>{result.overallInterpretation?.trim() || result.summary}</p>
           </div>
           <div className="clinora-ai-reference__checks" aria-label="Interpretation safeguards">
             <ResultReferenceCheck text="Verified report values evaluated" />
-            <ResultReferenceCheck text={hasClinicalPattern ? 'Clinically related findings grouped' : 'No unsupported condition forced'} />
+            <ResultReferenceCheck
+              text={hasClinicalPattern ? 'Clinically related findings grouped' : 'No unsupported condition forced'}
+            />
             <ResultReferenceCheck text="Evidence grounding checks applied" />
             <ResultReferenceCheck text="Clinical uncertainty remains explicit" />
             <ResultReferenceCheck text="Not a definitive diagnosis" />
@@ -585,33 +640,51 @@ function InsightResult({
 
         <aside className="clinora-ai-reference__intelligence" aria-label="Clinora AI analysis process">
           <div className="clinora-ai-reference__wave" aria-hidden="true" />
-          <h3>Advanced AI.<br />Clearer answers.<br />Healthier tomorrows.</h3>
+          <h3>
+            Advanced AI.
+            <br />
+            Clearer answers.
+            <br />
+            Healthier tomorrows.
+          </h3>
           <div className="clinora-ai-reference__intelligence-points">
-            <span><FlaskConical size={16} aria-hidden="true" /> Lab data analyzed</span>
-            <span><BrainCircuit size={16} aria-hidden="true" /> Clinical patterns evaluated</span>
-            <span><Sparkles size={16} aria-hidden="true" /> Evidence-based insight</span>
+            <span>
+              <FlaskConical size={16} aria-hidden="true" /> Lab data analyzed
+            </span>
+            <span>
+              <BrainCircuit size={16} aria-hidden="true" /> Clinical patterns evaluated
+            </span>
+            <span>
+              <Sparkles size={16} aria-hidden="true" /> Evidence-based insight
+            </span>
           </div>
         </aside>
       </section>
 
       <section className="clinora-ai-reference__related-stack" aria-label="Clinical findings from this analysis">
-        {clusters.length ? clusters.map((cluster, index) => (
-          <ClusterRelatedFinding
-            key={`${cluster.displayTitle || cluster.title}-${index}`}
-            cluster={cluster}
-            index={index}
-            observationMap={observationMap}
-          />
-        )) : legacyPatterns.length ? legacyPatterns.map((pattern, index) => (
-          <LegacyRelatedFinding
-            key={`${pattern.name}-${index}`}
-            pattern={pattern}
-            index={index}
-            observationMap={observationMap}
-          />
-        )) : (
+        {clusters.length ? (
+          clusters.map((cluster, index) => (
+            <ClusterRelatedFinding
+              key={`${cluster.displayTitle || cluster.title}-${index}`}
+              cluster={cluster}
+              index={index}
+              observationMap={observationMap}
+            />
+          ))
+        ) : legacyPatterns.length ? (
+          legacyPatterns.map((pattern, index) => (
+            <LegacyRelatedFinding
+              key={`${pattern.name}-${index}`}
+              pattern={pattern}
+              index={index}
+              observationMap={observationMap}
+            />
+          ))
+        ) : (
           <article className="clinora-ai-reference__related" aria-labelledby="clinora-related-finding-title">
-            <span className="clinora-reference-icon-well"><FlaskConical size={19} aria-hidden="true" /></span>
+            <span className="clinora-reference-icon-well">
+              <FlaskConical size={19} aria-hidden="true" />
+            </span>
             <div className="min-w-0 flex-1">
               <p className="clinora-reference-section-label">Clinical interpretation</p>
               <h2 id="clinora-related-finding-title">
@@ -629,10 +702,14 @@ function InsightResult({
       <section className="clinora-ai-reference__evidence" aria-labelledby="clinora-evidence-title">
         <div className="clinora-ai-reference__section-heading">
           <div>
-            <p className="clinora-reference-section-label"><FileCheck2 size={14} aria-hidden="true" /> Evidence from your report</p>
+            <p className="clinora-reference-section-label">
+              <FileCheck2 size={14} aria-hidden="true" /> Evidence from your report
+            </p>
             <h2 id="clinora-evidence-title">Key verified laboratory findings</h2>
           </div>
-          <span>{evidenceObservations.length} shown · {extraction.observations.length} verified</span>
+          <span>
+            {evidenceObservations.length} shown · {extraction.observations.length} verified
+          </span>
         </div>
         {evidenceObservations.length ? (
           <div className="clinora-ai-reference__evidence-grid">
@@ -645,25 +722,47 @@ function InsightResult({
             ))}
           </div>
         ) : (
-          <p className="clinora-ai-reference__empty">No verified observation could be mapped to the AI evidence returned for this result.</p>
+          <p className="clinora-ai-reference__empty">
+            No verified observation could be mapped to the AI evidence returned for this result.
+          </p>
         )}
       </section>
 
       <section className="clinora-ai-reference__summary" aria-label="Verified report summary">
-        <span className="clinora-reference-icon-well"><FileText size={18} aria-hidden="true" /></span>
+        <span className="clinora-reference-icon-well">
+          <FileText size={18} aria-hidden="true" />
+        </span>
         <div className="clinora-ai-reference__summary-metric is-alert">
-          <span>Report summary</span><strong>{String(outside.length).padStart(2, '0')}</strong><p>Values outside expected range</p>
+          <span>Report summary</span>
+          <strong>{String(outside.length).padStart(2, '0')}</strong>
+          <p>Values outside expected range</p>
         </div>
         <div className="clinora-ai-reference__summary-metric is-good">
-          <span>Verified range status</span><strong>{String(within.length).padStart(2, '0')}</strong><p>Values within expected range</p>
+          <span>Verified range status</span>
+          <strong>{String(within.length).padStart(2, '0')}</strong>
+          <p>Values within expected range</p>
         </div>
         <div className="clinora-ai-reference__overview">
           <strong>Report overview</strong>
           <dl>
-            <div><dt>Total parameters analyzed</dt><dd>{extraction.observations.length}</dd></div>
-            <div><dt>Findings</dt><dd>{findingCount}</dd></div>
-            <div><dt>Report type</dt><dd>{patientReportTypeLabels[report.reportType]}</dd></div>
-            {unavailable.length ? <div><dt>Range not classified</dt><dd>{unavailable.length}</dd></div> : null}
+            <div>
+              <dt>Total parameters analyzed</dt>
+              <dd>{extraction.observations.length}</dd>
+            </div>
+            <div>
+              <dt>Findings</dt>
+              <dd>{findingCount}</dd>
+            </div>
+            <div>
+              <dt>Report type</dt>
+              <dd>{patientReportTypeLabels[report.reportType]}</dd>
+            </div>
+            {unavailable.length ? (
+              <div>
+                <dt>Range not classified</dt>
+                <dd>{unavailable.length}</dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       </section>
@@ -671,52 +770,82 @@ function InsightResult({
       <section className="clinora-ai-reference__verified" aria-labelledby="verified-values-title">
         <div className="clinora-ai-reference__section-heading">
           <div>
-            <p className="clinora-reference-section-label"><FileCheck2 size={14} aria-hidden="true" /> Exact values from your verified report</p>
+            <p className="clinora-reference-section-label">
+              <FileCheck2 size={14} aria-hidden="true" /> Exact values from your verified report
+            </p>
             <h2 id="verified-values-title">Verified laboratory values</h2>
             <p>These are the actual values you confirmed. Clinora AI does not change them.</p>
           </div>
         </div>
         <div className="clinora-ai-reference__tables">
-          {valueColumns.map((items, columnIndex) => <VerifiedValueTable key={columnIndex} observations={items} />)}
+          {valueColumns.map((items, columnIndex) => (
+            <VerifiedValueTable key={columnIndex} observations={items} />
+          ))}
         </div>
       </section>
 
       <section className="clinora-ai-reference__bottom-grid">
         <article className="clinora-ai-reference__questions">
-          <div className="clinora-reference-section-label"><MessagesSquare size={14} aria-hidden="true" /> Questions you may want to ask your clinician</div>
+          <div className="clinora-reference-section-label">
+            <MessagesSquare size={14} aria-hidden="true" /> Questions you may want to ask your clinician
+          </div>
           {result.discussionPoints.length ? (
             <ul>
               {result.discussionPoints.map((point, index) => (
-                <li key={`${point.type}-${point.title}-${index}`}><strong>{point.title}</strong><span>{point.reason}</span></li>
+                <li key={`${point.type}-${point.title}-${index}`}>
+                  <strong>{point.title}</strong>
+                  <span>{point.reason}</span>
+                </li>
               ))}
             </ul>
-          ) : <p>No discussion question was returned for this analysis.</p>}
+          ) : (
+            <p>No discussion question was returned for this analysis.</p>
+          )}
         </article>
 
         <article className="clinora-ai-reference__about">
-          <div className="clinora-reference-section-label"><ShieldCheck size={14} aria-hidden="true" /> About this AI insight</div>
+          <div className="clinora-reference-section-label">
+            <ShieldCheck size={14} aria-hidden="true" /> About this AI insight
+          </div>
           <p>
-            Clinora AI analyzes your verified report using evidence-grounded clinical reasoning to identify potential patterns and provide educational insight. This is not a diagnosis and should not replace professional medical advice.
+            Clinora AI analyzes your verified report using evidence-grounded clinical reasoning to identify potential
+            patterns and provide educational insight. This is not a diagnosis and should not replace professional
+            medical advice.
           </p>
-          {result.limitations.length ? <ul>{result.limitations.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul> : null}
+          {result.limitations.length ? (
+            <ul>
+              {result.limitations.map((item, index) => (
+                <li key={`${item}-${index}`}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
         </article>
       </section>
 
       <div className="clinora-ai-reference__actions">
         {analysisTimestamp ? (
           <span className="text-xs font-medium text-slate-500">
-            Updated {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(analysisTimestamp))}
+            Updated{' '}
+            {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+              new Date(analysisTimestamp),
+            )}
           </span>
         ) : null}
         <button type="button" onClick={onRunAgain} disabled={busy} className="clinora-reference-secondary-button">
           <RefreshCw size={15} className={busy ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
           {busy ? 'Re-running analysis…' : 'Re-run AI analysis'}
         </button>
-        <Link to="/patient/doctors" className="clinora-reference-primary-button"><Stethoscope size={15} aria-hidden="true" /> Find a doctor</Link>
-        <Link to={`/patient/analyze/${report.id}`} className="clinora-reference-secondary-button"><FileCheck2 size={15} aria-hidden="true" /> View verified report</Link>
+        <Link to="/patient/doctors" className="clinora-reference-primary-button">
+          <Stethoscope size={15} aria-hidden="true" /> Find a doctor
+        </Link>
+        <Link to={`/patient/analyze/${report.id}`} className="clinora-reference-secondary-button">
+          <FileCheck2 size={15} aria-hidden="true" /> View verified report
+        </Link>
         <details className="clinora-ai-reference__analysis-meta">
           <summary>Analysis details</summary>
-          <span>Prompt {result.promptVersion} · contract {result.schemaVersion}</span>
+          <span>
+            Prompt {result.promptVersion} · contract {result.schemaVersion}
+          </span>
         </details>
       </div>
     </div>
@@ -740,13 +869,14 @@ function ClusterRelatedFinding({
   const candidateNames = new Set(cluster.candidates.map((candidate) => candidate.name.trim().toLocaleLowerCase()));
 
   return (
-    <article
-      className="clinora-ai-reference__related"
-      aria-label={`Clinical finding ${index + 1}: ${title}`}
-    >
-      <span className="clinora-reference-icon-well"><FlaskConical size={19} aria-hidden="true" /></span>
+    <article className="clinora-ai-reference__related" aria-label={`Clinical finding ${index + 1}: ${title}`}>
+      <span className="clinora-reference-icon-well">
+        <FlaskConical size={19} aria-hidden="true" />
+      </span>
       <div className="min-w-0 flex-1">
-        <p className="clinora-reference-section-label">{index === 0 ? 'Related finding' : `Related finding ${index + 1}`}</p>
+        <p className="clinora-reference-section-label">
+          {index === 0 ? 'Related finding' : `Related finding ${index + 1}`}
+        </p>
         <h2>{title}</h2>
         <p>{cluster.interpretation}</p>
 
@@ -762,12 +892,19 @@ function ClusterRelatedFinding({
                   className="clinora-ai-reference__candidate"
                   aria-label={`Possible condition: ${candidate.name}`}
                 >
-                  <summary><span>Possible condition</span><strong>{candidate.name}</strong><ChevronRight size={13} aria-hidden="true" /></summary>
+                  <summary>
+                    <span>Possible condition</span>
+                    <strong>{candidate.name}</strong>
+                    <ChevronRight size={13} aria-hidden="true" />
+                  </summary>
                   <p>{candidate.rationale}</p>
                   <div className="clinora-ai-reference__candidate-context">
                     <CandidateContext
                       title="What does not fully match"
-                      items={candidateContradictions.map((item) => `${item.label} · ${formatObservationValue(item)} · ${rangeStateLabel(rangeState(item))}`)}
+                      items={candidateContradictions.map(
+                        (item) =>
+                          `${item.label} · ${formatObservationValue(item)} · ${rangeStateLabel(rangeState(item))}`,
+                      )}
                       empty="No contradictory verified observation was returned for this possibility."
                     />
                     <CandidateContext
@@ -787,17 +924,31 @@ function ClusterRelatedFinding({
               );
             })}
           </div>
-        ) : (cluster.missingEvidence.length || cluster.alternatives.length || contradictory.length) ? (
+        ) : cluster.missingEvidence.length || cluster.alternatives.length || contradictory.length ? (
           <details className="clinora-ai-reference__candidate clinora-ai-reference__candidate--context">
-            <summary><span>Clinical context</span><strong>What would help interpret this pattern</strong><ChevronRight size={13} aria-hidden="true" /></summary>
+            <summary>
+              <span>Clinical context</span>
+              <strong>What would help interpret this pattern</strong>
+              <ChevronRight size={13} aria-hidden="true" />
+            </summary>
             <div className="clinora-ai-reference__candidate-context">
               <CandidateContext
                 title="What does not fully match"
-                items={contradictory.map((item) => `${item.label} · ${formatObservationValue(item)} · ${rangeStateLabel(rangeState(item))}`)}
+                items={contradictory.map(
+                  (item) => `${item.label} · ${formatObservationValue(item)} · ${rangeStateLabel(rangeState(item))}`,
+                )}
                 empty="No contradictory verified observation was returned for this pattern."
               />
-              <CandidateContext title="What information is still missing" items={cluster.missingEvidence} empty="No missing-evidence item was returned." />
-              <CandidateContext title="Other possibilities to consider" items={cluster.alternatives} empty="No alternative possibility was returned." />
+              <CandidateContext
+                title="What information is still missing"
+                items={cluster.missingEvidence}
+                empty="No missing-evidence item was returned."
+              />
+              <CandidateContext
+                title="Other possibilities to consider"
+                items={cluster.alternatives}
+                empty="No alternative possibility was returned."
+              />
             </div>
           </details>
         ) : null}
@@ -822,22 +973,40 @@ function LegacyRelatedFinding({
 
   return (
     <article className="clinora-ai-reference__related" aria-label={`Clinical finding ${index + 1}: ${pattern.name}`}>
-      <span className="clinora-reference-icon-well"><FlaskConical size={19} aria-hidden="true" /></span>
+      <span className="clinora-reference-icon-well">
+        <FlaskConical size={19} aria-hidden="true" />
+      </span>
       <div className="min-w-0 flex-1">
-        <p className="clinora-reference-section-label">{index === 0 ? 'Related finding' : `Related finding ${index + 1}`}</p>
+        <p className="clinora-reference-section-label">
+          {index === 0 ? 'Related finding' : `Related finding ${index + 1}`}
+        </p>
         <h2>{pattern.name}</h2>
         <p>{pattern.reasoning}</p>
-        {(pattern.missingEvidence.length || pattern.possibleCauses.length || contradictions.length) ? (
+        {pattern.missingEvidence.length || pattern.possibleCauses.length || contradictions.length ? (
           <details className="clinora-ai-reference__candidate clinora-ai-reference__candidate--context">
-            <summary><span>Clinical context</span><strong>Why this may fit and what is still missing</strong><ChevronRight size={13} aria-hidden="true" /></summary>
+            <summary>
+              <span>Clinical context</span>
+              <strong>Why this may fit and what is still missing</strong>
+              <ChevronRight size={13} aria-hidden="true" />
+            </summary>
             <div className="clinora-ai-reference__candidate-context">
               <CandidateContext
                 title="What does not fully match"
-                items={contradictions.map((item) => `${item.label} · ${formatObservationValue(item)} · ${rangeStateLabel(rangeState(item))}`)}
+                items={contradictions.map(
+                  (item) => `${item.label} · ${formatObservationValue(item)} · ${rangeStateLabel(rangeState(item))}`,
+                )}
                 empty="No contradictory verified observation was returned for this pattern."
               />
-              <CandidateContext title="What information is still missing" items={pattern.missingEvidence} empty="No missing-evidence item was returned." />
-              <CandidateContext title="Other possibilities to consider" items={pattern.possibleCauses} empty="No alternative possibility was returned." />
+              <CandidateContext
+                title="What information is still missing"
+                items={pattern.missingEvidence}
+                empty="No missing-evidence item was returned."
+              />
+              <CandidateContext
+                title="Other possibilities to consider"
+                items={pattern.possibleCauses}
+                empty="No alternative possibility was returned."
+              />
             </div>
           </details>
         ) : null}
@@ -851,13 +1020,25 @@ function CandidateContext({ title, items, empty }: { title: string; items: strin
   return (
     <section>
       <strong>{title}</strong>
-      {items.length ? <ul>{items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul> : <p>{empty}</p>}
+      {items.length ? (
+        <ul>
+          {items.map((item, index) => (
+            <li key={`${item}-${index}`}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>{empty}</p>
+      )}
     </section>
   );
 }
 
 function ResultReferenceCheck({ text }: { text: string }) {
-  return <span><CheckCircle2 size={15} aria-hidden="true" /> {text}</span>;
+  return (
+    <span>
+      <CheckCircle2 size={15} aria-hidden="true" /> {text}
+    </span>
+  );
 }
 
 function InsightEvidenceTile({
@@ -869,10 +1050,18 @@ function InsightEvidenceTile({
 }) {
   const state = rangeState(observation);
   return (
-    <article className={cn('clinora-ai-reference__evidence-tile', (state === 'LOW' || state === 'HIGH') && 'is-outside')}>
+    <article
+      className={cn('clinora-ai-reference__evidence-tile', (state === 'LOW' || state === 'HIGH') && 'is-outside')}
+    >
       <div className="clinora-ai-reference__evidence-title">
         <strong>{observation.label}</strong>
-        <span className={cn('clinora-ai-reference__range-pill', state === 'IN_RANGE' && 'is-good', (state === 'LOW' || state === 'HIGH') && 'is-alert')}>
+        <span
+          className={cn(
+            'clinora-ai-reference__range-pill',
+            state === 'IN_RANGE' && 'is-good',
+            (state === 'LOW' || state === 'HIGH') && 'is-alert',
+          )}
+        >
           {rangeStateLabel(state)}
         </span>
       </div>
@@ -886,7 +1075,12 @@ function InsightEvidenceTile({
 function VerifiedValueTable({ observations }: { observations: PatientReportObservation[] }) {
   return (
     <div className="clinora-ai-reference__value-table">
-      <div className="clinora-ai-reference__value-head"><span>Test</span><span>Result</span><span>Reference</span><span>Status</span></div>
+      <div className="clinora-ai-reference__value-head">
+        <span>Test</span>
+        <span>Result</span>
+        <span>Reference</span>
+        <span>Status</span>
+      </div>
       {observations.map((observation) => {
         const state = rangeState(observation);
         return (
@@ -894,7 +1088,13 @@ function VerifiedValueTable({ observations }: { observations: PatientReportObser
             <strong>{observation.label}</strong>
             <span>{formatObservationValue(observation)}</span>
             <span>{formatReference(observation)}</span>
-            <span className={cn('clinora-ai-reference__table-status', state === 'IN_RANGE' && 'is-good', (state === 'LOW' || state === 'HIGH') && 'is-alert')}>
+            <span
+              className={cn(
+                'clinora-ai-reference__table-status',
+                state === 'IN_RANGE' && 'is-good',
+                (state === 'LOW' || state === 'HIGH') && 'is-alert',
+              )}
+            >
               <i aria-hidden="true" /> {rangeStateLabel(state)}
             </span>
           </div>
@@ -906,9 +1106,18 @@ function VerifiedValueTable({ observations }: { observations: PatientReportObser
 
 function MetricTile({ label, value, tone }: { label: string; value: number; tone: 'alert' | 'good' }) {
   return (
-    <div className={cn('rounded-2xl border p-4', tone === 'alert' ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50')}>
+    <div
+      className={cn(
+        'rounded-2xl border p-4',
+        tone === 'alert' ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50',
+      )}
+    >
       <p className={cn('text-xs font-semibold', tone === 'alert' ? 'text-rose-700' : 'text-emerald-700')}>{label}</p>
-      <p className={cn('mt-2 text-3xl font-bold tabular-nums', tone === 'alert' ? 'text-rose-700' : 'text-emerald-700')}>{String(value).padStart(2, '0')}</p>
+      <p
+        className={cn('mt-2 text-3xl font-bold tabular-nums', tone === 'alert' ? 'text-rose-700' : 'text-emerald-700')}
+      >
+        {String(value).padStart(2, '0')}
+      </p>
     </div>
   );
 }
@@ -937,7 +1146,8 @@ function InsightNotReady({ reportId, readinessCode }: { reportId: string; readin
           <div>
             <h2 className="text-lg font-semibold text-white">This report needs one more check</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-              Clinora does not yet have enough verified report information to create a reliable insight. Review the extracted values before trying again.
+              Clinora does not yet have enough verified report information to create a reliable insight. Review the
+              extracted values before trying again.
             </p>
             {readinessCode ? (
               <details className="mt-3 text-xs text-[var(--clinora-text-faint)]">
@@ -967,7 +1177,8 @@ function VerificationGuard({ reportId }: { reportId: string }) {
           <div>
             <h2 className="text-lg font-semibold text-white">Finish reviewing the report first</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-              AI insight opens only after every flagged value has been reviewed and the extracted report data is confirmed.
+              AI insight opens only after every flagged value has been reviewed and the extracted report data is
+              confirmed.
             </p>
           </div>
         </div>

@@ -12,15 +12,17 @@ export function rangeStateLabel(state: PatientObservationRangeState) {
 }
 
 export function formatObservationValue(observation: PatientReportObservation) {
-  const value = observation.numericValue != null
-    ? `${observation.comparator ?? ''}${observation.numericValue}`
-    : observation.textValue || 'Reported';
+  const value =
+    observation.numericValue != null
+      ? `${observation.comparator ?? ''}${observation.numericValue}`
+      : observation.textValue || 'Reported';
   return observation.unit ? `${value} ${observation.unit}` : value;
 }
 
 export function formatReference(observation: PatientReportObservation) {
   if (observation.referenceRangeRaw) return observation.referenceRangeRaw;
-  if (observation.referenceLow != null && observation.referenceHigh != null) return `${observation.referenceLow}–${observation.referenceHigh}`;
+  if (observation.referenceLow != null && observation.referenceHigh != null)
+    return `${observation.referenceLow}–${observation.referenceHigh}`;
   if (observation.referenceLow != null) return `≥ ${observation.referenceLow}`;
   if (observation.referenceHigh != null) return `≤ ${observation.referenceHigh}`;
   return 'Not stated on report';
