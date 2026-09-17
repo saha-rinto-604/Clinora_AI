@@ -93,6 +93,22 @@ public class DoctorWorkspaceController {
         );
     }
 
+    @PostMapping("/appointments/{appointmentId}/meeting-link")
+    public ApiResponse<DoctorWorkspaceModels.AppointmentDetail> updateMeetingLink(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable UUID appointmentId,
+        @RequestBody DoctorWorkspaceModels.MeetingLinkRequest body,
+        HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+            "Meeting link updated.",
+            workspace.updateMeetingLink(
+                userId(jwt), appointmentId, body == null ? null : body.meetingUrl(),
+                clientIp(request), request.getHeader(HttpHeaders.USER_AGENT)
+            )
+        );
+    }
+
     private static UUID userId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }

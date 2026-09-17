@@ -76,7 +76,8 @@ public class PatientAppointmentController {
         return ApiResponse.success(
             "Appointment booked.",
             appointments.book(
-                userId(jwt), idempotencyKey, request.slotId(), request.reasonForVisit(), request.timezone(), request.reportIds()
+                userId(jwt), idempotencyKey, request.slotId(), request.reasonForVisit(), request.timezone(),
+                request.consultationMode(), request.reportIds()
             )
         );
     }
@@ -114,7 +115,7 @@ public class PatientAppointmentController {
     ) {
         return ApiResponse.success(
             "Appointment rescheduled.",
-            appointments.reschedule(userId(jwt), appointmentId, request.slotId(), request.timezone())
+            appointments.reschedule(userId(jwt), appointmentId, request.slotId(), request.timezone(), request.consultationMode())
         );
     }
 
@@ -148,10 +149,15 @@ public class PatientAppointmentController {
         @NotNull UUID slotId,
         @Size(max = 500) String reasonForVisit,
         @NotBlank @Size(max = 80) String timezone,
+        @NotBlank @Size(max = 16) String consultationMode,
         @Size(max = 20) List<UUID> reportIds
     ) {}
     public record CancelAppointmentRequest(@Size(max = 240) String reason) {}
-    public record RescheduleAppointmentRequest(@NotNull UUID slotId, @NotBlank @Size(max = 80) String timezone) {}
+    public record RescheduleAppointmentRequest(
+        @NotNull UUID slotId,
+        @NotBlank @Size(max = 80) String timezone,
+        @Size(max = 16) String consultationMode
+    ) {}
     public record ShareReportRequest(@NotNull UUID reportId) {}
 }
 

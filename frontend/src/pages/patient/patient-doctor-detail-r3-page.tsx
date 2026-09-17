@@ -19,6 +19,7 @@ import {
   appointmentError,
   appointmentErrorCode,
   type AvailabilitySlot,
+  type ConsultationMode,
   type DoctorDetail,
 } from '../../features/appointments/appointment-api';
 import { patientFacingDoctorProfile, type PatientFacingDoctorProfile } from '../../features/doctor/doctor-profile-api';
@@ -34,6 +35,7 @@ export function PatientDoctorDetailPage() {
   const [detail, setDetail] = useState<DoctorDetail | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<PatientFacingDoctorProfile | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+  const [consultationMode, setConsultationMode] = useState<ConsultationMode | null>(null);
   const [selectedDateKey, setSelectedDateKey] = useState('');
   const [reason, setReason] = useState('');
   const [selectedReports, setSelectedReports] = useState<PatientReport[]>([]);
@@ -72,6 +74,7 @@ export function PatientDoctorDetailPage() {
     if (!dateGroups.length) {
       setSelectedDateKey('');
       setSelectedSlot(null);
+      setConsultationMode(null);
       return;
     }
     if (!dateGroups.some((group) => group.key === selectedDateKey)) setSelectedDateKey(dateGroups[0].key);
@@ -111,12 +114,15 @@ export function PatientDoctorDetailPage() {
 
   const chooseSlot = (slot: AvailabilitySlot) => {
     setSelectedSlot(slot);
+    setConsultationMode(
+      slot.consultationMode === 'IN_PERSON' ? 'IN_PERSON' : slot.consultationMode === 'BOTH' ? null : 'ONLINE',
+    );
     setSelectedDateKey(localDateKey(slot.startsAt, timezone));
     setError('');
   };
 
   const book = async () => {
-    if (!selectedSlot) return;
+    if (!selectedSlot || !consultationMode) return;
     setBooking(true);
     setError('');
     try {
@@ -127,6 +133,7 @@ export function PatientDoctorDetailPage() {
           slotId: selectedSlot.id,
           reasonForVisit: reason.trim() || undefined,
           timezone,
+          consultationMode,
           reportIds: selectedReports.map((report) => report.id),
         },
         idempotencyKey,
@@ -158,6 +165,7 @@ export function PatientDoctorDetailPage() {
           setDetail(refreshed);
           const replacement = refreshed.availability.find((slot) => slot.id === selectedSlot.id) ?? null;
           setSelectedSlot(replacement);
+          if (!replacement) setConsultationMode(null);
           if (!replacement) bookingKeyRef.current = null;
         } catch {
           // Preserve the Patient's form state even if the availability refresh also fails.
@@ -339,6 +347,34 @@ export function PatientDoctorDetailPage() {
                         );
                       })}
                     </div>
+                    {selectedSlot ? (
+                      <fieldset className="mt-5 border-t border-white/[0.055] pt-5">
+                        <legend className="text-sm font-semibold text-slate-200">Consultation type</legend>
+                        <p className="mt-1 text-xs text-slate-600">
+                          {selectedSlot.consultationMode === 'BOTH'
+                            ? 'This time supports either consultation type.'
+                            : 'This time is available for one consultation type.'}
+                        </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {availableModes(selectedSlot).map((mode) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              aria-pressed={consultationMode === mode}
+                              onClick={() => setConsultationMode(mode)}
+                              className={cn(
+                                'rounded-[11px] border px-4 py-3 text-left text-sm font-semibold transition',
+                                consultationMode === mode
+                                  ? 'border-cyan-300/[0.26] bg-cyan-300/[0.08] text-cyan-100'
+                                  : 'border-white/[0.065] bg-white/[0.018] text-slate-300 hover:border-cyan-300/[0.14]',
+                              )}
+                            >
+                              {modeLabel(mode)}
+                            </button>
+                          ))}
+                        </div>
+                      </fieldset>
+                    ) : null}
                   </div>
                 ) : null}
               </>
@@ -420,6 +456,11 @@ export function PatientDoctorDetailPage() {
                       : 'Shown after time selection'
                 }
               />
+              <Review
+                label="Consultation type"
+                value={consultationMode ? modeLabel(consultationMode) : selectedSlot ? 'Choose a type' : 'Choose a time first'}
+                strong={Boolean(consultationMode)}
+              />
               <Review label="Visit note" value={reason.trim() || 'No note added'} muted={!reason.trim()} />
               <Review
                 label="Reports"
@@ -457,7 +498,7 @@ export function PatientDoctorDetailPage() {
               <Button
                 variant="appPrimary"
                 className="w-full"
-                disabled={!selectedSlot || booking}
+                disabled={!selectedSlot || !consultationMode || booking}
                 onClick={() => void book()}
               >
                 {booking ? (
@@ -558,6 +599,16 @@ function localDateKey(value: string, timezone: string) {
 function durationMinutes(slot: AvailabilitySlot) {
   const minutes = Math.round((new Date(slot.endsAt).getTime() - new Date(slot.startsAt).getTime()) / 60_000);
   return Math.max(0, minutes);
+}
+
+function availableModes(slot: AvailabilitySlot): ConsultationMode[] {
+  if (slot.consultationMode === 'ONLINE') return ['ONLINE'];
+  if (slot.consultationMode === 'IN_PERSON') return ['IN_PERSON'];
+  return ['ONLINE', 'IN_PERSON'];
+}
+
+function modeLabel(mode: ConsultationMode) {
+  return mode === 'ONLINE' ? 'Online' : 'In-person';
 }
 
 function formatTime(value: string, timezone: string) {

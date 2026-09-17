@@ -312,7 +312,7 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
     private void seedDoctorAvailability(UUID doctorId, DoctorFixture doctor, Instant now) {
         if (!doctor.hasAvailability()) return;
         Integer futureSlots = jdbc.queryForObject(
-            "SELECT COUNT(*)::int FROM doctor_availability_slots WHERE doctor_user_id = ? AND starts_at > CURRENT_TIMESTAMP",
+            "SELECT COUNT(*)::int FROM doctor_availability_slots WHERE doctor_user_id = ? AND status = 'AVAILABLE' AND starts_at > CURRENT_TIMESTAMP",
             Integer.class,
             doctorId
         );
@@ -622,14 +622,15 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
         jdbc.update(
             """
             INSERT INTO doctor_availability_slots
-                (id, doctor_user_id, starts_at, ends_at, timezone, status, created_at, updated_at, version)
-            VALUES (?, ?, ?, ?, 'Asia/Dhaka', ?, ?, ?, 0)
+                (id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode, created_at, updated_at, version)
+            VALUES (?, ?, ?, ?, 'Asia/Dhaka', ?, 'BOTH', ?, ?, 0)
             ON CONFLICT (id) DO UPDATE SET
                 doctor_user_id = EXCLUDED.doctor_user_id,
                 starts_at = EXCLUDED.starts_at,
                 ends_at = EXCLUDED.ends_at,
                 timezone = EXCLUDED.timezone,
                 status = EXCLUDED.status,
+                consultation_mode = EXCLUDED.consultation_mode,
                 updated_at = EXCLUDED.updated_at,
                 version = doctor_availability_slots.version + 1
             """,

@@ -139,6 +139,13 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
             </StatusPill>
           </div>
           <p className="mt-1 text-sm font-medium text-[var(--clinora-info-foreground)]">{appointment.specialization}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-300">
+            {appointment.consultationMode === 'ONLINE'
+              ? 'Online'
+              : appointment.consultationMode === 'IN_PERSON'
+                ? 'In-person'
+                : 'Consultation type not recorded'}
+          </p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--clinora-text-muted)]">
             <span className="inline-flex items-center gap-1.5">
               <Clock3 size={14} aria-hidden="true" />

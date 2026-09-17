@@ -45,7 +45,9 @@ public class DoctorAvailabilityController {
     ) {
         return ApiResponse.success(
             "Availability added.",
-            appointments.addAvailability(userId(jwt), request.startsAt(), request.endsAt(), request.slotMinutes(), request.timezone())
+            appointments.addAvailability(
+                userId(jwt), request.startsAt(), request.endsAt(), request.slotMinutes(), request.timezone(), request.consultationMode()
+            )
         );
     }
 
@@ -61,7 +63,8 @@ public class DoctorAvailabilityController {
         @NotNull Instant startsAt,
         @NotNull Instant endsAt,
         @Min(15) @Max(120) int slotMinutes,
-        @NotBlank @Size(max = 80) String timezone
+        @NotBlank @Size(max = 80) String timezone,
+        @Size(max = 16) String consultationMode
     ) {}
 }
 

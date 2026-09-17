@@ -224,6 +224,9 @@ function ScheduleRow({ appointment, historical }: { appointment: DoctorAppointme
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-white">{appointment.patientName}</span>
             <span className="mt-0.5 block truncate text-xs text-slate-500">{appointment.reason || 'Consultation'}</span>
+            <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-200/80">
+              {consultationModeLabel(appointment.consultationMode)}
+            </span>
           </span>
         </span>
         <span className="flex items-center gap-2 text-xs text-slate-500">
@@ -245,6 +248,12 @@ function ScheduleRow({ appointment, historical }: { appointment: DoctorAppointme
       </Link>
     </li>
   );
+}
+
+function consultationModeLabel(mode?: DoctorAppointmentSummary['consultationMode']) {
+  if (mode === 'ONLINE') return 'Online';
+  if (mode === 'IN_PERSON') return 'In-person';
+  return 'Type not recorded';
 }
 
 function groupAppointments(items: DoctorAppointmentSummary[]) {
