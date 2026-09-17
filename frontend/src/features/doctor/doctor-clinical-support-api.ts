@@ -59,8 +59,7 @@ export interface DoctorSupportRoutingDecision {
 
 export type DoctorSupportExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL_SUCCESS' | 'FAILED_SAFE';
 export type DoctorSupportTaskExecutionStatus = 'SUCCEEDED' | 'FAILED_SAFE' | 'EVIDENCE_SELECTION_REQUIRED';
-export type ExecutableDoctorSupportTaskId =
-  'CONNECT_EVIDENCE' | 'COMPARE_EVIDENCE' | 'CROSS_CHECK_ASSESSMENT' | 'FIND_GAPS';
+export type ExecutableDoctorSupportTaskId = DoctorSupportTaskId;
 
 export interface DoctorSupportExecutionRequest {
   taskIds: ExecutableDoctorSupportTaskId[];
@@ -69,6 +68,7 @@ export interface DoctorSupportExecutionRequest {
   selectedReportIds?: string[];
   selectedObservationIds?: string[];
   doctorAssessment?: string | null;
+  doctorNotes?: string | null;
   clientExecutionKey?: string | null;
 }
 
@@ -143,8 +143,57 @@ export interface FindGapsResult {
   summaryReferenceChunkIds: string[];
 }
 
+export interface BriefPatientResult {
+  taskId: 'BRIEF_PATIENT';
+  summary: string;
+  appointmentReason: string | null;
+  evidenceHighlights: DoctorSupportEvidenceReference[];
+  chronology: Array<{ kind: 'CHANGE' | 'PERSISTENCE'; statement: string; evidence: DoctorSupportEvidenceReference[] }>;
+  openQuestions: string[];
+  limitations: string[];
+}
+
+export interface ExploreExplanationsResult {
+  taskId: 'EXPLORE_EXPLANATIONS';
+  summary: string;
+  explanations: Array<{
+    name: string;
+    whyItMayFit: string;
+    supportingEvidence: DoctorSupportEvidenceReference[];
+    limitingEvidence: DoctorSupportEvidenceReference[];
+    missingInformation: string[];
+    referenceChunkIds: string[];
+  }>;
+  limitations: string[];
+  summaryReferenceChunkIds: string[];
+}
+
+export interface StructureNotesResult {
+  taskId: 'STRUCTURE_NOTES';
+  sections: Array<{
+    section: 'REASON_CONTEXT' | 'SYMPTOMS_HISTORY' | 'FINDINGS' | 'ASSESSMENT' | 'PLAN' | 'OTHER';
+    items: string[];
+  }>;
+  limitations: string[];
+}
+
+export interface FocusedEvidenceQuestionResult {
+  taskId: 'FOCUSED_EVIDENCE_QUESTION';
+  answer: string;
+  supportingEvidence: DoctorSupportEvidenceReference[];
+  referenceChunkIds: string[];
+  limitations: string[];
+}
+
 export type DoctorSupportClinicalResult =
-  ConnectEvidenceResult | CompareEvidenceResult | CrossCheckAssessmentResult | FindGapsResult;
+  | BriefPatientResult
+  | ConnectEvidenceResult
+  | CompareEvidenceResult
+  | CrossCheckAssessmentResult
+  | FindGapsResult
+  | ExploreExplanationsResult
+  | StructureNotesResult
+  | FocusedEvidenceQuestionResult;
 
 export interface DoctorSupportProvenance {
   reportIds: string[];
@@ -264,6 +313,7 @@ export const doctorClinicalSupportApi = {
         selectedReportIds: request.selectedReportIds ?? [],
         selectedObservationIds: request.selectedObservationIds ?? [],
         doctorAssessment: request.doctorAssessment ?? null,
+        doctorNotes: request.doctorNotes ?? null,
         clientExecutionKey: request.clientExecutionKey ?? null,
       },
     );

@@ -69,6 +69,8 @@ class ClinicalKnowledgeQueryBuilder:
             "CONNECT_EVIDENCE": "clinical relationships interpretation",
             "CROSS_CHECK_ASSESSMENT": "assessment supporting and conflicting evidence",
             "FIND_GAPS": "recommended evaluation information limitations",
+            "EXPLORE_EXPLANATIONS": "possible explanations distinguishing evidence limitations",
+            "FOCUSED_EVIDENCE_QUESTION": "focused clinical evidence interpretation",
         }.get(task_id, "focused clinical evidence")
         parts = [task_phrase, *reports[:4], *concepts[:24], *statuses[:6], *assessment_terms[:8]]
         return KnowledgeQuery(" ".join(dict.fromkeys(part for part in parts if part)), domains)

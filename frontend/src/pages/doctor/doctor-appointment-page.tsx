@@ -27,6 +27,7 @@ import {
   reportTypeLabel,
 } from '../../features/doctor/doctor-display';
 import { ProfileAvatar } from '../../features/profile/profile-image';
+import { ClinoraClinicalSupportPanel } from '../../features/doctor/clinora-clinical-support-panel';
 
 export function DoctorAppointmentPage() {
   const { appointmentId = '' } = useParams();
@@ -187,6 +188,10 @@ export function DoctorAppointmentPage() {
           ) : null}
         </div>
       </div>
+
+      {data.reportAccessActive ? (
+        <ClinoraClinicalSupportPanel appointmentId={data.id} screen="APPOINTMENT" appointmentMode />
+      ) : null}
 
       {action === 'cancel' ? (
         <AppSurface as="section" variant="attention" aria-labelledby="cancel-appointment-title">

@@ -19,7 +19,7 @@ public class DoctorSupportTaskRegistry {
             List.of("Brief me before this visit.", "Prepare a patient briefing."),
             Set.of(DoctorSupportRequiredContext.APPOINTMENT), false,
             "Brief this Patient", "Prepare an encounter briefing from the authorized care context.",
-            false, null, null, DoctorSupportRagPolicy.DISABLED
+            true, "doctor_brief_patient_v1", "doctor-support-brief-v1", DoctorSupportRagPolicy.DISABLED
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.CONNECT_EVIDENCE,
@@ -64,7 +64,7 @@ public class DoctorSupportTaskRegistry {
             List.of("What could explain this pattern?", "Could this fit iron deficiency or thalassemia trait?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Explore possible explanations", "Explore non-ranked explanations for the authorized evidence pattern.",
-            false, null, null, DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
+            true, "doctor_explore_explanations_v1", "doctor-support-explore-v1", DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.STRUCTURE_NOTES,
@@ -73,7 +73,7 @@ public class DoctorSupportTaskRegistry {
             List.of("Turn these notes into a structured consultation note."),
             Set.of(DoctorSupportRequiredContext.DOCTOR_NOTES), false,
             "Structure my notes", "Organize Doctor-authored notes without adding facts.",
-            false, null, null, DoctorSupportRagPolicy.DISABLED
+            true, "doctor_structure_notes_v1", "doctor-support-structure-notes-v1", DoctorSupportRagPolicy.DISABLED
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION,
@@ -82,7 +82,7 @@ public class DoctorSupportTaskRegistry {
             List.of("What does this authorized finding mean in this evidence set?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Ask about this evidence", "Handle a focused question about the current authorized evidence.",
-            false, null, null, DoctorSupportRagPolicy.OPTIONAL
+            true, "doctor_focused_evidence_question_v1", "doctor-support-focused-question-v1", DoctorSupportRagPolicy.OPTIONAL
         ));
         if (specs.size() != DoctorSupportTask.values().length) {
             throw new IllegalStateException("Every Doctor support task must have exactly one registry entry.");

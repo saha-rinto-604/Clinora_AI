@@ -71,6 +71,8 @@ public class MedGemmaClient {
         UUID executionId,
         String originalQuestion,
         String doctorAssessment,
+        String doctorNotes,
+        JsonNode appointmentContext,
         JsonNode evidenceSnapshot,
         List<DoctorSupportTaskExecutionRequest> tasks
     ) {}

@@ -28,8 +28,12 @@ def reference_payload(chunks: tuple[RetrievedChunk, ...]) -> str:
 
 def user_payload(request: DoctorSupportExecutionRequest, instruction: str, chunks: tuple[RetrievedChunk, ...] = ()) -> str:
     assessment = request.doctorAssessment or ""
+    notes = request.doctorNotes or ""
+    appointment = json.dumps(request.appointmentContext, separators=(",", ":"), sort_keys=True)
     return f"""{instruction}
+<AUTHORIZED_APPOINTMENT_CONTEXT>{appointment}</AUTHORIZED_APPOINTMENT_CONTEXT>
 <PATIENT_SPECIFIC_VERIFIED_EVIDENCE>{evidence_payload(request)}</PATIENT_SPECIFIC_VERIFIED_EVIDENCE>
 <UNTRUSTED_DOCTOR_QUESTION>{request.originalQuestion}</UNTRUSTED_DOCTOR_QUESTION>
 <UNTRUSTED_DOCTOR_ASSESSMENT>{assessment}</UNTRUSTED_DOCTOR_ASSESSMENT>
+<UNTRUSTED_DOCTOR_NOTES>{notes}</UNTRUSTED_DOCTOR_NOTES>
 <GENERAL_CLINICAL_REFERENCE_KNOWLEDGE>{reference_payload(chunks)}</GENERAL_CLINICAL_REFERENCE_KNOWLEDGE>"""

@@ -18,12 +18,7 @@ import org.springframework.stereotype.Service;
 /** Synchronous today, with job-compatible IDs/statuses and process-local duplicate suppression. */
 @Service
 public class DoctorSupportExecutionService {
-    private static final EnumSet<DoctorSupportTask> EXECUTABLE = EnumSet.of(
-        DoctorSupportTask.CONNECT_EVIDENCE,
-        DoctorSupportTask.COMPARE_EVIDENCE,
-        DoctorSupportTask.CROSS_CHECK_ASSESSMENT,
-        DoctorSupportTask.FIND_GAPS
-    );
+    private static final EnumSet<DoctorSupportTask> EXECUTABLE = EnumSet.allOf(DoctorSupportTask.class);
 
     private final DoctorSupportTaskRegistry registry;
     private final DoctorSupportEvidenceAssembler evidenceAssembler;
@@ -78,6 +73,10 @@ public class DoctorSupportExecutionService {
             && (request.doctorAssessment() == null || request.doctorAssessment().isBlank())) {
             throw badRequest("DOCTOR_ASSESSMENT_REQUIRED", "A Doctor-authored assessment is required for cross-checking.");
         }
+        if (tasks.contains(DoctorSupportTask.STRUCTURE_NOTES)
+            && (request.doctorNotes() == null || request.doctorNotes().isBlank())) {
+            throw badRequest("DOCTOR_NOTES_REQUIRED", "Doctor-authored notes are required for structuring.");
+        }
 
         String cacheKey = request.clientExecutionKey() == null || request.clientExecutionKey().isBlank()
             ? null : doctorId + ":" + appointmentId + ":" + request.clientExecutionKey();
@@ -124,7 +123,8 @@ public class DoctorSupportExecutionService {
                 );
             }).toList();
             var aiResponse = ai.executeDoctorSupport(new MedGemmaClient.DoctorSupportExecutionRequest(
-                executionId, request.originalQuestion(), request.doctorAssessment(), objectMapper.valueToTree(modelEvidence(snapshot)), aiTasks
+                executionId, request.originalQuestion(), request.doctorAssessment(), request.doctorNotes(),
+                objectMapper.valueToTree(assembly.appointmentContext()), objectMapper.valueToTree(modelEvidence(snapshot)), aiTasks
             ));
             Set<String> expectedTasks = runnable.stream().map(Enum::name).collect(java.util.stream.Collectors.toSet());
             Set<String> returnedTasks = aiResponse.taskResults().stream()

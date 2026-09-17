@@ -45,12 +45,12 @@ class DoctorSupportExecutionServiceTest {
     }
 
     @Test
-    void rejectsDuplicateAndNonExecutableTasksBeforeEvidenceAccess() {
+    void rejectsDuplicateTasksAndRequiresNotesBeforeEvidenceAccess() {
         assertEquals("DUPLICATE_TASK_IDS", assertThrows(DoctorApiException.class, () -> service.execute(
             doctorId, appointmentId, request(List.of(DoctorSupportTask.FIND_GAPS, DoctorSupportTask.FIND_GAPS), null, "a")
         )).getErrorCode());
-        assertEquals("TASK_NOT_EXECUTABLE", assertThrows(DoctorApiException.class, () -> service.execute(
-            doctorId, appointmentId, request(List.of(DoctorSupportTask.BRIEF_PATIENT), null, "b")
+        assertEquals("DOCTOR_NOTES_REQUIRED", assertThrows(DoctorApiException.class, () -> service.execute(
+            doctorId, appointmentId, request(List.of(DoctorSupportTask.STRUCTURE_NOTES), null, "b")
         )).getErrorCode());
         verify(assembler, never()).assemble(any(), any(), any());
     }

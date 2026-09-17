@@ -58,7 +58,10 @@ class EvidenceSnapshot(StrictModel):
 
 
 class TaskRequest(StrictModel):
-    taskId: Literal["CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "CROSS_CHECK_ASSESSMENT", "FIND_GAPS"]
+    taskId: Literal[
+        "BRIEF_PATIENT", "CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "CROSS_CHECK_ASSESSMENT",
+        "FIND_GAPS", "EXPLORE_EXPLANATIONS", "STRUCTURE_NOTES", "FOCUSED_EVIDENCE_QUESTION",
+    ]
     promptVersion: str
     schemaVersion: str
     ragPolicy: Literal["DISABLED", "OPTIONAL", "REQUIRED_WHEN_AVAILABLE"] = "DISABLED"
@@ -68,8 +71,10 @@ class DoctorSupportExecutionRequest(StrictModel):
     executionId: UUID
     originalQuestion: str = Field(min_length=1, max_length=4000)
     doctorAssessment: str | None = Field(default=None, max_length=4000)
+    doctorNotes: str | None = Field(default=None, max_length=8000)
+    appointmentContext: dict[str, str | None] = Field(default_factory=dict)
     evidenceSnapshot: EvidenceSnapshot
-    tasks: list[TaskRequest] = Field(min_length=1, max_length=4)
+    tasks: list[TaskRequest] = Field(min_length=1, max_length=8)
 
     @model_validator(mode="after")
     def unique_tasks(self) -> "DoctorSupportExecutionRequest":
@@ -159,8 +164,63 @@ class FindGapsResult(StrictModel):
     summaryReferenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
+class BriefChronology(StrictModel):
+    kind: Literal["CHANGE", "PERSISTENCE"]
+    statement: str = Field(min_length=1, max_length=500)
+    evidence: list[EvidenceReference] = Field(min_length=2, max_length=8)
+
+
+class BriefPatientResult(StrictModel):
+    taskId: Literal["BRIEF_PATIENT"]
+    summary: str = Field(min_length=1, max_length=700)
+    appointmentReason: str | None = Field(default=None, max_length=500)
+    evidenceHighlights: list[EvidenceReference] = Field(max_length=12)
+    chronology: list[BriefChronology] = Field(max_length=8)
+    openQuestions: list[str] = Field(max_length=8)
+    limitations: list[str] = Field(max_length=6)
+
+
+class PossibleExplanation(StrictModel):
+    name: str = Field(min_length=1, max_length=120)
+    whyItMayFit: str = Field(min_length=1, max_length=600)
+    supportingEvidence: list[EvidenceReference] = Field(min_length=1, max_length=8)
+    limitingEvidence: list[EvidenceReference] = Field(max_length=8)
+    missingInformation: list[str] = Field(max_length=6)
+    referenceChunkIds: list[str] = Field(min_length=1, max_length=4)
+
+
+class ExploreExplanationsResult(StrictModel):
+    taskId: Literal["EXPLORE_EXPLANATIONS"]
+    summary: str = Field(min_length=1, max_length=700)
+    explanations: list[PossibleExplanation] = Field(min_length=1, max_length=3)
+    limitations: list[str] = Field(max_length=6)
+    summaryReferenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
+
+
+class StructuredNoteSection(StrictModel):
+    section: Literal["REASON_CONTEXT", "SYMPTOMS_HISTORY", "FINDINGS", "ASSESSMENT", "PLAN", "OTHER"]
+    items: list[str] = Field(min_length=1, max_length=12)
+
+
+class StructureNotesResult(StrictModel):
+    taskId: Literal["STRUCTURE_NOTES"]
+    sections: list[StructuredNoteSection] = Field(min_length=1, max_length=6)
+    limitations: list[str] = Field(max_length=4)
+
+
+class FocusedEvidenceQuestionResult(StrictModel):
+    taskId: Literal["FOCUSED_EVIDENCE_QUESTION"]
+    answer: str = Field(min_length=1, max_length=900)
+    supportingEvidence: list[EvidenceReference] = Field(min_length=1, max_length=10)
+    referenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
+    limitations: list[str] = Field(max_length=6)
+
+
 TaskResult = Annotated[
-    Union[ConnectEvidenceResult, CompareEvidenceResult, CrossCheckAssessmentResult, FindGapsResult],
+    Union[
+        BriefPatientResult, ConnectEvidenceResult, CompareEvidenceResult, CrossCheckAssessmentResult,
+        FindGapsResult, ExploreExplanationsResult, StructureNotesResult, FocusedEvidenceQuestionResult,
+    ],
     Field(discriminator="taskId"),
 ]
 
@@ -181,7 +241,10 @@ class ClinicalReference(StrictModel):
 
 
 class TaskExecutionResponse(StrictModel):
-    taskId: Literal["CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "CROSS_CHECK_ASSESSMENT", "FIND_GAPS"]
+    taskId: Literal[
+        "BRIEF_PATIENT", "CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "CROSS_CHECK_ASSESSMENT",
+        "FIND_GAPS", "EXPLORE_EXPLANATIONS", "STRUCTURE_NOTES", "FOCUSED_EVIDENCE_QUESTION",
+    ]
     status: Literal["SUCCEEDED", "FAILED_SAFE"]
     result: TaskResult | None
     safeFailureCode: str | None

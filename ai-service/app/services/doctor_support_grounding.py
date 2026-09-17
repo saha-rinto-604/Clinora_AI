@@ -26,7 +26,8 @@ _REFERENCE_ATTRIBUTION = re.compile(r"\b(guidelines?|references?|published sourc
 
 
 def validate_grounding(
-    result: TaskResult, evidence: EvidenceSnapshot, retrieved_chunks: tuple[RetrievedChunk, ...] = ()
+    result: TaskResult, evidence: EvidenceSnapshot, retrieved_chunks: tuple[RetrievedChunk, ...] = (),
+    doctor_notes: str | None = None, appointment_context: dict | None = None,
 ) -> None:
     dumped = result.model_dump(mode="json")
     text = " ".join(_strings(dumped))
@@ -97,6 +98,58 @@ def validate_grounding(
             if set(ids) != {str(fact.earlierObservationId), str(fact.laterObservationId)}:
                 raise UnsafeDoctorSupportOutputError("WRONG_COMPARISON_EVIDENCE")
 
+    if dumped.get("taskId") == "BRIEF_PATIENT":
+        expected_reason = (appointment_context or {}).get("reason")
+        if dumped.get("appointmentReason") != expected_reason:
+            raise UnsafeDoctorSupportOutputError("APPOINTMENT_CONTEXT_MISMATCH")
+        report_dates = {str(item.reportId): item.clinicalDate for item in evidence.reports if item.clinicalDate}
+        observation_reports = {str(item.observationId): str(item.reportId) for item in evidence.observations}
+        facts = {
+            frozenset((str(item.earlierObservationId), str(item.laterObservationId))) for item in evidence.comparisonFacts
+        }
+        for chronology in dumped.get("chronology", []):
+            ids = [str(item.get("observationId")) for item in chronology.get("evidence", [])]
+            reports = {observation_reports.get(item) for item in ids}
+            dated_reports = {item for item in reports if item in report_dates}
+            if chronology.get("kind") == "CHANGE" and not any(fact.issubset(set(ids)) for fact in facts):
+                raise UnsafeDoctorSupportOutputError("UNSUPPORTED_CHRONOLOGY")
+            if chronology.get("kind") == "PERSISTENCE" and len(dated_reports) < 3:
+                raise UnsafeDoctorSupportOutputError("UNSUPPORTED_PERSISTENCE")
+
+    if dumped.get("taskId") == "STRUCTURE_NOTES":
+        _validate_structured_notes(dumped, doctor_notes or "")
+
+
+def _validate_structured_notes(dumped, doctor_notes):
+    source = doctor_notes.lower()
+    if not source.strip():
+        raise UnsafeDoctorSupportOutputError("DOCTOR_NOTES_REQUIRED")
+    source_tokens = set(re.findall(r"[a-z0-9]+", source))
+    output_text = " ".join(
+        item for section in dumped.get("sections", []) for item in section.get("items", [])
+    ).lower()
+    output_tokens = set(re.findall(r"[a-z0-9]+", output_text))
+    allowed_structure = {
+        "possible", "reported", "stated", "consider", "reason", "context", "symptoms", "history",
+        "finding", "findings", "assessment", "plan", "other", "for", "the", "a", "an", "of", "and",
+    }
+    if "tired" in source or "tiredness" in source:
+        allowed_structure.add("fatigue")
+    novel = {token for token in output_tokens - source_tokens - allowed_structure if len(token) > 2}
+    if novel:
+        raise UnsafeDoctorSupportOutputError("NOTES_FACT_ADDED")
+    source_numbers = set(re.findall(r"\b\d+(?:\.\d+)?\b", source))
+    output_numbers = set(re.findall(r"\b\d+(?:\.\d+)?\b", output_text))
+    if not output_numbers.issubset(source_numbers):
+        raise UnsafeDoctorSupportOutputError("NOTES_DOSE_OR_VALUE_CHANGED")
+    uncertain = bool(re.search(r"(?:^|\s)\?|\b(possible|possibly|consider|query|suspect)\b", source))
+    assessment = " ".join(
+        item for section in dumped.get("sections", []) if section.get("section") == "ASSESSMENT"
+        for item in section.get("items", [])
+    ).lower()
+    if uncertain and assessment and not re.search(r"\b(possible|possibly|consider|query|suspect|uncertain)\b", assessment):
+        raise UnsafeDoctorSupportOutputError("NOTES_UNCERTAINTY_INCREASED")
+
 
 def _strings(value):
     if isinstance(value, str):
@@ -122,9 +175,10 @@ def _evidence_references(value):
 
 def _evidence_lists(value):
     if isinstance(value, dict):
-        evidence = value.get("evidence")
-        if isinstance(evidence, list):
-            yield evidence
+        for key in ("evidence", "supportingEvidence", "limitingEvidence", "evidenceHighlights"):
+            evidence = value.get(key)
+            if isinstance(evidence, list):
+                yield evidence
         for item in value.values():
             yield from _evidence_lists(item)
     elif isinstance(value, list):

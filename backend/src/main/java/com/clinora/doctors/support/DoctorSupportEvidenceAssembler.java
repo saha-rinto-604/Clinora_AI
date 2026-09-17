@@ -47,7 +47,10 @@ public class DoctorSupportEvidenceAssembler {
         LinkedHashSet<UUID> reportIds = new LinkedHashSet<>();
         if (request.currentReportId() != null) reportIds.add(request.currentReportId());
         reportIds.addAll(request.selectedReportIds());
-        if (reportIds.isEmpty()) {
+        boolean brief = request.taskIds().contains(DoctorSupportTask.BRIEF_PATIENT);
+        boolean notesOnly = request.taskIds().stream().allMatch(task -> task == DoctorSupportTask.STRUCTURE_NOTES);
+        if (reportIds.isEmpty() && brief) reportIds.addAll(authorizedReportIds(appointmentId, doctorId, appointment.patientId()));
+        if (reportIds.isEmpty() && !brief && !notesOnly) {
             throw new DoctorApiException(HttpStatus.BAD_REQUEST, "AUTHORIZED_EVIDENCE_REQUIRED",
                 "Select authorized evidence before running clinical support.");
         }
@@ -96,7 +99,7 @@ public class DoctorSupportEvidenceAssembler {
                     "That observation is not available for this appointment.");
             }
         }
-        if (observations.isEmpty()) {
+        if (observations.isEmpty() && !brief && !notesOnly) {
             throw new DoctorApiException(HttpStatus.BAD_REQUEST, "VERIFIED_EVIDENCE_REQUIRED",
                 "No verified observations are available in the selected reports.");
         }
@@ -111,7 +114,32 @@ public class DoctorSupportEvidenceAssembler {
         DoctorSupportEvidenceSnapshot snapshot = new DoctorSupportEvidenceSnapshot(
             sha256(unhashed), reports, observations, comparisons
         );
-        return new Assembly(snapshot, selectionCandidates);
+        return new Assembly(snapshot, selectionCandidates, appointmentContext(appointmentId));
+    }
+
+    private List<UUID> authorizedReportIds(UUID appointmentId, UUID doctorId, UUID patientId) {
+        return jdbc.queryForList(
+            """
+            SELECT r.id FROM appointment_report_shares s
+            JOIN patient_medical_reports r ON r.id=s.report_id AND r.patient_user_id=s.patient_user_id
+            WHERE s.appointment_id=? AND s.doctor_user_id=? AND s.patient_user_id=? AND s.revoked_at IS NULL
+              AND r.patient_user_id=? AND r.archived_at IS NULL AND r.subject_type='SELF'
+              AND EXISTS (SELECT 1 FROM medical_report_extraction_results er
+                JOIN medical_report_extraction_jobs ej ON ej.id=er.job_id
+                WHERE er.report_id=r.id AND er.review_status='VERIFIED' AND ej.status='SUCCEEDED')
+            ORDER BY r.report_date NULLS LAST, r.id
+            """, UUID.class, appointmentId, doctorId, patientId, patientId
+        );
+    }
+
+    private AppointmentContext appointmentContext(UUID appointmentId) {
+        return jdbc.query(
+            "SELECT reason_for_visit, scheduled_start, scheduled_end, booking_timezone FROM appointments WHERE id=?",
+            (rs, rowNum) -> new AppointmentContext(rs.getString("reason_for_visit"),
+                rs.getTimestamp("scheduled_start") == null ? null : rs.getTimestamp("scheduled_start").toInstant(),
+                rs.getTimestamp("scheduled_end") == null ? null : rs.getTimestamp("scheduled_end").toInstant(),
+                rs.getString("booking_timezone")), appointmentId
+        ).stream().findFirst().orElseThrow();
     }
 
     private DoctorSupportEvidenceSnapshot.ReportEvidence loadReport(UUID reportId) {
@@ -267,6 +295,12 @@ public class DoctorSupportEvidenceAssembler {
 
     public record Assembly(
         DoctorSupportEvidenceSnapshot snapshot,
-        List<DoctorSupportExecutionResponse.CandidateReport> selectionCandidates
-    ) {}
+        List<DoctorSupportExecutionResponse.CandidateReport> selectionCandidates,
+        AppointmentContext appointmentContext
+    ) {
+        public Assembly(DoctorSupportEvidenceSnapshot snapshot, List<DoctorSupportExecutionResponse.CandidateReport> candidates) {
+            this(snapshot, candidates, new AppointmentContext(null, null, null, null));
+        }
+    }
+    public record AppointmentContext(String reason, java.time.Instant scheduledStart, java.time.Instant scheduledEnd, String timezone) {}
 }

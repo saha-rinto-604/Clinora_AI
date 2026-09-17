@@ -59,6 +59,7 @@ describe('doctorClinicalSupportApi', () => {
       selectedReportIds: [],
       selectedObservationIds: [],
       doctorAssessment: null,
+      doctorNotes: null,
       clientExecutionKey: 'button-click-1',
     });
     expect(result).toBe(execution);
