@@ -69,7 +69,6 @@ The existing llama.cpp client still only accepts loopback URLs. Thus optional co
 llama.cpp server reachable on loopback in that container's network namespace; it cannot use the Windows
 loopback-only llama.cpp server through bridge networking. Enabling the profile alone does not make inference ready.
 
-
 ## Tests
 
 The CI-safe adapter tests use a mock HTTP transport and do not download or start a model:
@@ -82,6 +81,23 @@ python -m compileall -q app tests
 
 A local runtime gate should separately exercise llama.cpp `:8002`, FastAPI `/ready` on `:8001`, a synthetic internal
 analysis request, Spring connectivity, and a real VERIFIED Patient report through the Patient AI Insight view.
+
+## Curated Doctor clinical knowledge
+
+Doctor Clinical Support can use a separate, approved-only local knowledge index. Runtime startup never downloads,
+crawls, or ingests content and never indexes Patient evidence. A reviewer prepares a local manifest and explicitly
+runs ingestion from `ai-service`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.knowledge.cli --db var/clinical-knowledge.db ingest --manifest path\to\manifest.json
+.\.venv\Scripts\python.exe -m app.knowledge.cli --db var/clinical-knowledge.db status
+```
+
+Only `APPROVED` documents are retrievable; `DRAFT` and `RETIRED` documents are excluded. The default runtime path is
+`var/clinical-knowledge.db` and can be changed with `CLINICAL_KNOWLEDGE_DB_PATH`. `GET /health/clinical-knowledge`
+reports only safe readiness, version, model, and count metadata. An unavailable optional index does not make the
+MedGemma service unready. The current deterministic CPU hash embedding is an offline baseline behind an embedding
+interface; index provenance records its exact version so a validated local model can replace it later.
 
 ## Safety boundary
 
@@ -117,7 +133,6 @@ Focused checks and real-model synthetic acceptance (from `ai-service`):
 ```
 
 The opt-in runtime runner sends synthetic reports A/B/C through the current FastAPI route in-process to the real loopback model. It records counts and synthetic final interpretations under `docs/validation/phase10p-r5-runtime.json`. It never logs or reads patient records, and does not restart the existing app services.
-
 
 ### Phase 10P-R5.1 evidence premises
 
@@ -158,7 +173,6 @@ alternative explanation, in addition to eligible support and an independent rati
 Explicitly mentioned unclassified tests omitted from the evidence array can be
 recovered as CONTEXT only. Repeated identical groups are consolidated; independent
 supported processes remain separate.
-
 
 The R5.1 runtime continuation binds each generated evidence label to its exact
 verified UUID and authoritative state using a case-specific grammar. Allowed

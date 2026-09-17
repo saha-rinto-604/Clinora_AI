@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from app.knowledge.models import RetrievedChunk
 from app.schemas.doctor_support_execution import EvidenceSnapshot, TaskResult
 
 
@@ -20,9 +21,13 @@ _DOCTOR_VERDICT = re.compile(r"\b(?:the )?doctor(?:'s assessment)? is (?:correct
 _DIRECTION_VALUE_JUDGMENT = re.compile(r"\b(improving|worsening|recovering|deteriorating|treatment (?:is )?working|treatment failure)\b", re.I)
 _DEFINITIVE_DIAGNOSIS = re.compile(r"\b(patient has|patient suffers from|diagnosis is|establishes? (?:a |the )?diagnosis)\b", re.I)
 _IMPERATIVE_ORDER = re.compile(r"\b(must order|required test|order (?:a |an |the )?)\b", re.I)
+_INVENTED_LINK = re.compile(r"https?://|www\.", re.I)
+_REFERENCE_ATTRIBUTION = re.compile(r"\b(guidelines?|references?|published sources?|literature) (?:indicate|suggest|recommend|state|show)", re.I)
 
 
-def validate_grounding(result: TaskResult, evidence: EvidenceSnapshot) -> None:
+def validate_grounding(
+    result: TaskResult, evidence: EvidenceSnapshot, retrieved_chunks: tuple[RetrievedChunk, ...] = ()
+) -> None:
     dumped = result.model_dump(mode="json")
     text = " ".join(_strings(dumped))
     if _TREATMENT.search(text):
@@ -45,6 +50,17 @@ def validate_grounding(result: TaskResult, evidence: EvidenceSnapshot) -> None:
         raise UnsafeDoctorSupportOutputError("IMPERATIVE_TEST_ORDER")
     if any(value.strip().endswith(("...", "…")) for value in _strings(dumped)):
         raise UnsafeDoctorSupportOutputError("TRUNCATED_TEXT")
+
+    if _INVENTED_LINK.search(text):
+        raise UnsafeDoctorSupportOutputError("INVENTED_REFERENCE_LINK")
+    allowed_chunk_ids = {item.chunk.chunk_id for item in retrieved_chunks}
+    cited_chunk_ids = list(_reference_chunk_ids(dumped))
+    if any(len(items) != len(set(items)) for items in _reference_lists(dumped)):
+        raise UnsafeDoctorSupportOutputError("DUPLICATE_REFERENCE_CHUNK_ID")
+    if not set(cited_chunk_ids).issubset(allowed_chunk_ids):
+        raise UnsafeDoctorSupportOutputError("UNKNOWN_REFERENCE_CHUNK_ID")
+    if _REFERENCE_ATTRIBUTION.search(text) and not cited_chunk_ids:
+        raise UnsafeDoctorSupportOutputError("UNCITED_REFERENCE_CLAIM")
 
     observations = {str(item.observationId): item for item in evidence.observations}
     refs = list(_evidence_references(dumped))
@@ -114,3 +130,28 @@ def _evidence_lists(value):
     elif isinstance(value, list):
         for item in value:
             yield from _evidence_lists(item)
+
+
+def _reference_chunk_ids(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in {"referenceChunkIds", "summaryReferenceChunkIds"} and isinstance(item, list):
+                for chunk_id in item:
+                    yield str(chunk_id)
+            else:
+                yield from _reference_chunk_ids(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _reference_chunk_ids(item)
+
+
+def _reference_lists(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in {"referenceChunkIds", "summaryReferenceChunkIds"} and isinstance(item, list):
+                yield [str(chunk_id) for chunk_id in item]
+            else:
+                yield from _reference_lists(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _reference_lists(item)

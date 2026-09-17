@@ -1,0 +1,90 @@
+{
+  "corpusName": "Clinora synthetic clinical knowledge",
+  "corpusVersion": "test-v1",
+  "documents": [
+    {
+      "sourceId": "clinora-test-hematology",
+      "documentId": "hematology-red-cell-indices",
+      "title": "Synthetic red-cell indices reference",
+      "publisher": "Clinora Test Fixtures",
+      "sourceType": "synthetic_test_reference",
+      "clinicalDomain": "hematology",
+      "publicationDate": "2026-01-01",
+      "version": "1",
+      "jurisdiction": "TEST_ONLY",
+      "sourceReference": "fixture://hematology-red-cell-indices",
+      "reviewStatus": "APPROVED",
+      "contentFile": "hematology.md"
+    },
+    {
+      "sourceId": "clinora-test-endocrine",
+      "documentId": "thyroid-evaluation",
+      "title": "Synthetic thyroid evaluation reference",
+      "publisher": "Clinora Test Fixtures",
+      "sourceType": "synthetic_test_reference",
+      "clinicalDomain": "endocrinology",
+      "publicationDate": "2026-01-01",
+      "version": "1",
+      "jurisdiction": "TEST_ONLY",
+      "sourceReference": "fixture://thyroid-evaluation",
+      "reviewStatus": "APPROVED",
+      "contentFile": "endocrine.md"
+    },
+    {
+      "sourceId": "clinora-test-draft",
+      "documentId": "draft-secret-reference",
+      "title": "Synthetic unapproved reference",
+      "publisher": "Clinora Test Fixtures",
+      "sourceType": "synthetic_test_reference",
+      "clinicalDomain": "hematology",
+      "publicationDate": null,
+      "version": "draft",
+      "jurisdiction": "TEST_ONLY",
+      "sourceReference": null,
+      "reviewStatus": "DRAFT",
+      "contentFile": "draft.md"
+    },
+    {
+      "sourceId": "clinora-test-infectious",
+      "documentId": "dengue-ns1-evaluation",
+      "title": "Synthetic dengue laboratory reference",
+      "publisher": "Clinora Test Fixtures",
+      "sourceType": "synthetic_test_reference",
+      "clinicalDomain": "infectious_disease",
+      "publicationDate": "2026-01-01",
+      "version": "1",
+      "jurisdiction": "TEST_ONLY",
+      "sourceReference": "fixture://dengue-ns1-evaluation",
+      "reviewStatus": "APPROVED",
+      "contentFile": "infectious.md"
+    },
+    {
+      "sourceId": "clinora-test-renal",
+      "documentId": "renal-markers",
+      "title": "Synthetic renal laboratory reference",
+      "publisher": "Clinora Test Fixtures",
+      "sourceType": "synthetic_test_reference",
+      "clinicalDomain": "nephrology",
+      "publicationDate": "2026-01-01",
+      "version": "1",
+      "jurisdiction": "TEST_ONLY",
+      "sourceReference": "fixture://renal-markers",
+      "reviewStatus": "APPROVED",
+      "contentFile": "renal.md"
+    },
+    {
+      "sourceId": "clinora-test-adversarial",
+      "documentId": "adversarial-reference",
+      "title": "Synthetic adversarial retrieval reference",
+      "publisher": "Clinora Test Fixtures",
+      "sourceType": "synthetic_test_reference",
+      "clinicalDomain": "hematology",
+      "publicationDate": "2026-01-01",
+      "version": "1",
+      "jurisdiction": "TEST_ONLY",
+      "sourceReference": "fixture://adversarial-reference",
+      "reviewStatus": "APPROVED",
+      "contentFile": "adversarial.md"
+    }
+  ]
+}

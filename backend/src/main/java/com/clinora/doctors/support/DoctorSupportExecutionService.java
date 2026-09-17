@@ -109,7 +109,7 @@ public class DoctorSupportExecutionService {
                     task, selectionPossible ? DoctorSupportTaskExecutionStatus.EVIDENCE_SELECTION_REQUIRED
                         : DoctorSupportTaskExecutionStatus.FAILED_SAFE,
                     null, selectionPossible ? "EVIDENCE_SELECTION_REQUIRED" : "RELIABLE_COMPARABLE_EVIDENCE_REQUIRED",
-                    provenance(snapshot, spec, null)
+                    provenance(snapshot, spec, null), List.of()
                 ));
             } else {
                 runnable.add(task);
@@ -120,7 +120,7 @@ public class DoctorSupportExecutionService {
             List<MedGemmaClient.DoctorSupportTaskExecutionRequest> aiTasks = runnable.stream().map(task -> {
                 var spec = registry.require(task);
                 return new MedGemmaClient.DoctorSupportTaskExecutionRequest(
-                    task.name(), spec.promptVersion(), spec.responseSchemaVersion()
+                    task.name(), spec.promptVersion(), spec.responseSchemaVersion(), spec.ragPolicy().name()
                 );
             }).toList();
             var aiResponse = ai.executeDoctorSupport(new MedGemmaClient.DoctorSupportExecutionRequest(
@@ -137,6 +137,8 @@ public class DoctorSupportExecutionService {
                     return !("SUCCEEDED".equals(item.status()) || "FAILED_SAFE".equals(item.status()))
                         || !spec.promptVersion().equals(item.promptVersion())
                         || !spec.responseSchemaVersion().equals(item.schemaVersion())
+                        || !spec.ragPolicy().name().equals(item.ragPolicy())
+                        || !validRetrievalContract(spec, item)
                         || ("SUCCEEDED".equals(item.status()) && (item.result() == null
                             || !item.taskId().equals(item.result().path("taskId").asText())
                             || !"PASSED".equals(item.groundingStatus()) || item.safeFailureCode() != null))
@@ -154,7 +156,7 @@ public class DoctorSupportExecutionService {
                 if (item == null) {
                     results.add(new DoctorSupportExecutionResponse.TaskResult(
                         task, DoctorSupportTaskExecutionStatus.FAILED_SAFE, null, "MISSING_TASK_RESULT",
-                        provenance(snapshot, registry.require(task), null)
+                        provenance(snapshot, registry.require(task), null), List.of()
                     ));
                     continue;
                 }
@@ -162,7 +164,7 @@ public class DoctorSupportExecutionService {
                     ? DoctorSupportTaskExecutionStatus.SUCCEEDED : DoctorSupportTaskExecutionStatus.FAILED_SAFE;
                 results.add(new DoctorSupportExecutionResponse.TaskResult(
                     task, taskStatus, taskStatus == DoctorSupportTaskExecutionStatus.SUCCEEDED ? item.result() : null,
-                    item.safeFailureCode(), provenance(snapshot, registry.require(task), item)
+                    item.safeFailureCode(), provenance(snapshot, registry.require(task), item), references(item)
                 ));
             }
         }
@@ -192,8 +194,46 @@ public class DoctorSupportExecutionService {
             snapshot.observations().stream().map(DoctorSupportEvidenceSnapshot.ObservationEvidence::observationId).toList(),
             snapshot.snapshotHash(), aiResult == null ? null : aiResult.modelName(),
             aiResult == null ? null : aiResult.modelRevision(), aiResult == null ? null : aiResult.quantization(),
-            spec.promptVersion(), spec.responseSchemaVersion(), aiResult == null ? "NOT_RUN" : aiResult.groundingStatus()
+            spec.promptVersion(), spec.responseSchemaVersion(), aiResult == null ? "NOT_RUN" : aiResult.groundingStatus(),
+            aiResult != null && aiResult.ragUsed(), spec.ragPolicy(),
+            aiResult == null ? "NOT_REQUIRED" : aiResult.retrievalStatus(),
+            aiResult == null ? null : aiResult.knowledgeIndexVersion(),
+            aiResult == null ? List.of() : aiResult.retrievedChunkIds(),
+            aiResult == null ? List.of() : aiResult.citedChunkIds(),
+            aiResult == null ? 0 : aiResult.retrievalDurationMs()
         );
+    }
+
+    private boolean validRetrievalContract(
+        DoctorSupportTaskSpec spec, MedGemmaClient.DoctorSupportTaskExecutionResponse item
+    ) {
+        Set<String> validStatuses = Set.of(
+            "NOT_REQUIRED", "USED", "NO_RELEVANT_REFERENCE", "KNOWLEDGE_UNAVAILABLE", "RETRIEVAL_FAILED_SAFE"
+        );
+        if (!validStatuses.contains(item.retrievalStatus()) || item.retrievalDurationMs() < 0) return false;
+        if (item.ragUsed() != "USED".equals(item.retrievalStatus())) return false;
+        if (item.ragUsed() && (item.retrievedChunkIds().isEmpty()
+            || item.knowledgeIndexVersion() == null || item.knowledgeIndexVersion().isBlank())) return false;
+        if (!item.ragUsed() && !item.retrievedChunkIds().isEmpty()) return false;
+        if (spec.ragPolicy() == DoctorSupportRagPolicy.DISABLED
+            && (item.ragUsed() || !"NOT_REQUIRED".equals(item.retrievalStatus()))) return false;
+        if ("SUCCEEDED".equals(item.status()) && spec.ragPolicy() == DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
+            && !item.ragUsed()) return false;
+        if (item.retrievedChunkIds().size() != Set.copyOf(item.retrievedChunkIds()).size()
+            || item.citedChunkIds().size() != Set.copyOf(item.citedChunkIds()).size()
+            || !item.retrievedChunkIds().containsAll(item.citedChunkIds())) return false;
+        return item.references().stream().map(MedGemmaClient.ClinicalReference::chunkId).toList()
+            .equals(item.citedChunkIds());
+    }
+
+    private List<DoctorSupportExecutionResponse.ClinicalReference> references(
+        MedGemmaClient.DoctorSupportTaskExecutionResponse item
+    ) {
+        return item.references().stream().map(reference -> new DoctorSupportExecutionResponse.ClinicalReference(
+            reference.chunkId(), reference.sourceId(), reference.documentId(), reference.title(), reference.publisher(),
+            reference.sourceType(), reference.clinicalDomain(), reference.publicationDate(), reference.version(),
+            reference.jurisdiction(), reference.sourceReference(), reference.sectionPath()
+        )).toList();
     }
 
     private String requestFingerprint(DoctorSupportExecutionRequest request) {

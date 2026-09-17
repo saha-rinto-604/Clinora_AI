@@ -169,7 +169,12 @@ class DoctorSupportExecutionServiceTest {
         return new MedGemmaClient.DoctorSupportTaskExecutionResponse(
             task, status, "SUCCEEDED".equals(status) ? mapper.createObjectNode().put("taskId", task) : null,
             failure, "medgemma", "main", "Q4_0", spec.promptVersion(), spec.responseSchemaVersion(),
-            "SUCCEEDED".equals(status) ? "PASSED" : "REJECTED"
+            "SUCCEEDED".equals(status) ? "PASSED" : "REJECTED",
+            spec.ragPolicy() != DoctorSupportRagPolicy.DISABLED, spec.ragPolicy().name(),
+            spec.ragPolicy() == DoctorSupportRagPolicy.DISABLED ? "NOT_REQUIRED" : "USED",
+            spec.ragPolicy() == DoctorSupportRagPolicy.DISABLED ? null : "cki_test",
+            spec.ragPolicy() == DoctorSupportRagPolicy.DISABLED ? List.of() : List.of("ck_test"),
+            List.of(), 4L, List.of()
         );
     }
 }

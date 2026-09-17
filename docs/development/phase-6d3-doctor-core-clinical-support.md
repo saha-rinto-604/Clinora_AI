@@ -1,5 +1,9 @@
 # Phase 6D.3 — Grounded Doctor Clinical Support Tasks
 
+> Phase 6D.4 now supplies the curated general-reference retrieval layer at the existing `DoctorSupportRagPolicy`
+> seam. See [phase-6d4-doctor-clinical-knowledge-rag.md](phase-6d4-doctor-clinical-knowledge-rag.md). Patient evidence
+> authorization and the 6D.3 execution lifecycle remain authoritative and unchanged.
+
 ## Scope
 
 Phase 6D.3 executes the four routed operations `CONNECT_EVIDENCE`, `COMPARE_EVIDENCE`,

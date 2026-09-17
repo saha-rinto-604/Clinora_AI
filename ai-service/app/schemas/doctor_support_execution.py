@@ -61,6 +61,7 @@ class TaskRequest(StrictModel):
     taskId: Literal["CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "CROSS_CHECK_ASSESSMENT", "FIND_GAPS"]
     promptVersion: str
     schemaVersion: str
+    ragPolicy: Literal["DISABLED", "OPTIONAL", "REQUIRED_WHEN_AVAILABLE"] = "DISABLED"
 
 
 class DoctorSupportExecutionRequest(StrictModel):
@@ -88,6 +89,7 @@ class ConnectedPattern(StrictModel):
     relationship: str = Field(min_length=1, max_length=700)
     evidence: list[EvidenceReference] = Field(min_length=2, max_length=8)
     limitations: list[str] = Field(default_factory=list, max_length=4)
+    referenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 class ConnectEvidenceResult(StrictModel):
@@ -95,6 +97,7 @@ class ConnectEvidenceResult(StrictModel):
     summary: str = Field(min_length=1, max_length=700)
     patterns: list[ConnectedPattern] = Field(max_length=6)
     limitations: list[str] = Field(max_length=6)
+    summaryReferenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 class ExplainedComparison(StrictModel):
@@ -116,6 +119,7 @@ class AssessmentPoint(StrictModel):
     statement: str = Field(min_length=1, max_length=500)
     relation: Literal["SUPPORTS", "CONTRADICTS", "UNCERTAIN"]
     evidence: list[EvidenceReference] = Field(max_length=8)
+    referenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 class AlternativeConsideration(StrictModel):
@@ -123,15 +127,20 @@ class AlternativeConsideration(StrictModel):
     rationale: str = Field(min_length=1, max_length=500)
     evidence: list[EvidenceReference] = Field(max_length=8)
     missingInformation: list[str] = Field(max_length=4)
+    referenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 class CrossCheckAssessmentResult(StrictModel):
     taskId: Literal["CROSS_CHECK_ASSESSMENT"]
-    evidenceFit: Literal["FITS", "PARTIALLY_FITS", "DOES_NOT_FIT", "INSUFFICIENT_EVIDENCE"]
+    evidenceFit: Literal[
+        "CONSISTENT_WITH_AVAILABLE_EVIDENCE", "MIXED_OR_LIMITED_EVIDENCE",
+        "NOT_SUPPORTED_BY_AVAILABLE_EVIDENCE", "INSUFFICIENT_EVIDENCE",
+    ]
     summary: str = Field(min_length=1, max_length=700)
     points: list[AssessmentPoint] = Field(max_length=10)
     alternativeConsiderations: list[AlternativeConsideration] = Field(max_length=2)
     limitations: list[str] = Field(max_length=6)
+    summaryReferenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 class EvidenceGap(StrictModel):
@@ -139,6 +148,7 @@ class EvidenceGap(StrictModel):
     whyRelevant: str = Field(min_length=1, max_length=500)
     availability: Literal["NOT_PRESENT_IN_AUTHORIZED_EVIDENCE", "UNCERTAIN"]
     relatedEvidence: list[EvidenceReference] = Field(min_length=1, max_length=6)
+    referenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 class FindGapsResult(StrictModel):
@@ -146,12 +156,28 @@ class FindGapsResult(StrictModel):
     summary: str = Field(min_length=1, max_length=700)
     gaps: list[EvidenceGap] = Field(max_length=10)
     limitations: list[str] = Field(max_length=6)
+    summaryReferenceChunkIds: list[str] = Field(default_factory=list, max_length=4)
 
 
 TaskResult = Annotated[
     Union[ConnectEvidenceResult, CompareEvidenceResult, CrossCheckAssessmentResult, FindGapsResult],
     Field(discriminator="taskId"),
 ]
+
+
+class ClinicalReference(StrictModel):
+    chunkId: str
+    sourceId: str
+    documentId: str
+    title: str
+    publisher: str
+    sourceType: str
+    clinicalDomain: str
+    publicationDate: str | None
+    version: str | None
+    jurisdiction: str | None
+    sourceReference: str | None
+    sectionPath: str
 
 
 class TaskExecutionResponse(StrictModel):
@@ -165,6 +191,16 @@ class TaskExecutionResponse(StrictModel):
     promptVersion: str
     schemaVersion: str
     groundingStatus: Literal["PASSED", "REJECTED"]
+    ragUsed: bool
+    ragPolicy: Literal["DISABLED", "OPTIONAL", "REQUIRED_WHEN_AVAILABLE"]
+    retrievalStatus: Literal[
+        "NOT_REQUIRED", "USED", "NO_RELEVANT_REFERENCE", "KNOWLEDGE_UNAVAILABLE", "RETRIEVAL_FAILED_SAFE"
+    ]
+    knowledgeIndexVersion: str | None
+    retrievedChunkIds: list[str]
+    citedChunkIds: list[str]
+    retrievalDurationMs: int = Field(ge=0)
+    references: list[ClinicalReference]
 
     @model_validator(mode="after")
     def consistent_status(self) -> "TaskExecutionResponse":
@@ -175,6 +211,22 @@ class TaskExecutionResponse(StrictModel):
                 raise ValueError("Outer and inner task IDs must match.")
         elif self.result is not None or not self.safeFailureCode or self.groundingStatus != "REJECTED":
             raise ValueError("Failed-safe task response is contradictory.")
+        if self.ragUsed != (self.retrievalStatus == "USED"):
+            raise ValueError("RAG usage and retrieval status are contradictory.")
+        if self.retrievalStatus == "USED" and (not self.retrievedChunkIds or not self.knowledgeIndexVersion):
+            raise ValueError("Used retrieval must identify its chunks and index version.")
+        if self.retrievalStatus != "USED" and self.retrievedChunkIds:
+            raise ValueError("Unused retrieval cannot expose retrieved chunks.")
+        if self.ragPolicy == "DISABLED" and (self.ragUsed or self.retrievalStatus != "NOT_REQUIRED"):
+            raise ValueError("Disabled RAG task cannot report retrieval.")
+        if self.status == "SUCCEEDED" and self.ragPolicy == "REQUIRED_WHEN_AVAILABLE" and not self.ragUsed:
+            raise ValueError("Required-reference task cannot succeed without retrieval.")
+        if len(self.retrievedChunkIds) != len(set(self.retrievedChunkIds)):
+            raise ValueError("Duplicate retrieved chunk IDs are not allowed.")
+        if len(self.citedChunkIds) != len(set(self.citedChunkIds)) or not set(self.citedChunkIds).issubset(self.retrievedChunkIds):
+            raise ValueError("Cited chunk IDs must be unique retrieved chunks.")
+        if [item.chunkId for item in self.references] != self.citedChunkIds:
+            raise ValueError("Reference metadata must exactly match cited chunk order.")
         return self
 
 

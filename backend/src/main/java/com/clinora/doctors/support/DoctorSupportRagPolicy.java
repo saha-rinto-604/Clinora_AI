@@ -1,6 +1,6 @@
 package com.clinora.doctors.support;
 
-/** Future knowledge-retrieval policy. Phase 6D.3 keeps every task disabled. */
+/** Per-task curated general clinical knowledge policy. */
 public enum DoctorSupportRagPolicy {
     DISABLED,
     OPTIONAL,

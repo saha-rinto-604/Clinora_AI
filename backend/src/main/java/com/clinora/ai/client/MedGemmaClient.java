@@ -75,7 +75,9 @@ public class MedGemmaClient {
         List<DoctorSupportTaskExecutionRequest> tasks
     ) {}
 
-    public record DoctorSupportTaskExecutionRequest(String taskId, String promptVersion, String schemaVersion) {}
+    public record DoctorSupportTaskExecutionRequest(
+        String taskId, String promptVersion, String schemaVersion, String ragPolicy
+    ) {}
 
     public record DoctorSupportExecutionResponse(List<DoctorSupportTaskExecutionResponse> taskResults) {
         public DoctorSupportExecutionResponse {
@@ -86,7 +88,22 @@ public class MedGemmaClient {
     public record DoctorSupportTaskExecutionResponse(
         String taskId, String status, JsonNode result, String safeFailureCode,
         String modelName, String modelRevision, String quantization,
-        String promptVersion, String schemaVersion, String groundingStatus
+        String promptVersion, String schemaVersion, String groundingStatus,
+        boolean ragUsed, String ragPolicy, String retrievalStatus, String knowledgeIndexVersion,
+        List<String> retrievedChunkIds, List<String> citedChunkIds, long retrievalDurationMs,
+        List<ClinicalReference> references
+    ) {
+        public DoctorSupportTaskExecutionResponse {
+            retrievedChunkIds = retrievedChunkIds == null ? List.of() : List.copyOf(retrievedChunkIds);
+            citedChunkIds = citedChunkIds == null ? List.of() : List.copyOf(citedChunkIds);
+            references = references == null ? List.of() : List.copyOf(references);
+        }
+    }
+
+    public record ClinicalReference(
+        String chunkId, String sourceId, String documentId, String title, String publisher,
+        String sourceType, String clinicalDomain, String publicationDate, String version,
+        String jurisdiction, String sourceReference, String sectionPath
     ) {}
 
     public record DoctorSupportRoutingRequest(

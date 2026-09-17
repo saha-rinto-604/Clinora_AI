@@ -85,8 +85,10 @@ export interface ConnectEvidenceResult {
     relationship: string;
     evidence: DoctorSupportEvidenceReference[];
     limitations: string[];
+    referenceChunkIds: string[];
   }>;
   limitations: string[];
+  summaryReferenceChunkIds: string[];
 }
 
 export interface CompareEvidenceResult {
@@ -104,20 +106,27 @@ export interface CompareEvidenceResult {
 
 export interface CrossCheckAssessmentResult {
   taskId: 'CROSS_CHECK_ASSESSMENT';
-  evidenceFit: 'FITS' | 'PARTIALLY_FITS' | 'DOES_NOT_FIT' | 'INSUFFICIENT_EVIDENCE';
+  evidenceFit:
+    | 'CONSISTENT_WITH_AVAILABLE_EVIDENCE'
+    | 'MIXED_OR_LIMITED_EVIDENCE'
+    | 'NOT_SUPPORTED_BY_AVAILABLE_EVIDENCE'
+    | 'INSUFFICIENT_EVIDENCE';
   summary: string;
   points: Array<{
     statement: string;
     relation: 'SUPPORTS' | 'CONTRADICTS' | 'UNCERTAIN';
     evidence: DoctorSupportEvidenceReference[];
+    referenceChunkIds: string[];
   }>;
   alternativeConsiderations: Array<{
     name: string;
     rationale: string;
     evidence: DoctorSupportEvidenceReference[];
     missingInformation: string[];
+    referenceChunkIds: string[];
   }>;
   limitations: string[];
+  summaryReferenceChunkIds: string[];
 }
 
 export interface FindGapsResult {
@@ -128,8 +137,10 @@ export interface FindGapsResult {
     whyRelevant: string;
     availability: 'NOT_PRESENT_IN_AUTHORIZED_EVIDENCE' | 'UNCERTAIN';
     relatedEvidence: DoctorSupportEvidenceReference[];
+    referenceChunkIds: string[];
   }>;
   limitations: string[];
+  summaryReferenceChunkIds: string[];
 }
 
 export type DoctorSupportClinicalResult =
@@ -145,6 +156,29 @@ export interface DoctorSupportProvenance {
   promptVersion: string;
   schemaVersion: string;
   groundingStatus: 'PASSED' | 'REJECTED' | 'NOT_RUN';
+  ragUsed: boolean;
+  ragPolicy: 'DISABLED' | 'OPTIONAL' | 'REQUIRED_WHEN_AVAILABLE';
+  retrievalStatus:
+    'NOT_REQUIRED' | 'USED' | 'NO_RELEVANT_REFERENCE' | 'KNOWLEDGE_UNAVAILABLE' | 'RETRIEVAL_FAILED_SAFE';
+  knowledgeIndexVersion: string | null;
+  retrievedChunkIds: string[];
+  citedChunkIds: string[];
+  retrievalDurationMs: number;
+}
+
+export interface DoctorSupportClinicalReference {
+  chunkId: string;
+  sourceId: string;
+  documentId: string;
+  title: string;
+  publisher: string;
+  sourceType: string;
+  clinicalDomain: string;
+  publicationDate: string | null;
+  version: string | null;
+  jurisdiction: string | null;
+  sourceReference: string | null;
+  sectionPath: string;
 }
 
 export interface DoctorSupportTaskResult {
@@ -153,6 +187,7 @@ export interface DoctorSupportTaskResult {
   result: DoctorSupportClinicalResult | null;
   safeFailureCode: string | null;
   provenance: DoctorSupportProvenance;
+  references: DoctorSupportClinicalReference[];
 }
 
 export interface DoctorSupportExecutionResponse {

@@ -250,8 +250,11 @@ services:
       LLAMA_SERVER_URL: ${LLAMA_SERVER_URL:-http://127.0.0.1:8002}
       LLAMA_CONNECT_TIMEOUT_SECONDS: ${LLAMA_CONNECT_TIMEOUT_SECONDS:-5}
       LLAMA_READ_TIMEOUT_SECONDS: ${LLAMA_READ_TIMEOUT_SECONDS:-240}
+      CLINICAL_KNOWLEDGE_DB_PATH: /data/clinical-knowledge.db
     ports:
       - "8001:8001"
+    volumes:
+      - clinora-clinical-knowledge:/data
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
       interval: 15s
@@ -269,3 +272,4 @@ volumes:
   clinora-minio-data:
   clinora-clamav-data:
   clinora-paddle-models:
+  clinora-clinical-knowledge:

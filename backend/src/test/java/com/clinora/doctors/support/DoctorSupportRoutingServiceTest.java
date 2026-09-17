@@ -75,6 +75,16 @@ class DoctorSupportRoutingServiceTest {
         verifyNoInteractions(semantic);
     }
 
+    @Test
+    void registryDefinesPhase6d4RagPoliciesWithoutEnablingComparison() {
+        DoctorSupportTaskRegistry registry = new DoctorSupportTaskRegistry();
+        assertEquals(DoctorSupportRagPolicy.OPTIONAL, registry.require(DoctorSupportTask.CONNECT_EVIDENCE).ragPolicy());
+        assertEquals(DoctorSupportRagPolicy.DISABLED, registry.require(DoctorSupportTask.COMPARE_EVIDENCE).ragPolicy());
+        assertEquals(DoctorSupportRagPolicy.OPTIONAL, registry.require(DoctorSupportTask.CROSS_CHECK_ASSESSMENT).ragPolicy());
+        assertEquals(DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE, registry.require(DoctorSupportTask.FIND_GAPS).ragPolicy());
+        assertEquals(DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE, registry.require(DoctorSupportTask.EXPLORE_EXPLANATIONS).ragPolicy());
+    }
+
     @ParameterizedTest
     @MethodSource("ambiguousCases")
     void asksOneRegistryBackedClarificationForAmbiguousRequests(String message) {

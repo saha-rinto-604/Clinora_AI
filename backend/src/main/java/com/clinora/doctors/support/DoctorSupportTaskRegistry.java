@@ -28,7 +28,7 @@ public class DoctorSupportTaskRegistry {
             List.of("How are these values related?", "Do MCV, MCH and RBC form a pattern?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Connect the findings", "Explain how the selected authorized findings relate.",
-            true, "doctor_connect_evidence_v1", "doctor-support-connect-v1", DoctorSupportRagPolicy.DISABLED
+            true, "doctor_connect_evidence_v2", "doctor-support-connect-v2", DoctorSupportRagPolicy.OPTIONAL
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.COMPARE_EVIDENCE,
@@ -46,7 +46,7 @@ public class DoctorSupportTaskRegistry {
             List.of("Does my iron-deficiency assessment fit?", "Anything contradict my assessment?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE, DoctorSupportRequiredContext.DOCTOR_ASSESSMENT), false,
             "Cross-check my assessment", "Check the Doctor-authored assessment against authorized evidence.",
-            true, "doctor_cross_check_assessment_v1", "doctor-support-cross-check-v1", DoctorSupportRagPolicy.DISABLED
+            true, "doctor_cross_check_assessment_v2", "doctor-support-cross-check-v2", DoctorSupportRagPolicy.OPTIONAL
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.FIND_GAPS,
@@ -55,7 +55,7 @@ public class DoctorSupportTaskRegistry {
             List.of("What information am I missing?", "What else would help?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Find missing information", "Identify gaps in the currently available authorized evidence.",
-            true, "doctor_find_gaps_v1", "doctor-support-gaps-v1", DoctorSupportRagPolicy.DISABLED
+            true, "doctor_find_gaps_v2", "doctor-support-gaps-v2", DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.EXPLORE_EXPLANATIONS,
@@ -64,7 +64,7 @@ public class DoctorSupportTaskRegistry {
             List.of("What could explain this pattern?", "Could this fit iron deficiency or thalassemia trait?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Explore possible explanations", "Explore non-ranked explanations for the authorized evidence pattern.",
-            false, null, null, DoctorSupportRagPolicy.DISABLED
+            false, null, null, DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.STRUCTURE_NOTES,
@@ -82,7 +82,7 @@ public class DoctorSupportTaskRegistry {
             List.of("What does this authorized finding mean in this evidence set?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Ask about this evidence", "Handle a focused question about the current authorized evidence.",
-            false, null, null, DoctorSupportRagPolicy.DISABLED
+            false, null, null, DoctorSupportRagPolicy.OPTIONAL
         ));
         if (specs.size() != DoctorSupportTask.values().length) {
             throw new IllegalStateException("Every Doctor support task must have exactly one registry entry.");

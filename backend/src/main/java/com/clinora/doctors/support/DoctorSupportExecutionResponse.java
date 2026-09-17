@@ -30,7 +30,16 @@ public record DoctorSupportExecutionResponse(
         DoctorSupportTaskExecutionStatus status,
         JsonNode result,
         String safeFailureCode,
-        Provenance provenance
+        Provenance provenance,
+        List<ClinicalReference> references
+    ) {
+        public TaskResult { references = references == null ? List.of() : List.copyOf(references); }
+    }
+
+    public record ClinicalReference(
+        String chunkId, String sourceId, String documentId, String title, String publisher,
+        String sourceType, String clinicalDomain, String publicationDate, String version,
+        String jurisdiction, String sourceReference, String sectionPath
     ) {}
 
     public record Provenance(
@@ -42,11 +51,20 @@ public record DoctorSupportExecutionResponse(
         String quantization,
         String promptVersion,
         String schemaVersion,
-        String groundingStatus
+        String groundingStatus,
+        boolean ragUsed,
+        DoctorSupportRagPolicy ragPolicy,
+        String retrievalStatus,
+        String knowledgeIndexVersion,
+        List<String> retrievedChunkIds,
+        List<String> citedChunkIds,
+        long retrievalDurationMs
     ) {
         public Provenance {
             reportIds = List.copyOf(reportIds);
             observationIds = List.copyOf(observationIds);
+            retrievedChunkIds = retrievedChunkIds == null ? List.of() : List.copyOf(retrievedChunkIds);
+            citedChunkIds = citedChunkIds == null ? List.of() : List.copyOf(citedChunkIds);
         }
     }
 
