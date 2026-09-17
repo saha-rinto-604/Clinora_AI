@@ -162,6 +162,26 @@ def test_source_update_changes_index_version_and_replaces_chunks(tmp_path):
     assert store.index_version() != before
 
 
+def test_retrieval_cache_is_invalidated_by_knowledge_index_version(tmp_path):
+    fixture_copy = tmp_path / "corpus"
+    fixture_copy.mkdir()
+    for source in FIXTURES.iterdir():
+        if source.is_file():
+            (fixture_copy / source.name).write_bytes(source.read_bytes())
+    store, embedding, ingestion = build_index(tmp_path)
+    ingestion.ingest_manifest(fixture_copy / "manifest.json")
+    retriever = ClinicalKnowledgeRetriever(store, embedding)
+    first = retriever.retrieve("CONNECT_EVIDENCE", "mcv microcytosis", ("hematology",))
+    hematology = fixture_copy / "hematology.md"
+    hematology.write_text(
+        hematology.read_text(encoding="utf-8") + "\n\nAdditional approved synthetic context for MCV.\n",
+        encoding="utf-8",
+    )
+    ingestion.ingest_manifest(fixture_copy / "manifest.json")
+    second = retriever.retrieve("CONNECT_EVIDENCE", "mcv microcytosis", ("hematology",))
+    assert first.index_version != second.index_version
+
+
 def test_controlled_query_excludes_identifiers_and_raw_instructions():
     from test_doctor_support_execution import request
 
@@ -186,3 +206,27 @@ def test_chunker_bounds_single_long_statement_and_keeps_stable_ids():
     assert first
     assert max(len(item.text) for item in first) <= 120
     assert [item.chunk_id for item in first] == [item.chunk_id for item in second]
+
+
+def test_phase_6d6_rag_benchmark_covers_hybrid_ranking_filters_limits_and_citations(tmp_path):
+    store, embedding, ingestion = build_index(tmp_path)
+    ingestion.ingest_manifest(FIXTURES / "manifest.json")
+    assert embedding.model_id == "clinora-clinical-hash-embedding-v1:384"
+    retriever = ClinicalKnowledgeRetriever(store, embedding)
+    cases = (
+        ("mcv mch microcytosis ferritin", "hematology", "hematology-red-cell-indices"),
+        ("tsh thyroid stimulating hormone", "endocrinology", "thyroid-evaluation"),
+        ("ns1 dengue platelet leukopenia", "infectious_disease", "dengue-ns1-evaluation"),
+        ("creatinine egfr renal", "nephrology", "renal-markers"),
+    )
+    for query, domain, expected_document in cases:
+        result = retriever.retrieve("FOCUSED_EVIDENCE_QUESTION", query, (domain,))
+        assert result.status == RetrievalStatus.USED
+        assert result.chunks[0].chunk.document_id == expected_document
+        assert len(result.chunks) <= retriever.config.top_k
+        assert sum(len(item.chunk.text) for item in result.chunks) <= retriever.config.maximum_characters
+        assert len({item.chunk.chunk_checksum for item in result.chunks}) == len(result.chunks)
+        assert all(item.chunk.review_status == ReviewStatus.APPROVED for item in result.chunks)
+        assert all(item.chunk.document_id != "draft-secret-reference" for item in result.chunks)
+        cited = store.lookup_chunks([item.chunk.chunk_id for item in result.chunks])
+        assert [item.chunk_id for item in cited] == [item.chunk.chunk_id for item in result.chunks]

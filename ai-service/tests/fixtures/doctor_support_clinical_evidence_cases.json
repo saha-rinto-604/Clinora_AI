@@ -47,5 +47,26 @@
       {"label": "MCV", "value": 74, "unit": "fL", "status": "LOW"},
       {"label": "Ferritin", "value": 88, "unit": "ng/mL", "status": "IN_RANGE"}
     ]
+  },
+  {
+    "id": "isolated_thrombocytopenia",
+    "observations": [
+      {"label": "Platelet count", "value": 74, "unit": "10^9/L", "status": "LOW"},
+      {"label": "Hemoglobin", "value": 13.8, "unit": "g/dL", "status": "IN_RANGE"}
+    ]
+  },
+  {
+    "id": "leukopenia_pattern",
+    "observations": [
+      {"label": "WBC", "value": 2.9, "unit": "10^9/L", "status": "LOW"},
+      {"label": "Absolute neutrophil count", "value": 1.1, "unit": "10^9/L", "status": "LOW"}
+    ]
+  },
+  {
+    "id": "renal_pattern",
+    "observations": [
+      {"label": "Creatinine", "value": 1.8, "unit": "mg/dL", "status": "HIGH"},
+      {"label": "eGFR", "value": 44, "unit": "mL/min/1.73m2", "status": "LOW"}
+    ]
   }
 ]

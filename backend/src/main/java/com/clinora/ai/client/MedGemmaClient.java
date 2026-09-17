@@ -67,6 +67,20 @@ public class MedGemmaClient {
         return response;
     }
 
+    public ClinicalKnowledgeHealth clinicalKnowledgeHealth() {
+        ClinicalKnowledgeHealth response = client.get()
+            .uri("/health/clinical-knowledge")
+            .header("X-Clinora-Internal-Token", internalToken)
+            .retrieve()
+            .body(ClinicalKnowledgeHealth.class);
+        if (response == null) throw new IllegalStateException("AI service returned an empty knowledge health response.");
+        return response;
+    }
+
+    public record ClinicalKnowledgeHealth(
+        String status, boolean ready, String indexVersion, int approvedChunkCount, String embeddingModel
+    ) {}
+
     public record DoctorSupportExecutionRequest(
         UUID executionId,
         String originalQuestion,

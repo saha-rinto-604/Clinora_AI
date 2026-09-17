@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class DoctorSupportRoutingService {
     private static final Pattern UNSUPPORTED = Pattern.compile(
-        "\\b(best\\s+(?:drug|medication)|(?:drug|medication).{0,30}dos(?:e|age)|prescrib|start\\s+(?:the\\s+)?(?:best\\s+)?medication|weather|every\\s+private\\s+report|all\\s+private\\s+reports|ignore\\s+(?:access|clinora|the\\s+rules|restrictions)|diagnose\\s+the\\s+patient)\\b",
+        "\\b(best\\s+(?:drug|medication)|(?:drug|medication).{0,30}dos(?:e|age)|prescrib|start\\s+(?:the\\s+)?(?:best\\s+)?medication|weather|every\\s+private\\s+report|all\\s+private\\s+reports|ignore\\s+(?:access|clinora|the\\s+rules|prior\\s+instructions|restrictions|safety)|diagnose\\s+the\\s+patient|system\\s+prompt|chain\\s+of\\s+thought|hidden\\s+reports?)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern AMBIGUOUS = Pattern.compile(
@@ -22,15 +22,15 @@ public class DoctorSupportRoutingService {
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern BRIEF = Pattern.compile(
-        "\\b(?:brief(?:\\s+me)?|pre[- ]visit|prepare\\s+(?:me\\s+)?(?:for|before).{0,30}(?:visit|encounter)|patient\\s+briefing)\\b",
+        "\\b(?:brief(?:\\s+me)?|pre[- ]visit|rundown\\s+(?:before|for)|prepare\\s+(?:me\\s+)?(?:for|before).{0,30}(?:visit|encounter)|patient\\s+briefing)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern CONNECT = Pattern.compile(
-        "\\b(?:related|connected|matter\\s+together|form\\s+(?:a\\s+)?pattern|fit\\s+together|relationship\\s+(?:among|between))\\b",
+        "\\b(?:related|connected|connect|matter\\s+together|form\\s+(?:a\\s+)?pattern|fit\\s+together|go\\s+together|relationship\\s+(?:among|between))\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern COMPARE = Pattern.compile(
-        "\\b(?:compare|changed?\\s+since|since\\s+(?:the\\s+)?(?:last|previous)|previous\\s+one|persist(?:ed|ent|ence)?|stayed|present\\s+before|over\\s+time|trend)\\b",
+        "\\b(?:compare|compar\\b|cmp\\b|changed?\\s+since|since\\s+(?:the\\s+)?(?:last|previous|prev)|previous\\s+one|prev\\b|persist(?:ed|ent|ence)?|stayed|present\\s+before|over\\s+time|trend)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern CROSS_CHECK = Pattern.compile(
@@ -38,15 +38,15 @@ public class DoctorSupportRoutingService {
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern FIND_GAPS = Pattern.compile(
-        "\\b(?:what\\s+(?:information|data)\\s+(?:am\\s+i|are\\s+we)\\s+missing|what\\s+else\\s+would\\s+help|information\\s+(?:is\\s+)?missing|data\\s+(?:is\\s+)?unavailable|what\\s+would\\s+help\\s+distinguish|find\\s+(?:the\\s+)?gaps?)\\b",
+        "\\b(?:what\\s+(?:information|info|data)\\s+(?:(?:am\\s+i|are\\s+we|is)\\s+)?missing|what\\s+else\\s+would\\s+help|information\\s+(?:is\\s+)?missing|data\\s+(?:is\\s+)?unavailable|what\\s+would\\s+help\\s+distinguish|find\\s+(?:the\\s+)?gaps?)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern EXPLORE = Pattern.compile(
-        "\\b(?:what\\s+could\\s+explain|could\\s+explain|possible\\s+explanations?|possibilities\\s+(?:should|could)|could\\s+this\\s+fit|explore\\s+(?:the\\s+)?possibilities)\\b",
+        "\\b(?:what\\s+(?:could|might)\\s+explain|could\\s+explain|possible\\s+explanations?|possibilities\\s+(?:should|could)|could\\s+this\\s+fit|explore\\s+(?:the\\s+)?possibilities)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern STRUCTURE = Pattern.compile(
-        "\\b(?:structure|organize|format|turn)\\b.{0,80}\\b(?:notes?|consultation\\s+note)\\b",
+        "\\b(?:structure|organize|format|turn|tidy)\\b.{0,80}\\b(?:notes?|consultation\\s+note)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern FOCUSED = Pattern.compile(
@@ -80,6 +80,7 @@ public class DoctorSupportRoutingService {
 
         String message = request.message().trim();
         if (UNSUPPORTED.matcher(message).find()) return unsupported(context);
+        if (message.matches("(?i)^(?:what is|tell me about)\\s+[a-z][a-z -]{1,60}[?.!]*$")) return unsupported(context);
         if (AMBIGUOUS.matcher(message).matches()) return ambiguous(context, List.of());
 
         List<DoctorSupportTask> deterministic = deterministicTasks(message);

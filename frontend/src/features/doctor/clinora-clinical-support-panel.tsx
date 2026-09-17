@@ -469,6 +469,8 @@ function ClinicalResult({
 
 function safeFailure(code: string | null) {
   const known: Record<string, string> = {
+    MODEL_BUSY: 'the local clinical model is busy',
+    MODEL_UNAVAILABLE: 'the local clinical model is unavailable',
     CLINICAL_REFERENCE_REQUIRED: 'an approved clinical reference was unavailable',
     UNSUPPORTED_CLINICAL_REQUEST: 'the request is outside focused evidence support',
     PROMPT_INJECTION_REJECTED: 'unsafe instructions were rejected',

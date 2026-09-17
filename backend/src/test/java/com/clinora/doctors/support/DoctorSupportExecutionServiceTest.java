@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import com.clinora.ai.client.MedGemmaClient;
 import com.clinora.doctors.api.DoctorApiException;
@@ -23,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClientException;
 
 class DoctorSupportExecutionServiceTest {
     private final UUID doctorId = UUID.randomUUID();
@@ -38,6 +40,9 @@ class DoctorSupportExecutionServiceTest {
     void setUp() {
         assembler = mock(DoctorSupportEvidenceAssembler.class);
         ai = mock(MedGemmaClient.class);
+        when(ai.clinicalKnowledgeHealth()).thenReturn(
+            new MedGemmaClient.ClinicalKnowledgeHealth("READY", true, "cki_test", 6, "hash:384")
+        );
         service = new DoctorSupportExecutionService(
             new DoctorSupportTaskRegistry(), assembler, ai, mapper,
             Clock.fixed(Instant.parse("2026-09-17T10:00:00Z"), ZoneOffset.UTC)
@@ -138,6 +143,80 @@ class DoctorSupportExecutionServiceTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void modelUnavailableReturnsFailedSafeWithoutExposingTransportDetails() {
+        var request = request(List.of(DoctorSupportTask.CONNECT_EVIDENCE), null, "unavailable");
+        when(assembler.assemble(doctorId, appointmentId, request)).thenReturn(assembly(true));
+        when(ai.executeDoctorSupport(any())).thenThrow(new RestClientException("secret upstream detail"));
+
+        DoctorSupportExecutionResponse response = service.execute(doctorId, appointmentId, request);
+
+        assertEquals(DoctorSupportExecutionStatus.FAILED_SAFE, response.status());
+        assertEquals("MODEL_UNAVAILABLE", response.taskResults().getFirst().safeFailureCode());
+    }
+
+    @Test
+    void sameIdempotencyKeyReauthorizesAndRerunsWhenEvidenceSnapshotChanged() {
+        var request = request(List.of(DoctorSupportTask.CONNECT_EVIDENCE), null, "fresh-auth");
+        var firstAssembly = assembly(true);
+        var changedSnapshot = new DoctorSupportEvidenceSnapshot(
+            "changed-snapshot", firstAssembly.snapshot().reports(), firstAssembly.snapshot().observations(),
+            firstAssembly.snapshot().comparisonFacts()
+        );
+        when(assembler.assemble(doctorId, appointmentId, request))
+            .thenReturn(firstAssembly)
+            .thenReturn(new DoctorSupportEvidenceAssembler.Assembly(changedSnapshot, List.of()));
+        when(ai.executeDoctorSupport(any())).thenReturn(new MedGemmaClient.DoctorSupportExecutionResponse(
+            List.of(aiResult("CONNECT_EVIDENCE", "SUCCEEDED", null))
+        ));
+
+        var first = service.execute(doctorId, appointmentId, request);
+        var second = service.execute(doctorId, appointmentId, request);
+
+        org.junit.jupiter.api.Assertions.assertNotEquals(first.executionId(), second.executionId());
+        assertEquals("changed-snapshot", second.evidenceSnapshotHash());
+        verify(ai, times(2)).executeDoctorSupport(any());
+    }
+
+    @Test
+    void cachedExecutionNeverBypassesFreshRevocationCheck() {
+        var request = request(List.of(DoctorSupportTask.CONNECT_EVIDENCE), null, "revoked-after-result");
+        when(assembler.assemble(doctorId, appointmentId, request))
+            .thenReturn(assembly(true))
+            .thenThrow(new DoctorApiException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "SHARED_REPORT_NOT_AVAILABLE",
+                "That report is not available for this appointment."
+            ));
+        when(ai.executeDoctorSupport(any())).thenReturn(new MedGemmaClient.DoctorSupportExecutionResponse(
+            List.of(aiResult("CONNECT_EVIDENCE", "SUCCEEDED", null))
+        ));
+
+        service.execute(doctorId, appointmentId, request);
+        DoctorApiException exception = assertThrows(DoctorApiException.class,
+            () -> service.execute(doctorId, appointmentId, request));
+
+        assertEquals("SHARED_REPORT_NOT_AVAILABLE", exception.getErrorCode());
+        verify(ai).executeDoctorSupport(any());
+    }
+
+    @Test
+    void changedKnowledgeIndexInvalidatesRagExecutionCache() {
+        var request = request(List.of(DoctorSupportTask.CONNECT_EVIDENCE), null, "knowledge-change");
+        when(assembler.assemble(doctorId, appointmentId, request)).thenReturn(assembly(true));
+        when(ai.executeDoctorSupport(any())).thenReturn(new MedGemmaClient.DoctorSupportExecutionResponse(
+            List.of(aiResult("CONNECT_EVIDENCE", "SUCCEEDED", null))
+        ));
+        when(ai.clinicalKnowledgeHealth()).thenReturn(
+            new MedGemmaClient.ClinicalKnowledgeHealth("READY", true, "cki_changed", 7, "hash:384")
+        );
+
+        var first = service.execute(doctorId, appointmentId, request);
+        var second = service.execute(doctorId, appointmentId, request);
+
+        org.junit.jupiter.api.Assertions.assertNotEquals(first.executionId(), second.executionId());
+        verify(ai, times(2)).executeDoctorSupport(any());
     }
 
     private DoctorSupportExecutionRequest request(List<DoctorSupportTask> tasks, String assessment, String key) {

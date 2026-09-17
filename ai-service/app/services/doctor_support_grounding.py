@@ -31,6 +31,7 @@ def validate_grounding(
 ) -> None:
     dumped = result.model_dump(mode="json")
     text = " ".join(_strings(dumped))
+    claim_text = " ".join(_claim_strings(dumped))
     if _TREATMENT.search(text):
         raise UnsafeDoctorSupportOutputError("TREATMENT_OR_DOSE")
     if _CERTAINTY.search(text):
@@ -75,6 +76,7 @@ def validate_grounding(
             raise UnsafeDoctorSupportOutputError("UNKNOWN_OBSERVATION_ID")
         if observation.label != label:
             raise UnsafeDoctorSupportOutputError("OBSERVATION_LABEL_MISMATCH")
+        _validate_observation_claims(claim_text, observation, observations.values())
         if observation.authoritativeStatus == "IN_RANGE":
             nearby = re.compile(re.escape(label) + r".{0,80}\b(abnormal|high|low|elevated|reduced)\b", re.I)
             if nearby.search(text):
@@ -151,6 +153,40 @@ def _validate_structured_notes(dumped, doctor_notes):
         raise UnsafeDoctorSupportOutputError("NOTES_UNCERTAINTY_INCREASED")
 
 
+def _validate_observation_claims(text, observation, all_observations):
+    windows = re.findall(re.escape(observation.label) + r".{0,90}", text, re.I)
+    if not windows:
+        return
+    status_conflicts = {
+        "LOW": r"\b(high|elevated|in[- ]?range|normal|positive)\b",
+        "HIGH": r"\b(low|in[- ]?range|normal|negative)\b",
+        "IN_RANGE": r"\b(high|low|elevated|reduced|abnormal|positive|negative)\b",
+        "POSITIVE": r"\bnegative|not detected|absent\b",
+        "NEGATIVE": r"\bpositive|detected|present|reactive\b",
+    }
+    related = [item for item in all_observations if item.label == observation.label]
+    statuses = {item.authoritativeStatus for item in related}
+    conflict = status_conflicts.get(observation.authoritativeStatus) if len(statuses) == 1 else None
+    if conflict and any(re.search(conflict, window, re.I) for window in windows):
+        raise UnsafeDoctorSupportOutputError("OBSERVATION_STATUS_CHANGED")
+    allowed_numbers = {
+        float(value)
+        for item in related
+        for value in (item.numericValue, item.referenceLow, item.referenceHigh, item.normalizedNumericValue)
+        if value is not None
+    }
+    for window in windows:
+        for number in re.findall(r"(?<![a-z])\d+(?:\.\d+)?", window.lower()):
+            if not any(abs(float(number) - allowed) < 1e-9 for allowed in allowed_numbers):
+                raise UnsafeDoctorSupportOutputError("OBSERVATION_VALUE_CHANGED")
+        known_units = {
+            value.lower() for item in related for value in (item.unit, item.normalizedUnit) if value
+        }
+        mentioned_units = set(re.findall(r"\b(?:mg/dl|mmol/l|g/dl|fl|pg|iu/l|miu/l|10\^\d+/l|%)\b", window, re.I))
+        if mentioned_units and not {unit.lower() for unit in mentioned_units}.issubset(known_units):
+            raise UnsafeDoctorSupportOutputError("OBSERVATION_UNIT_CHANGED")
+
+
 def _strings(value):
     if isinstance(value, str):
         yield value
@@ -160,6 +196,24 @@ def _strings(value):
     elif isinstance(value, list):
         for item in value:
             yield from _strings(item)
+
+
+def _claim_strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        if set(("observationId", "label")).issubset(value):
+            return
+        ignored = {
+            "taskId", "observationId", "reportId", "canonicalCode", "referenceChunkIds",
+            "summaryReferenceChunkIds", "sourceId", "documentId", "chunkId",
+        }
+        for key, item in value.items():
+            if key not in ignored:
+                yield from _claim_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _claim_strings(item)
 
 
 def _evidence_references(value):

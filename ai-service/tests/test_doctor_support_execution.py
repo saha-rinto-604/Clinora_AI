@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 from uuid import UUID
 
-from app.model_runtime import ModelGeneration, RuntimeMetadata
+from app.model_runtime import ModelCapacityError, ModelGeneration, ModelUnavailableError, RuntimeMetadata
 from app.schemas.doctor_support_execution import DoctorSupportExecutionRequest
-from app.services.doctor_support_execution_service import DoctorSupportExecutionService
+from app.services.doctor_support_execution_service import DoctorSupportExecutionService, TASKS
 from app.knowledge.models import (
     ClinicalKnowledgeChunk, RetrievalResult, RetrievalStatus, RetrievedChunk, ReviewStatus,
 )
@@ -103,12 +103,19 @@ class FakeRetriever:
 
 
 class DoctorSupportExecutionTests(unittest.TestCase):
+    def test_final_execution_registry_contains_exactly_all_eight_tasks(self):
+        self.assertEqual(set(TASKS), {
+            "BRIEF_PATIENT", "CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "CROSS_CHECK_ASSESSMENT",
+            "FIND_GAPS", "EXPLORE_EXPLANATIONS", "STRUCTURE_NOTES", "FOCUSED_EVIDENCE_QUESTION",
+        })
+
     def test_representative_fixture_catalog_remains_deterministic_and_complete(self):
         cases = json.loads((Path(__file__).parent / "fixtures" / "doctor_support_clinical_evidence_cases.json").read_text())
         self.assertEqual(
             {case["id"] for case in cases},
             {"microcytic_red_cell_pattern", "thyroid_pattern", "dengue_assay_with_hematology",
-             "inflammatory_findings", "mostly_normal_report", "insufficient_evidence", "mixed_conflicting_findings"},
+             "inflammatory_findings", "mostly_normal_report", "insufficient_evidence", "mixed_conflicting_findings",
+             "isolated_thrombocytopenia", "leukopenia_pattern", "renal_pattern"},
         )
         self.assertTrue(all(case["observations"] for case in cases))
 
@@ -159,6 +166,17 @@ class DoctorSupportExecutionTests(unittest.TestCase):
         duplicate["comparisons"][0]["evidence"][1] = duplicate["comparisons"][0]["evidence"][0]
         result = DoctorSupportExecutionService(FakeRuntime([duplicate])).execute(request("COMPARE_EVIDENCE"))
         self.assertEqual(result.taskResults[0].safeFailureCode, "DUPLICATE_EVIDENCE_ID")
+
+    def test_patient_value_unit_and_status_cannot_be_modified_in_model_prose(self):
+        cases = (
+            ("MCV was 91 fL on the later report.", "OBSERVATION_VALUE_CHANGED"),
+            ("MCV was 70 mg/dL on the later report.", "OBSERVATION_UNIT_CHANGED"),
+            ("MCV was high on the later report.", "OBSERVATION_STATUS_CHANGED"),
+        )
+        for explanation, expected in cases:
+            output = comparison(explanation=explanation)
+            result = DoctorSupportExecutionService(FakeRuntime([output])).execute(request("COMPARE_EVIDENCE"))
+            self.assertEqual(result.taskResults[0].safeFailureCode, expected)
 
     def test_compare_cannot_turn_direction_into_improvement(self):
         output = comparison(explanation="The lower MCV means the patient is worsening.")
@@ -325,6 +343,29 @@ class DoctorSupportExecutionApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"taskResults": []})
+
+    def test_model_busy_and_unavailable_are_safe_service_responses(self):
+        for error, safe_text in (
+            (ModelCapacityError("private busy detail"), "busy"),
+            (ModelUnavailableError("private unavailable detail"), "unavailable"),
+        ):
+            class RaisingRuntime:
+                metadata = RuntimeMetadata("medgemma", "revision", "Q4_0")
+
+                def generate(self, *args, **kwargs):
+                    raise error
+
+            app = FastAPI()
+            app.include_router(build_router(
+                _UnusedReportService(), None, DoctorSupportExecutionService(RaisingRuntime())
+            ))
+            response = TestClient(app).post(
+                "/internal/v1/doctor-support/execute", json=self.payload,
+                headers={"X-Clinora-Internal-Token": "execution-test-secret"},
+            )
+            self.assertEqual(response.status_code, 503)
+            self.assertIn(safe_text, response.json()["detail"].lower())
+            self.assertNotIn("private", response.text.lower())
 
 
 if __name__ == "__main__":

@@ -14,6 +14,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /** Synchronous today, with job-compatible IDs/statuses and process-local duplicate suppression. */
 @Service
@@ -81,14 +83,14 @@ public class DoctorSupportExecutionService {
         String cacheKey = request.clientExecutionKey() == null || request.clientExecutionKey().isBlank()
             ? null : doctorId + ":" + appointmentId + ":" + request.clientExecutionKey();
         String fingerprint = requestFingerprint(request);
+        CachedExecution cached = null;
         if (cacheKey != null) {
-            CachedExecution cached = idempotency.get(cacheKey);
+            cached = idempotency.get(cacheKey);
             if (cached != null) {
                 if (!cached.fingerprint().equals(fingerprint)) {
                     throw new DoctorApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED",
                         "That execution key was already used for a different request.");
                 }
-                return cached.response();
             }
         }
 
@@ -96,6 +98,10 @@ public class DoctorSupportExecutionService {
         Instant started = clock.instant();
         DoctorSupportEvidenceAssembler.Assembly assembly = evidenceAssembler.assemble(doctorId, appointmentId, request);
         var snapshot = assembly.snapshot();
+        if (cached != null && cached.response().evidenceSnapshotHash().equals(snapshot.snapshotHash())
+            && knowledgeSnapshotIsCurrent(tasks, cached.response())) {
+            return cached.response();
+        }
         List<DoctorSupportExecutionResponse.TaskResult> results = new ArrayList<>();
         List<DoctorSupportTask> runnable = new ArrayList<>();
 
@@ -122,50 +128,69 @@ public class DoctorSupportExecutionService {
                     task.name(), spec.promptVersion(), spec.responseSchemaVersion(), spec.ragPolicy().name()
                 );
             }).toList();
-            var aiResponse = ai.executeDoctorSupport(new MedGemmaClient.DoctorSupportExecutionRequest(
-                executionId, request.originalQuestion(), request.doctorAssessment(), request.doctorNotes(),
-                objectMapper.valueToTree(assembly.appointmentContext()), objectMapper.valueToTree(modelEvidence(snapshot)), aiTasks
-            ));
-            Set<String> expectedTasks = runnable.stream().map(Enum::name).collect(java.util.stream.Collectors.toSet());
-            Set<String> returnedTasks = aiResponse.taskResults().stream()
-                .map(MedGemmaClient.DoctorSupportTaskExecutionResponse::taskId)
-                .collect(java.util.stream.Collectors.toSet());
-            boolean invalidContract = returnedTasks.size() != aiResponse.taskResults().size()
-                || !returnedTasks.equals(expectedTasks)
-                || aiResponse.taskResults().stream().anyMatch(item -> {
-                    DoctorSupportTaskSpec spec = registry.require(DoctorSupportTask.valueOf(item.taskId()));
-                    return !("SUCCEEDED".equals(item.status()) || "FAILED_SAFE".equals(item.status()))
-                        || !spec.promptVersion().equals(item.promptVersion())
-                        || !spec.responseSchemaVersion().equals(item.schemaVersion())
-                        || !spec.ragPolicy().name().equals(item.ragPolicy())
-                        || !validRetrievalContract(spec, item)
-                        || ("SUCCEEDED".equals(item.status()) && (item.result() == null
-                            || !item.taskId().equals(item.result().path("taskId").asText())
-                            || !"PASSED".equals(item.groundingStatus()) || item.safeFailureCode() != null))
-                        || ("FAILED_SAFE".equals(item.status())
-                            && (item.result() != null || item.safeFailureCode() == null || item.safeFailureCode().isBlank()));
-                });
-            if (invalidContract) {
-                throw new DoctorApiException(HttpStatus.BAD_GATEWAY, "CLINICAL_SUPPORT_EXECUTION_INVALID",
-                    "The clinical support response did not pass Clinora validation.");
-            }
-            Map<String, MedGemmaClient.DoctorSupportTaskExecutionResponse> byTask = aiResponse.taskResults().stream()
-                .collect(java.util.stream.Collectors.toMap(MedGemmaClient.DoctorSupportTaskExecutionResponse::taskId, item -> item));
-            for (DoctorSupportTask task : runnable) {
-                var item = byTask.get(task.name());
-                if (item == null) {
+            MedGemmaClient.DoctorSupportExecutionResponse aiResponse;
+            try {
+                aiResponse = ai.executeDoctorSupport(new MedGemmaClient.DoctorSupportExecutionRequest(
+                    executionId, request.originalQuestion(), request.doctorAssessment(), request.doctorNotes(),
+                    objectMapper.valueToTree(assembly.appointmentContext()), objectMapper.valueToTree(modelEvidence(snapshot)), aiTasks
+                ));
+            } catch (RestClientException exception) {
+                String code = exception instanceof RestClientResponseException responseException
+                    && responseException.getResponseBodyAsString().toLowerCase(java.util.Locale.ROOT).contains("busy")
+                    ? "MODEL_BUSY" : "MODEL_UNAVAILABLE";
+                for (DoctorSupportTask task : runnable) {
                     results.add(new DoctorSupportExecutionResponse.TaskResult(
-                        task, DoctorSupportTaskExecutionStatus.FAILED_SAFE, null, "MISSING_TASK_RESULT",
+                        task, DoctorSupportTaskExecutionStatus.FAILED_SAFE, null, code,
                         provenance(snapshot, registry.require(task), null), List.of()
                     ));
-                    continue;
                 }
-                DoctorSupportTaskExecutionStatus taskStatus = "SUCCEEDED".equals(item.status())
-                    ? DoctorSupportTaskExecutionStatus.SUCCEEDED : DoctorSupportTaskExecutionStatus.FAILED_SAFE;
-                results.add(new DoctorSupportExecutionResponse.TaskResult(
-                    task, taskStatus, taskStatus == DoctorSupportTaskExecutionStatus.SUCCEEDED ? item.result() : null,
-                    item.safeFailureCode(), provenance(snapshot, registry.require(task), item), references(item)
-                ));
+                aiResponse = null;
+            }
+            if (aiResponse == null) {
+                runnable.clear();
+            }
+            if (aiResponse != null) {
+                Set<String> expectedTasks = runnable.stream().map(Enum::name).collect(java.util.stream.Collectors.toSet());
+                Set<String> returnedTasks = aiResponse.taskResults().stream()
+                    .map(MedGemmaClient.DoctorSupportTaskExecutionResponse::taskId)
+                    .collect(java.util.stream.Collectors.toSet());
+                boolean invalidContract = returnedTasks.size() != aiResponse.taskResults().size()
+                    || !returnedTasks.equals(expectedTasks)
+                    || aiResponse.taskResults().stream().anyMatch(item -> {
+                        DoctorSupportTaskSpec spec = registry.require(DoctorSupportTask.valueOf(item.taskId()));
+                        return !("SUCCEEDED".equals(item.status()) || "FAILED_SAFE".equals(item.status()))
+                            || !spec.promptVersion().equals(item.promptVersion())
+                            || !spec.responseSchemaVersion().equals(item.schemaVersion())
+                            || !spec.ragPolicy().name().equals(item.ragPolicy())
+                            || !validRetrievalContract(spec, item)
+                            || ("SUCCEEDED".equals(item.status()) && (item.result() == null
+                                || !item.taskId().equals(item.result().path("taskId").asText())
+                                || !"PASSED".equals(item.groundingStatus()) || item.safeFailureCode() != null))
+                            || ("FAILED_SAFE".equals(item.status())
+                                && (item.result() != null || item.safeFailureCode() == null || item.safeFailureCode().isBlank()));
+                    });
+                if (invalidContract) {
+                    throw new DoctorApiException(HttpStatus.BAD_GATEWAY, "CLINICAL_SUPPORT_EXECUTION_INVALID",
+                        "The clinical support response did not pass Clinora validation.");
+                }
+                Map<String, MedGemmaClient.DoctorSupportTaskExecutionResponse> byTask = aiResponse.taskResults().stream()
+                    .collect(java.util.stream.Collectors.toMap(MedGemmaClient.DoctorSupportTaskExecutionResponse::taskId, item -> item));
+                for (DoctorSupportTask task : runnable) {
+                    var item = byTask.get(task.name());
+                    if (item == null) {
+                        results.add(new DoctorSupportExecutionResponse.TaskResult(
+                            task, DoctorSupportTaskExecutionStatus.FAILED_SAFE, null, "MISSING_TASK_RESULT",
+                            provenance(snapshot, registry.require(task), null), List.of()
+                        ));
+                        continue;
+                    }
+                    DoctorSupportTaskExecutionStatus taskStatus = "SUCCEEDED".equals(item.status())
+                        ? DoctorSupportTaskExecutionStatus.SUCCEEDED : DoctorSupportTaskExecutionStatus.FAILED_SAFE;
+                    results.add(new DoctorSupportExecutionResponse.TaskResult(
+                        task, taskStatus, taskStatus == DoctorSupportTaskExecutionStatus.SUCCEEDED ? item.result() : null,
+                        item.safeFailureCode(), provenance(snapshot, registry.require(task), item), references(item)
+                    ));
+                }
             }
         }
         results.sort(java.util.Comparator.comparingInt(item -> item.taskId().ordinal()));
@@ -179,9 +204,9 @@ public class DoctorSupportExecutionService {
         );
         if (cacheKey != null) {
             if (idempotency.size() >= 1000) idempotency.keySet().stream().findFirst().ifPresent(idempotency::remove);
-            idempotency.putIfAbsent(cacheKey, new CachedExecution(fingerprint, response));
+            idempotency.put(cacheKey, new CachedExecution(fingerprint, response));
         }
-        return cacheKey == null ? response : idempotency.get(cacheKey).response();
+        return response;
     }
 
     private DoctorSupportExecutionResponse.Provenance provenance(
@@ -242,6 +267,23 @@ public class DoctorSupportExecutionService {
             return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (Exception exc) {
             throw new IllegalStateException("Could not fingerprint Doctor support request.", exc);
+        }
+    }
+
+    private boolean knowledgeSnapshotIsCurrent(
+        List<DoctorSupportTask> tasks, DoctorSupportExecutionResponse cachedResponse
+    ) {
+        Set<DoctorSupportTask> ragTasks = tasks.stream()
+            .filter(task -> registry.require(task).ragPolicy() != DoctorSupportRagPolicy.DISABLED)
+            .collect(java.util.stream.Collectors.toSet());
+        if (ragTasks.isEmpty()) return true;
+        try {
+            String currentVersion = ai.clinicalKnowledgeHealth().indexVersion();
+            return cachedResponse.taskResults().stream()
+                .filter(result -> ragTasks.contains(result.taskId()))
+                .allMatch(result -> java.util.Objects.equals(result.provenance().knowledgeIndexVersion(), currentVersion));
+        } catch (RestClientException | IllegalStateException exception) {
+            return false;
         }
     }
 

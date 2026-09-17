@@ -82,7 +82,22 @@ describe('ClinoraClinicalSupportPanel', () => {
           taskId: 'FOCUSED_EVIDENCE_QUESTION',
           status: 'SUCCEEDED',
           safeFailureCode: null,
-          references: [],
+          references: [
+            {
+              chunkId: 'internal-chunk-id',
+              sourceId: 'source',
+              documentId: 'document',
+              title: 'Approved NS1 reference',
+              publisher: 'Clinora Clinical Library',
+              sourceType: 'guideline',
+              clinicalDomain: 'infectious_disease',
+              publicationDate: '2026-01-01',
+              version: '1',
+              jurisdiction: null,
+              sourceReference: null,
+              sectionPath: 'Interpretation',
+            },
+          ],
           provenance: {},
           result: {
             taskId: 'FOCUSED_EVIDENCE_QUESTION',
@@ -94,7 +109,7 @@ describe('ClinoraClinicalSupportPanel', () => {
         },
       ],
     });
-    render(
+    const view = render(
       <ClinoraClinicalSupportPanel
         appointmentId="a1"
         screen="REPORT_REVIEW"
@@ -112,6 +127,18 @@ describe('ClinoraClinicalSupportPanel', () => {
       'a1',
       expect.objectContaining({ taskIds: ['FOCUSED_EVIDENCE_QUESTION'], selectedObservationIds: ['o1'] }),
     );
+    expect(screen.getByText('Approved NS1 reference')).toBeInTheDocument();
+    expect(screen.getByText(/Clinora Clinical Library · Interpretation/)).toBeInTheDocument();
+    expect(screen.queryByText('internal-chunk-id')).not.toBeInTheDocument();
+    view.rerender(
+      <ClinoraClinicalSupportPanel
+        appointmentId="a1"
+        screen="REPORT_REVIEW"
+        currentReportId="r1"
+        selectedObservationIds={['o1', 'o2']}
+      />,
+    );
+    expect(screen.getByText(/Evidence or working text changed/)).toBeInTheDocument();
   });
 
   it('keeps assessment and notes temporary and exposes their task actions', async () => {
