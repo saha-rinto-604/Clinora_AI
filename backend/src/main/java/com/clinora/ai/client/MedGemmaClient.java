@@ -1,5 +1,6 @@
 package com.clinora.ai.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
@@ -54,6 +55,39 @@ public class MedGemmaClient {
         }
         return response;
     }
+
+    public DoctorSupportExecutionResponse executeDoctorSupport(DoctorSupportExecutionRequest request) {
+        DoctorSupportExecutionResponse response = client.post()
+            .uri("/internal/v1/doctor-support/execute")
+            .header("X-Clinora-Internal-Token", internalToken)
+            .body(request)
+            .retrieve()
+            .body(DoctorSupportExecutionResponse.class);
+        if (response == null) throw new IllegalStateException("AI service returned an empty execution response.");
+        return response;
+    }
+
+    public record DoctorSupportExecutionRequest(
+        UUID executionId,
+        String originalQuestion,
+        String doctorAssessment,
+        JsonNode evidenceSnapshot,
+        List<DoctorSupportTaskExecutionRequest> tasks
+    ) {}
+
+    public record DoctorSupportTaskExecutionRequest(String taskId, String promptVersion, String schemaVersion) {}
+
+    public record DoctorSupportExecutionResponse(List<DoctorSupportTaskExecutionResponse> taskResults) {
+        public DoctorSupportExecutionResponse {
+            taskResults = taskResults == null ? List.of() : List.copyOf(taskResults);
+        }
+    }
+
+    public record DoctorSupportTaskExecutionResponse(
+        String taskId, String status, JsonNode result, String safeFailureCode,
+        String modelName, String modelRevision, String quantization,
+        String promptVersion, String schemaVersion, String groundingStatus
+    ) {}
 
     public record DoctorSupportRoutingRequest(
         UUID requestId,

@@ -40,4 +40,27 @@ describe('doctorClinicalSupportApi', () => {
     });
     expect(result).toBe(decision);
   });
+
+  it('executes through Spring with a job-compatible idempotency contract', async () => {
+    const execution = { executionId: 'execution-id', status: 'SUCCEEDED', taskResults: [] };
+    post.mockResolvedValue({ data: { data: execution } });
+
+    const result = await doctorClinicalSupportApi.execute('appointment/id', {
+      taskIds: ['FIND_GAPS'],
+      originalQuestion: 'What is missing?',
+      currentReportId: 'report-id',
+      clientExecutionKey: 'button-click-1',
+    });
+
+    expect(post).toHaveBeenCalledWith('/doctor/appointments/appointment%2Fid/clinical-support/execute', {
+      taskIds: ['FIND_GAPS'],
+      originalQuestion: 'What is missing?',
+      currentReportId: 'report-id',
+      selectedReportIds: [],
+      selectedObservationIds: [],
+      doctorAssessment: null,
+      clientExecutionKey: 'button-click-1',
+    });
+    expect(result).toBe(execution);
+  });
 });

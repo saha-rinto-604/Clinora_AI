@@ -11,7 +11,11 @@ public record DoctorSupportTaskSpec(
     Set<DoctorSupportRequiredContext> requiredContext,
     boolean multipleInstancesAllowed,
     String label,
-    String shortDescription
+    String shortDescription,
+    boolean executable,
+    String promptVersion,
+    String responseSchemaVersion,
+    DoctorSupportRagPolicy ragPolicy
 ) {
     public DoctorSupportTaskSpec {
         exampleUtterances = List.copyOf(exampleUtterances);

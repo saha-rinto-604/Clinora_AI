@@ -57,6 +57,153 @@ export interface DoctorSupportRoutingDecision {
   missingRequiredContext: DoctorSupportRequiredContext[];
 }
 
+export type DoctorSupportExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL_SUCCESS' | 'FAILED_SAFE';
+export type DoctorSupportTaskExecutionStatus = 'SUCCEEDED' | 'FAILED_SAFE' | 'EVIDENCE_SELECTION_REQUIRED';
+export type ExecutableDoctorSupportTaskId =
+  'CONNECT_EVIDENCE' | 'COMPARE_EVIDENCE' | 'CROSS_CHECK_ASSESSMENT' | 'FIND_GAPS';
+
+export interface DoctorSupportExecutionRequest {
+  taskIds: ExecutableDoctorSupportTaskId[];
+  originalQuestion: string;
+  currentReportId?: string | null;
+  selectedReportIds?: string[];
+  selectedObservationIds?: string[];
+  doctorAssessment?: string | null;
+  clientExecutionKey?: string | null;
+}
+
+export interface DoctorSupportEvidenceReference {
+  observationId: string;
+  label: string;
+}
+
+export interface ConnectEvidenceResult {
+  taskId: 'CONNECT_EVIDENCE';
+  summary: string;
+  patterns: Array<{
+    title: string;
+    relationship: string;
+    evidence: DoctorSupportEvidenceReference[];
+    limitations: string[];
+  }>;
+  limitations: string[];
+}
+
+export interface CompareEvidenceResult {
+  taskId: 'COMPARE_EVIDENCE';
+  summary: string;
+  comparisons: Array<{
+    canonicalCode: string;
+    direction: 'INCREASED' | 'DECREASED' | 'UNCHANGED';
+    explanation: string;
+    evidence: DoctorSupportEvidenceReference[];
+  }>;
+  nonComparable: string[];
+  limitations: string[];
+}
+
+export interface CrossCheckAssessmentResult {
+  taskId: 'CROSS_CHECK_ASSESSMENT';
+  evidenceFit: 'FITS' | 'PARTIALLY_FITS' | 'DOES_NOT_FIT' | 'INSUFFICIENT_EVIDENCE';
+  summary: string;
+  points: Array<{
+    statement: string;
+    relation: 'SUPPORTS' | 'CONTRADICTS' | 'UNCERTAIN';
+    evidence: DoctorSupportEvidenceReference[];
+  }>;
+  alternativeConsiderations: Array<{
+    name: string;
+    rationale: string;
+    evidence: DoctorSupportEvidenceReference[];
+    missingInformation: string[];
+  }>;
+  limitations: string[];
+}
+
+export interface FindGapsResult {
+  taskId: 'FIND_GAPS';
+  summary: string;
+  gaps: Array<{
+    category: string;
+    whyRelevant: string;
+    availability: 'NOT_PRESENT_IN_AUTHORIZED_EVIDENCE' | 'UNCERTAIN';
+    relatedEvidence: DoctorSupportEvidenceReference[];
+  }>;
+  limitations: string[];
+}
+
+export type DoctorSupportClinicalResult =
+  ConnectEvidenceResult | CompareEvidenceResult | CrossCheckAssessmentResult | FindGapsResult;
+
+export interface DoctorSupportProvenance {
+  reportIds: string[];
+  observationIds: string[];
+  evidenceSnapshotHash: string;
+  modelName: string | null;
+  modelRevision: string | null;
+  quantization: string | null;
+  promptVersion: string;
+  schemaVersion: string;
+  groundingStatus: 'PASSED' | 'REJECTED' | 'NOT_RUN';
+}
+
+export interface DoctorSupportTaskResult {
+  taskId: ExecutableDoctorSupportTaskId;
+  status: DoctorSupportTaskExecutionStatus;
+  result: DoctorSupportClinicalResult | null;
+  safeFailureCode: string | null;
+  provenance: DoctorSupportProvenance;
+}
+
+export interface DoctorSupportExecutionResponse {
+  executionId: string;
+  doctorId: string;
+  appointmentId: string;
+  status: DoctorSupportExecutionStatus;
+  evidenceSnapshotHash: string;
+  reports: Array<{
+    reportId: string;
+    reportType: string;
+    clinicalDate: string | null;
+    dateReliability: 'REPORT_DATE' | 'DATE_UNAVAILABLE';
+    extractionResultId: string;
+    sourceChecksum: string;
+    reportVersion: number;
+  }>;
+  evidence: Array<{
+    observationId: string;
+    reportId: string;
+    label: string;
+    canonicalCode: string;
+    valueType: string;
+    numericValue: number | null;
+    textValue: string | null;
+    comparator: string | null;
+    unit: string | null;
+    referenceLow: number | null;
+    referenceHigh: number | null;
+    referenceRangeRaw: string | null;
+    authoritativeStatus: 'LOW' | 'HIGH' | 'IN_RANGE' | 'POSITIVE' | 'NEGATIVE' | 'REPORTED';
+    verificationStatus: 'PATIENT_CONFIRMED' | 'PATIENT_CORRECTED' | 'DOCTOR_VERIFIED';
+  }>;
+  taskResults: DoctorSupportTaskResult[];
+  selectionCandidates: Array<{ reportId: string; reportType: string; clinicalDate: string }>;
+  startedAt: string;
+  completedAt: string;
+}
+
+export type DoctorSupportExecutionClientState =
+  | { phase: 'IDLE'; executionId: null; response: null }
+  | { phase: 'SUBMITTING'; executionId: null; response: null }
+  | { phase: 'QUEUED' | 'RUNNING'; executionId: string; response: DoctorSupportExecutionResponse | null }
+  | { phase: 'COMPLETE'; executionId: string; response: DoctorSupportExecutionResponse }
+  | {
+      phase: 'FAILED';
+      executionId: string | null;
+      response: DoctorSupportExecutionResponse | null;
+      safeMessage: string;
+    };
+
 export const doctorClinicalSupportApi = {
   async route(appointmentId: string, request: DoctorSupportRoutingRequest) {
     const response = await apiClient.post<ApiEnvelope<DoctorSupportRoutingDecision>>(
@@ -69,6 +216,20 @@ export const doctorClinicalSupportApi = {
         selectedObservationIds: request.selectedObservationIds ?? [],
         doctorAssessmentPresent: request.doctorAssessmentPresent ?? false,
         doctorNotesPresent: request.doctorNotesPresent ?? false,
+      },
+    );
+    return response.data.data;
+  },
+  async execute(appointmentId: string, request: DoctorSupportExecutionRequest) {
+    const response = await apiClient.post<ApiEnvelope<DoctorSupportExecutionResponse>>(
+      `/doctor/appointments/${encodeURIComponent(appointmentId)}/clinical-support/execute`,
+      {
+        ...request,
+        currentReportId: request.currentReportId ?? null,
+        selectedReportIds: request.selectedReportIds ?? [],
+        selectedObservationIds: request.selectedObservationIds ?? [],
+        doctorAssessment: request.doctorAssessment ?? null,
+        clientExecutionKey: request.clientExecutionKey ?? null,
       },
     );
     return response.data.data;

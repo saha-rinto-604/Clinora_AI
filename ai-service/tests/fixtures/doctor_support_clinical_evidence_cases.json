@@ -1,0 +1,51 @@
+[
+  {
+    "id": "microcytic_red_cell_pattern",
+    "observations": [
+      {"label": "MCV", "value": 70, "unit": "fL", "status": "LOW"},
+      {"label": "MCH", "value": 22, "unit": "pg", "status": "LOW"},
+      {"label": "RBC", "value": 5.8, "unit": "10^12/L", "status": "HIGH"}
+    ]
+  },
+  {
+    "id": "thyroid_pattern",
+    "observations": [
+      {"label": "TSH", "value": 8.1, "unit": "mIU/L", "status": "HIGH"},
+      {"label": "Free T4", "value": 0.7, "unit": "ng/dL", "status": "LOW"}
+    ]
+  },
+  {
+    "id": "dengue_assay_with_hematology",
+    "observations": [
+      {"label": "Dengue NS1 antigen", "value": "Detected", "unit": null, "status": "POSITIVE"},
+      {"label": "Platelet count", "value": 110, "unit": "10^9/L", "status": "LOW"}
+    ]
+  },
+  {
+    "id": "inflammatory_findings",
+    "observations": [
+      {"label": "CRP", "value": 22, "unit": "mg/L", "status": "HIGH"},
+      {"label": "ESR", "value": 38, "unit": "mm/hr", "status": "HIGH"}
+    ]
+  },
+  {
+    "id": "mostly_normal_report",
+    "observations": [
+      {"label": "Hemoglobin", "value": 14.1, "unit": "g/dL", "status": "IN_RANGE"},
+      {"label": "WBC", "value": 7.2, "unit": "10^9/L", "status": "IN_RANGE"}
+    ]
+  },
+  {
+    "id": "insufficient_evidence",
+    "observations": [
+      {"label": "Unclassified marker", "value": "Reported", "unit": null, "status": "REPORTED"}
+    ]
+  },
+  {
+    "id": "mixed_conflicting_findings",
+    "observations": [
+      {"label": "MCV", "value": 74, "unit": "fL", "status": "LOW"},
+      {"label": "Ferritin", "value": 88, "unit": "ng/mL", "status": "IN_RANGE"}
+    ]
+  }
+]
