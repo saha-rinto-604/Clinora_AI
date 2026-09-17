@@ -10,6 +10,7 @@ from app.model_runtime import MedGemmaRuntime, ModelUnavailableError
 from app.services.report_analysis_service import ReportAnalysisService
 from app.services.doctor_support_routing_service import DoctorSupportRoutingService
 from app.services.doctor_support_execution_service import DoctorSupportExecutionService
+from app.services.doctor_query_interpreter_service import DoctorQueryInterpreterService
 from app.knowledge.embeddings import ClinicalHashEmbeddingProvider
 from app.knowledge.retrieval import ClinicalKnowledgeRetriever
 from app.knowledge.store import SqliteClinicalKnowledgeStore
@@ -26,9 +27,12 @@ knowledge_store = SqliteClinicalKnowledgeStore(
 )
 knowledge_retriever = ClinicalKnowledgeRetriever(knowledge_store, knowledge_embedding)
 doctor_support_execution_service = DoctorSupportExecutionService(runtime, knowledge_retriever)
+doctor_query_interpreter_service = DoctorQueryInterpreterService(runtime)
 
 app = FastAPI(title="Clinora AI Service", version="0.2.0")
-app.include_router(build_router(analysis_service, doctor_support_service, doctor_support_execution_service))
+app.include_router(build_router(
+    analysis_service, doctor_support_service, doctor_support_execution_service, doctor_query_interpreter_service
+))
 
 
 @app.get("/health")

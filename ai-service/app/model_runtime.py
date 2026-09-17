@@ -210,8 +210,14 @@ class MedGemmaRuntime:
         messages: list[dict[str, object]],
         allowed_observation_ids: Iterable[str] | None = None,
         response_schema: dict[str, object] | None = None,
+        max_tokens: int | None = None,
     ) -> ModelGeneration:
         request_messages = [self._chat_message(message) for message in messages]
+        effective_max_tokens = (
+            self._max_new_tokens
+            if max_tokens is None
+            else max(64, min(int(max_tokens), self._max_new_tokens))
+        )
         try:
             response = self._client.post(
                 "/v1/chat/completions",
@@ -220,7 +226,7 @@ class MedGemmaRuntime:
                     "temperature": 0,
                     "top_p": 1,
                     "seed": self._seed,
-                    "max_tokens": self._max_new_tokens,
+                    "max_tokens": effective_max_tokens,
                     "stream": False,
                     "response_format": {
                         "type": "json_object",

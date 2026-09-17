@@ -56,6 +56,19 @@ public class MedGemmaClient {
         return response;
     }
 
+    public DoctorQueryInterpretationResponse interpretDoctorQuery(DoctorQueryInterpretationRequest request) {
+        DoctorQueryInterpretationResponse response = client.post()
+            .uri("/internal/v1/doctor-support/interpret")
+            .header("X-Clinora-Internal-Token", internalToken)
+            .body(request)
+            .retrieve()
+            .body(DoctorQueryInterpretationResponse.class);
+        if (response == null) {
+            throw new IllegalStateException("AI service returned an empty Doctor query interpretation response.");
+        }
+        return response;
+    }
+
     public DoctorSupportExecutionResponse executeDoctorSupport(DoctorSupportExecutionRequest request) {
         DoctorSupportExecutionResponse response = client.post()
             .uri("/internal/v1/doctor-support/execute")
@@ -139,6 +152,34 @@ public class MedGemmaClient {
         boolean doctorNotesPresent,
         boolean comparableAuthorizedReportsAvailable,
         String selectionType
+    ) {}
+
+    public record DoctorQueryInterpretationRequest(
+        UUID requestId,
+        String doctorMessage,
+        DoctorQueryMinimalContext context
+    ) {}
+
+    public record DoctorQueryMinimalContext(
+        String contextType,
+        String currentScreen,
+        String currentReportType,
+        int selectedReportCount,
+        int selectedObservationCount,
+        boolean doctorAssessmentPresent,
+        boolean doctorNotesPresent,
+        boolean comparableAuthorizedReportsAvailable,
+        String selectionType
+    ) {}
+
+    public record DoctorQueryInterpretationResponse(
+        JsonNode frame,
+        String promptVersion,
+        String schemaVersion,
+        String finishReason,
+        Integer promptTokens,
+        Integer completionTokens,
+        long durationMs
     ) {}
 
     public record DoctorSupportTaskCatalogEntry(

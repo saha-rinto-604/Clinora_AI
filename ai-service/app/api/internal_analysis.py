@@ -13,6 +13,11 @@ from app.schemas.doctor_support import DoctorSupportRoutingDecision, DoctorSuppo
 from app.services.doctor_support_routing_service import DoctorSupportRoutingService, InvalidRouterOutputError
 from app.schemas.doctor_support_execution import DoctorSupportExecutionRequest, DoctorSupportExecutionResponse
 from app.services.doctor_support_execution_service import DoctorSupportExecutionService
+from app.schemas.doctor_query_frame import DoctorQueryInterpretationRequest, DoctorQueryInterpretationResponse
+from app.services.doctor_query_interpreter_service import (
+    DoctorQueryInterpreterService,
+    InvalidDoctorQueryInterpretationError,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +36,7 @@ def build_router(
     service: ReportAnalysisService,
     doctor_support_service: DoctorSupportRoutingService | None = None,
     doctor_support_execution_service: DoctorSupportExecutionService | None = None,
+    doctor_query_interpreter_service: DoctorQueryInterpreterService | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/internal/v1", tags=["internal"])
 
@@ -90,6 +96,31 @@ def build_router(
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail="The routing response did not pass Clinora validation.",
+                ) from exc
+
+    if doctor_query_interpreter_service is not None:
+        @router.post("/doctor-support/interpret", response_model=DoctorQueryInterpretationResponse)
+        def interpret_doctor_query(
+            request: DoctorQueryInterpretationRequest,
+            x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
+        ) -> DoctorQueryInterpretationResponse:
+            _authorize(x_clinora_internal_token)
+            try:
+                return doctor_query_interpreter_service.interpret(request)
+            except ModelCapacityError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is busy.") from exc
+            except ModelUnavailableError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is unavailable.") from exc
+            except (InvalidDoctorQueryInterpretationError, MalformedModelResponseError) as exc:
+                LOGGER.warning(
+                    "Doctor query interpretation rejected for request %s: type=%s reason=%s",
+                    request.requestId,
+                    exc.__class__.__name__,
+                    getattr(exc, "reason_code", "UNKNOWN_REJECTION"),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="The Doctor query could not be interpreted safely.",
                 ) from exc
 
     if doctor_support_execution_service is not None:
