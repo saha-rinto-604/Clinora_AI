@@ -1,0 +1,12 @@
+package com.clinora.doctors.support;
+
+public enum DoctorSupportTask {
+    BRIEF_PATIENT,
+    CONNECT_EVIDENCE,
+    COMPARE_EVIDENCE,
+    CROSS_CHECK_ASSESSMENT,
+    FIND_GAPS,
+    EXPLORE_EXPLANATIONS,
+    STRUCTURE_NOTES,
+    FOCUSED_EVIDENCE_QUESTION
+}

@@ -209,6 +209,7 @@ class MedGemmaRuntime:
         self,
         messages: list[dict[str, object]],
         allowed_observation_ids: Iterable[str] | None = None,
+        response_schema: dict[str, object] | None = None,
     ) -> ModelGeneration:
         request_messages = [self._chat_message(message) for message in messages]
         try:
@@ -223,7 +224,7 @@ class MedGemmaRuntime:
                     "stream": False,
                     "response_format": {
                         "type": "json_object",
-                        "schema": _llama_response_schema(allowed_observation_ids),
+                        "schema": response_schema or _llama_response_schema(allowed_observation_ids),
                     },
                 },
             )

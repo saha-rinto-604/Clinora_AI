@@ -9,6 +9,8 @@ from fastapi import APIRouter, Header, HTTPException, status
 from app.model_runtime import MalformedModelResponseError, ModelCapacityError, ModelUnavailableError
 from app.schemas.report_analysis import ReportAnalysisRequest, ReportAnalysisResponse
 from app.services.report_analysis_service import InvalidModelOutputError, ReportAnalysisService, UnsafeModelOutputError
+from app.schemas.doctor_support import DoctorSupportRoutingDecision, DoctorSupportRoutingRequest
+from app.services.doctor_support_routing_service import DoctorSupportRoutingService, InvalidRouterOutputError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +25,10 @@ def _authorize(token: str | None) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized internal request.")
 
 
-def build_router(service: ReportAnalysisService) -> APIRouter:
+def build_router(
+    service: ReportAnalysisService,
+    doctor_support_service: DoctorSupportRoutingService | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/internal/v1", tags=["internal"])
 
     @router.post("/report-analysis", response_model=ReportAnalysisResponse)
@@ -58,5 +63,30 @@ def build_router(service: ReportAnalysisService) -> APIRouter:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="The AI response did not pass Clinora safety validation.",
             ) from exc
+
+    if doctor_support_service is not None:
+        @router.post("/doctor-support/route", response_model=DoctorSupportRoutingDecision)
+        def route_doctor_support(
+            request: DoctorSupportRoutingRequest,
+            x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
+        ) -> DoctorSupportRoutingDecision:
+            _authorize(x_clinora_internal_token)
+            try:
+                return doctor_support_service.route(request)
+            except ModelCapacityError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is busy.") from exc
+            except ModelUnavailableError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is unavailable.") from exc
+            except (InvalidRouterOutputError, MalformedModelResponseError) as exc:
+                LOGGER.warning(
+                    "Doctor support router output rejected for request %s: type=%s reason=%s",
+                    request.requestId,
+                    exc.__class__.__name__,
+                    getattr(exc, "reason_code", "UNKNOWN_REJECTION"),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="The routing response did not pass Clinora validation.",
+                ) from exc
 
     return router

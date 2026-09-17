@@ -5,12 +5,14 @@ from fastapi import FastAPI, HTTPException, status
 from app.api.internal_analysis import build_router
 from app.model_runtime import MedGemmaRuntime, ModelUnavailableError
 from app.services.report_analysis_service import ReportAnalysisService
+from app.services.doctor_support_routing_service import DoctorSupportRoutingService
 
 runtime = MedGemmaRuntime()
 analysis_service = ReportAnalysisService(runtime)
+doctor_support_service = DoctorSupportRoutingService(runtime)
 
 app = FastAPI(title="Clinora AI Service", version="0.2.0")
-app.include_router(build_router(analysis_service))
+app.include_router(build_router(analysis_service, doctor_support_service))
 
 
 @app.get("/health")

@@ -42,6 +42,64 @@ public class MedGemmaClient {
         return response;
     }
 
+    public DoctorSupportRoutingResponse routeDoctorSupport(DoctorSupportRoutingRequest request) {
+        DoctorSupportRoutingResponse response = client.post()
+            .uri("/internal/v1/doctor-support/route")
+            .header("X-Clinora-Internal-Token", internalToken)
+            .body(request)
+            .retrieve()
+            .body(DoctorSupportRoutingResponse.class);
+        if (response == null) {
+            throw new IllegalStateException("AI service returned an empty routing response.");
+        }
+        return response;
+    }
+
+    public record DoctorSupportRoutingRequest(
+        UUID requestId,
+        String doctorMessage,
+        DoctorSupportMinimalContext context,
+        List<DoctorSupportTaskCatalogEntry> taskCatalog
+    ) {}
+
+    public record DoctorSupportMinimalContext(
+        String contextType,
+        String currentScreen,
+        String currentReportType,
+        int selectedReportCount,
+        int selectedObservationCount,
+        boolean doctorAssessmentPresent,
+        boolean doctorNotesPresent,
+        boolean comparableAuthorizedReportsAvailable,
+        String selectionType
+    ) {}
+
+    public record DoctorSupportTaskCatalogEntry(
+        String taskId,
+        String purpose,
+        String routingDescription,
+        List<String> exampleUtterances
+    ) {
+        public DoctorSupportTaskCatalogEntry {
+            exampleUtterances = exampleUtterances == null ? List.of() : List.copyOf(exampleUtterances);
+        }
+    }
+
+    public record DoctorSupportRoutingResponse(
+        String status,
+        List<String> taskIds,
+        List<String> clarificationOptionTaskIds,
+        String promptVersion,
+        String schemaVersion
+    ) {
+        public DoctorSupportRoutingResponse {
+            taskIds = taskIds == null ? List.of() : List.copyOf(taskIds);
+            clarificationOptionTaskIds = clarificationOptionTaskIds == null
+                ? List.of()
+                : List.copyOf(clarificationOptionTaskIds);
+        }
+    }
+
     public record AnalysisInputSnapshot(String reportType, List<ClinicalObservation> observations) {
         public AnalysisInputSnapshot {
             observations = observations == null ? List.of() : List.copyOf(observations);
