@@ -1,6 +1,7 @@
 package com.clinora.doctors.support;
 
 import com.clinora.doctors.api.DoctorApiException;
+import com.clinora.ai.client.DoctorRouterException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -89,6 +90,23 @@ public class DoctorSupportRoutingService {
         DoctorSupportSemanticRouter.SemanticDecision semantic;
         try {
             semantic = semanticRouter.route(message, context, registry.all());
+        } catch (DoctorRouterException exception) {
+            if (exception.clarificationSafe()) return ambiguous(context, List.of());
+            throw new DoctorApiException(
+                switch (exception.category()) {
+                    case ROUTER_MODEL_BUSY -> HttpStatus.TOO_MANY_REQUESTS;
+                    case ROUTER_TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+                    case ROUTER_INVALID_RESPONSE -> HttpStatus.BAD_GATEWAY;
+                    default -> HttpStatus.SERVICE_UNAVAILABLE;
+                },
+                exception.category().name(),
+                switch (exception.category()) {
+                    case ROUTER_MODEL_BUSY -> "Clinora is busy. Please try again shortly.";
+                    case ROUTER_TIMEOUT -> "Clinora took too long to respond. Please try again.";
+                    case ROUTER_INVALID_RESPONSE -> "Clinora could not safely understand this request. Please choose an operation.";
+                    default -> "Clinora routing is temporarily unavailable.";
+                }
+            );
         } catch (RestClientException exception) {
             throw new DoctorApiException(
                 HttpStatus.SERVICE_UNAVAILABLE,
@@ -188,8 +206,8 @@ public class DoctorSupportRoutingService {
             : registry.ordered(proposedOptions);
         List<DoctorSupportTask> contextual = candidates.stream()
             .filter(task -> registry.require(task).requiredContext().stream().allMatch(required -> has(required, context)))
-            .filter(task -> task != DoctorSupportTask.BRIEF_PATIENT && task != DoctorSupportTask.STRUCTURE_NOTES)
-            .limit(4)
+            .filter(task -> task != DoctorSupportTask.STRUCTURE_NOTES)
+            .limit(5)
             .toList();
         if (contextual.isEmpty()) {
             contextual = List.of(DoctorSupportTask.BRIEF_PATIENT);

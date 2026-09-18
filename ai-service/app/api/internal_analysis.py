@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import time
 
 from fastapi import APIRouter, Header, HTTPException, status
 
-from app.model_runtime import MalformedModelResponseError, ModelCapacityError, ModelUnavailableError
+from app.model_runtime import MalformedModelResponseError, ModelCapacityError, ModelUnavailableError, ModelTimeoutError
 from app.schemas.report_analysis import ReportAnalysisRequest, ReportAnalysisResponse
 from app.services.report_analysis_service import InvalidModelOutputError, ReportAnalysisService, UnsafeModelOutputError
 from app.schemas.doctor_support import DoctorSupportRoutingDecision, DoctorSupportRoutingRequest
@@ -79,24 +80,34 @@ def build_router(
             request: DoctorSupportRoutingRequest,
             x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
         ) -> DoctorSupportRoutingDecision:
-            _authorize(x_clinora_internal_token)
+            started = time.perf_counter()
+
+            def failure(http_status: int, category: str, reason: str) -> HTTPException:
+                LOGGER.warning(
+                    "doctor_router_failure request_id=%s category=%s downstream_status=%d "
+                    "duration_ms=%d endpoint=/internal/v1/doctor-support/route reason=%s",
+                    request.requestId, category, http_status, round((time.perf_counter() - started) * 1000), reason,
+                )
+                return HTTPException(status_code=http_status, detail={
+                    "errorCode": category, "reasonCode": reason, "requestId": str(request.requestId),
+                })
+
+            try:
+                _authorize(x_clinora_internal_token)
+            except HTTPException as exc:
+                raise failure(401, "ROUTER_AUTH_CONFIGURATION_ERROR", "INTERNAL_AUTH_FAILED") from exc
             try:
                 return doctor_support_service.route(request)
             except ModelCapacityError as exc:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is busy.") from exc
+                raise failure(429, "ROUTER_MODEL_BUSY", "MODEL_CAPACITY") from exc
+            except ModelTimeoutError as exc:
+                raise failure(504, "ROUTER_TIMEOUT", "MODEL_TIMEOUT") from exc
             except ModelUnavailableError as exc:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is unavailable.") from exc
-            except (InvalidRouterOutputError, MalformedModelResponseError) as exc:
-                LOGGER.warning(
-                    "Doctor support router output rejected for request %s: type=%s reason=%s",
-                    request.requestId,
-                    exc.__class__.__name__,
-                    getattr(exc, "reason_code", "UNKNOWN_REJECTION"),
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="The routing response did not pass Clinora validation.",
-                ) from exc
+                raise failure(503, "ROUTER_MODEL_UNAVAILABLE", "MODEL_UNAVAILABLE") from exc
+            except InvalidRouterOutputError as exc:
+                raise failure(502, "ROUTER_INVALID_RESPONSE", exc.reason_code) from exc
+            except MalformedModelResponseError as exc:
+                raise failure(502, "ROUTER_INVALID_RESPONSE", "MALFORMED_LLAMA_ENVELOPE") from exc
 
     if doctor_query_interpreter_service is not None:
         @router.post("/doctor-support/interpret", response_model=DoctorQueryInterpretationResponse)

@@ -1,6 +1,8 @@
 package com.clinora.ai.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.SocketTimeoutException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
@@ -9,9 +11,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static com.clinora.ai.client.DoctorRouterException.Category.*;
 
 @Component
 public class MedGemmaClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MedGemmaClient.class);
+    private static final String ROUTER_ENDPOINT = "/internal/v1/doctor-support/route";
 
     private final RestClient client;
     private final String internalToken;
@@ -44,16 +54,63 @@ public class MedGemmaClient {
     }
 
     public DoctorSupportRoutingResponse routeDoctorSupport(DoctorSupportRoutingRequest request) {
-        DoctorSupportRoutingResponse response = client.post()
-            .uri("/internal/v1/doctor-support/route")
-            .header("X-Clinora-Internal-Token", internalToken)
-            .body(request)
-            .retrieve()
-            .body(DoctorSupportRoutingResponse.class);
-        if (response == null) {
-            throw new IllegalStateException("AI service returned an empty routing response.");
+        long started = System.nanoTime();
+        try {
+            DoctorSupportRoutingResponse response = client.post()
+                .uri(ROUTER_ENDPOINT)
+                .header("X-Clinora-Internal-Token", internalToken)
+                .body(request)
+                .retrieve()
+                .body(DoctorSupportRoutingResponse.class);
+            if (response == null || response.status() == null
+                || !List.of("ROUTED", "CLARIFICATION_REQUIRED", "UNSUPPORTED").contains(response.status())) {
+                throw routerFailure(request, started, 200, ROUTER_INVALID_RESPONSE, false, "MALFORMED_SERVICE_RESPONSE");
+            }
+            LOGGER.info("doctor_router request_id={} endpoint={} downstream_status=200 duration_ms={} category=SUCCESS",
+                request.requestId(), ROUTER_ENDPOINT, (System.nanoTime() - started) / 1_000_000);
+            return response;
+        } catch (RestClientResponseException exception) {
+            int status = exception.getStatusCode().value();
+            JsonNode detail = null;
+            try {
+                detail = new ObjectMapper().readTree(exception.getResponseBodyAsByteArray()).path("detail");
+            } catch (Exception ignored) {
+                // Never log the body or parser exception: either may contain sensitive data.
+            }
+            String code = detail == null ? "" : detail.path("errorCode").asText("");
+            String reason = detail == null ? "" : detail.path("reasonCode").asText("");
+            var category = switch (status) {
+                case 401, 403 -> ROUTER_AUTH_CONFIGURATION_ERROR;
+                case 429 -> ROUTER_MODEL_BUSY;
+                case 408, 504 -> ROUTER_TIMEOUT;
+                case 503 -> "ROUTER_MODEL_UNAVAILABLE".equals(code) ? ROUTER_MODEL_UNAVAILABLE : ROUTER_SERVICE_UNAVAILABLE;
+                case 502 -> "ROUTER_INVALID_RESPONSE".equals(code) ? ROUTER_INVALID_RESPONSE : ROUTER_SERVICE_UNAVAILABLE;
+                default -> ROUTER_SERVICE_UNAVAILABLE;
+            };
+            boolean clarificationSafe = status == 502 && category == ROUTER_INVALID_RESPONSE
+                && List.of("INVALID_ROUTER_CONTRACT", "UNKNOWN_ROUTER_TASK").contains(reason);
+            String safeReason = clarificationSafe ? "INVALID_ROUTER_CONTRACT"
+                : category == ROUTER_INVALID_RESPONSE ? "MALFORMED_OR_TRUNCATED_ROUTER_RESPONSE" : "DOWNSTREAM_HTTP_ERROR";
+            throw routerFailure(request, started, status, category, clarificationSafe, safeReason);
+        } catch (ResourceAccessException exception) {
+            boolean timeout = false;
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof SocketTimeoutException) { timeout = true; break; }
+            }
+            throw routerFailure(request, started, 0, timeout ? ROUTER_TIMEOUT : ROUTER_CONNECTION_FAILURE,
+                false, timeout ? "HTTP_TIMEOUT" : "CONNECTION_FAILED");
+        } catch (DoctorRouterException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            throw routerFailure(request, started, 200, ROUTER_INVALID_RESPONSE, false, "MALFORMED_SERVICE_RESPONSE");
         }
-        return response;
+    }
+
+    private DoctorRouterException routerFailure(DoctorSupportRoutingRequest request, long started, int status,
+        DoctorRouterException.Category category, boolean clarificationSafe, String reason) {
+        LOGGER.warn("doctor_router request_id={} endpoint={} downstream_status={} duration_ms={} category={} reason={}",
+            request.requestId(), ROUTER_ENDPOINT, status, (System.nanoTime() - started) / 1_000_000, category, reason);
+        return new DoctorRouterException(category, clarificationSafe);
     }
 
     public DoctorQueryInterpretationResponse interpretDoctorQuery(DoctorQueryInterpretationRequest request) {

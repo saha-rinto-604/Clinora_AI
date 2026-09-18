@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import logging
+import time
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -34,6 +36,7 @@ from app.schemas.doctor_support_execution import (
 )
 from app.services.doctor_support_grounding import UnsafeDoctorSupportOutputError, validate_grounding
 
+LOGGER = logging.getLogger(__name__)
 
 class InvalidDoctorSupportOutputError(RuntimeError):
     def __init__(self, reason_code: str) -> None:
@@ -78,6 +81,8 @@ class DoctorSupportExecutionService:
         metadata = self._runtime.metadata
         try:
             result = self._generate_with_one_structural_repair(request, model, prompt, retrieval)
+            result = self._normalize_connect_evidence(result, model, request, retrieval)
+            result = self._normalize_brief_patient(result, model, request)
             validate_grounding(result, request.evidenceSnapshot, retrieval.chunks, request.doctorNotes, request.appointmentContext)
             cited_ids = self._cited_chunk_ids(result.model_dump(mode="json"))
             chunks_by_id = {item.chunk.chunk_id: item.chunk for item in retrieval.chunks}
@@ -104,7 +109,7 @@ class DoctorSupportExecutionService:
         schema = adapter.json_schema()
         self._constrain_reference_ids(schema, [item.chunk.chunk_id for item in retrieval.chunks])
         messages = prompt.build_messages(request, retrieval.chunks)
-        generation = self._runtime.generate(messages, response_schema=schema)
+        generation = self._generate_measured(request, messages, schema, "initial")
         try:
             return adapter.validate_python(json.loads(generation.content))
         except (json.JSONDecodeError, ValidationError):
@@ -112,11 +117,141 @@ class DoctorSupportExecutionService:
                 {"role": "assistant", "content": generation.content},
                 {"role": "user", "content": "Repair only the JSON structure to match the schema. Do not add facts or change evidence or reference IDs."},
             ]
-            repaired = self._runtime.generate(repair_messages, response_schema=schema)
+            repaired = self._generate_measured(request, repair_messages, schema, "structural_repair")
             try:
                 return adapter.validate_python(json.loads(repaired.content))
             except (json.JSONDecodeError, ValidationError) as exc:
                 raise InvalidDoctorSupportOutputError("INVALID_CONTRACT_AFTER_REPAIR") from exc
+
+    def _generate_measured(self, request, messages, schema, attempt):
+        started = time.perf_counter()
+        generation = self._runtime.generate(messages, response_schema=schema)
+        LOGGER.info(
+            "doctor_execution_generation request_id=%s endpoint=/internal/v1/doctor-support/execute "
+            "attempt=%s duration_ms=%d prompt_tokens=%s completion_tokens=%s finish_reason=%s",
+            request.executionId, attempt, round((time.perf_counter() - started) * 1000),
+            generation.prompt_tokens, generation.completion_tokens,
+            generation.finish_reason if generation.finish_reason in {"stop", "length"} else "other",
+        )
+        return generation
+
+    @staticmethod
+    def _normalize_connect_evidence(result, model, request, retrieval):
+        if result.taskId != "CONNECT_EVIDENCE":
+            return result
+        payload = result.model_dump(mode="json")
+        normalized = False
+        valid_patterns = []
+        for pattern in payload["patterns"]:
+            unique = []
+            by_id = {}
+            for reference in pattern["evidence"]:
+                observation_id = reference["observationId"]
+                previous = by_id.get(observation_id)
+                if previous is None:
+                    by_id[observation_id] = reference
+                    unique.append(reference)
+                elif previous != reference:
+                    LOGGER.info("doctor_execution_rejection category=conflicting_duplicate_connect_evidence")
+                    raise InvalidDoctorSupportOutputError("DUPLICATE_EVIDENCE_ID")
+                else:
+                    normalized = True
+            if len(unique) < 2:
+                LOGGER.info(
+                    "doctor_execution_rejection category=insufficient_distinct_connect_evidence total=%d unique=%d",
+                    len(pattern["evidence"]), len(unique),
+                )
+                normalized = True
+                continue
+            pattern["evidence"] = unique
+            valid_patterns.append(pattern)
+        grounded_patterns = []
+        for pattern in valid_patterns:
+            candidate_payload = {
+                **payload,
+                "summary": "The authorized findings can be reviewed together.",
+                "patterns": [pattern],
+                "limitations": [],
+                "summaryReferenceChunkIds": [],
+            }
+            candidate = model.model_validate(candidate_payload)
+            try:
+                validate_grounding(
+                    candidate, request.evidenceSnapshot, retrieval.chunks,
+                    request.doctorNotes, request.appointmentContext,
+                )
+                grounded_patterns.append(pattern)
+            except UnsafeDoctorSupportOutputError as exc:
+                normalized = True
+                LOGGER.info(
+                    "doctor_execution_normalization category=discarded_unsafe_connect_pattern reason=%s",
+                    exc.reason_code,
+                )
+        valid_patterns = grounded_patterns
+        if normalized:
+            payload["patterns"] = valid_patterns
+            payload["summary"] = "The authorized findings can be reviewed together."
+            payload["limitations"] = []
+            payload["summaryReferenceChunkIds"] = []
+            if not valid_patterns:
+                payload["summary"] = (
+                    "Clinora could not support a relationship using at least two distinct authorized observations."
+                )
+                limitation = "No model-proposed relationship contained two distinct authorized observations."
+                payload["limitations"] = [limitation]
+            LOGGER.info("doctor_execution_normalization category=connect_evidence_reference_deduplication")
+            return model.model_validate(payload)
+        return result
+
+    @staticmethod
+    def _normalize_brief_patient(result, model, request):
+        if result.taskId != "BRIEF_PATIENT":
+            return result
+        payload = result.model_dump(mode="json")
+        payload["summary"] = "Authorized appointment context and verified evidence are available for review."
+        payload["appointmentReason"] = request.appointmentContext.get("reason")
+        authorized = {str(item.observationId): item for item in request.evidenceSnapshot.observations}
+        highlights = []
+        seen = set()
+        for reference in payload["evidenceHighlights"]:
+            observation_id = reference["observationId"]
+            observation = authorized.get(observation_id)
+            if observation is not None and observation.label == reference["label"] and observation_id not in seen:
+                highlights.append(reference)
+                seen.add(observation_id)
+            else:
+                LOGGER.info("doctor_execution_normalization category=discarded_invalid_brief_highlight")
+        payload["evidenceHighlights"] = highlights
+        grounded_chronology = []
+        discarded_chronology = False
+        for chronology in payload["chronology"]:
+            candidate_payload = {
+                **payload,
+                "chronology": [chronology],
+                "openQuestions": [],
+                "limitations": [],
+            }
+            candidate = model.model_validate(candidate_payload)
+            try:
+                validate_grounding(
+                    candidate, request.evidenceSnapshot, (),
+                    request.doctorNotes, request.appointmentContext,
+                )
+                grounded_chronology.append(chronology)
+            except UnsafeDoctorSupportOutputError as exc:
+                discarded_chronology = True
+                LOGGER.info(
+                    "doctor_execution_normalization category=discarded_unsafe_brief_chronology reason=%s",
+                    exc.reason_code,
+                )
+        payload["chronology"] = grounded_chronology
+        payload["openQuestions"] = []
+        payload["limitations"] = (
+            ["Model-proposed chronology that was not supported by authorized evidence was omitted."]
+            if discarded_chronology else []
+        )
+        LOGGER.info("doctor_execution_normalization category=brief_evidence_scoped_prose")
+        return model.model_validate(payload)
 
     def _failed(self, task_id, prompt, code, rag_policy="DISABLED", retrieval=None):
         metadata = self._runtime.metadata

@@ -12,6 +12,7 @@ from app.model_runtime import (
     MedGemmaRuntime,
     ModelCapacityError,
     ModelUnavailableError,
+    ModelTimeoutError,
 )
 
 
@@ -122,11 +123,11 @@ class MedGemmaRuntimeTests(unittest.TestCase):
 
         self.assertEqual(observed_request["max_tokens"], 192)
 
-    def test_generate_maps_timeout_to_controlled_unavailable_state(self) -> None:
+    def test_generate_maps_timeout_to_distinct_controlled_timeout_state(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             raise httpx.ReadTimeout("timed out", request=request)
 
-        with self.assertRaises(ModelUnavailableError):
+        with self.assertRaises(ModelTimeoutError):
             self.runtime(handler).generate([{"role": "user", "content": "safe prompt"}])
 
     def test_generate_maps_busy_server_to_capacity_state(self) -> None:

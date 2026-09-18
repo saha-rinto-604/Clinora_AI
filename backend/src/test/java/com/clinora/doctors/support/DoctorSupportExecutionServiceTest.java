@@ -12,6 +12,7 @@ import static org.mockito.Mockito.times;
 import com.clinora.ai.client.MedGemmaClient;
 import com.clinora.doctors.api.DoctorApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.NullNode;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -84,6 +85,26 @@ class DoctorSupportExecutionServiceTest {
         assertEquals(DoctorSupportTaskExecutionStatus.FAILED_SAFE, response.taskResults().get(0).status());
         assertEquals(DoctorSupportTaskExecutionStatus.SUCCEEDED, response.taskResults().get(1).status());
         assertEquals("snapshot", response.taskResults().get(1).provenance().evidenceSnapshotHash());
+    }
+
+    @Test
+    void jsonNullFailedSafeResultIsAcceptedAsAbsentResult() {
+        var request = request(List.of(DoctorSupportTask.BRIEF_PATIENT), null, "json-null");
+        when(assembler.assemble(doctorId, appointmentId, request)).thenReturn(assembly(true));
+        DoctorSupportTaskSpec spec = new DoctorSupportTaskRegistry().require(DoctorSupportTask.BRIEF_PATIENT);
+        when(ai.executeDoctorSupport(any())).thenReturn(new MedGemmaClient.DoctorSupportExecutionResponse(List.of(
+            new MedGemmaClient.DoctorSupportTaskExecutionResponse(
+                "BRIEF_PATIENT", "FAILED_SAFE", NullNode.getInstance(), "UNKNOWN_OBSERVATION_ID",
+                "medgemma", "main", "Q4_0", spec.promptVersion(), spec.responseSchemaVersion(), "REJECTED",
+                false, spec.ragPolicy().name(), "NOT_REQUIRED", null, List.of(), List.of(), 0L, List.of()
+            )
+        )));
+
+        DoctorSupportExecutionResponse response = service.execute(doctorId, appointmentId, request);
+
+        assertEquals(DoctorSupportExecutionStatus.FAILED_SAFE, response.status());
+        assertEquals(DoctorSupportTaskExecutionStatus.FAILED_SAFE, response.taskResults().getFirst().status());
+        assertEquals("UNKNOWN_OBSERVATION_ID", response.taskResults().getFirst().safeFailureCode());
     }
 
     @Test

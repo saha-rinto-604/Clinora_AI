@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 import re
 
 from app.knowledge.models import RetrievedChunk
 from app.schemas.doctor_support_execution import EvidenceSnapshot, TaskResult
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class UnsafeDoctorSupportOutputError(RuntimeError):
@@ -19,7 +23,8 @@ _INVENTED_HISTORY = re.compile(r"\b(patient (?:reports|denies|presents with)|his
 _CAUSAL_FACT = re.compile(r"\b(caused by|is due to|proves that|demonstrates that)\b", re.I)
 _DOCTOR_VERDICT = re.compile(r"\b(?:the )?doctor(?:'s assessment)? is (?:correct|wrong)\b", re.I)
 _DIRECTION_VALUE_JUDGMENT = re.compile(r"\b(improving|worsening|recovering|deteriorating|treatment (?:is )?working|treatment failure)\b", re.I)
-_DEFINITIVE_DIAGNOSIS = re.compile(r"\b(patient has|patient suffers from|diagnosis is|establishes? (?:a |the )?diagnosis)\b", re.I)
+_DEFINITIVE_DIAGNOSIS = re.compile(r"\b(patient suffers from|diagnosis is|establishes? (?:a |the )?diagnosis)\b", re.I)
+_PATIENT_HAS = re.compile(r"\bpatient has\b", re.I)
 _IMPERATIVE_ORDER = re.compile(r"\b(must order|required test|order (?:a |an |the )?)\b", re.I)
 _INVENTED_LINK = re.compile(r"https?://|www\.", re.I)
 _REFERENCE_ATTRIBUTION = re.compile(r"\b(guidelines?|references?|published sources?|literature) (?:indicate|suggest|recommend|state|show)", re.I)
@@ -30,7 +35,12 @@ def validate_grounding(
     doctor_notes: str | None = None, appointment_context: dict | None = None,
 ) -> None:
     dumped = result.model_dump(mode="json")
-    text = " ".join(_strings(dumped))
+    policy_dump = dumped
+    if dumped.get("taskId") == "BRIEF_PATIENT":
+        # appointmentReason is an exact server-authorized pass-through field,
+        # validated below. Do not mistake its source wording for a model claim.
+        policy_dump = {**dumped, "appointmentReason": None}
+    text = " ".join(_strings(policy_dump))
     claim_text = " ".join(_claim_strings(dumped))
     if _TREATMENT.search(text):
         raise UnsafeDoctorSupportOutputError("TREATMENT_OR_DOSE")
@@ -44,7 +54,13 @@ def validate_grounding(
         raise UnsafeDoctorSupportOutputError("HYPOTHESIS_AS_FACT")
     if _DOCTOR_VERDICT.search(text):
         raise UnsafeDoctorSupportOutputError("DOCTOR_CORRECTNESS_VERDICT")
-    if _DEFINITIVE_DIAGNOSIS.search(text):
+    explicit_diagnosis = _DEFINITIVE_DIAGNOSIS.search(text)
+    unsupported_patient_has = _has_unsupported_patient_has_claim(text, evidence)
+    if explicit_diagnosis or unsupported_patient_has:
+        LOGGER.info(
+            "doctor_grounding_rejection category=definitive_diagnosis syntax=%s",
+            "explicit_diagnosis" if explicit_diagnosis else "unsupported_patient_has",
+        )
         raise UnsafeDoctorSupportOutputError("DEFINITIVE_DIAGNOSIS")
     if dumped.get("taskId") == "COMPARE_EVIDENCE" and _DIRECTION_VALUE_JUDGMENT.search(text):
         raise UnsafeDoctorSupportOutputError("UNSUPPORTED_IMPROVEMENT_JUDGMENT")
@@ -153,6 +169,22 @@ def _validate_structured_notes(dumped, doctor_notes):
         raise UnsafeDoctorSupportOutputError("NOTES_UNCERTAINTY_INCREASED")
 
 
+def _has_unsupported_patient_has_claim(text, evidence):
+    labels = tuple(item.label for item in evidence.observations)
+    for match in _PATIENT_HAS.finditer(text):
+        # A short clause such as "patient has low MCV" may restate an
+        # authorized finding. Other "patient has" claims remain prohibited.
+        clause = re.split(r"[.;\n]", text[match.end():match.end() + 160], maxsplit=1)[0]
+        if not any(re.search(rf"\b{re.escape(label)}\b", clause, re.I) for label in labels):
+            LOGGER.info(
+                "doctor_grounding_patient_has_features status_term=%s evidence_term=%s",
+                bool(re.search(r"\b(low|high|in[- ]?range|normal|positive|negative|elevated|reduced)\b", clause, re.I)),
+                bool(re.search(r"\b(finding|findings|observation|observations|result|results|value|values|index|indices|pattern)\b", clause, re.I)),
+            )
+            return True
+    return False
+
+
 def _validate_observation_claims(text, observation, all_observations):
     windows = re.findall(re.escape(observation.label) + r".{0,90}", text, re.I)
     if not windows:
@@ -167,8 +199,24 @@ def _validate_observation_claims(text, observation, all_observations):
     related = [item for item in all_observations if item.label == observation.label]
     statuses = {item.authoritativeStatus for item in related}
     conflict = status_conflicts.get(observation.authoritativeStatus) if len(statuses) == 1 else None
-    if conflict and any(re.search(conflict, window, re.I) for window in windows):
-        raise UnsafeDoctorSupportOutputError("OBSERVATION_STATUS_CHANGED")
+    if conflict:
+        label = re.escape(observation.label)
+        # Associate a status with its label instead of scanning an entire prose
+        # window. In multi-finding sentences, a later finding's status must not
+        # be attributed to the earlier label (for example, "low MCV with normal RBC").
+        before = rf"(?:{conflict})\s+(?:value\s+)?{label}\b"
+        after = (
+            rf"\b{label}\b\s+(?:(?:is|was|were|remains?|appears?|reported(?:\s+as)?|"
+            rf"value\s+(?:is|was)|level\s+(?:is|was))\s+)?(?:{conflict})"
+        )
+        before_match = re.search(before, text, re.I)
+        after_match = re.search(after, text, re.I)
+        if before_match or after_match:
+            LOGGER.info(
+                "doctor_grounding_rejection category=observation_status_changed association=%s",
+                "before_label" if before_match else "after_label",
+            )
+            raise UnsafeDoctorSupportOutputError("OBSERVATION_STATUS_CHANGED")
     allowed_numbers = {
         float(value)
         for item in related
@@ -206,7 +254,7 @@ def _claim_strings(value):
             return
         ignored = {
             "taskId", "observationId", "reportId", "canonicalCode", "referenceChunkIds",
-            "summaryReferenceChunkIds", "sourceId", "documentId", "chunkId",
+            "summaryReferenceChunkIds", "sourceId", "documentId", "chunkId", "appointmentReason",
         }
         for key, item in value.items():
             if key not in ignored:

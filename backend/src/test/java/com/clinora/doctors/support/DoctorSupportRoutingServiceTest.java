@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.clinora.doctors.api.DoctorApiException;
+import com.clinora.ai.client.DoctorRouterException;
+import org.junit.jupiter.params.provider.EnumSource;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -71,15 +73,16 @@ class DoctorSupportRoutingServiceTest {
         );
     }
 
-    @Test
-    void explicitUiActionRoutesWithoutCallingModel() {
+    @ParameterizedTest
+    @EnumSource(DoctorSupportTask.class)
+    void explicitUiActionRoutesWithoutCallingModel(DoctorSupportTask task) {
         DoctorSupportRoutingRequest request = new DoctorSupportRoutingRequest(
-            "Please do this.", DoctorSupportTask.COMPARE_EVIDENCE, DoctorSupportScreen.REPORT_REVIEW,
+            "Please do this.", task, DoctorSupportScreen.REPORT_REVIEW,
             reportId, List.of(), List.of(), true, true
         );
         when(contexts.build(doctorId, appointmentId, request)).thenReturn(fullContext());
 
-        assertEquals(List.of(DoctorSupportTask.COMPARE_EVIDENCE), service.route(doctorId, appointmentId, request).taskIds());
+        assertEquals(List.of(task), service.route(doctorId, appointmentId, request).taskIds());
         verifyNoInteractions(semantic);
     }
 
@@ -108,7 +111,7 @@ class DoctorSupportRoutingServiceTest {
         assertEquals(DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED, result.status());
         assertEquals(DoctorSupportClarificationReason.AMBIGUOUS_INTENT, result.clarificationReason());
         assertEquals(List.of(), result.taskIds());
-        assertEquals(4, result.clarificationOptions().size());
+        assertEquals(5, result.clarificationOptions().size());
         verifyNoInteractions(semantic);
     }
 
@@ -202,6 +205,52 @@ class DoctorSupportRoutingServiceTest {
             );
             assertEquals("CLINICAL_SUPPORT_ROUTER_INVALID", exception.getErrorCode());
         }
+    }
+
+    @Test
+    void controlledInvalidContractFallsBackToNonExecutingContextualChoices() {
+        var request = request("what do you think about the reports?");
+        when(contexts.build(doctorId, appointmentId, request)).thenReturn(fullContext());
+        when(semantic.route(request.message(), fullContext(), new DoctorSupportTaskRegistry().all()))
+            .thenThrow(new DoctorRouterException(DoctorRouterException.Category.ROUTER_INVALID_RESPONSE, true));
+        var result = service.route(doctorId, appointmentId, request);
+        assertEquals(DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED, result.status());
+        assertEquals(List.of(), result.taskIds());
+        assertEquals(1, result.referencedContext().authorizedReportCount());
+        org.junit.jupiter.api.Assertions.assertFalse(result.clarificationOptions().isEmpty());
+    }
+
+    @Test
+    void successfulSemanticClarificationNeverContainsExecutableTasks() {
+        var request = request("what do you think about the reports?");
+        when(contexts.build(doctorId, appointmentId, request)).thenReturn(fullContext());
+        when(semantic.route(request.message(), fullContext(), new DoctorSupportTaskRegistry().all()))
+            .thenReturn(new DoctorSupportSemanticRouter.SemanticDecision(
+                DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED, List.of(), List.of("BRIEF_PATIENT", "CONNECT_EVIDENCE")));
+        var result = service.route(doctorId, appointmentId, request);
+        assertEquals(DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED, result.status());
+        assertEquals(List.of(), result.taskIds());
+        assertEquals(2, result.clarificationOptions().size());
+    }
+
+    @ParameterizedTest
+    @EnumSource(DoctorRouterException.Category.class)
+    void genuineFailuresDoNotPretendToBeSuccessfulRouting(DoctorRouterException.Category category) {
+        var request = request("Please inspect the available evidence.");
+        when(contexts.build(doctorId, appointmentId, request)).thenReturn(fullContext());
+        when(semantic.route(request.message(), fullContext(), new DoctorSupportTaskRegistry().all()))
+            .thenThrow(new DoctorRouterException(category, false));
+        var error = assertThrows(DoctorApiException.class, () -> service.route(doctorId, appointmentId, request));
+        assertEquals(category.name(), error.getErrorCode());
+    }
+
+    @Test
+    void authorizationFailureStopsBeforeSemanticRouting() {
+        var request = request("Please inspect the available evidence.");
+        when(contexts.build(doctorId, appointmentId, request)).thenThrow(
+            new DoctorApiException(org.springframework.http.HttpStatus.NOT_FOUND, "NOT_AUTHORIZED", "Unavailable"));
+        assertThrows(DoctorApiException.class, () -> service.route(doctorId, appointmentId, request));
+        verifyNoInteractions(semantic);
     }
 
     private DoctorSupportRoutingRequest request(String message) {

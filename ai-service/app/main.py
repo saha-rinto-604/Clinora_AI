@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, status
@@ -14,6 +15,8 @@ from app.services.doctor_query_interpreter_service import DoctorQueryInterpreter
 from app.knowledge.embeddings import ClinicalHashEmbeddingProvider
 from app.knowledge.retrieval import ClinicalKnowledgeRetriever
 from app.knowledge.store import SqliteClinicalKnowledgeStore
+
+logging.basicConfig(level=logging.INFO)
 
 runtime = MedGemmaRuntime()
 analysis_service = ReportAnalysisService(runtime)

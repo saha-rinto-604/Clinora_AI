@@ -74,11 +74,15 @@ class DoctorSupportRoutingDecision(StrictModel):
         return self
 
 
-class DoctorSupportModelDecision(StrictModel):
+class DoctorSupportModelObject(StrictModel):
+    """Validate structure before the narrowly scoped non-executing normalization."""
+
     status: RoutingStatus
     taskIds: Annotated[list[str], Field(max_length=8)]
     clarificationOptionTaskIds: Annotated[list[str], Field(max_length=8)]
 
+
+class DoctorSupportModelDecision(DoctorSupportModelObject):
     @model_validator(mode="after")
     def validate_shape(self) -> "DoctorSupportModelDecision":
         DoctorSupportRoutingDecision(
@@ -96,13 +100,23 @@ def router_response_schema(allowed_task_ids: list[str]) -> dict[str, object]:
         "maxItems": len(allowed_task_ids),
         "uniqueItems": True,
     }
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "status": {"type": "string", "enum": [item.value for item in RoutingStatus]},
-            "taskIds": task_array,
-            "clarificationOptionTaskIds": task_array,
-        },
-        "required": ["status", "taskIds", "clarificationOptionTaskIds"],
-    }
+    # llama.cpp supports oneOf with const and bounded arrays. Do not mix
+    # properties and oneOf on the same node. Uniqueness is also checked below
+    # generation by Pydantic, since grammar support for uniqueItems is limited.
+    return {"oneOf": [
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "status": {"const": state.value},
+                "taskIds": {**task_array, "minItems": 1 if state == RoutingStatus.ROUTED else 0,
+                            "maxItems": len(allowed_task_ids) if state == RoutingStatus.ROUTED else 0},
+                "clarificationOptionTaskIds": {
+                    **task_array, "minItems": 1 if state == RoutingStatus.CLARIFICATION_REQUIRED else 0,
+                    "maxItems": len(allowed_task_ids) if state == RoutingStatus.CLARIFICATION_REQUIRED else 0,
+                },
+            },
+            "required": ["status", "taskIds", "clarificationOptionTaskIds"],
+        }
+        for state in RoutingStatus
+    ]}

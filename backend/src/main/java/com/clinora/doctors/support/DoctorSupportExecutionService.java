@@ -16,10 +16,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Synchronous today, with job-compatible IDs/statuses and process-local duplicate suppression. */
 @Service
 public class DoctorSupportExecutionService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DoctorSupportExecutionService.class);
     private static final EnumSet<DoctorSupportTask> EXECUTABLE = EnumSet.allOf(DoctorSupportTask.class);
 
     private final DoctorSupportTaskRegistry registry;
@@ -154,22 +157,12 @@ public class DoctorSupportExecutionService {
                 Set<String> returnedTasks = aiResponse.taskResults().stream()
                     .map(MedGemmaClient.DoctorSupportTaskExecutionResponse::taskId)
                     .collect(java.util.stream.Collectors.toSet());
-                boolean invalidContract = returnedTasks.size() != aiResponse.taskResults().size()
-                    || !returnedTasks.equals(expectedTasks)
-                    || aiResponse.taskResults().stream().anyMatch(item -> {
-                        DoctorSupportTaskSpec spec = registry.require(DoctorSupportTask.valueOf(item.taskId()));
-                        return !("SUCCEEDED".equals(item.status()) || "FAILED_SAFE".equals(item.status()))
-                            || !spec.promptVersion().equals(item.promptVersion())
-                            || !spec.responseSchemaVersion().equals(item.schemaVersion())
-                            || !spec.ragPolicy().name().equals(item.ragPolicy())
-                            || !validRetrievalContract(spec, item)
-                            || ("SUCCEEDED".equals(item.status()) && (item.result() == null
-                                || !item.taskId().equals(item.result().path("taskId").asText())
-                                || !"PASSED".equals(item.groundingStatus()) || item.safeFailureCode() != null))
-                            || ("FAILED_SAFE".equals(item.status())
-                                && (item.result() != null || item.safeFailureCode() == null || item.safeFailureCode().isBlank()));
-                    });
-                if (invalidContract) {
+                String invalidContract = executionContractFailure(expectedTasks, returnedTasks, aiResponse);
+                if (invalidContract != null) {
+                    LOGGER.warn(
+                        "doctor_execution_contract_rejected execution_id={} category={} expected_task_count={} returned_task_count={}",
+                        executionId, invalidContract, expectedTasks.size(), aiResponse.taskResults().size()
+                    );
                     throw new DoctorApiException(HttpStatus.BAD_GATEWAY, "CLINICAL_SUPPORT_EXECUTION_INVALID",
                         "The clinical support response did not pass Clinora validation.");
                 }
@@ -249,6 +242,37 @@ public class DoctorSupportExecutionService {
             || !item.retrievedChunkIds().containsAll(item.citedChunkIds())) return false;
         return item.references().stream().map(MedGemmaClient.ClinicalReference::chunkId).toList()
             .equals(item.citedChunkIds());
+    }
+
+    private String executionContractFailure(
+        Set<String> expectedTasks, Set<String> returnedTasks, MedGemmaClient.DoctorSupportExecutionResponse response
+    ) {
+        if (returnedTasks.size() != response.taskResults().size()) return "DUPLICATE_TASK_RESULT";
+        if (!returnedTasks.equals(expectedTasks)) return "TASK_SET_MISMATCH";
+        for (var item : response.taskResults()) {
+            if (!("SUCCEEDED".equals(item.status()) || "FAILED_SAFE".equals(item.status()))) return "INVALID_STATUS";
+            DoctorSupportTask task;
+            try {
+                task = DoctorSupportTask.valueOf(item.taskId());
+            } catch (RuntimeException exception) {
+                return "UNKNOWN_TASK";
+            }
+            DoctorSupportTaskSpec spec = registry.require(task);
+            if (!spec.promptVersion().equals(item.promptVersion())) return "PROMPT_VERSION_MISMATCH";
+            if (!spec.responseSchemaVersion().equals(item.schemaVersion())) return "SCHEMA_VERSION_MISMATCH";
+            if (!spec.ragPolicy().name().equals(item.ragPolicy())) return "RAG_POLICY_MISMATCH";
+            if (!validRetrievalContract(spec, item)) return "INVALID_RETRIEVAL_CONTRACT";
+            boolean hasResult = item.result() != null && !item.result().isNull();
+            if ("SUCCEEDED".equals(item.status())) {
+                if (!hasResult) return "MISSING_SUCCESS_RESULT";
+                if (!item.taskId().equals(item.result().path("taskId").asText())) return "INNER_TASK_MISMATCH";
+                if (!"PASSED".equals(item.groundingStatus())) return "SUCCESS_NOT_GROUNDED";
+                if (item.safeFailureCode() != null) return "SUCCESS_WITH_FAILURE_CODE";
+            } else if (hasResult || item.safeFailureCode() == null || item.safeFailureCode().isBlank()) {
+                return "INVALID_FAILED_SAFE_RESULT";
+            }
+        }
+        return null;
     }
 
     private List<DoctorSupportExecutionResponse.ClinicalReference> references(

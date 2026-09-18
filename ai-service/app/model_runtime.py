@@ -17,6 +17,10 @@ class ModelUnavailableError(RuntimeError):
     pass
 
 
+class ModelTimeoutError(ModelUnavailableError):
+    pass
+
+
 class ModelCapacityError(RuntimeError):
     pass
 
@@ -239,6 +243,9 @@ class MedGemmaRuntime:
             response.raise_for_status()
         except ModelCapacityError:
             raise
+        except httpx.TimeoutException as exc:
+            self._last_error = exc.__class__.__name__
+            raise ModelTimeoutError("MedGemma inference timed out.") from exc
         except httpx.HTTPError as exc:
             self._ready = False
             self._last_error = exc.__class__.__name__

@@ -10,5 +10,7 @@ def build_messages(request, chunks=()):
         "Prepare a concise encounter briefing. Use only the authorized appointment context and verified evidence. "
         "A single result is a current finding, two reliable dated results may support only a change statement, and "
         "persistence requires at least three reliable dated results. Never use upload time as clinical chronology. "
-        "Do not diagnose or rank diseases. RAG is disabled for this task.",
+        "Do not diagnose or rank diseases. Set summary exactly to 'Authorized appointment context and verified "
+        "evidence are available for review.' Copy appointmentReason exactly from the authorized appointment context. "
+        "Do not use 'patient reports', 'history of', or add symptoms in chronology statements. RAG is disabled for this task.",
     )}]
