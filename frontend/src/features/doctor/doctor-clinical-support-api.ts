@@ -57,8 +57,8 @@ export interface DoctorSupportRoutingDecision {
   missingRequiredContext: DoctorSupportRequiredContext[];
 }
 
-export type DoctorSupportExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL_SUCCESS' | 'FAILED_SAFE';
-export type DoctorSupportTaskExecutionStatus = 'SUCCEEDED' | 'FAILED_SAFE' | 'EVIDENCE_SELECTION_REQUIRED';
+export type DoctorSupportExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'DEGRADED' | 'PARTIAL_SUCCESS' | 'FAILED_SAFE';
+export type DoctorSupportTaskExecutionStatus = 'SUCCEEDED' | 'DEGRADED' | 'FAILED_SAFE' | 'EVIDENCE_SELECTION_REQUIRED';
 export type ExecutableDoctorSupportTaskId = DoctorSupportTaskId;
 
 export interface DoctorSupportExecutionRequest {
@@ -101,6 +101,22 @@ export interface CompareEvidenceResult {
     evidence: DoctorSupportEvidenceReference[];
   }>;
   nonComparable: string[];
+  reportSummaries?: Array<{
+    label: string;
+    reportId: string;
+    reportType: string;
+    clinicalDate: string | null;
+    importantFindings: DoctorSupportEvidenceReference[];
+    existingAnalysis: string[];
+  }>;
+  findingsOnlyInEarlierReport?: DoctorSupportEvidenceReference[];
+  findingsOnlyInLaterReport?: DoctorSupportEvidenceReference[];
+  persistentFindings?: Array<{
+    canonicalCode: string;
+    label: string;
+    evidence: DoctorSupportEvidenceReference[];
+  }>;
+  patternDifferences?: string[];
   limitations: string[];
 }
 
@@ -114,10 +130,11 @@ export interface CrossCheckAssessmentResult {
   summary: string;
   points: Array<{
     statement: string;
-    relation: 'SUPPORTS' | 'CONTRADICTS' | 'UNCERTAIN';
+    relation: 'SUPPORTS' | 'CONTRADICTS' | 'UNCERTAIN' | 'UNRELATED';
     evidence: DoctorSupportEvidenceReference[];
     referenceChunkIds: string[];
   }>;
+  missingInformation: string[];
   alternativeConsiderations: Array<{
     name: string;
     rationale: string;
@@ -146,9 +163,17 @@ export interface FindGapsResult {
 export interface BriefPatientResult {
   taskId: 'BRIEF_PATIENT';
   summary: string;
+  reportCount: number;
+  evidenceCount: number;
+  abnormalCount: number;
   appointmentReason: string | null;
   evidenceHighlights: DoctorSupportEvidenceReference[];
   chronology: Array<{ kind: 'CHANGE' | 'PERSISTENCE'; statement: string; evidence: DoctorSupportEvidenceReference[] }>;
+  clinicalPatterns: Array<{
+    title: string;
+    supportingEvidence: DoctorSupportEvidenceReference[];
+    limitingEvidence: DoctorSupportEvidenceReference[];
+  }>;
   openQuestions: string[];
   limitations: string[];
 }
@@ -157,6 +182,7 @@ export interface ExploreExplanationsResult {
   taskId: 'EXPLORE_EXPLANATIONS';
   summary: string;
   explanations: Array<{
+    clinicalCluster: string;
     name: string;
     whyItMayFit: string;
     supportingEvidence: DoctorSupportEvidenceReference[];
@@ -199,6 +225,7 @@ export interface DoctorSupportProvenance {
   reportIds: string[];
   observationIds: string[];
   evidenceSnapshotHash: string;
+  executionProvider?: 'DETERMINISTIC' | 'GEMINI' | 'MEDGEMMA_SNAPSHOT_FALLBACK';
   modelName: string | null;
   modelRevision: string | null;
   quantization: string | null;
@@ -213,6 +240,25 @@ export interface DoctorSupportProvenance {
   retrievedChunkIds: string[];
   citedChunkIds: string[];
   retrievalDurationMs: number;
+  inferenceDurationMs?: number;
+  repairDurationMs?: number;
+  groundingDurationMs?: number;
+  generationCallCount?: number;
+  providerAttempts?: number;
+  successfulGenerations?: number;
+  reasoningSnapshots?: Array<{
+    snapshotId: string | null;
+    jobId: string | null;
+    reportId: string;
+    evidenceVersion: string | null;
+    status: 'PENDING' | 'RUNNING' | 'READY' | 'STALE' | 'FAILED';
+    modelName: string | null;
+    modelRevision: string | null;
+    promptVersion: string | null;
+    schemaVersion: string | null;
+    generatedAt: string | null;
+  }>;
+  generatedAt?: string;
 }
 
 export interface DoctorSupportClinicalReference {

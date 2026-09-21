@@ -22,7 +22,18 @@ class ModelTimeoutError(ModelUnavailableError):
 
 
 class ModelCapacityError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str = "The model provider is temporarily busy.",
+        *,
+        provider_attempts: int = 1,
+        retry_after_seconds: float | None = None,
+        rate_limit_category: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider_attempts = max(0, provider_attempts)
+        self.retry_after_seconds = retry_after_seconds
+        self.rate_limit_category = rate_limit_category
 
 
 class MalformedModelResponseError(RuntimeError):
@@ -45,6 +56,7 @@ class ModelGeneration:
     finish_reason: str | None
     completion_tokens: int | None
     prompt_tokens: int | None = None
+    provider_attempts: int = 1
 
 
 class VerifiedObservationIds(tuple):

@@ -24,6 +24,7 @@ public class MedGemmaClient {
     private static final String ROUTER_ENDPOINT = "/internal/v1/doctor-support/route";
 
     private final RestClient client;
+    private final RestClient doctorClient;
     private final String internalToken;
 
     public MedGemmaClient(
@@ -31,12 +32,17 @@ public class MedGemmaClient {
         @Value("${clinora.services.ai-url:http://localhost:8001}") String baseUrl,
         @Value("${clinora.services.ai-token:dev-only-clinora-ai-token-change-me}") String internalToken,
         @Value("${clinora.services.ai-connect-timeout-ms:5000}") int connectTimeoutMs,
-        @Value("${clinora.services.ai-read-timeout-ms:240000}") int readTimeoutMs
+        @Value("${clinora.services.ai-read-timeout-ms:240000}") int readTimeoutMs,
+        @Value("${clinora.services.ai-doctor-read-timeout-ms:15000}") int doctorReadTimeoutMs
     ) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofMillis(Math.max(1000L, connectTimeoutMs)));
-        requestFactory.setReadTimeout(Duration.ofMillis(Math.max(30000L, readTimeoutMs)));
-        this.client = builder.requestFactory(requestFactory).baseUrl(baseUrl).build();
+        SimpleClientHttpRequestFactory backgroundRequestFactory = new SimpleClientHttpRequestFactory();
+        backgroundRequestFactory.setConnectTimeout(Duration.ofMillis(Math.max(1000L, connectTimeoutMs)));
+        backgroundRequestFactory.setReadTimeout(Duration.ofMillis(Math.max(30000L, readTimeoutMs)));
+        this.client = builder.clone().requestFactory(backgroundRequestFactory).baseUrl(baseUrl).build();
+        SimpleClientHttpRequestFactory doctorRequestFactory = new SimpleClientHttpRequestFactory();
+        doctorRequestFactory.setConnectTimeout(Duration.ofMillis(Math.max(1000L, Math.min(5000L, connectTimeoutMs))));
+        doctorRequestFactory.setReadTimeout(Duration.ofMillis(Math.max(3000L, Math.min(15000L, doctorReadTimeoutMs))));
+        this.doctorClient = builder.clone().requestFactory(doctorRequestFactory).baseUrl(baseUrl).build();
         this.internalToken = internalToken;
     }
 
@@ -56,7 +62,7 @@ public class MedGemmaClient {
     public DoctorSupportRoutingResponse routeDoctorSupport(DoctorSupportRoutingRequest request) {
         long started = System.nanoTime();
         try {
-            DoctorSupportRoutingResponse response = client.post()
+            DoctorSupportRoutingResponse response = doctorClient.post()
                 .uri(ROUTER_ENDPOINT)
                 .header("X-Clinora-Internal-Token", internalToken)
                 .body(request)
@@ -114,7 +120,7 @@ public class MedGemmaClient {
     }
 
     public DoctorQueryInterpretationResponse interpretDoctorQuery(DoctorQueryInterpretationRequest request) {
-        DoctorQueryInterpretationResponse response = client.post()
+        DoctorQueryInterpretationResponse response = doctorClient.post()
             .uri("/internal/v1/doctor-support/interpret")
             .header("X-Clinora-Internal-Token", internalToken)
             .body(request)
@@ -127,7 +133,7 @@ public class MedGemmaClient {
     }
 
     public DoctorSupportExecutionResponse executeDoctorSupport(DoctorSupportExecutionRequest request) {
-        DoctorSupportExecutionResponse response = client.post()
+        DoctorSupportExecutionResponse response = doctorClient.post()
             .uri("/internal/v1/doctor-support/execute")
             .header("X-Clinora-Internal-Token", internalToken)
             .body(request)
@@ -138,7 +144,7 @@ public class MedGemmaClient {
     }
 
     public ClinicalKnowledgeHealth clinicalKnowledgeHealth() {
-        ClinicalKnowledgeHealth response = client.get()
+        ClinicalKnowledgeHealth response = doctorClient.get()
             .uri("/health/clinical-knowledge")
             .header("X-Clinora-Internal-Token", internalToken)
             .retrieve()
@@ -158,6 +164,7 @@ public class MedGemmaClient {
         String doctorNotes,
         JsonNode appointmentContext,
         JsonNode evidenceSnapshot,
+        JsonNode reasoningSnapshots,
         List<DoctorSupportTaskExecutionRequest> tasks
     ) {}
 
@@ -174,11 +181,33 @@ public class MedGemmaClient {
     public record DoctorSupportTaskExecutionResponse(
         String taskId, String status, JsonNode result, String safeFailureCode,
         String modelName, String modelRevision, String quantization,
-        String promptVersion, String schemaVersion, String groundingStatus,
+        String promptVersion, String schemaVersion, String executionProvider, String groundingStatus,
+        long inferenceDurationMs, long repairDurationMs, long groundingDurationMs, int generationCallCount,
+        int providerAttempts, int successfulGenerations,
         boolean ragUsed, String ragPolicy, String retrievalStatus, String knowledgeIndexVersion,
         List<String> retrievedChunkIds, List<String> citedChunkIds, long retrievalDurationMs,
-        List<ClinicalReference> references
+        List<ClinicalReference> references,
+        String failureStage, String invalidHandle, String invalidType, String invalidField
     ) {
+        public DoctorSupportTaskExecutionResponse(
+            String taskId, String status, JsonNode result, String safeFailureCode,
+            String modelName, String modelRevision, String quantization,
+            String promptVersion, String schemaVersion, String executionProvider, String groundingStatus,
+            long inferenceDurationMs, long repairDurationMs, long groundingDurationMs, int generationCallCount,
+            boolean ragUsed, String ragPolicy, String retrievalStatus, String knowledgeIndexVersion,
+            List<String> retrievedChunkIds, List<String> citedChunkIds, long retrievalDurationMs,
+            List<ClinicalReference> references
+        ) {
+            this(
+                taskId, status, result, safeFailureCode, modelName, modelRevision, quantization,
+                promptVersion, schemaVersion, executionProvider, groundingStatus, inferenceDurationMs,
+                repairDurationMs, groundingDurationMs, generationCallCount,
+                generationCallCount, generationCallCount, ragUsed, ragPolicy,
+                retrievalStatus, knowledgeIndexVersion, retrievedChunkIds, citedChunkIds,
+                retrievalDurationMs, references, null, null, null, null
+            );
+        }
+
         public DoctorSupportTaskExecutionResponse {
             retrievedChunkIds = retrievedChunkIds == null ? List.of() : List.copyOf(retrievedChunkIds);
             citedChunkIds = citedChunkIds == null ? List.of() : List.copyOf(citedChunkIds);

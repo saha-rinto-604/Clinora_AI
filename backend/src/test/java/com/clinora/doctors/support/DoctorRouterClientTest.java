@@ -39,9 +39,10 @@ class DoctorRouterClientTest {
         logger.addAppender(logs);
         var builder = spy(RestClient.builder());
         server = MockRestServiceServer.bindTo(builder).build();
-        // Keep the mock transport when production configures its HTTP timeouts.
+        // Keep the mock transport when production creates independently bounded clients.
+        doReturn(builder).when(builder).clone();
         doReturn(builder).when(builder).requestFactory(any());
-        client = new MedGemmaClient(builder, "http://ai.test", "DO_NOT_LOG_TOKEN", 1000, 30000);
+        client = new MedGemmaClient(builder, "http://ai.test", "DO_NOT_LOG_TOKEN", 1000, 30000, 15000);
     }
 
     @AfterEach

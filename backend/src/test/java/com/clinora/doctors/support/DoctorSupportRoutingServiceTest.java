@@ -52,7 +52,12 @@ class DoctorSupportRoutingServiceTest {
             Arguments.of("Does anything argue against my assessment?", List.of(DoctorSupportTask.CROSS_CHECK_ASSESSMENT)),
             Arguments.of("How are these three values connected?", List.of(DoctorSupportTask.CONNECT_EVIDENCE)),
             Arguments.of("What information are we missing?", List.of(DoctorSupportTask.FIND_GAPS)),
+            Arguments.of("What information do we need?", List.of(DoctorSupportTask.FIND_GAPS)),
             Arguments.of("What could explain this pattern?", List.of(DoctorSupportTask.EXPLORE_EXPLANATIONS)),
+            Arguments.of("What clinical pattern do these findings suggest?", List.of(DoctorSupportTask.EXPLORE_EXPLANATIONS)),
+            Arguments.of("What possible causes should we consider?", List.of(DoctorSupportTask.EXPLORE_EXPLANATIONS)),
+            Arguments.of("Could this be beta-thalassemia trait?", List.of(DoctorSupportTask.CROSS_CHECK_ASSESSMENT)),
+            Arguments.of("Does this support iron deficiency?", List.of(DoctorSupportTask.CROSS_CHECK_ASSESSMENT)),
             Arguments.of("Turn these notes into a structured consultation note.", List.of(DoctorSupportTask.STRUCTURE_NOTES)),
             Arguments.of("Brief me before the visit", List.of(DoctorSupportTask.BRIEF_PATIENT)),
             Arguments.of("Give me a rundown before this encounter", List.of(DoctorSupportTask.BRIEF_PATIENT)),
@@ -62,6 +67,9 @@ class DoctorSupportRoutingServiceTest {
             Arguments.of("What might explain this pattern?", List.of(DoctorSupportTask.EXPLORE_EXPLANATIONS)),
             Arguments.of("Tidy these notes into a consultation note", List.of(DoctorSupportTask.STRUCTURE_NOTES)),
             Arguments.of("What does this positive NS1 result mean in this report?", List.of(DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION)),
+            Arguments.of("What is the latest MCV value?", List.of(DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION)),
+            Arguments.of("What unit and reference range are documented for MCV?", List.of(DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION)),
+            Arguments.of("How many verified findings are available?", List.of(DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION)),
             Arguments.of(
                 "Compare this CBC and check whether my assessment fits.",
                 List.of(DoctorSupportTask.COMPARE_EVIDENCE, DoctorSupportTask.CROSS_CHECK_ASSESSMENT)
@@ -71,6 +79,25 @@ class DoctorSupportRoutingServiceTest {
                 List.of(DoctorSupportTask.COMPARE_EVIDENCE, DoctorSupportTask.FIND_GAPS)
             )
         );
+    }
+
+    @Test
+    void inlineHypothesisSuppliesCrossCheckContextWithoutASeparateAssessmentField() {
+        var request = new DoctorSupportRoutingRequest(
+            "Could this be beta-thalassemia trait?", null, DoctorSupportScreen.REPORT_REVIEW,
+            reportId, List.of(), List.of(), false, false
+        );
+        var context = new DoctorSupportContext(
+            doctorId, appointmentId, DoctorSupportScreen.REPORT_REVIEW, reportId, "CBC",
+            List.of(reportId), List.of(), false, false, true, DoctorSupportSelectionType.REPORT
+        );
+        when(contexts.build(doctorId, appointmentId, request)).thenReturn(context);
+
+        var result = service.route(doctorId, appointmentId, request);
+
+        assertEquals(DoctorSupportRoutingStatus.ROUTED, result.status());
+        assertEquals(List.of(DoctorSupportTask.CROSS_CHECK_ASSESSMENT), result.taskIds());
+        verifyNoInteractions(semantic);
     }
 
     @ParameterizedTest
@@ -144,7 +171,7 @@ class DoctorSupportRoutingServiceTest {
     }
 
     @Test
-    void distinguishesMissingRequiredContextFromAmbiguousIntent() {
+    void compareCanRouteToSideBySideModeWithoutDirectlyComparableObservations() {
         DoctorSupportRoutingRequest request = request("Compare this with the previous one.");
         DoctorSupportContext noPreviousReport = new DoctorSupportContext(
             doctorId, appointmentId, DoctorSupportScreen.REPORT_REVIEW, reportId, "CBC",
@@ -154,9 +181,28 @@ class DoctorSupportRoutingServiceTest {
 
         DoctorSupportRoutingDecision result = service.route(doctorId, appointmentId, request);
 
-        assertEquals(DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED, result.status());
-        assertEquals(DoctorSupportClarificationReason.MISSING_REQUIRED_CONTEXT, result.clarificationReason());
-        assertEquals(List.of(DoctorSupportRequiredContext.COMPARABLE_REPORTS), result.missingRequiredContext());
+        assertEquals(DoctorSupportRoutingStatus.ROUTED, result.status());
+        assertEquals(List.of(DoctorSupportTask.COMPARE_EVIDENCE), result.taskIds());
+        assertEquals(List.of(), result.missingRequiredContext());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+        "what findings can you find?", "List the observations documented here.", "Describe the current abnormalities.",
+        "What is the latest MCV value?", "What unit and reference range are documented for MCV?",
+        "How many verified findings are available?"
+    })
+    void descriptiveFindingsUseDeterministicRoutingWithoutModelCost(String message) {
+        var request = request(message);
+        when(contexts.build(doctorId, appointmentId, request)).thenReturn(fullContext());
+        assertEquals(List.of(DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION),
+            service.route(doctorId, appointmentId, request).taskIds());
+        verifyNoInteractions(semantic);
+        var registry = new DoctorSupportTaskRegistry();
+        org.junit.jupiter.api.Assertions.assertTrue(registry.require(DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION)
+            .routingDescription().contains("existing authorized findings"));
+        org.junit.jupiter.api.Assertions.assertTrue(registry.require(DoctorSupportTask.FIND_GAPS)
+            .routingDescription().contains("Do not use for identifying or describing existing findings"));
     }
 
     @Test

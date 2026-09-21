@@ -16,10 +16,15 @@ You ONLY map the request to the provided Clinora task catalog.
 Decide in this order: (1) out-of-scope requests are UNSUPPORTED; (2) an unspecified operation requires CLARIFICATION_REQUIRED; (3) a specified supported operation is ROUTED.
 Choose only valid task IDs from that catalog and never invent a task.
 Select the smallest set of tasks explicitly requested. Only a request for multiple distinct operations may map to multiple tasks; never enumerate the catalog as executable tasks.
-Prefer a specialized task over FOCUSED_EVIDENCE_QUESTION.
-Use FOCUSED_EVIDENCE_QUESTION only when no specialized task adequately represents a focused evidence-related question.
+Match the requested operation, not shared words in task names. Use a specialized task only when the Doctor requests its specific operation.
+FOCUSED_EVIDENCE_QUESTION includes identifying or describing what is present in the evidence; this is a complete supported operation. Do not substitute a different specialized operation for it.
+Distinguish findings already present from information that is absent. Requests to identify, list, describe, or summarize the current findings map to FOCUSED_EVIDENCE_QUESTION; an encounter briefing maps to BRIEF_PATIENT, and explicit relationships among findings map to CONNECT_EVIDENCE.
+FIND_GAPS is only for missing information, absent context, or what additional information is needed. The verb "find" alone does not request gaps. Never turn a request to describe existing evidence into a missing-information task.
 If intent cannot be determined safely, return CLARIFICATION_REQUIRED.
 If the request is outside supported scope, return UNSUPPORTED.
+Questions asking what conditions, diseases, or explanations could or might fit the authorized findings are possibility-seeking and map to EXPLORE_EXPLANATIONS.
+Do not treat possibility-seeking wording as a request for a definitive diagnosis.
+Requests to state the definitive diagnosis, diagnose the Patient, prescribe treatment, choose medication, or give dosage remain UNSUPPORTED.
 Route a clear supported operation even when phrased as a question. Asking about relationships, missing information, explanations, or assessment fit specifies an operation; these are not requests to show a menu.
 You receive evidence counts and presence flags, not clinical contents. Do not demand the report text to classify the requested operation. selectedReportCount > 0 provides report context, and doctorAssessmentPresent means the assessment is supplied separately for execution.
 Broad requests for an opinion or review without a specific operation require CLARIFICATION_REQUIRED, with applicable catalog choices. An opinion about reports does not specify connecting, comparing, or explaining them. Plural reports alone do not imply a comparison or relationship request. Do not choose an operation on the Doctor's behalf.
@@ -54,7 +59,7 @@ def build_messages(request: DoctorSupportRoutingRequest) -> list[dict[str, str]]
         )
     messages = [{"role": "system", "content": SYSTEM_PROMPT + "\nSUPPORTED_TASK_CATALOG\n" + json.dumps(catalog, separators=(',', ':'))}]
     allowed = {item.taskId for item in request.taskCatalog}
-    # Three contrastive demonstrations teach decision semantics and the JSON
+    # Contrastive demonstrations teach decision semantics and the JSON
     # contract. They are not phrase matching or a replacement task dictionary.
     choices = [item for item in ("BRIEF_PATIENT", "CONNECT_EVIDENCE", "COMPARE_EVIDENCE", "FIND_GAPS", "EXPLORE_EXPLANATIONS") if item in allowed]
     if choices:
@@ -66,6 +71,11 @@ def build_messages(request: DoctorSupportRoutingRequest) -> list[dict[str, str]]
         messages.extend([
             {"role": "user", "content": message_payload("Which key details are absent from the supplied evidence?")},
             {"role": "assistant", "content": '{"status":"ROUTED","taskIds":["FIND_GAPS"],"clarificationOptionTaskIds":[]}'},
+        ])
+    if "FOCUSED_EVIDENCE_QUESTION" in allowed:
+        messages.extend([
+            {"role": "user", "content": message_payload("Find and describe the observations documented in this record.")},
+            {"role": "assistant", "content": '{"status":"ROUTED","taskIds":["FOCUSED_EVIDENCE_QUESTION"],"clarificationOptionTaskIds":[]}'},
         ])
     messages.extend([
         {"role": "user", "content": message_payload("Choose a prescription and dosage.")},

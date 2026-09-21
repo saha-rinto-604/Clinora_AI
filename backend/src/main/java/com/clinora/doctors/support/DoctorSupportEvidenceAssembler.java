@@ -35,30 +35,39 @@ public class DoctorSupportEvidenceAssembler {
     private final DoctorClinicalAccessService access;
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final DoctorSupportEvidenceScopeResolver scopeResolver;
 
     public DoctorSupportEvidenceAssembler(DoctorClinicalAccessService access, JdbcTemplate jdbc, ObjectMapper objectMapper) {
         this.access = access;
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
+        this.scopeResolver = new DoctorSupportEvidenceScopeResolver(jdbc, access);
     }
 
     public Assembly assemble(UUID doctorId, UUID appointmentId, DoctorSupportExecutionRequest request) {
+        long authorizationStarted = System.nanoTime();
         var appointment = access.requireActiveOwnedAppointment(doctorId, appointmentId).appointment();
-        LinkedHashSet<UUID> reportIds = new LinkedHashSet<>();
-        if (request.currentReportId() != null) reportIds.add(request.currentReportId());
-        reportIds.addAll(request.selectedReportIds());
+        var resolved = scopeResolver.resolve(doctorId, appointmentId, appointment.patientId(),
+            request.currentReportId(), request.selectedReportIds(), request.selectedObservationIds());
+        LinkedHashSet<UUID> reportIds = new LinkedHashSet<>(resolved.reportIds());
         boolean brief = request.taskIds().contains(DoctorSupportTask.BRIEF_PATIENT);
         boolean notesOnly = request.taskIds().stream().allMatch(task -> task == DoctorSupportTask.STRUCTURE_NOTES);
-        if (reportIds.isEmpty() && brief) reportIds.addAll(authorizedReportIds(appointmentId, doctorId, appointment.patientId()));
+        // Notes structuring needs Doctor-authored text only. Scope validation above still rejects guessed IDs.
+        if (notesOnly) reportIds.clear();
         if (reportIds.isEmpty() && !brief && !notesOnly) {
             throw new DoctorApiException(HttpStatus.BAD_REQUEST, "AUTHORIZED_EVIDENCE_REQUIRED",
                 "Select authorized evidence before running clinical support.");
         }
 
+        // Complete every access check before reading any clinical evidence so
+        // authorization and evidence timings remain distinct and auditable.
+        reportIds.forEach(reportId -> access.requireSharedReport(doctorId, appointmentId, reportId));
+        long authorizationMs = elapsedMillis(authorizationStarted);
+        long evidenceStarted = System.nanoTime();
+
         List<DoctorSupportEvidenceSnapshot.ReportEvidence> reports = new ArrayList<>();
         List<DoctorSupportEvidenceSnapshot.ObservationEvidence> observations = new ArrayList<>();
         for (UUID reportId : reportIds) {
-            access.requireSharedReport(doctorId, appointmentId, reportId);
             reports.add(loadReport(reportId));
             observations.addAll(loadObservations(reportId));
         }
@@ -66,28 +75,18 @@ public class DoctorSupportEvidenceAssembler {
         List<DoctorSupportExecutionResponse.CandidateReport> selectionCandidates = List.of();
         if (request.taskIds().contains(DoctorSupportTask.COMPARE_EVIDENCE) && reports.size() == 1) {
             var current = reports.getFirst();
-            List<DoctorSupportExecutionResponse.CandidateReport> authorized = comparisonCandidates(
-                appointmentId, doctorId, appointment.patientId(), reportIds
-            ).stream().filter(candidate -> candidate.reportType().equals(current.reportType())).toList();
+            List<DoctorSupportExecutionResponse.CandidateReport> authorized = scopeResolver.comparisonCandidates(
+                doctorId, appointmentId, appointment.patientId(), reportIds
+            ).stream().filter(candidate -> candidate.reportType() != null
+                && candidate.reportType().equals(current.reportType())).toList();
             List<DoctorSupportExecutionResponse.CandidateReport> eligible = current.clinicalDate() == null
                 ? authorized
                 : authorized.stream().filter(candidate -> candidate.clinicalDate().isBefore(current.clinicalDate())).toList();
-            LocalDate latestPriorDate = eligible.stream().map(DoctorSupportExecutionResponse.CandidateReport::clinicalDate)
-                .max(LocalDate::compareTo).orElse(null);
-            List<DoctorSupportExecutionResponse.CandidateReport> latest = latestPriorDate == null ? List.of()
-                : eligible.stream().filter(candidate -> candidate.clinicalDate().equals(latestPriorDate)).toList();
-            if (current.clinicalDate() != null && latest.size() == 1 && request.selectedObservationIds().isEmpty()) {
-                UUID priorReportId = latest.getFirst().reportId();
-                access.requireSharedReport(doctorId, appointmentId, priorReportId);
-                reportIds.add(priorReportId);
-                reports.add(loadReport(priorReportId));
-                observations.addAll(loadObservations(priorReportId));
-            } else {
-                selectionCandidates = current.clinicalDate() == null ? authorized : eligible;
-            }
+            // Offer authorized choices, but never silently expand the resolved scope.
+            selectionCandidates = current.clinicalDate() == null ? authorized : eligible;
         }
 
-        Set<UUID> requestedObservationIds = Set.copyOf(request.selectedObservationIds());
+        Set<UUID> requestedObservationIds = notesOnly ? Set.of() : Set.copyOf(resolved.observationIds());
         if (!requestedObservationIds.isEmpty()) {
             observations = observations.stream()
                 .filter(item -> requestedObservationIds.contains(item.observationId()))
@@ -114,21 +113,10 @@ public class DoctorSupportEvidenceAssembler {
         DoctorSupportEvidenceSnapshot snapshot = new DoctorSupportEvidenceSnapshot(
             sha256(unhashed), reports, observations, comparisons
         );
-        return new Assembly(snapshot, selectionCandidates, appointmentContext(appointmentId));
-    }
-
-    private List<UUID> authorizedReportIds(UUID appointmentId, UUID doctorId, UUID patientId) {
-        return jdbc.queryForList(
-            """
-            SELECT r.id FROM appointment_report_shares s
-            JOIN patient_medical_reports r ON r.id=s.report_id AND r.patient_user_id=s.patient_user_id
-            WHERE s.appointment_id=? AND s.doctor_user_id=? AND s.patient_user_id=? AND s.revoked_at IS NULL
-              AND r.patient_user_id=? AND r.archived_at IS NULL AND r.subject_type='SELF'
-              AND EXISTS (SELECT 1 FROM medical_report_extraction_results er
-                JOIN medical_report_extraction_jobs ej ON ej.id=er.job_id
-                WHERE er.report_id=r.id AND er.review_status='VERIFIED' AND ej.status='SUCCEEDED')
-            ORDER BY r.report_date NULLS LAST, r.id
-            """, UUID.class, appointmentId, doctorId, patientId, patientId
+        AppointmentContext appointmentContext = appointmentContext(appointmentId);
+        return new Assembly(
+            snapshot, selectionCandidates, appointment.patientId(), appointmentContext,
+            new AssemblyTimings(authorizationMs, elapsedMillis(evidenceStarted))
         );
     }
 
@@ -151,6 +139,7 @@ public class DoctorSupportEvidenceAssembler {
                     SELECT er.id
                       FROM medical_report_extraction_results er
                       JOIN medical_report_extraction_jobs ej ON ej.id = er.job_id
+                        AND ej.report_id = r.id AND ej.patient_user_id = r.patient_user_id
                      WHERE er.report_id = r.id AND er.review_status = 'VERIFIED' AND ej.status = 'SUCCEEDED'
                      ORDER BY er.created_at DESC, er.id DESC LIMIT 1
               ) er ON TRUE
@@ -172,7 +161,8 @@ public class DoctorSupportEvidenceAssembler {
             WITH latest AS (
                 SELECT er.id
                   FROM medical_report_extraction_results er
-                  JOIN medical_report_extraction_jobs ej ON ej.id = er.job_id
+                  JOIN medical_report_extraction_jobs ej ON ej.id = er.job_id AND ej.report_id = er.report_id
+                  JOIN patient_medical_reports r ON r.id = er.report_id AND r.patient_user_id = ej.patient_user_id
                  WHERE er.report_id = ? AND er.review_status = 'VERIFIED' AND ej.status = 'SUCCEEDED'
                  ORDER BY er.created_at DESC, er.id DESC LIMIT 1
             )
@@ -237,8 +227,11 @@ public class DoctorSupportEvidenceAssembler {
     ) {
         Map<UUID, LocalDate> dates = new HashMap<>();
         reports.forEach(report -> dates.put(report.reportId(), report.clinicalDate()));
+        Map<UUID, String> types = new HashMap<>();
+        reports.forEach(report -> types.put(report.reportId(), report.reportType()));
         Map<String, List<DoctorSupportEvidenceSnapshot.ObservationEvidence>> groups = new HashMap<>();
-        observations.stream().filter(item -> item.normalizedNumericValue() != null && dates.get(item.reportId()) != null)
+        observations.stream().filter(item -> item.normalizedNumericValue() != null && dates.get(item.reportId()) != null
+                && (item.comparator() == null || item.comparator().isBlank() || "=".equals(item.comparator())))
             .forEach(item -> groups.computeIfAbsent(item.canonicalCode(), ignored -> new ArrayList<>()).add(item));
         List<DoctorSupportEvidenceSnapshot.ComparisonFact> facts = new ArrayList<>();
         for (var entry : groups.entrySet()) {
@@ -247,9 +240,12 @@ public class DoctorSupportEvidenceAssembler {
             List<DoctorSupportEvidenceSnapshot.ObservationEvidence> values = byReport.values().stream()
                 .sorted(Comparator.comparing((DoctorSupportEvidenceSnapshot.ObservationEvidence item) -> dates.get(item.reportId()))
                     .thenComparing(DoctorSupportEvidenceSnapshot.ObservationEvidence::observationId)).toList();
-            if (values.size() < 2) continue;
+            // Multiple possible pairs or duplicate analytes are ambiguous; never choose arbitrary endpoints.
+            if (values.size() != 2 || entry.getValue().size() != 2) continue;
             var earlier = values.getFirst();
             var later = values.getLast();
+            String type = types.get(earlier.reportId());
+            if (type == null || type.isBlank() || !type.equals(types.get(later.reportId()))) continue;
             if (!dates.get(earlier.reportId()).isBefore(dates.get(later.reportId()))) continue;
             if (!java.util.Objects.equals(earlier.comparisonKey(), later.comparisonKey())) continue;
             int order = later.normalizedNumericValue().compareTo(earlier.normalizedNumericValue());
@@ -262,28 +258,6 @@ public class DoctorSupportEvidenceAssembler {
         return facts.stream().sorted(Comparator.comparing(DoctorSupportEvidenceSnapshot.ComparisonFact::canonicalCode)).toList();
     }
 
-    private List<DoctorSupportExecutionResponse.CandidateReport> comparisonCandidates(
-        UUID appointmentId, UUID doctorId, UUID patientId, Set<UUID> selected
-    ) {
-        return jdbc.query(
-            """
-            SELECT r.id, r.report_type, r.report_date
-              FROM appointment_report_shares s JOIN patient_medical_reports r ON r.id=s.report_id
-             WHERE s.appointment_id=? AND s.doctor_user_id=? AND s.patient_user_id=? AND s.revoked_at IS NULL
-               AND r.patient_user_id=? AND r.archived_at IS NULL AND r.subject_type='SELF' AND r.report_date IS NOT NULL
-               AND EXISTS (
-                   SELECT 1 FROM medical_report_extraction_results er
-                   JOIN medical_report_extraction_jobs ej ON ej.id=er.job_id
-                   WHERE er.report_id=r.id AND er.review_status='VERIFIED' AND ej.status='SUCCEEDED'
-               )
-             ORDER BY r.report_date DESC, r.id
-            """,
-            (rs, rowNum) -> new DoctorSupportExecutionResponse.CandidateReport(
-                rs.getObject("id", UUID.class), rs.getString("report_type"), rs.getObject("report_date", LocalDate.class)
-            ), appointmentId, doctorId, patientId, patientId
-        ).stream().filter(item -> !selected.contains(item.reportId())).toList();
-    }
-
     private String sha256(DoctorSupportEvidenceSnapshot snapshot) {
         try {
             byte[] canonical = objectMapper.writeValueAsString(snapshot).getBytes(StandardCharsets.UTF_8);
@@ -293,14 +267,30 @@ public class DoctorSupportEvidenceAssembler {
         }
     }
 
+    private static long elapsedMillis(long startedNanos) {
+        return Math.max(0, (System.nanoTime() - startedNanos) / 1_000_000);
+    }
+
     public record Assembly(
         DoctorSupportEvidenceSnapshot snapshot,
         List<DoctorSupportExecutionResponse.CandidateReport> selectionCandidates,
-        AppointmentContext appointmentContext
+        UUID patientId,
+        AppointmentContext appointmentContext,
+        AssemblyTimings timings
     ) {
+        public Assembly(
+            DoctorSupportEvidenceSnapshot snapshot,
+            List<DoctorSupportExecutionResponse.CandidateReport> candidates,
+            UUID patientId,
+            AppointmentContext appointmentContext
+        ) {
+            this(snapshot, candidates, patientId, appointmentContext, new AssemblyTimings(0, 0));
+        }
+
         public Assembly(DoctorSupportEvidenceSnapshot snapshot, List<DoctorSupportExecutionResponse.CandidateReport> candidates) {
-            this(snapshot, candidates, new AppointmentContext(null, null, null, null));
+            this(snapshot, candidates, null, new AppointmentContext(null, null, null, null), new AssemblyTimings(0, 0));
         }
     }
+    public record AssemblyTimings(long authorizationMs, long evidenceMs) {}
     public record AppointmentContext(String reason, java.time.Instant scheduledStart, java.time.Instant scheduledEnd, String timezone) {}
 }

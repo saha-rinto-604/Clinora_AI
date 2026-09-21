@@ -35,7 +35,7 @@ public class DoctorSupportTaskRegistry {
             "Compare authorized clinical evidence across reports or time.",
             "Use for change, persistence, prior-result, previous-report, or longitudinal comparison requests.",
             List.of("Compare this CBC with the previous one.", "Has the MCV stayed low?", "Was this pattern present before?"),
-            Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE, DoctorSupportRequiredContext.COMPARABLE_REPORTS), false,
+            Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Compare with previous results", "Compare authorized evidence across reports or time.",
             true, "doctor_compare_evidence_v1", "doctor-support-compare-v1", DoctorSupportRagPolicy.DISABLED
         ));
@@ -46,12 +46,12 @@ public class DoctorSupportTaskRegistry {
             List.of("Does my iron-deficiency assessment fit?", "Anything contradict my assessment?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE, DoctorSupportRequiredContext.DOCTOR_ASSESSMENT), false,
             "Cross-check my assessment", "Check the Doctor-authored assessment against authorized evidence.",
-            true, "doctor_cross_check_assessment_v2", "doctor-support-cross-check-v2", DoctorSupportRagPolicy.OPTIONAL
+            true, "doctor_cross_check_assessment_v3", "doctor-support-cross-check-v3", DoctorSupportRagPolicy.OPTIONAL
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.FIND_GAPS,
             "Identify relevant information absent from available authorized evidence.",
-            "Use when the Doctor asks what is missing, unavailable, or would help distinguish possibilities.",
+            "Identify information that is absent or missing, or additional context needed. Do not use for identifying or describing existing findings.",
             List.of("What information am I missing?", "What else would help?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Find missing information", "Identify gaps in the currently available authorized evidence.",
@@ -64,7 +64,7 @@ public class DoctorSupportTaskRegistry {
             List.of("What could explain this pattern?", "Could this fit iron deficiency or thalassemia trait?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Explore possible explanations", "Explore non-ranked explanations for the authorized evidence pattern.",
-            true, "doctor_explore_explanations_v1", "doctor-support-explore-v1", DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
+            true, "doctor_explore_explanations_v2", "doctor-support-explore-v2", DoctorSupportRagPolicy.REQUIRED_WHEN_AVAILABLE
         ));
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.STRUCTURE_NOTES,
@@ -78,7 +78,7 @@ public class DoctorSupportTaskRegistry {
         register(new DoctorSupportTaskSpec(
             DoctorSupportTask.FOCUSED_EVIDENCE_QUESTION,
             "Handle a focused question about authorized evidence not covered by a specialized task.",
-            "Fallback only for a focused evidence question when no specialized task adequately represents it.",
+            "Identify, list, describe or summarize existing authorized findings; answer a focused question about evidence. This concerns present findings, not missing information.",
             List.of("What does this authorized finding mean in this evidence set?"),
             Set.of(DoctorSupportRequiredContext.AUTHORIZED_EVIDENCE), false,
             "Ask about this evidence", "Handle a focused question about the current authorized evidence.",

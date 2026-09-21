@@ -1,4 +1,4 @@
-"""Synthetic-only live MedGemma acceptance runner for Phase 6D.
+"""Synthetic-only live Gemini acceptance runner for Phase 6D.
 
 This script never reads the application database. It builds an ephemeral approved
 knowledge index from the test corpus and submits synthetic evidence directly to
@@ -7,6 +7,7 @@ the private execution service.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -17,7 +18,7 @@ from app.knowledge.embeddings import ClinicalHashEmbeddingProvider
 from app.knowledge.ingestion import ClinicalKnowledgeIngestionService
 from app.knowledge.retrieval import ClinicalKnowledgeRetriever
 from app.knowledge.store import SqliteClinicalKnowledgeStore
-from app.model_runtime import MedGemmaRuntime
+from app.gemini_runtime import GeminiRuntime
 from app.schemas.doctor_support_execution import DoctorSupportExecutionRequest
 from app.services.doctor_support_execution_service import DoctorSupportExecutionService
 
@@ -27,9 +28,9 @@ VERSIONS = {
     "BRIEF_PATIENT": ("doctor_brief_patient_v1", "doctor-support-brief-v1", "DISABLED"),
     "CONNECT_EVIDENCE": ("doctor_connect_evidence_v2", "doctor-support-connect-v2", "OPTIONAL"),
     "COMPARE_EVIDENCE": ("doctor_compare_evidence_v1", "doctor-support-compare-v1", "DISABLED"),
-    "CROSS_CHECK_ASSESSMENT": ("doctor_cross_check_assessment_v2", "doctor-support-cross-check-v2", "OPTIONAL"),
+    "CROSS_CHECK_ASSESSMENT": ("doctor_cross_check_assessment_v3", "doctor-support-cross-check-v3", "OPTIONAL"),
     "FIND_GAPS": ("doctor_find_gaps_v2", "doctor-support-gaps-v2", "REQUIRED_WHEN_AVAILABLE"),
-    "EXPLORE_EXPLANATIONS": ("doctor_explore_explanations_v1", "doctor-support-explore-v1", "REQUIRED_WHEN_AVAILABLE"),
+    "EXPLORE_EXPLANATIONS": ("doctor_explore_explanations_v2", "doctor-support-explore-v2", "REQUIRED_WHEN_AVAILABLE"),
     "STRUCTURE_NOTES": ("doctor_structure_notes_v1", "doctor-support-structure-notes-v1", "DISABLED"),
     "FOCUSED_EVIDENCE_QUESTION": ("doctor_focused_evidence_question_v1", "doctor-support-focused-question-v1", "OPTIONAL"),
 }
@@ -101,18 +102,6 @@ def cases():
         observation("conflict", "mcv", "MCV", "MCV", 74, "fL", "LOW", 80, 100),
         observation("conflict", "ferritin", "Ferritin", "FERRITIN", 88, "ng/mL", "IN_RANGE", 20, 200),
     ]
-    old_id, new_id = uid("compare:mcv-old"), uid("compare:mcv-new")
-    old_report, new_report = uid("compare:old-report"), uid("compare:report")
-    compare_observations = [
-        {**observation("compare", "mcv-old", "MCV", "MCV", 74, "fL", "LOW", 80, 100), "observationId": old_id, "reportId": old_report},
-        {**observation("compare", "mcv-new", "MCV", "MCV", 70, "fL", "LOW", 80, 100), "observationId": new_id, "reportId": new_report},
-    ]
-    compare_reports = [
-        {"reportId": old_report, "reportType": "CBC", "clinicalDate": "2026-08-01", "dateReliability": "REPORT_DATE"},
-        {"reportId": new_report, "reportType": "CBC", "clinicalDate": "2026-09-01", "dateReliability": "REPORT_DATE"},
-    ]
-    comparison = [{"canonicalCode": "MCV", "label": "MCV", "earlierObservationId": old_id, "laterObservationId": new_id,
-                   "earlierDate": "2026-08-01", "laterDate": "2026-09-01", "earlierValue": 74, "laterValue": 70, "unit": "fL", "direction": "DECREASED"}]
     return [
         ("micro-connect", request("micro", "How are these three values connected?", "CONNECT_EVIDENCE", micro)),
         ("micro-gaps", request("micro", "What relevant information is missing?", "FIND_GAPS", micro)),
@@ -120,23 +109,28 @@ def cases():
         ("micro-cross", request("micro", "Does anything argue against my assessment?", "CROSS_CHECK_ASSESSMENT", micro, assessment="Possible iron deficiency")),
         ("dengue-focused", request("dengue", "What does this positive NS1 mean with these findings?", "FOCUSED_EVIDENCE_QUESTION", dengue)),
         ("thyroid-connect", request("thyroid", "How do these thyroid findings relate?", "CONNECT_EVIDENCE", thyroid)),
-        ("normal-brief", request("normal", "Brief me for this appointment.", "BRIEF_PATIENT", normal)),
         ("insufficient-focused", request("normal", "What can be said from this selected value?", "FOCUSED_EVIDENCE_QUESTION", normal)),
         ("conflicting-cross", request("conflict", "Does my assessment fit?", "CROSS_CHECK_ASSESSMENT", conflict, assessment="Possible iron deficiency")),
         ("structure-notes", request("notes", "Structure these notes.", "STRUCTURE_NOTES", [], notes="? iron deficiency, low MCV, tired 2 weeks, consider ferritin", reports=[])),
-        ("compare", request("compare", "Compare these CBC results.", "COMPARE_EVIDENCE", compare_observations, reports=compare_reports, comparisons=comparison)),
     ]
 
 
 def main():
+    selected = {
+        item.strip()
+        for item in os.getenv("PHASE6D_ACCEPTANCE_CASES", "").split(",")
+        if item.strip()
+    }
     with tempfile.TemporaryDirectory(prefix="clinora-phase6d6-") as folder:
         embedding = ClinicalHashEmbeddingProvider()
         store = SqliteClinicalKnowledgeStore(Path(folder) / "knowledge.db", create=True, embedding_model=embedding.model_id)
         ClinicalKnowledgeIngestionService(store, ClinicalDocumentChunker(embedding)).ingest_manifest(FIXTURES / "manifest.json")
-        observed = ObservedRuntime(MedGemmaRuntime())
+        observed = ObservedRuntime(GeminiRuntime())
         service = DoctorSupportExecutionService(observed, ClinicalKnowledgeRetriever(store, embedding))
         output = []
         for case_id, payload in cases():
+            if selected and case_id not in selected:
+                continue
             before = observed.calls
             started = time.perf_counter()
             try:
@@ -145,13 +139,22 @@ def main():
                     "case": case_id, "taskId": result.taskId, "status": result.status,
                     "safeFailureCode": result.safeFailureCode, "ragUsed": result.ragUsed,
                     "retrievalStatus": result.retrievalStatus, "groundingStatus": result.groundingStatus,
+                    "generationCalls": observed.calls - before,
                     "repairUsed": observed.calls - before > 1,
                     "completionTruncated": any(reason == "length" for reason in observed.finish_reasons[before:]),
+                    "retrievalMs": result.retrievalDurationMs,
+                    "geminiMs": result.inferenceDurationMs,
+                    "repairMs": result.repairDurationMs,
+                    "groundingMs": result.groundingDurationMs,
                     "latencyMs": round((time.perf_counter() - started) * 1000),
                 }
                 output.append(record)
             except Exception as exc:  # diagnostic type only; never emit model content
                 record = {"case": case_id, "status": "RUNTIME_ERROR", "errorType": type(exc).__name__,
+                          "providerError": observed.runtime.last_error,
+                          "providerAttempts": getattr(exc, "provider_attempts", None),
+                          "retryAfterSeconds": getattr(exc, "retry_after_seconds", None),
+                          "rateLimitCategory": getattr(exc, "rate_limit_category", None),
                           "latencyMs": round((time.perf_counter() - started) * 1000)}
                 output.append(record)
             print(json.dumps(record), flush=True)

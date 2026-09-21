@@ -1,13 +1,19 @@
-# Clinora Report AI Service
+# Clinora AI Service
 
-This FastAPI service is the privacy and safety boundary for Patient report interpretation. Spring calls only this
-service on port `8001`. It accepts verified structured Phase 9P observations and never receives or forwards the
-original report, raw OCR text, Patient identity, report binary, storage keys, or authentication/session data.
+This FastAPI service is the privacy and safety boundary for Patient report interpretation and live Doctor clinical
+support. Spring calls only this service on port `8001`. Patient report analysis accepts verified structured Phase 9P
+observations. Doctor reasoning accepts a compact, freshly authorized evidence pack plus report-scoped advisory
+snapshots and relevant Doctor-authored text. Neither path receives or forwards the original report, raw OCR text,
+Patient identity, report binary, storage keys, or authentication/session data.
 
-## Local inference boundary
+## Inference boundaries
 
-MedGemma inference runs in a separate local llama.cpp process bound to `127.0.0.1:8002`. Start the currently proven
-local feasibility profile from a PowerShell terminal:
+Patient report analysis remains background MedGemma inference in a separate local llama.cpp process bound to
+`127.0.0.1:8002`. Live Doctor routing, interpretation, and reasoning use the server-side Gemini API adapter and do
+not wait on or share the local GPU lock. The Doctor path receives only current authorized report evidence and READY
+report snapshots; Clinora validates and expands evidence handles after generation.
+
+Start the currently proven local MedGemma feasibility profile from a PowerShell terminal:
 
 ```powershell
 llama-server -hf gguf-org/medgemma-1.5-4b-it-gguf:Q4_0 --no-mmproj --device Vulkan1 --gpu-layers auto --fit on --parallel 1 -c 8192 --port 8002
@@ -50,6 +56,11 @@ configuration is read, regardless of the working directory. Explicit process env
 including explicitly empty values. No service-specific env file or manual `$env:` assignments are needed.
 `AI_INTERNAL_TOKEN` is shared with the backend through that same root file. Tokens are never logged.
 `AI_PROMPT_VERSION=patient-lab-report-v5` and `AI_SCHEMA_VERSION=1.1` must match backend job provenance. The service uses the v5 implementation; environment metadata does not dynamically select an older prompt. Use `AI_MAX_NEW_TOKENS=3072` for the bounded cluster response (accepted range: 256-3072). The context must also fit the complete verified input; the current local runtime acceptance uses an 8192-token context. Large reports may require more context or fail without an interpretation.
+
+Live Doctor inference reads the existing server-only `GEMINI_API_KEY`, `GEMINI_MODEL`, and
+`GEMINI_API_BASE_URL` settings. `GEMINI_CONNECT_TIMEOUT_SECONDS`, `GEMINI_READ_TIMEOUT_SECONDS` (12 seconds by default), and
+`GEMINI_MAX_ATTEMPTS` control bounded network behavior; attempts are capped at two. Missing credentials fail the
+Doctor reasoning path safely and do not affect deterministic Doctor tasks or background Patient MedGemma jobs.
 
 The default `docker compose up -d` starts frontend, backend, OCR, Postgres, RabbitMQ, Redis, MinIO, and ClamAV.
 It leaves FastAPI and llama.cpp manual on Windows. The Docker backend receives

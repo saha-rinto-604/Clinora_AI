@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
+import re
 import secrets
 import time
 
@@ -21,6 +23,19 @@ from app.services.doctor_query_interpreter_service import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _capacity_headers(exc: ModelCapacityError) -> dict[str, str]:
+    retry_after = getattr(exc, "retry_after_seconds", None)
+    headers = {
+        "Retry-After": str(max(1, math.ceil(retry_after if retry_after is not None else 1))),
+        "X-Clinora-Provider-Attempts": str(max(0, getattr(exc, "provider_attempts", 1))),
+        "X-Clinora-Successful-Generations": "0",
+    }
+    category = getattr(exc, "rate_limit_category", None)
+    if category and re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", category):
+        headers["X-Clinora-Rate-Limit-Category"] = category
+    return headers
 
 
 def _expected_internal_token() -> str:
@@ -82,7 +97,9 @@ def build_router(
         ) -> DoctorSupportRoutingDecision:
             started = time.perf_counter()
 
-            def failure(http_status: int, category: str, reason: str) -> HTTPException:
+            def failure(
+                http_status: int, category: str, reason: str, headers: dict[str, str] | None = None
+            ) -> HTTPException:
                 LOGGER.warning(
                     "doctor_router_failure request_id=%s category=%s downstream_status=%d "
                     "duration_ms=%d endpoint=/internal/v1/doctor-support/route reason=%s",
@@ -90,7 +107,7 @@ def build_router(
                 )
                 return HTTPException(status_code=http_status, detail={
                     "errorCode": category, "reasonCode": reason, "requestId": str(request.requestId),
-                })
+                }, headers=headers)
 
             try:
                 _authorize(x_clinora_internal_token)
@@ -99,7 +116,7 @@ def build_router(
             try:
                 return doctor_support_service.route(request)
             except ModelCapacityError as exc:
-                raise failure(429, "ROUTER_MODEL_BUSY", "MODEL_CAPACITY") from exc
+                raise failure(429, "ROUTER_MODEL_BUSY", "PROVIDER_RATE_LIMITED", _capacity_headers(exc)) from exc
             except ModelTimeoutError as exc:
                 raise failure(504, "ROUTER_TIMEOUT", "MODEL_TIMEOUT") from exc
             except ModelUnavailableError as exc:
@@ -107,7 +124,7 @@ def build_router(
             except InvalidRouterOutputError as exc:
                 raise failure(502, "ROUTER_INVALID_RESPONSE", exc.reason_code) from exc
             except MalformedModelResponseError as exc:
-                raise failure(502, "ROUTER_INVALID_RESPONSE", "MALFORMED_LLAMA_ENVELOPE") from exc
+                raise failure(502, "ROUTER_INVALID_RESPONSE", "MALFORMED_PROVIDER_ENVELOPE") from exc
 
     if doctor_query_interpreter_service is not None:
         @router.post("/doctor-support/interpret", response_model=DoctorQueryInterpretationResponse)
@@ -119,9 +136,15 @@ def build_router(
             try:
                 return doctor_query_interpreter_service.interpret(request)
             except ModelCapacityError as exc:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is busy.") from exc
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Clinical reasoning is temporarily busy. Please try again shortly.",
+                    headers=_capacity_headers(exc),
+                ) from exc
+            except ModelTimeoutError as exc:
+                raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Clinora reasoning timed out.") from exc
             except ModelUnavailableError as exc:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is unavailable.") from exc
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Clinora reasoning is unavailable.") from exc
             except (InvalidDoctorQueryInterpretationError, MalformedModelResponseError) as exc:
                 LOGGER.warning(
                     "Doctor query interpretation rejected for request %s: type=%s reason=%s",
@@ -144,8 +167,14 @@ def build_router(
             try:
                 return doctor_support_execution_service.execute(request)
             except ModelCapacityError as exc:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is busy.") from exc
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Clinical reasoning is temporarily busy. Please try again shortly.",
+                    headers=_capacity_headers(exc),
+                ) from exc
+            except ModelTimeoutError as exc:
+                raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Clinora reasoning timed out.") from exc
             except ModelUnavailableError as exc:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="The local AI model is unavailable.") from exc
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Clinora reasoning is unavailable.") from exc
 
     return router

@@ -46,6 +46,7 @@ public record DoctorSupportExecutionResponse(
         List<UUID> reportIds,
         List<UUID> observationIds,
         String evidenceSnapshotHash,
+        String executionProvider,
         String modelName,
         String modelRevision,
         String quantization,
@@ -58,15 +59,37 @@ public record DoctorSupportExecutionResponse(
         String knowledgeIndexVersion,
         List<String> retrievedChunkIds,
         List<String> citedChunkIds,
-        long retrievalDurationMs
+        long retrievalDurationMs,
+        long inferenceDurationMs,
+        long repairDurationMs,
+        long groundingDurationMs,
+        int generationCallCount,
+        int providerAttempts,
+        int successfulGenerations,
+        List<SnapshotProvenance> reasoningSnapshots,
+        Instant generatedAt
     ) {
         public Provenance {
             reportIds = List.copyOf(reportIds);
             observationIds = List.copyOf(observationIds);
             retrievedChunkIds = retrievedChunkIds == null ? List.of() : List.copyOf(retrievedChunkIds);
             citedChunkIds = citedChunkIds == null ? List.of() : List.copyOf(citedChunkIds);
+            reasoningSnapshots = reasoningSnapshots == null ? List.of() : List.copyOf(reasoningSnapshots);
         }
     }
+
+    public record SnapshotProvenance(
+        UUID snapshotId,
+        UUID jobId,
+        UUID reportId,
+        String evidenceVersion,
+        String status,
+        String modelName,
+        String modelRevision,
+        String promptVersion,
+        String schemaVersion,
+        Instant generatedAt
+    ) {}
 
     public record CandidateReport(UUID reportId, String reportType, java.time.LocalDate clinicalDate) {}
 }

@@ -69,16 +69,16 @@ class DoctorSupportPlannerTest {
     }
 
     @Test
-    void preservesExistingContextRequirementsInsteadOfExpandingAccess() {
+    void routesComparisonToAuthorizedSideBySideWhenNoRepeatedFindingsExist() {
         DoctorSupportContext noComparable = contextWithoutComparableReports();
 
         DoctorSupportPlanner.Plan plan = planner.plan(
             frame(EvidenceScope.COMPARABLE_REPORTS, InformationNeed.COMPARE), noComparable
         );
 
-        assertEquals(DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED, plan.status());
-        assertEquals(DoctorSupportClarificationReason.MISSING_REQUIRED_CONTEXT, plan.clarificationReason());
-        assertEquals(List.of(DoctorSupportRequiredContext.COMPARABLE_REPORTS), plan.missingRequiredContext());
+        assertEquals(DoctorSupportRoutingStatus.ROUTED, plan.status());
+        assertEquals(List.of(DoctorSupportTask.COMPARE_EVIDENCE), plan.taskIds());
+        assertEquals(List.of(), plan.missingRequiredContext());
     }
 
     @Test

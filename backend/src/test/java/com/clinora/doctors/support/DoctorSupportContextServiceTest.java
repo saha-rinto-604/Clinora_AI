@@ -31,6 +31,8 @@ class DoctorSupportContextServiceTest {
         UUID reportA = UUID.randomUUID();
         UUID reportB = UUID.randomUUID();
         UUID hiddenReportC = UUID.randomUUID();
+        when(jdbc.queryForList(anyString(), eq(UUID.class), eq(appointment), eq(doctor), eq(patient), eq(patient)))
+            .thenReturn(List.of(reportA, reportB));
         DoctorClinicalAccessService.AppointmentAccess appointmentAccess = appointment(doctor, patient, appointment);
         when(access.requireActiveOwnedAppointment(doctor, appointment))
             .thenReturn(new DoctorClinicalAccessService.ActiveAppointmentAccess(appointmentAccess));
@@ -48,7 +50,7 @@ class DoctorSupportContextServiceTest {
             appointment,
             new DoctorSupportRoutingRequest(
                 "Compare these reports.", null, DoctorSupportScreen.REPORT_COMPARE, reportA,
-                List.of(reportB), List.of(), false, false
+                List.of(reportA, reportB), List.of(), false, false
             )
         );
 

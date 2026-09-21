@@ -11,9 +11,12 @@ import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class DoctorSupportRoutingService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DoctorSupportRoutingService.class);
     private static final Pattern UNSUPPORTED = Pattern.compile(
         "\\b(best\\s+(?:drug|medication)|(?:drug|medication).{0,30}dos(?:e|age)|prescrib|start\\s+(?:the\\s+)?(?:best\\s+)?medication|weather|every\\s+private\\s+report|all\\s+private\\s+reports|ignore\\s+(?:access|clinora|the\\s+rules|prior\\s+instructions|restrictions|safety)|diagnose\\s+the\\s+patient|system\\s+prompt|chain\\s+of\\s+thought|hidden\\s+reports?)\\b",
         Pattern.CASE_INSENSITIVE
@@ -35,15 +38,17 @@ public class DoctorSupportRoutingService {
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern CROSS_CHECK = Pattern.compile(
-        "(?:\\b(?:assessment|impression)\\b.{0,60}\\b(?:fits?|supports?|contradicts?|argue[sd]?\\s+against|does\\s+not\\s+fit)\\b)|(?:\\b(?:fits?|supports?|contradicts?|argue[sd]?\\s+against)\\b.{0,60}\\b(?:assessment|impression)\\b)",
+        "(?:\\b(?:assessment|impression)\\b.{0,60}\\b(?:fits?|supports?|contradicts?|argue[sd]?\\s+against|does\\s+not\\s+fit)\\b)"
+            + "|(?:\\b(?:fits?|supports?|contradicts?|argue[sd]?\\s+against)\\b.{0,60}\\b(?:assessment|impression)\\b)"
+            + "|(?:\\b(?:could\\s+(?:this|these)\\s+be|does\\s+(?:this|that)\\s+support|what\\s+does\\s+not\\s+fit)\\b.{1,100})",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern FIND_GAPS = Pattern.compile(
-        "\\b(?:what\\s+(?:information|info|data)\\s+(?:(?:am\\s+i|are\\s+we|is)\\s+)?missing|what\\s+else\\s+would\\s+help|information\\s+(?:is\\s+)?missing|data\\s+(?:is\\s+)?unavailable|what\\s+would\\s+help\\s+distinguish|find\\s+(?:the\\s+)?gaps?)\\b",
+        "\\b(?:what\\s+(?:information|info|data|context|tests?)\\s+(?:(?:am\\s+i|are\\s+we|is|do\\s+we\\s+need)\\s+)?(?:missing|need)|what\\s+(?:information|context|tests?)\\s+do\\s+we\\s+need|what\\s+else\\s+would\\s+help|information\\s+(?:is\\s+)?missing|data\\s+(?:is\\s+)?unavailable|what\\s+would\\s+help\\s+distinguish|find\\s+(?:the\\s+)?gaps?)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern EXPLORE = Pattern.compile(
-        "\\b(?:what\\s+(?:could|might)\\s+explain|could\\s+explain|possible\\s+explanations?|possibilities\\s+(?:should|could)|could\\s+this\\s+fit|explore\\s+(?:the\\s+)?possibilities)\\b",
+        "\\b(?:what\\s+(?:clinical\\s+)?patterns?|what\\s+(?:could|might)\\s+explain|could\\s+explain|possible\\s+(?:causes?|explanations?)|possibilities\\s+(?:should|could)|explore\\s+(?:clinical\\s+patterns?|the\\s+possibilities)|separate\\s+(?:clinical\\s+)?processes|independent\\s+findings)\\b",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern STRUCTURE = Pattern.compile(
@@ -51,7 +56,13 @@ public class DoctorSupportRoutingService {
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern FOCUSED = Pattern.compile(
-        "\\b(?:what\\s+does|explain|question\\s+about)\\b.{0,80}\\b(?:evidence|finding|result|value)\\b",
+        "(?:\\b(?:what|which|show|list|find|identify|describe|how\\s+many|count)\\b.{0,80}"
+            + "\\b(?:evidence|findings?|results?|observations?|abnormal\\w*|high|low|positive|values?|units?|"
+            + "ranges?|status(?:es)?|dates?|verified)\\b)"
+            + "|(?:\\b(?:what\\s+does|explain|question\\s+about)\\b.{0,80}"
+            + "\\b(?:evidence|finding|result|value)\\b)"
+            + "|(?:\\b(?:latest|current|most\\s+recent|newest)\\b.{0,60}"
+            + "\\b(?:finding|result|observation|value|unit|range|status|date)\\b)",
         Pattern.CASE_INSENSITIVE
     );
 
@@ -74,20 +85,33 @@ public class DoctorSupportRoutingService {
         java.util.UUID appointmentId,
         DoctorSupportRoutingRequest request
     ) {
+        long routeStarted = System.nanoTime();
+        long authorizationStarted = System.nanoTime();
         DoctorSupportContext context = contexts.build(doctorId, appointmentId, request);
+        long authorizationMs = elapsedMillis(authorizationStarted);
         if (request.explicitTaskId() != null) {
-            return routedOrMissing(List.of(request.explicitTaskId()), context);
+            return complete(routedOrMissing(List.of(request.explicitTaskId()), context, false), routeStarted,
+                authorizationMs, 0, "EXPLICIT_COMPATIBILITY");
         }
 
         String message = request.message().trim();
-        if (UNSUPPORTED.matcher(message).find()) return unsupported(context);
-        if (message.matches("(?i)^(?:what is|tell me about)\\s+[a-z][a-z -]{1,60}[?.!]*$")) return unsupported(context);
-        if (AMBIGUOUS.matcher(message).matches()) return ambiguous(context, List.of());
+        if (UNSUPPORTED.matcher(message).find()) return complete(unsupported(context), routeStarted, authorizationMs, 0, "UNSUPPORTED");
+        if (AMBIGUOUS.matcher(message).matches()) {
+            return complete(ambiguous(context, List.of()), routeStarted, authorizationMs, 0, "AMBIGUOUS_FAST_PATH");
+        }
 
         List<DoctorSupportTask> deterministic = deterministicTasks(message);
-        if (!deterministic.isEmpty()) return routedOrMissing(deterministic, context);
+        if (!deterministic.isEmpty()) {
+            boolean inlineAssessment = CROSS_CHECK.matcher(message).find();
+            return complete(routedOrMissing(deterministic, context, inlineAssessment), routeStarted,
+                authorizationMs, 0, "DETERMINISTIC");
+        }
+        if (message.matches("(?i)^(?:what is|tell me about)\\s+[a-z][a-z -]{1,60}[?.!]*$")) {
+            return complete(unsupported(context), routeStarted, authorizationMs, 0, "UNSUPPORTED");
+        }
 
         DoctorSupportSemanticRouter.SemanticDecision semantic;
+        long semanticStarted = System.nanoTime();
         try {
             semantic = semanticRouter.route(message, context, registry.all());
         } catch (DoctorRouterException exception) {
@@ -101,7 +125,7 @@ public class DoctorSupportRoutingService {
                 },
                 exception.category().name(),
                 switch (exception.category()) {
-                    case ROUTER_MODEL_BUSY -> "Clinora is busy. Please try again shortly.";
+                    case ROUTER_MODEL_BUSY -> "Clinical reasoning is temporarily busy. Please try again shortly.";
                     case ROUTER_TIMEOUT -> "Clinora took too long to respond. Please try again.";
                     case ROUTER_INVALID_RESPONSE -> "Clinora could not safely understand this request. Please choose an operation.";
                     default -> "Clinora routing is temporarily unavailable.";
@@ -116,7 +140,9 @@ public class DoctorSupportRoutingService {
         } catch (IllegalArgumentException exception) {
             throw invalidRouterResponse();
         }
-        return validateSemantic(semantic, context);
+        long semanticMs = elapsedMillis(semanticStarted);
+        return complete(validateSemantic(semantic, context, CROSS_CHECK.matcher(message).find()), routeStarted,
+            authorizationMs, semanticMs, "GEMINI");
     }
 
     private List<DoctorSupportTask> deterministicTasks(String message) {
@@ -138,13 +164,14 @@ public class DoctorSupportRoutingService {
 
     private DoctorSupportRoutingDecision validateSemantic(
         DoctorSupportSemanticRouter.SemanticDecision semantic,
-        DoctorSupportContext context
+        DoctorSupportContext context,
+        boolean inlineAssessment
     ) {
         List<DoctorSupportTask> tasks = parseUnique(semantic.taskIds());
         List<DoctorSupportTask> options = parseUnique(semantic.clarificationOptionTaskIds());
         if (semantic.status() == DoctorSupportRoutingStatus.ROUTED) {
             if (tasks.isEmpty() || !options.isEmpty()) throw invalidRouterResponse();
-            return routedOrMissing(tasks, context);
+            return routedOrMissing(tasks, context, inlineAssessment);
         }
         if (semantic.status() == DoctorSupportRoutingStatus.CLARIFICATION_REQUIRED) {
             if (!tasks.isEmpty()) throw invalidRouterResponse();
@@ -170,11 +197,13 @@ public class DoctorSupportRoutingService {
 
     private DoctorSupportRoutingDecision routedOrMissing(
         List<DoctorSupportTask> requestedTasks,
-        DoctorSupportContext context
+        DoctorSupportContext context,
+        boolean inlineAssessment
     ) {
         List<DoctorSupportTask> tasks = registry.ordered(requestedTasks);
         Set<DoctorSupportRequiredContext> missing = EnumSet.noneOf(DoctorSupportRequiredContext.class);
         tasks.forEach(task -> registry.require(task).requiredContext().stream()
+            .filter(required -> !(required == DoctorSupportRequiredContext.DOCTOR_ASSESSMENT && inlineAssessment))
             .filter(required -> !has(required, context))
             .forEach(missing::add));
         if (!missing.isEmpty()) {
@@ -269,5 +298,23 @@ public class DoctorSupportRoutingService {
             "CLINICAL_SUPPORT_ROUTER_INVALID",
             "Clinora could not safely determine the requested operation."
         );
+    }
+
+    private DoctorSupportRoutingDecision complete(
+        DoctorSupportRoutingDecision decision,
+        long routeStarted,
+        long authorizationMs,
+        long semanticMs,
+        String mode
+    ) {
+        LOGGER.info(
+            "doctor_support_routing route_ms={} authorization_ms={} semantic_ms={} mode={} status={} task_count={}",
+            elapsedMillis(routeStarted), authorizationMs, semanticMs, mode, decision.status(), decision.taskIds().size()
+        );
+        return decision;
+    }
+
+    private static long elapsedMillis(long startedNanos) {
+        return Math.max(0, (System.nanoTime() - startedNanos) / 1_000_000);
     }
 }
