@@ -286,8 +286,10 @@ public class PatientAppointmentService {
         requireActiveUser(patientUserId, "PATIENT");
         String direction = collection == AppointmentCollection.UPCOMING ? "ASC" : "DESC";
         String condition = collection == AppointmentCollection.UPCOMING
-            ? " a.status = 'BOOKED' AND a.scheduled_start >= CURRENT_TIMESTAMP"
-            : " (a.status <> 'BOOKED' OR a.scheduled_start < CURRENT_TIMESTAMP)";
+            ? " a.status = 'BOOKED' AND (a.scheduled_start >= CURRENT_TIMESTAMP OR EXISTS (" +
+                "SELECT 1 FROM doctor_consultations c WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'))"
+            : " (a.status <> 'BOOKED' OR (a.scheduled_start < CURRENT_TIMESTAMP AND NOT EXISTS (" +
+                "SELECT 1 FROM doctor_consultations c WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS')))";
         return jdbc.query(
             """
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
@@ -328,6 +330,13 @@ public class PatientAppointmentService {
         if (!"BOOKED".equals(appointment.status())) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_NOT_CANCELLABLE", "This appointment cannot be cancelled.");
         }
+        if (consultationInProgress(appointmentId)) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "APPOINTMENT_CONSULTATION_IN_PROGRESS",
+                "This appointment cannot be cancelled after the Doctor has started the consultation."
+            );
+        }
         Instant now = clock.instant();
         if (!appointment.scheduledStart().isAfter(now)) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_ALREADY_STARTED", "Past appointments cannot be cancelled from the Patient portal.");
@@ -363,6 +372,13 @@ public class PatientAppointmentService {
         LockedAppointment appointment = lockAppointment(patientUserId, appointmentId);
         if (!"BOOKED".equals(appointment.status())) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_NOT_RESCHEDULABLE", "This appointment cannot be rescheduled.");
+        }
+        if (consultationInProgress(appointmentId)) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "APPOINTMENT_CONSULTATION_IN_PROGRESS",
+                "This appointment cannot be rescheduled after the Doctor has started the consultation."
+            );
         }
         if (appointment.slotId().equals(nextSlotId)) {
             return appointment(patientUserId, appointmentId);
@@ -497,10 +513,15 @@ public class PatientAppointmentService {
     public ReportShareView shareReport(UUID patientUserId, UUID appointmentId, UUID reportId) {
         requireActiveUser(patientUserId, "PATIENT");
         LockedAppointment appointment = lockAppointment(patientUserId, appointmentId);
-        if (!"BOOKED".equals(appointment.status()) || !appointment.scheduledStart().isAfter(clock.instant())) {
-            throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_NOT_ACTIVE", "Reports can only be shared for an upcoming appointment.");
-        }
         Instant now = clock.instant();
+        boolean beforeStart = appointment.scheduledStart().isAfter(now);
+        if (!"BOOKED".equals(appointment.status()) || (!beforeStart && !consultationInProgress(appointmentId))) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "APPOINTMENT_NOT_ACTIVE",
+                "Reports can only be shared before or during an active consultation."
+            );
+        }
         addShareInternal(patientUserId, appointmentId, reportId, now);
         return shares(patientUserId, appointmentId).stream()
             .filter(item -> item.reportId().equals(reportId))
@@ -517,6 +538,15 @@ public class PatientAppointmentService {
             Timestamp.from(clock.instant()), appointmentId, patientUserId, reportId
         );
         if (changed == 0) throw notFound("REPORT_SHARE_NOT_FOUND", "That active report share could not be found.");
+    }
+
+    private boolean consultationInProgress(UUID appointmentId) {
+        Boolean inProgress = jdbc.queryForObject(
+            "SELECT EXISTS (SELECT 1 FROM doctor_consultations WHERE appointment_id = ? AND status = 'IN_PROGRESS')",
+            Boolean.class,
+            appointmentId
+        );
+        return Boolean.TRUE.equals(inProgress);
     }
 
     private void addShareInternal(UUID patientUserId, UUID appointmentId, UUID reportId, Instant now) {
@@ -548,7 +578,11 @@ public class PatientAppointmentService {
             FROM appointment_report_shares s
             JOIN appointments a ON a.id = s.appointment_id
             WHERE s.patient_user_id = ? AND s.revoked_at IS NULL
-              AND a.status = 'BOOKED' AND a.scheduled_end >= CURRENT_TIMESTAMP
+              AND a.status = 'BOOKED'
+              AND (a.scheduled_end >= CURRENT_TIMESTAMP OR EXISTS (
+                  SELECT 1 FROM doctor_consultations c
+                   WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+              ))
             """,
             Long.class, patientUserId
         );
@@ -558,7 +592,11 @@ public class PatientAppointmentService {
             FROM appointment_report_shares s
             JOIN appointments a ON a.id = s.appointment_id
             WHERE s.patient_user_id = ? AND s.revoked_at IS NULL
-              AND a.status = 'BOOKED' AND a.scheduled_end >= CURRENT_TIMESTAMP
+              AND a.status = 'BOOKED'
+              AND (a.scheduled_end >= CURRENT_TIMESTAMP OR EXISTS (
+                  SELECT 1 FROM doctor_consultations c
+                   WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+              ))
             """,
             Long.class, patientUserId
         );

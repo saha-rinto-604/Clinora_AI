@@ -1,7 +1,17 @@
-import { ArrowLeft, CalendarClock, ExternalLink, FileText, RefreshCcw, ShieldCheck, Stethoscope, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  ExternalLink,
+  FileText,
+  RefreshCcw,
+  ShieldCheck,
+  Stethoscope,
+  XCircle,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
+import { PatientConsultationSummary } from '../../components/patient/patient-consultation-summary';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/feedback';
@@ -203,6 +213,8 @@ export function PatientAppointmentDetailPage() {
         </p>
       ) : null}
 
+      <PatientConsultationSummary appointmentId={appointment.id} />
+
       <div className="mt-6 grid gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-7">
           <AppSurface as="section" aria-labelledby="appointment-information-title">
@@ -232,9 +244,7 @@ export function PatientAppointmentDetailPage() {
                     Meeting link will be provided by the Doctor.
                   </p>
                 ) : (
-                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-                    This appointment is no longer active.
-                  </p>
+                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">This appointment is no longer active.</p>
                 )}
               </div>
             ) : appointment.consultationMode === 'IN_PERSON' ? (

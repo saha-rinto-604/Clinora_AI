@@ -1,4 +1,15 @@
-import { CalendarClock, CalendarDays, ChevronDown, Home, LockKeyhole, LogOut, Menu, UserRound } from 'lucide-react';
+import {
+  CalendarClock,
+  CalendarDays,
+  ChevronDown,
+  Home,
+  Inbox,
+  LockKeyhole,
+  LogOut,
+  Menu,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -29,6 +40,8 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
     items: [
       { to: '/doctor', label: 'Today', shortLabel: 'Today', icon: Home, end: true },
       { to: '/doctor/schedule', label: 'Schedule', shortLabel: 'Schedule', icon: CalendarDays },
+      { to: '/doctor/patients', label: 'Patients', shortLabel: 'Patients', icon: UsersRound },
+      { to: '/doctor/inbox', label: 'Clinical Inbox', shortLabel: 'Inbox', icon: Inbox },
     ],
   },
   {
@@ -46,7 +59,7 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
 
 const allNavigation = navigation.flatMap((section) => section.items);
 const mobileNavigation = allNavigation.filter((item) =>
-  ['/doctor', '/doctor/schedule', '/doctor/availability', '/doctor/profile'].includes(item.to),
+  ['/doctor', '/doctor/schedule', '/doctor/patients', '/doctor/inbox'].includes(item.to),
 );
 
 export function DoctorLayout() {
@@ -66,7 +79,10 @@ export function DoctorShell({ children }: { children: ReactNode }) {
   const wideWorkspace =
     location.pathname.includes('/reports/') ||
     location.pathname.includes('/availability') ||
-    location.pathname.includes('/schedule');
+    location.pathname.includes('/schedule') ||
+    location.pathname.includes('/consultation') ||
+    location.pathname.includes('/patients') ||
+    location.pathname.includes('/inbox');
 
   const signOut = async () => {
     setSigningOut(true);

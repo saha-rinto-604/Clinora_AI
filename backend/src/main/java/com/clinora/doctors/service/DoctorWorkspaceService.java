@@ -279,8 +279,8 @@ public class DoctorWorkspaceService {
             clinicalList("patient_current_medications", core.patientProfileId())
         );
         boolean reportAccessActive = "BOOKED".equals(core.status())
-            && core.scheduledEnd() != null
-            && !core.scheduledEnd().isBefore(clock.instant());
+            && ((core.scheduledEnd() != null && !core.scheduledEnd().isBefore(clock.instant()))
+                || access.hasInProgressConsultation(appointment.doctorId(), appointment.appointmentId()));
         return new DoctorWorkspaceModels.AppointmentDetail(
             core.id(),
             core.status(),
@@ -418,11 +418,20 @@ public class DoctorWorkspaceService {
                      = (CURRENT_TIMESTAMP AT TIME ZONE COALESCE(NULLIF(a.booking_timezone, ''), 'UTC'))::date
                 """;
             case "history" -> """
-                 AND (a.status IN ('CANCELLED', 'COMPLETED') OR a.scheduled_end < CURRENT_TIMESTAMP)
+                 AND (a.status IN ('CANCELLED', 'COMPLETED') OR (
+                     a.scheduled_end < CURRENT_TIMESTAMP
+                     AND NOT EXISTS (
+                         SELECT 1 FROM doctor_consultations c
+                          WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+                     )
+                 ))
                 """;
             default -> """
                  AND a.status = 'BOOKED'
-                 AND a.scheduled_end >= CURRENT_TIMESTAMP
+                 AND (a.scheduled_end >= CURRENT_TIMESTAMP OR EXISTS (
+                     SELECT 1 FROM doctor_consultations c
+                      WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+                 ))
                 """;
         };
     }

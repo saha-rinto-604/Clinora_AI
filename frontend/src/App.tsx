@@ -50,7 +50,11 @@ import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-p
 import { DoctorLayout, DoctorShell } from './features/doctor/doctor-layout-r3';
 import { DoctorAppointmentPage } from './pages/doctor/doctor-appointment-page';
 import { DoctorAvailabilityWorkspacePage } from './pages/doctor/doctor-availability-r3-page';
+import { DoctorClinicalInboxPage } from './pages/doctor/doctor-clinical-inbox-page';
+import { DoctorConsultationPage } from './pages/doctor/doctor-consultation-page';
 import { DoctorDashboardPage } from './pages/doctor/doctor-dashboard-r3-page';
+import { DoctorPatientDetailPage } from './pages/doctor/doctor-patient-detail-page';
+import { DoctorPatientsPage } from './pages/doctor/doctor-patients-page';
 import { DoctorProfilePage } from './pages/doctor/doctor-profile-r3-page';
 import { DoctorReportComparePage } from './pages/doctor/doctor-report-compare-page';
 import { DoctorReportReviewPage } from './pages/doctor/doctor-report-review-page';
@@ -119,7 +123,11 @@ export function AppRoutes() {
         <Route element={<DoctorLayout />}>
           <Route path="doctor" element={<DoctorDashboardPage />} />
           <Route path="doctor/schedule" element={<DoctorSchedulePage />} />
+          <Route path="doctor/inbox" element={<DoctorClinicalInboxPage />} />
+          <Route path="doctor/patients" element={<DoctorPatientsPage />} />
+          <Route path="doctor/patients/:patientId" element={<DoctorPatientDetailPage />} />
           <Route path="doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />
+          <Route path="doctor/appointments/:appointmentId/consultation" element={<DoctorConsultationPage />} />
           <Route path="doctor/appointments/:appointmentId/reports/compare" element={<DoctorReportComparePage />} />
           <Route path="doctor/appointments/:appointmentId/reports/:reportId" element={<DoctorReportReviewPage />} />
           <Route path="doctor/availability" element={<DoctorAvailabilityWorkspacePage />} />

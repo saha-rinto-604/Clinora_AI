@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   CalendarClock,
+  ClipboardList,
   FileText,
   HeartPulse,
   Pill,
@@ -191,6 +192,15 @@ export function DoctorAppointmentPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={doctorStatusTone(data.status)}>{doctorStatusLabel(data.status)}</StatusPill>
+          {data.status !== 'CANCELLED' ? (
+            <Link
+              to={`/doctor/appointments/${data.id}/consultation`}
+              className={buttonVariants({ variant: 'appPrimary' })}
+            >
+              <ClipboardList size={15} aria-hidden="true" />
+              {data.status === 'COMPLETED' ? 'Open consultation record' : 'Consultation workspace'}
+            </Link>
+          ) : null}
           {data.canModify ? (
             <>
               <Button variant="appSecondary" onClick={() => void openReschedule()}>
@@ -351,7 +361,11 @@ export function DoctorAppointmentPage() {
                   />
                 </label>
                 <p className="mt-2 text-xs text-[var(--clinora-text-faint)]">A secure HTTPS URL is required.</p>
-                {actionError ? <p role="alert" className="mt-2 text-xs text-rose-200">{actionError}</p> : null}
+                {actionError ? (
+                  <p role="alert" className="mt-2 text-xs text-rose-200">
+                    {actionError}
+                  </p>
+                ) : null}
                 {data.canModify ? (
                   <Button
                     variant="appSecondary"

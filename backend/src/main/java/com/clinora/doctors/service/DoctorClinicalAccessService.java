@@ -108,7 +108,10 @@ public class DoctorClinicalAccessService {
 
     public ActiveAppointmentAccess requireActiveOwnedAppointment(UUID doctorUserId, UUID appointmentId) {
         AppointmentAccess appointment = requireOwnedAppointment(doctorUserId, appointmentId);
-        if (!"BOOKED".equals(appointment.status()) || appointment.scheduledEnd() == null || appointment.scheduledEnd().isBefore(clock.instant())) {
+        boolean scheduledWindowOpen = appointment.scheduledEnd() != null
+            && !appointment.scheduledEnd().isBefore(clock.instant());
+        if (!"BOOKED".equals(appointment.status())
+            || (!scheduledWindowOpen && !hasInProgressConsultation(doctorUserId, appointmentId))) {
             throw notFound("APPOINTMENT_NOT_ACTIVE", "That active appointment could not be found.");
         }
         return new ActiveAppointmentAccess(appointment);
@@ -151,7 +154,18 @@ public class DoctorClinicalAccessService {
     public boolean mayModifyAppointment(AppointmentAccess appointment) {
         return "BOOKED".equals(appointment.status())
             && appointment.scheduledStart() != null
-            && appointment.scheduledStart().isAfter(clock.instant());
+            && appointment.scheduledStart().isAfter(clock.instant())
+            && !hasInProgressConsultation(appointment.doctorId(), appointment.appointmentId());
+    }
+
+    public boolean hasInProgressConsultation(UUID doctorUserId, UUID appointmentId) {
+        Boolean inProgress = jdbc.queryForObject(
+            "SELECT EXISTS (SELECT 1 FROM doctor_consultations WHERE appointment_id = ? AND doctor_user_id = ? AND status = 'IN_PROGRESS')",
+            Boolean.class,
+            appointmentId,
+            doctorUserId
+        );
+        return Boolean.TRUE.equals(inProgress);
     }
 
     private static DoctorApiException notFound(String code, String message) {
