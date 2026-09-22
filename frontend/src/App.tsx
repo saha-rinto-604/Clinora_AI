@@ -47,14 +47,14 @@ import { PatientAppointmentsPage } from './pages/patient/patient-appointments-pa
 import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
 import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
 import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-page';
-import { DoctorLayout, DoctorShell } from './features/doctor/doctor-layout-r3';
+import { DoctorLayout, DoctorShell } from './features/doctor/doctor-layout';
 import { DoctorAppointmentPage } from './pages/doctor/doctor-appointment-page';
-import { DoctorAvailabilityWorkspacePage } from './pages/doctor/doctor-availability-r3-page';
-import { DoctorDashboardPage } from './pages/doctor/doctor-dashboard-r3-page';
-import { DoctorProfilePage } from './pages/doctor/doctor-profile-r3-page';
+import { DoctorAvailabilityPage } from './pages/doctor/doctor-availability-page';
+import { DoctorDashboardPage } from './pages/doctor/doctor-dashboard-page';
+import { DoctorProfilePage } from './pages/doctor/doctor-profile-page';
 import { DoctorReportComparePage } from './pages/doctor/doctor-report-compare-page';
 import { DoctorReportReviewPage } from './pages/doctor/doctor-report-review-page';
-import { DoctorSchedulePage } from './pages/doctor/doctor-schedule-r3-page';
+import { DoctorSchedulePage } from './pages/doctor/doctor-schedule-page';
 
 export function AppRoutes() {
   return (
@@ -122,7 +122,7 @@ export function AppRoutes() {
           <Route path="doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />
           <Route path="doctor/appointments/:appointmentId/reports/compare" element={<DoctorReportComparePage />} />
           <Route path="doctor/appointments/:appointmentId/reports/:reportId" element={<DoctorReportReviewPage />} />
-          <Route path="doctor/availability" element={<DoctorAvailabilityWorkspacePage />} />
+          <Route path="doctor/availability" element={<DoctorAvailabilityPage />} />
           <Route path="doctor/profile" element={<DoctorProfilePage />} />
         </Route>
       </Route>

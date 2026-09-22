@@ -45,6 +45,7 @@ const doctor = {
   yearsExperience: 9,
   currentOrganization: 'Clinora Test Clinic',
   currentPosition: 'Consultant',
+  practiceLocation: 'House 10, Road 4, Dhanmondi, Dhaka',
   registrationJurisdiction: 'Bangladesh',
   registrationAuthority: 'BMDC',
   registrationType: 'Full',
@@ -100,20 +101,22 @@ describe('appointment consultation modes', () => {
     );
 
     await screen.findByRole('heading', { name: doctor.displayName });
-    fireEvent.click(screen.getByRole('button', { name: /30 min/i }));
     expect(screen.getByRole('button', { name: 'Confirm appointment' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Online' }));
+    fireEvent.click(screen.getByRole('button', { name: /Online consultation/i }));
+    expect(screen.getByRole('button', { name: 'Confirm appointment' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /30 min/i }));
+    expect(screen.getByRole('button', { name: 'Confirm appointment' })).toBeEnabled();
     fireEvent.change(screen.getByPlaceholderText(/recurring headaches/i), { target: { value: 'Keep this note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm appointment' }));
 
     expect(await screen.findByText('Booking failed safely')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Online' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Online consultation/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByPlaceholderText(/recurring headaches/i)).toHaveValue('Keep this note');
     expect(screen.getByText('Report picker remains available')).toBeInTheDocument();
     expect(mocks.book).toHaveBeenCalledWith(expect.objectContaining({ consultationMode: 'ONLINE' }), expect.any(String));
   });
 
-  it('selects and shows the only mode offered by a single-mode slot', async () => {
+  it('disables incompatible modes and shows only compatible availability after explicit mode selection', async () => {
     mocks.doctor.mockResolvedValue({ doctor, availability: [{ ...slot, consultationMode: 'IN_PERSON' }] });
     render(
       <MemoryRouter initialEntries={[`/patient/doctors/${doctor.id}`]}>
@@ -122,10 +125,38 @@ describe('appointment consultation modes', () => {
     );
 
     await screen.findByRole('heading', { name: doctor.displayName });
+    expect(screen.getByRole('button', { name: /Online consultation/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /In-person consultation/i }));
     fireEvent.click(screen.getByRole('button', { name: /30 min/i }));
-    expect(screen.getByRole('button', { name: 'In-person' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('button', { name: 'Online' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /In-person consultation/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Confirm appointment' })).toBeEnabled();
+  });
+
+  it('filters ONLINE and IN_PERSON around one BOTH slot without duplicating it', async () => {
+    const onlineSlot = { ...slot, id: 'online', consultationMode: 'ONLINE' as const };
+    const bothSlot = { ...slot, id: 'both', startsAt: '2099-09-20T10:00:00Z', endsAt: '2099-09-20T10:30:00Z' };
+    const inPersonSlot = {
+      ...slot,
+      id: 'in-person',
+      startsAt: '2099-09-20T11:00:00Z',
+      endsAt: '2099-09-20T11:30:00Z',
+      consultationMode: 'IN_PERSON' as const,
+    };
+    mocks.doctor.mockResolvedValue({ doctor, availability: [onlineSlot, bothSlot, inPersonSlot] });
+    render(
+      <MemoryRouter initialEntries={[`/patient/doctors/${doctor.id}`]}>
+        <Routes><Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: doctor.displayName });
+    fireEvent.click(screen.getByRole('button', { name: /Online consultation/i }));
+    expect(screen.getByText('2 available')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /30 min/i })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: /In-person consultation/i }));
+    expect(screen.getByText('2 available')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /30 min/i })).toHaveLength(2);
   });
 
   it('shows pending and active online states, but never a Join action for in-person care', async () => {

@@ -55,7 +55,7 @@ public class DoctorProfileService {
             """
             SELECT p.doctor_user_id, p.application_id, p.display_name,
                    p.professional_bio, p.professional_profile_url, p.display_title,
-                   p.current_organization, p.current_position, p.preferred_timezone,
+                   p.current_organization, p.current_position, p.practice_location, p.preferred_timezone,
                    p.default_consultation_minutes, p.profile_version, p.updated_at,
                    a.first_name, a.last_name,
                    d.professional_title AS verified_professional_title,
@@ -85,6 +85,7 @@ public class DoctorProfileService {
                 rs.getString("display_title"),
                 rs.getString("current_organization"),
                 rs.getString("current_position"),
+                rs.getString("practice_location"),
                 rs.getString("preferred_timezone"),
                 integer(rs.getObject("default_consultation_minutes")),
                 rs.getLong("profile_version"),
@@ -122,6 +123,7 @@ public class DoctorProfileService {
         String displayTitle = text(command.displayTitle(), 160, "Display title");
         String organization = text(command.currentOrganization(), 220, "Current organization");
         String position = text(command.currentPosition(), 180, "Current position");
+        String practiceLocation = text(command.practiceLocation(), 500, "Practice location");
         String timezone = timezone(command.preferredTimezone());
         Integer duration = duration(command.defaultConsultationMinutes());
         Instant now = clock.instant();
@@ -134,6 +136,7 @@ public class DoctorProfileService {
                 display_title = ?,
                 current_organization = ?,
                 current_position = ?,
+                practice_location = ?,
                 preferred_timezone = ?,
                 default_consultation_minutes = ?,
                 profile_version = profile_version + 1,
@@ -145,6 +148,7 @@ public class DoctorProfileService {
             displayTitle,
             organization,
             position,
+            practiceLocation,
             timezone,
             duration,
             Timestamp.from(now),
@@ -169,7 +173,7 @@ public class DoctorProfileService {
             """
             SELECT p.doctor_user_id, p.display_name, COALESCE(p.display_title, p.professional_title) AS display_title,
                    p.specialization, p.years_experience, p.current_organization, p.current_position,
-                   p.professional_bio, p.professional_profile_url, p.preferred_timezone,
+                   p.professional_bio, p.professional_profile_url, p.practice_location, p.preferred_timezone,
                    p.default_consultation_minutes,
                    (SELECT MIN(s.starts_at) FROM doctor_availability_slots s
                     WHERE s.doctor_user_id = p.doctor_user_id
@@ -196,6 +200,7 @@ public class DoctorProfileService {
                 rs.getString("current_position"),
                 rs.getString("professional_bio"),
                 rs.getString("professional_profile_url"),
+                rs.getString("practice_location"),
                 rs.getString("preferred_timezone"),
                 integer(rs.getObject("default_consultation_minutes")),
                 instant(rs.getTimestamp("next_available_at")),
@@ -267,7 +272,7 @@ public class DoctorProfileService {
         access.requireActiveDoctorAccount(doctorId);
         List<ReadinessRow> rows = jdbc.query(
             """
-            SELECT professional_bio, professional_profile_url, display_title, preferred_timezone,
+            SELECT professional_bio, professional_profile_url, display_title, practice_location, preferred_timezone,
                    default_consultation_minutes,
                    EXISTS (
                        SELECT 1 FROM doctor_availability_slots s
@@ -281,13 +286,14 @@ public class DoctorProfileService {
                 rs.getString("professional_bio"),
                 rs.getString("professional_profile_url"),
                 rs.getString("display_title"),
+                rs.getString("practice_location"),
                 rs.getString("preferred_timezone"),
                 integer(rs.getObject("default_consultation_minutes")),
                 rs.getBoolean("has_availability")
             ),
             doctorId
         );
-        if (rows.isEmpty()) return new DoctorProfileModels.ProfileReadiness(60, 0, 6, List.of());
+        if (rows.isEmpty()) return new DoctorProfileModels.ProfileReadiness(55, 0, 7, List.of());
         return readiness(rows.getFirst());
     }
 
@@ -298,14 +304,14 @@ public class DoctorProfileService {
             doctorId
         );
         return readiness(new ReadinessRow(
-            row.professionalBio(), row.professionalProfileUrl(), row.displayTitle(), row.preferredTimezone(),
+            row.professionalBio(), row.professionalProfileUrl(), row.displayTitle(), row.practiceLocation(), row.preferredTimezone(),
             row.defaultConsultationMinutes(), Boolean.TRUE.equals(hasAvailability)
         ));
     }
 
     private DoctorProfileModels.ProfileReadiness readiness(ReadinessRow row) {
         List<DoctorProfileModels.MissingSetupItem> missing = new ArrayList<>();
-        int score = 60;
+        int score = 55;
         int completed = 0;
         if (notBlank(row.professionalProfileUrl())) { score += 10; completed++; }
         else missing.add(item("professionalProfileUrl", "Professional profile URL", "/doctor/profile"));
@@ -313,13 +319,15 @@ public class DoctorProfileService {
         else missing.add(item("professionalBio", "Professional bio", "/doctor/profile"));
         if (notBlank(row.displayTitle())) { score += 5; completed++; }
         else missing.add(item("displayTitle", "Display title", "/doctor/profile"));
+        if (notBlank(row.practiceLocation())) { score += 5; completed++; }
+        else missing.add(item("practiceLocation", "Practice location", "/doctor/profile"));
         if (notBlank(row.preferredTimezone())) { score += 5; completed++; }
         else missing.add(item("preferredTimezone", "Preferred timezone", "/doctor/profile"));
         if (row.defaultConsultationMinutes() != null) { score += 5; completed++; }
         else missing.add(item("defaultConsultationMinutes", "Default consultation duration", "/doctor/profile"));
         if (row.hasAvailability()) { score += 5; completed++; }
         else missing.add(item("availability", "Future availability", "/doctor/availability"));
-        return new DoctorProfileModels.ProfileReadiness(Math.min(100, score), completed, 6, List.copyOf(missing));
+        return new DoctorProfileModels.ProfileReadiness(Math.min(100, score), completed, 7, List.copyOf(missing));
     }
 
     private List<DoctorProfileModels.QualificationView> qualifications(UUID applicationId) {
@@ -380,6 +388,7 @@ public class DoctorProfileService {
                 row.displayTitle(),
                 row.currentOrganization(),
                 row.currentPosition(),
+                row.practiceLocation(),
                 row.preferredTimezone(),
                 row.defaultConsultationMinutes()
             ),
@@ -509,6 +518,7 @@ public class DoctorProfileService {
         String displayTitle,
         String currentOrganization,
         String currentPosition,
+        String practiceLocation,
         String preferredTimezone,
         Integer defaultConsultationMinutes,
         long version,
@@ -528,6 +538,7 @@ public class DoctorProfileService {
         String professionalBio,
         String professionalProfileUrl,
         String displayTitle,
+        String practiceLocation,
         String preferredTimezone,
         Integer defaultConsultationMinutes,
         boolean hasAvailability

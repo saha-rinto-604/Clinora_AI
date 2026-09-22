@@ -28,6 +28,7 @@ public final class DoctorProfileModels {
         String displayTitle,
         String currentOrganization,
         String currentPosition,
+        String practiceLocation,
         String preferredTimezone,
         Integer defaultConsultationMinutes
     ) {}
@@ -73,6 +74,7 @@ public final class DoctorProfileModels {
         String displayTitle,
         String currentOrganization,
         String currentPosition,
+        String practiceLocation,
         String preferredTimezone,
         Integer defaultConsultationMinutes
     ) {}
@@ -87,6 +89,7 @@ public final class DoctorProfileModels {
         String currentPosition,
         String professionalBio,
         String professionalProfileUrl,
+        String practiceLocation,
         String preferredTimezone,
         Integer defaultConsultationMinutes,
         Instant nextAvailableAt,

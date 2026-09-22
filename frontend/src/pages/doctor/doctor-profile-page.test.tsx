@@ -40,6 +40,7 @@ const profile: DoctorProfessionalProfile = {
     displayTitle: 'Consultant Physician',
     currentOrganization: 'Dhaka Central Medical Centre',
     currentPosition: 'Consultant',
+    practiceLocation: 'Clinora Test Practice, Dhanmondi, Dhaka',
     preferredTimezone: 'Asia/Dhaka',
     defaultConsultationMinutes: 30,
   },

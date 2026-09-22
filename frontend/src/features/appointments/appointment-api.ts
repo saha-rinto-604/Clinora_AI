@@ -9,6 +9,7 @@ export interface DoctorSummary {
   yearsExperience: number | null;
   currentOrganization: string | null;
   currentPosition: string | null;
+  practiceLocation?: string | null;
   registrationJurisdiction: string | null;
   registrationAuthority: string | null;
   registrationType: string | null;

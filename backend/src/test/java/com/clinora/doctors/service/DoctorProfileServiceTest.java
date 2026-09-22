@@ -46,6 +46,7 @@ class DoctorProfileServiceTest {
                     "Consultant",
                     "Clinora Medical Centre",
                     "Consultant Physician",
+                    "House 10, Road 4, Dhanmondi, Dhaka",
                     "Asia/Dhaka",
                     30
                 ),
@@ -84,6 +85,7 @@ class DoctorProfileServiceTest {
                     "Senior Consultant",
                     "Dhaka Medical Centre",
                     "Consultant",
+                    "House 10, Road 4, Dhanmondi, Dhaka",
                     "Asia/Dhaka",
                     30
                 ),
@@ -113,6 +115,7 @@ class DoctorProfileServiceTest {
                 UUID.randomUUID(),
                 new DoctorProfileModels.UpdateProfileCommand(
                     1,
+                    null,
                     null,
                     null,
                     null,

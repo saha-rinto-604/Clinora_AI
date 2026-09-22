@@ -34,6 +34,24 @@ class AppointmentConsultationPolicyTest {
     }
 
     @Test
+    void inPersonRequiresARealPracticeLocationWhileOnlineStoresNoLocation() {
+        assertEquals(
+            "House 10, Road 4, Dhanmondi, Dhaka",
+            PatientAppointmentService.requirePracticeLocation(
+                "IN_PERSON",
+                " House 10, Road 4, Dhanmondi, Dhaka "
+            )
+        );
+        assertEquals(null, PatientAppointmentService.requirePracticeLocation("ONLINE", "Ignored location"));
+
+        PatientApiException missing = assertThrows(
+            PatientApiException.class,
+            () -> PatientAppointmentService.requirePracticeLocation("IN_PERSON", " ")
+        );
+        assertEquals("PRACTICE_LOCATION_REQUIRED", missing.getErrorCode());
+    }
+
+    @Test
     void meetingLinksRequireSafeHttpsUrlsWithoutEmbeddedCredentials() {
         assertEquals(
             "https://meet.example.test/room?id=patient-visit",

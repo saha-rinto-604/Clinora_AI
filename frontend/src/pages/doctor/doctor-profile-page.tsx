@@ -29,6 +29,7 @@ const blankEditable: DoctorEditableProfile = {
   displayTitle: null,
   currentOrganization: null,
   currentPosition: null,
+  practiceLocation: null,
   preferredTimezone: null,
   defaultConsultationMinutes: null,
 };
@@ -245,6 +246,14 @@ export function DoctorProfilePage() {
               value={draft.currentPosition ?? ''}
               maxLength={180}
               onChange={(value) => update('currentPosition', value || null)}
+            />
+            <Field
+              label="Practice location"
+              value={draft.practiceLocation ?? ''}
+              maxLength={500}
+              placeholder="Building, street, area, city"
+              hint="Required before Patients can confirm an in-person appointment. One location is used for all current in-person availability."
+              onChange={(value) => update('practiceLocation', value || null)}
             />
             <TimezoneField
               value={draft.preferredTimezone ?? ''}

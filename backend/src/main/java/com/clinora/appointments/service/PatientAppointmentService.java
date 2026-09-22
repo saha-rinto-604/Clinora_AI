@@ -52,7 +52,7 @@ public class PatientAppointmentService {
             """
             SELECT p.doctor_user_id, p.display_name,
                    COALESCE(p.display_title, p.professional_title) AS professional_title, p.specialization,
-                   p.years_experience, p.current_organization, p.current_position,
+                   p.years_experience, p.current_organization, p.current_position, p.practice_location,
                    p.registration_jurisdiction, p.registration_authority, p.registration_type,
                    p.registration_valid_until,
                    (SELECT MIN(s.starts_at) FROM doctor_availability_slots s
@@ -84,7 +84,7 @@ public class PatientAppointmentService {
             """
             SELECT p.doctor_user_id, p.display_name,
                    COALESCE(p.display_title, p.professional_title) AS professional_title, p.specialization,
-                   p.years_experience, p.current_organization, p.current_position,
+                   p.years_experience, p.current_organization, p.current_position, p.practice_location,
                    p.registration_jurisdiction, p.registration_authority, p.registration_type,
                    p.registration_valid_until,
                    (SELECT MIN(s.starts_at) FROM doctor_availability_slots s
@@ -245,6 +245,7 @@ public class PatientAppointmentService {
         requireBookableDoctor(slot.doctorUserId());
         String mode = requireAppointmentMode(consultationMode);
         requireSlotSupportsMode(slot.consultationMode(), mode);
+        String visitLocation = requirePracticeLocation(mode, slot.practiceLocation());
         String reason = text(reasonForVisit, 500);
         Instant now = clock.instant();
         UUID appointmentId = UUID.randomUUID();
@@ -260,11 +261,11 @@ public class PatientAppointmentService {
             INSERT INTO appointments (
                 id, patient_user_id, doctor_user_id, slot_id, status, reason_for_visit,
                 scheduled_start, scheduled_end, booking_timezone, idempotency_key,
-                consultation_mode, booked_at, created_at, updated_at, version
-            ) VALUES (?, ?, ?, ?, 'BOOKED', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                consultation_mode, visit_location, booked_at, created_at, updated_at, version
+            ) VALUES (?, ?, ?, ?, 'BOOKED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """,
             appointmentId, patientUserId, slot.doctorUserId(), slotId, reason,
-            Timestamp.from(slot.startsAt()), Timestamp.from(slot.endsAt()), timezone, key, mode,
+            Timestamp.from(slot.startsAt()), Timestamp.from(slot.endsAt()), timezone, key, mode, visitLocation,
             Timestamp.from(now), Timestamp.from(now), Timestamp.from(now)
         );
         for (UUID reportId : distinct(reportIds)) addShareInternal(patientUserId, appointmentId, reportId, now);
@@ -616,7 +617,8 @@ public class PatientAppointmentService {
     private SlotLock lockSlot(UUID slotId) {
         List<SlotLock> rows = jdbc.query(
             """
-            SELECT s.id, s.doctor_user_id, s.starts_at, s.ends_at, s.status, s.consultation_mode, p.display_name
+            SELECT s.id, s.doctor_user_id, s.starts_at, s.ends_at, s.status, s.consultation_mode,
+                   p.display_name, p.practice_location
             FROM doctor_availability_slots s
             JOIN doctor_booking_profiles p ON p.doctor_user_id = s.doctor_user_id
             WHERE s.id = ? FOR UPDATE OF s
@@ -624,7 +626,8 @@ public class PatientAppointmentService {
             (rs, rowNum) -> new SlotLock(
                 rs.getObject("id", UUID.class), rs.getObject("doctor_user_id", UUID.class),
                 rs.getTimestamp("starts_at").toInstant(), rs.getTimestamp("ends_at").toInstant(),
-                rs.getString("status"), rs.getString("consultation_mode"), rs.getString("display_name")
+                rs.getString("status"), rs.getString("consultation_mode"), rs.getString("display_name"),
+                rs.getString("practice_location")
             ),
             slotId
         );
@@ -743,6 +746,19 @@ public class PatientAppointmentService {
         }
     }
 
+    static String requirePracticeLocation(String appointmentMode, String practiceLocation) {
+        if (!"IN_PERSON".equals(appointmentMode)) return null;
+        String location = text(practiceLocation, 500);
+        if (location == null) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "PRACTICE_LOCATION_REQUIRED",
+                "This Doctor must add a practice location before accepting in-person bookings."
+            );
+        }
+        return location;
+    }
+
     static String requireSafeMeetingUrl(String value) {
         String result = requiredText(value, 2048, "MEETING_URL_REQUIRED", "Enter a secure meeting URL.");
         try {
@@ -768,7 +784,7 @@ public class PatientAppointmentService {
     private static final org.springframework.jdbc.core.RowMapper<DoctorView> DOCTOR_MAPPER = (rs, rowNum) -> new DoctorView(
         rs.getObject("doctor_user_id", UUID.class), rs.getString("display_name"), rs.getString("professional_title"),
         rs.getString("specialization"), (Integer) rs.getObject("years_experience"), rs.getString("current_organization"),
-        rs.getString("current_position"), rs.getString("registration_jurisdiction"), rs.getString("registration_authority"),
+        rs.getString("current_position"), rs.getString("practice_location"), rs.getString("registration_jurisdiction"), rs.getString("registration_authority"),
         rs.getString("registration_type"), rs.getDate("registration_valid_until") == null ? null : rs.getDate("registration_valid_until").toLocalDate(),
         rs.getTimestamp("next_available_at") == null ? null : rs.getTimestamp("next_available_at").toInstant()
     );
@@ -783,7 +799,7 @@ public class PatientAppointmentService {
         rs.getString("specialization"), rs.getLong("shared_report_count")
     );
 
-    private record SlotLock(UUID id, UUID doctorUserId, Instant startsAt, Instant endsAt, String status, String consultationMode, String doctorName) {}
+    private record SlotLock(UUID id, UUID doctorUserId, Instant startsAt, Instant endsAt, String status, String consultationMode, String doctorName, String practiceLocation) {}
     private record LockedAppointment(UUID id, UUID patientUserId, UUID doctorUserId, UUID slotId, String status, Instant scheduledStart, String consultationMode, String doctorName) {}
     private record MeetingLinkLock(UUID id, UUID patientUserId, String status, String consultationMode, String meetingUrl, long version) {}
 
@@ -791,7 +807,7 @@ public class PatientAppointmentService {
     public record DoctorSearchPage(List<DoctorView> items) {}
     public record DoctorView(
         UUID id, String displayName, String professionalTitle, String specialization, Integer yearsExperience,
-        String currentOrganization, String currentPosition, String registrationJurisdiction,
+        String currentOrganization, String currentPosition, String practiceLocation, String registrationJurisdiction,
         String registrationAuthority, String registrationType, java.time.LocalDate registrationValidUntil,
         Instant nextAvailableAt
     ) {}

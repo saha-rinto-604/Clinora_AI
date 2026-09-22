@@ -34,6 +34,7 @@ const blankEditable: DoctorEditableProfile = {
   displayTitle: null,
   currentOrganization: null,
   currentPosition: null,
+  practiceLocation: null,
   preferredTimezone: null,
   defaultConsultationMinutes: null,
 };
