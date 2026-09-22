@@ -23,6 +23,7 @@ function renderAdminRoute() {
         </Route>
         <Route path="/doctor" element={<div>Doctor home</div>} />
         <Route path="/patient" element={<div>Patient home</div>} />
+        <Route path="/research" element={<div>Research home</div>} />
         <Route path="/account" element={<div>Account security</div>} />
         <Route path="/login" element={<div>Login</div>} />
       </Routes>
@@ -59,7 +60,7 @@ describe('ProtectedRoute role enforcement', () => {
   it.each([
     ['PATIENT', 'Patient home'],
     ['DOCTOR', 'Doctor home'],
-    ['RESEARCHER', 'Account security'],
+    ['RESEARCHER', 'Research home'],
   ])('redirects an authenticated %s user to their own landing page', (role, destination) => {
     useAuthStore.setState({
       status: 'authenticated',

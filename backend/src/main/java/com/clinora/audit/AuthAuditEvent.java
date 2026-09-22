@@ -74,4 +74,14 @@ public class AuthAuditEvent {
         }
         return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
+
+    public UUID getId() { return id; }
+    public UUID getActorUserId() { return actorUserId; }
+    public AuthAuditAction getAction() { return action; }
+    public AuthAuditOutcome getOutcome() { return outcome; }
+    public Instant getOccurredAt() { return occurredAt; }
+    public String getIpAddress() { return ipAddress; }
+    public String getUserAgent() { return userAgent; }
+    public String getResourceId() { return resourceId; }
+    public String getMetadata() { return metadata; }
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import './styles-r3.css';
 import { LandingPage } from './components/landing/landing-page';
 import { PublicLayout } from './components/public/public-layout';
@@ -55,6 +55,20 @@ import { DoctorProfilePage } from './pages/doctor/doctor-profile-r3-page';
 import { DoctorReportComparePage } from './pages/doctor/doctor-report-compare-page';
 import { DoctorReportReviewPage } from './pages/doctor/doctor-report-review-page';
 import { DoctorSchedulePage } from './pages/doctor/doctor-schedule-r3-page';
+import { PublicNavbar } from './components/public/public-navbar';
+import { PublicFooter } from './components/public/public-footer';
+import { ResearchLayout } from './features/research/research-layout';
+import { ResearchDashboardPage } from './pages/research/research-dashboard-page';
+import { ResearchProjectsPage } from './pages/research/research-projects-page';
+import { ResearchProjectFormPage } from './pages/research/research-project-form-page';
+import { ResearchProjectDetailPage } from './pages/research/research-project-detail-page';
+import { DatasetRequestFormPage } from './pages/research/dataset-request-form-page';
+import { DatasetRequestDetailPage } from './pages/research/dataset-request-detail-page';
+import { DatasetsPage } from './pages/research/datasets-page';
+import { DatasetDetailPage } from './pages/research/dataset-detail-page';
+import { AdminResearchProjectsPage } from './pages/admin/admin-research-projects-page';
+import { AdminResearchDatasetRequestsPage } from './pages/admin/admin-research-dataset-requests-page';
+import { AdminLayout, AdminShell } from './features/admin/admin-layout';
 
 export function AppRoutes() {
   return (
@@ -65,7 +79,6 @@ export function AppRoutes() {
         <Route path="ai-clinical-intelligence" element={<AiClinicalIntelligencePage />} />
         <Route path="laboratory-ocr" element={<LaboratoryOcrPage />} />
         <Route path="emergency-blood-assistance" element={<EmergencyBloodAssistancePage />} />
-        <Route path="research" element={<ResearchPage />} />
         <Route path="about" element={<AboutPage />} />
         <Route path="contact" element={<ContactPage />} />
         <Route path="faq" element={<FaqPage />} />
@@ -73,6 +86,9 @@ export function AppRoutes() {
         <Route path="terms" element={<TermsPage />} />
         <Route path="professional-access" element={<ProfessionalAccessPage />} />
       </Route>
+
+      {/* Role-aware /research route */}
+      <Route path="research" element={<RoleAwareResearchRoute />} />
 
       <Route element={<AuthLayout />}>
         <Route path="login" element={<LoginPage />} />
@@ -127,12 +143,52 @@ export function AppRoutes() {
         </Route>
       </Route>
 
+      {/* Governed Research Workspace (Researcher) */}
+      <Route element={<ProtectedRoute allowedRoles={['RESEARCHER']} />}>
+        <Route element={<ResearchLayout />}>
+          <Route path="research/projects" element={<ResearchProjectsPage />} />
+          <Route path="research/projects/new" element={<ResearchProjectFormPage />} />
+          <Route path="research/projects/:projectId" element={<ResearchProjectDetailPage />} />
+          <Route path="research/projects/:projectId/edit" element={<ResearchProjectFormPage />} />
+          <Route path="research/projects/:projectId/dataset-requests/new" element={<DatasetRequestFormPage />} />
+          <Route path="research/dataset-requests/:requestId" element={<DatasetRequestDetailPage />} />
+          <Route path="research/datasets" element={<DatasetsPage />} />
+          <Route path="research/datasets/:datasetId" element={<DatasetDetailPage />} />
+        </Route>
+      </Route>
+
+      {/* Protected Administration */}
       <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
-        <Route path="admin/access-reviews" element={<AccessReviewsPage />} />
+        <Route element={<AdminLayout />}>
+          <Route path="admin" element={<Navigate to="/admin/access-reviews" replace />} />
+          <Route path="admin/access-reviews" element={<AccessReviewsPage />} />
+          <Route path="admin/research/projects" element={<AdminResearchProjectsPage />} />
+          <Route path="admin/research/projects/:projectId" element={<AdminResearchProjectsPage />} />
+          <Route path="admin/research/dataset-requests" element={<AdminResearchDatasetRequestsPage />} />
+          <Route path="admin/research/dataset-requests/:requestId" element={<AdminResearchDatasetRequestsPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+  );
+}
+
+function RoleAwareResearchRoute() {
+  const user = useAuthStore((state) => state.user);
+  if (user?.role === 'RESEARCHER') {
+    return (
+      <ResearchLayout>
+        <ResearchDashboardPage />
+      </ResearchLayout>
+    );
+  }
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#020617] text-slate-50">
+      <PublicNavbar />
+      <ResearchPage />
+      <PublicFooter />
+    </div>
   );
 }
 
@@ -150,6 +206,20 @@ function RoleAwareAccountPage() {
       <DoctorShell>
         <AccountPage embedded />
       </DoctorShell>
+    );
+  }
+  if (role === 'RESEARCHER') {
+    return (
+      <ResearchLayout>
+        <AccountPage embedded />
+      </ResearchLayout>
+    );
+  }
+  if (role === 'SYSTEM_ADMIN') {
+    return (
+      <AdminShell>
+        <AccountPage embedded />
+      </AdminShell>
     );
   }
   return <AccountPage />;

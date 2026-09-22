@@ -106,6 +106,7 @@ function renderRoute(user: typeof adminUser | null = adminUser, status?: 'unknow
         </Route>
         <Route path="/doctor" element={<div>Doctor home</div>} />
         <Route path="/patient" element={<div>Patient home</div>} />
+        <Route path="/research" element={<div>Researcher workspace</div>} />
         <Route path="/account" element={<div>Account security</div>} />
         <Route path="/login" element={<div>Login</div>} />
       </Routes>
@@ -191,7 +192,7 @@ describe('System Admin access review workbench', () => {
   it.each([
     ['PATIENT', 'Patient home'],
     ['DOCTOR', 'Doctor home'],
-    ['RESEARCHER', 'Account security'],
+    ['RESEARCHER', 'Researcher workspace'],
   ])('denies %s access through the route guard', async (role, destination) => {
     renderRoute({ ...adminUser, role, email: `${role.toLowerCase()}@example.test` });
 

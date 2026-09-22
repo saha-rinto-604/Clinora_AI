@@ -4,6 +4,7 @@ import com.clinora.access.api.AccessApplicationException;
 import com.clinora.auth.api.AuthApiException;
 import com.clinora.doctors.api.DoctorApiException;
 import com.clinora.patients.api.PatientApiException;
+import com.clinora.research.exception.ResearchApiException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,6 +53,12 @@ public class ApiExceptionHandler {
             headers.set(HttpHeaders.RETRY_AFTER, Long.toString(Math.max(1, exception.getRetryAfter().toSeconds())));
         }
         return ResponseEntity.status(exception.getStatus()).headers(headers)
+            .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
+    }
+
+    @ExceptionHandler(ResearchApiException.class)
+    public ResponseEntity<ApiError> handleResearch(ResearchApiException exception) {
+        return ResponseEntity.status(exception.getStatus())
             .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
     }
 

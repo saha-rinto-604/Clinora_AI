@@ -33,6 +33,8 @@ function renderLogin(role: string, from?: string) {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/doctor" element={<div>Doctor dashboard destination</div>} />
         <Route path="/patient" element={<div>Patient dashboard destination</div>} />
+        <Route path="/research" element={<div>Research dashboard destination</div>} />
+        <Route path="/admin/access-reviews" element={<div>Admin dashboard destination</div>} />
         <Route path="/account" element={<div>Account destination</div>} />
       </Routes>
     </MemoryRouter>,
@@ -68,9 +70,15 @@ describe('role-aware login navigation', () => {
     expect(screen.queryByText('Account destination')).not.toBeInTheDocument();
   });
 
-  it.each(['SYSTEM_ADMIN', 'RESEARCHER'])('preserves the %s account landing', async (role) => {
-    renderLogin(role);
+  it('lands a System Admin on the Admin access reviews dashboard', async () => {
+    renderLogin('SYSTEM_ADMIN');
     await submitLogin();
-    expect(await screen.findByText('Account destination')).toBeInTheDocument();
+    expect(await screen.findByText('Admin dashboard destination')).toBeInTheDocument();
+  });
+
+  it('lands a Researcher on the Research workspace', async () => {
+    renderLogin('RESEARCHER');
+    await submitLogin();
+    expect(await screen.findByText('Research dashboard destination')).toBeInTheDocument();
   });
 });

@@ -165,6 +165,14 @@ clinora:
       secret-key: ${S3_APPLICATION_SECRET_KEY:change-me-minio}
       path-style: ${S3_APPLICATION_PATH_STYLE:true}
       auto-create-bucket: ${S3_APPLICATION_AUTO_CREATE_BUCKET:true}
+    research:
+      endpoint: ${S3_RESEARCH_ENDPOINT:${S3_ENDPOINT:http://localhost:9000}}
+      region: ${S3_RESEARCH_REGION:${S3_REGION:us-east-1}}
+      bucket: ${S3_RESEARCH_BUCKET:clinora-research-datasets}
+      access-key: ${S3_RESEARCH_ACCESS_KEY:${S3_ACCESS_KEY:clinora-minio}}
+      secret-key: ${S3_RESEARCH_SECRET_KEY:${S3_SECRET_KEY:change-me-minio}}
+      path-style: ${S3_RESEARCH_PATH_STYLE:${S3_PATH_STYLE:true}}
+      auto-create-bucket: ${S3_RESEARCH_AUTO_CREATE_BUCKET:${S3_AUTO_CREATE_BUCKET:true}}
   ai:
     hf-model: ${HF_MODEL:google/medgemma-1.5-4b-it}
     model-revision: ${HF_MODEL_REVISION:main}
@@ -173,3 +181,6 @@ clinora:
     schema-version: ${AI_SCHEMA_VERSION:1.1}
     recovery-min-age-seconds: ${AI_RECOVERY_MIN_AGE_SECONDS:15}
     processing-timeout-seconds: ${AI_PROCESSING_TIMEOUT_SECONDS:300}
+  research:
+    min-cohort-size: ${CLINORA_RESEARCH_MIN_COHORT_SIZE:5}
+    pseudonym-secret: ${CLINORA_RESEARCH_PSEUDONYM_SECRET:}

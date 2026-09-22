@@ -1,13 +1,14 @@
 const ROLE_LANDING_PATHS: Record<string, string> = {
   DOCTOR: '/doctor',
   PATIENT: '/patient',
-  RESEARCHER: '/account',
-  SYSTEM_ADMIN: '/account',
+  RESEARCHER: '/research',
+  SYSTEM_ADMIN: '/admin/access-reviews',
 };
 
 const ROLE_RETURN_PREFIXES: Record<string, readonly string[]> = {
   DOCTOR: ['/doctor'],
   PATIENT: ['/patient'],
+  RESEARCHER: ['/research'],
   SYSTEM_ADMIN: ['/admin'],
 };
 

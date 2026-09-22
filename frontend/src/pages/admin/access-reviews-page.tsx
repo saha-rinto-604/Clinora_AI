@@ -7,9 +7,11 @@ import {
   MessageSquarePlus,
   PlayCircle,
   RefreshCw,
+  ShieldCheck,
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
@@ -274,10 +276,44 @@ export function AccessReviewsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="w-full text-slate-100">
+      <div className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--clinora-border-subtle)]">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">
+              <ShieldCheck className="w-4 h-4" />
+              Institutional Review Board
+            </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">Professional Access Reviews</h1>
+            <p className="mt-1 text-xs text-slate-400">
+              Verify credentials, licenses, identity documentation, and conduct onboarding interviews.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 p-1 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
+            <Link
+              to="/admin/access-reviews"
+              className="px-3 py-1.5 rounded-lg bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)] border border-[var(--clinora-border-interactive)] font-semibold shadow-sm"
+            >
+              Access Applications
+            </Link>
+            <Link
+              to="/admin/research/projects"
+              className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              Research Projects
+            </Link>
+            <Link
+              to="/admin/research/dataset-requests"
+              className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              Dataset Requests
+            </Link>
+          </div>
+        </div>
+      </div>
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[390px_minmax(0,1fr)] lg:px-8">
         <section className="grid gap-4 self-start">
-          <div>
+          <div className="hidden">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">System Admin</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-white">Access Reviews</h1>
           </div>
@@ -555,7 +591,7 @@ export function AccessReviewsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }
 
