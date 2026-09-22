@@ -29,7 +29,7 @@ describe('Doctor continuing-care information architecture', () => {
     mocks.inbox.mockReset();
   });
 
-  it('renders Patients as compact longitudinal clinical context instead of schedule metrics', async () => {
+  it('renders Patients as a compact longitudinal clinical index instead of schedule cards', async () => {
     mocks.patients.mockResolvedValue([
       {
         patientId: '11111111-1111-1111-1111-111111111111',
@@ -53,12 +53,46 @@ describe('Doctor continuing-care information architecture', () => {
     );
 
     expect(await screen.findByText('Anika Islam')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Continuing care Patient list' })).toHaveAttribute(
+      'data-density',
+      'compact',
+    );
     expect(screen.getByText('Active care')).toBeInTheDocument();
     expect(screen.getByText('Iron deficiency under evaluation')).toBeInTheDocument();
     expect(screen.getByText(/Plan:/)).toBeInTheDocument();
+    expect(screen.getByText(/requested investigation/)).toBeInTheDocument();
     expect(screen.queryByText('Established through Clinora care')).not.toBeInTheDocument();
     expect(screen.queryByText('Next care')).not.toBeInTheDocument();
     expect(screen.queryByText('Shared now')).not.toBeInTheDocument();
+  });
+
+  it('uses one in-progress state and does not fabricate missing completed-assessment copy', async () => {
+    mocks.patients.mockResolvedValue([
+      {
+        patientId: '11111111-1111-1111-1111-111111111111',
+        patientName: 'Anika Islam',
+        careState: 'ACTIVE_CARE',
+        consultationInProgress: true,
+        latestConsultationAt: null,
+        latestAssessment: null,
+        latestPlan: null,
+        requestedInvestigationCount: 0,
+        followUpDate: null,
+        nextAppointmentAt: '2026-09-23T10:30:00Z',
+        currentlySharedReportCount: 9,
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <DoctorPatientsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Anika Islam')).toBeInTheDocument();
+    expect(screen.getAllByText('In progress')).toHaveLength(1);
+    expect(screen.getByText('Consultation currently in progress')).toBeInTheDocument();
+    expect(screen.queryByText(/No assessment text was recorded/i)).not.toBeInTheDocument();
   });
 
   it('renders Clinical Inbox as an action queue without a generic upcoming bucket', async () => {

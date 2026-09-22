@@ -333,34 +333,45 @@ export function DoctorConsultationPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto w-full max-w-[1240px] space-y-4" data-density="compact">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           to={`/doctor/appointments/${appointment.id}`}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white"
+          className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white"
         >
-          <ArrowLeft size={15} /> Back to appointment
+          <ArrowLeft size={14} /> Back to appointment
         </Link>
         <div className="flex items-center gap-2">
-          {dirty && editable ? <span className="text-xs font-medium text-amber-200">Unsaved changes</span> : null}
-          <StatusPill tone={editable ? 'success' : 'neutral'}>{editable ? 'In progress' : 'Completed'}</StatusPill>
+          {dirty && editable ? <span className="text-[11px] font-medium text-amber-200">Unsaved changes</span> : null}
+          <StatusPill tone={editable ? 'success' : 'neutral'} className="min-h-6 px-2 py-0.5 text-[10px]">
+            {editable ? 'In progress' : 'Completed'}
+          </StatusPill>
         </div>
       </div>
 
-      <AppSurface variant="hero">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-center gap-4">
+      <section className="relative overflow-hidden rounded-[18px] border border-[var(--clinora-border-interactive)] bg-[linear-gradient(105deg,var(--clinora-surface-hero),var(--clinora-surface-2))] px-4 py-3.5 sm:px-5">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border border-cyan-300/10"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-8 top-6 h-20 w-20 rounded-full border border-teal-300/10"
+        />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <ProfileAvatar
               source={{ kind: 'doctor-patient', appointmentId: appointment.id }}
               name={appointment.patient.displayName}
-              size="lg"
+              size="md"
+              className="rounded-xl"
             />
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Consultation workspace</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">Consultation workspace</p>
+              <h1 className="mt-0.5 truncate text-xl font-semibold tracking-[-0.03em] text-white sm:text-[1.35rem]">
                 {appointment.patient.displayName}
               </h1>
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-1 truncate text-xs text-slate-400">
                 {appointment.reason || 'Consultation'} ·{' '}
                 {formatDoctorDateTime(appointment.scheduledStart, appointment.timezone)}
               </p>
@@ -368,27 +379,30 @@ export function DoctorConsultationPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {editable ? (
-              <Button variant="appSecondary" disabled={busy !== '' || !dirty} onClick={() => void save()}>
-                <Save size={15} /> {busy === 'save' ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
+              <Button size="sm" variant="appSecondary" disabled={busy !== '' || !dirty} onClick={() => void save()}>
+                <Save size={14} /> {busy === 'save' ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
               </Button>
             ) : null}
             <Link
               to={`/doctor/patients/${appointment.patient.id}`}
-              className={buttonVariants({ variant: 'appSecondary' })}
+              className={buttonVariants({ variant: 'appSecondary', size: 'sm' })}
             >
               Care history
             </Link>
           </div>
         </div>
-      </AppSurface>
+      </section>
 
       {error ? <ErrorBanner message={error} onReload={() => void load()} /> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)]">
-        <div className="space-y-6">
-          <AppSurface>
-            <AppSectionHeader eyebrow="Patient context" title="What matters for this encounter" />
-            <div className="mt-5 space-y-4 text-sm">
+      <div className="grid gap-4 xl:grid-cols-[16.5rem_minmax(0,1fr)]">
+        <aside className="space-y-3">
+          <AppSurface padding="compact" radius="compact">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--clinora-info-foreground)]">
+              Patient context
+            </p>
+            <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-white">What matters today</h2>
+            <div className="mt-3 space-y-3 text-xs">
               <ContextMetric label="Reason for visit" value={appointment.reason || 'Not provided'} />
               <ClinicalChips label="Allergies" values={appointment.patient.allergies} empty="None recorded" />
               <ClinicalChips
@@ -404,10 +418,10 @@ export function DoctorConsultationPage() {
             </div>
           </AppSurface>
 
-          <AppSurface padding="none" className="overflow-hidden">
-            <div className="border-b border-[var(--clinora-border-subtle)] px-5 py-4 sm:px-6">
-              <h2 className="text-sm font-semibold text-white">Currently authorized evidence</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Patient-controlled and appointment-scoped.</p>
+          <AppSurface padding="none" radius="compact" className="overflow-hidden">
+            <div className="border-b border-[var(--clinora-border-subtle)] px-4 py-3">
+              <h2 className="text-xs font-semibold text-white">Authorized evidence</h2>
+              <p className="mt-1 text-[10px] leading-4 text-slate-600">Patient-controlled · appointment-scoped.</p>
             </div>
             {appointment.reportAccessActive && appointment.sharedReports.length ? (
               <ul className="divide-y divide-[var(--clinora-border-subtle)]">
@@ -415,42 +429,49 @@ export function DoctorConsultationPage() {
                   <li key={report.reportId}>
                     <Link
                       to={`/doctor/appointments/${appointment.id}/reports/${report.reportId}`}
-                      className="flex items-center gap-3 px-5 py-4 hover:bg-[var(--clinora-surface-hover)] sm:px-6"
+                      className="flex items-center gap-2.5 px-4 py-3 hover:bg-[var(--clinora-surface-hover)]"
                     >
-                      <IconWell tone="success">
-                        <FileText size={15} />
+                      <IconWell tone="success" className="h-8 w-8 rounded-lg">
+                        <FileText size={13} />
                       </IconWell>
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">
                         {report.displayName}
                       </span>
-                      <span className="text-xs text-cyan-200">Review</span>
+                      <span className="text-[10px] font-semibold text-cyan-200">Review</span>
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
               <EmptyState
-                className="p-6"
-                icon={<FileText size={17} />}
+                className="p-4"
+                icon={<FileText size={15} />}
                 title={appointment.reportAccessActive ? 'No reports shared' : 'Report access closed'}
                 copy="Consultation documentation remains available even when source report authorization is not."
               />
             )}
           </AppSurface>
-        </div>
+        </aside>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {editable && appointment.reportAccessActive ? (
             <ClinoraClinicalSupportPanel appointmentId={appointment.id} screen="APPOINTMENT" appointmentMode />
           ) : null}
 
-          <AppSurface>
-            <AppSectionHeader
-              eyebrow="Doctor authored"
-              title="Clinical documentation"
-              copy="Clinora can support reasoning, but only your reviewed text becomes part of this consultation record."
-            />
-            <div className="mt-5 grid gap-5">
+          <AppSurface padding="compact" radius="compact">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--clinora-info-foreground)]">
+                  Doctor authored
+                </p>
+                <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-white">Clinical documentation</h2>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
+                  Clinora can support reasoning; only your reviewed text becomes part of the consultation record.
+                </p>
+              </div>
+              {editable ? <span className="text-[10px] text-[var(--clinora-text-faint)]">Draft workspace</span> : null}
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <NoteField
                 label="History"
                 value={historyNotes}
@@ -520,44 +541,45 @@ export function DoctorConsultationPage() {
           />
 
           {editable ? (
-            <AppSurface variant="elevated">
+            <AppSurface variant="elevated" padding="compact" radius="compact">
               {confirmComplete ? (
                 <div>
                   <div className="flex items-start gap-3">
-                    <IconWell tone="success">
-                      <CheckCircle2 size={16} />
+                    <IconWell tone="success" className="h-9 w-9 rounded-xl">
+                      <CheckCircle2 size={15} />
                     </IconWell>
                     <div>
-                      <h2 className="text-base font-semibold text-white">Finalize this consultation?</h2>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                      <h2 className="text-sm font-semibold text-white">Finalize this consultation?</h2>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
                         Completion makes the Doctor-authored record read-only and publishes the assessment, plan,
                         structured care actions and attached prescription documents to the Patient. Attached documents
                         become immutable.
                       </p>
                     </div>
                   </div>
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <Button variant="appPrimary" disabled={busy !== ''} onClick={() => void complete()}>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="sm" variant="appPrimary" disabled={busy !== ''} onClick={() => void complete()}>
                       {busy === 'complete' ? 'Completing…' : 'Complete consultation'}
                     </Button>
-                    <Button variant="ghost" disabled={busy !== ''} onClick={() => setConfirmComplete(false)}>
+                    <Button size="sm" variant="ghost" disabled={busy !== ''} onClick={() => setConfirmComplete(false)}>
                       Keep editing
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-base font-semibold text-white">Ready to finish?</h2>
-                    <p className="mt-1 text-sm text-slate-400">Assessment or plan is required before completion.</p>
+                    <h2 className="text-sm font-semibold text-white">Ready to finish?</h2>
+                    <p className="mt-1 text-xs text-slate-400">Assessment or plan is required before completion.</p>
                     {prescriptions.some(hasLimitedMedicationInstructions) ? (
-                      <p className="mt-2 text-xs text-amber-200">
+                      <p className="mt-1.5 text-[11px] text-amber-200">
                         One or more medications have only a name and limited instructions. Review them before
                         finalizing.
                       </p>
                     ) : null}
                   </div>
                   <Button
+                    size="sm"
                     variant="appPrimary"
                     disabled={!assessment.trim() && !plan.trim()}
                     onClick={() => setConfirmComplete(true)}
@@ -568,10 +590,10 @@ export function DoctorConsultationPage() {
               )}
             </AppSurface>
           ) : (
-            <AppSurface variant="elevated">
+            <AppSurface variant="elevated" padding="compact" radius="compact">
               <div className="flex items-center gap-3">
-                <IconWell tone="success">
-                  <CheckCircle2 size={16} />
+                <IconWell tone="success" className="h-9 w-9 rounded-xl">
+                  <CheckCircle2 size={15} />
                 </IconWell>
                 <div>
                   <h2 className="text-sm font-semibold text-white">Consultation completed</h2>
@@ -619,12 +641,19 @@ function CarePlanBuilder({
   onOpenDocument: (document: PrescriptionDocumentView, disposition: 'view' | 'download') => Promise<void>;
 }) {
   return (
-    <AppSurface>
-      <AppSectionHeader
-        eyebrow="Care plan"
-        title="Structured care plan"
-        copy="Doctor-authored medication instructions, optional original prescription documents, investigations and follow-up. Clinora does not autonomously prescribe or determine dosage."
-      />
+    <AppSurface padding="compact" radius="compact" data-density="compact">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--clinora-info-foreground)]">
+            Care plan
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-white">Actions after the consultation</h2>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--clinora-text-muted)]">
+            Doctor-authored medication instructions, original prescription documents, investigations and follow-up.
+          </p>
+        </div>
+        <span className="text-[10px] text-[var(--clinora-text-faint)]">Patient receives the finalized version</span>
+      </div>
 
       <CareSection
         title="Prescription"
@@ -957,15 +986,15 @@ function CareSection({
   children: ReactNode;
 }) {
   return (
-    <section className="mt-6 border-t border-[var(--clinora-border-subtle)] pt-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+    <section className="mt-4 border-t border-[var(--clinora-border-subtle)] pt-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-xs font-semibold text-white">
           {icon}
           {title}
         </h3>
         {action}
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-2.5">{children}</div>
     </section>
   );
 }
@@ -984,7 +1013,7 @@ function NoteField({
   placeholder: string;
 }) {
   return (
-    <label className="text-sm font-semibold text-white">
+    <label className="text-xs font-semibold text-slate-300">
       {label}
       <textarea
         value={value}
@@ -992,7 +1021,7 @@ function NoteField({
         maxLength={8000}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-2 min-h-28 w-full resize-y rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-3 text-sm font-normal leading-6 text-white outline-none placeholder:text-slate-600 focus:border-[var(--clinora-border-interactive)] focus:ring-4 focus:ring-[var(--clinora-focus-ring-soft)] disabled:opacity-80"
+        className="mt-1.5 min-h-24 w-full resize-y rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-2.5 text-sm font-normal leading-5 text-white outline-none placeholder:text-slate-600 focus:border-[var(--clinora-border-interactive)] focus:ring-4 focus:ring-[var(--clinora-focus-ring-soft)] disabled:opacity-80"
       />
     </label>
   );
@@ -1012,13 +1041,13 @@ function MiniInput({
   className?: string;
 }) {
   return (
-    <label className={`${className} text-xs font-semibold text-slate-400`}>
+    <label className={`${className} text-[11px] font-semibold text-slate-400`}>
       {label}
       <input
         disabled={!editable}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1.5 min-h-10 w-full rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-2.5 text-sm font-normal text-white outline-none focus:border-[var(--clinora-border-interactive)] disabled:opacity-70"
+        className="mt-1.5 min-h-9 w-full rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-2.5 text-sm font-normal text-white outline-none focus:border-[var(--clinora-border-interactive)] disabled:opacity-70"
       />
     </label>
   );
@@ -1026,9 +1055,9 @@ function MiniInput({
 
 function ContextMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-[var(--clinora-surface-nested)] p-3.5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">{label}</p>
-      <p className="mt-1.5 text-sm font-semibold leading-6 text-white">{value}</p>
+    <div className="border-l-2 border-cyan-400/20 pl-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">{label}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-white">{value}</p>
     </div>
   );
 }
@@ -1036,19 +1065,19 @@ function ContextMetric({ label, value }: { label: string; value: string }) {
 function ClinicalChips({ label, values, empty }: { label: string; values: string[]; empty: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-slate-400">{label}</p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
         {values.length ? (
           values.map((value) => (
             <span
               key={value}
-              className="rounded-full border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] px-2.5 py-1 text-xs text-slate-300"
+              className="rounded-full border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] px-2 py-0.5 text-[10px] text-slate-300"
             >
               {value}
             </span>
           ))
         ) : (
-          <span className="text-xs text-slate-600">{empty}</span>
+          <span className="text-[10px] text-slate-600">{empty}</span>
         )}
       </div>
     </div>
