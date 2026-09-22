@@ -14,7 +14,8 @@ class AppointmentConsultationMigrationContractTest {
             "db/migration/V27__add_appointment_consultation_modes.sql"
         )) {
             assertNotNull(stream);
-            String sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            String sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
 
             assertTrue(sql.contains("consultation_mode VARCHAR(16) NOT NULL DEFAULT 'BOTH'"));
             assertTrue(sql.contains("ALTER TABLE appointments\n    ADD COLUMN consultation_mode VARCHAR(16),"));
