@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import com.clinora.ai.client.MedGemmaClient.AnalysisInputSnapshot;
 import com.clinora.ai.client.MedGemmaClient.ClinicalObservation;
@@ -96,6 +97,83 @@ class PatientReportAiAnalysisServiceTest {
         assertEquals("QUEUED", view.status());
         assertFalse(view.stale());
         verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class));
+    }
+
+    @Test
+    void doctorSnapshotReusesTheSameCurrentPatientMedGemmaResultWithoutAnotherJob() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("12.0"));
+        fixture.successfulLatestAndExactSnapshotJob();
+        fixture.analysisResult(JOB_ID);
+
+        PatientReportAiAnalysisService.DoctorSnapshot snapshot =
+            fixture.service.resolveDoctorSnapshot(PATIENT_ID, REPORT_ID);
+
+        assertEquals("READY", snapshot.status());
+        assertEquals(JOB_ID, snapshot.jobId());
+        assertEquals(REPORT_ID, snapshot.reportId());
+        assertEquals("patient-lab-report-v1", snapshot.promptVersion());
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class));
+    }
+
+    @Test
+    void staleDoctorSnapshotQueuesOneBackgroundRegenerationAndNeverUsesTheOldResult() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("13.0"));
+        fixture.staleSnapshotRegeneration();
+
+        PatientReportAiAnalysisService.DoctorSnapshot first =
+            fixture.service.resolveDoctorSnapshot(PATIENT_ID, REPORT_ID);
+        PatientReportAiAnalysisService.DoctorSnapshot second =
+            fixture.service.resolveDoctorSnapshot(PATIENT_ID, REPORT_ID);
+
+        assertEquals("STALE", first.status());
+        assertEquals("STALE", second.status());
+        assertEquals(null, first.reasoning());
+        assertEquals(JOB_ID, second.jobId());
+        verify(fixture.jdbc, times(1)).update(
+            contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class)
+        );
+    }
+
+    @Test
+    void failedExactSnapshotDoesNotBlockABackgroundRetry() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("13.0"));
+        fixture.failedExactSnapshotCanRetry();
+
+        PatientReportAiAnalysisService.DoctorSnapshot snapshot =
+            fixture.service.resolveDoctorSnapshot(PATIENT_ID, REPORT_ID);
+
+        assertEquals("PENDING", snapshot.status());
+        assertEquals(null, snapshot.reasoning());
+        verify(fixture.jdbc, times(1)).update(
+            contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class)
+        );
+    }
+
+    @Test
+    void briefSnapshotPeekNeverQueuesStaleMedGemmaWork() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        fixture.observation(new BigDecimal("13.0"));
+        fixture.staleSnapshotRegeneration();
+
+        PatientReportAiAnalysisService.DoctorSnapshot snapshot =
+            fixture.service.peekDoctorSnapshot(PATIENT_ID, REPORT_ID);
+
+        assertEquals("STALE", snapshot.status());
+        assertEquals(null, snapshot.reasoning());
+        verify(fixture.jdbc, never()).update(
+            contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class)
+        );
     }
 
     @Test
@@ -553,6 +631,78 @@ class PatientReportAiAnalysisServiceTest {
             )).thenAnswer(invocation -> List.of(mapJob(invocation, invocation.getArgument(4), "SUCCEEDED")));
         }
 
+        private void successfulLatestAndExactSnapshotJob() throws Exception {
+            when(jdbc.query(
+                contains("status = 'SUCCEEDED'\nORDER BY completed_at DESC"),
+                any(RowMapper.class), eq(PATIENT_ID), eq(REPORT_ID)
+            )).thenAnswer(invocation -> List.of(mapJob(invocation, requestedFingerprint == null ? "fingerprint" : requestedFingerprint, "SUCCEEDED")));
+            when(jdbc.query(
+                contains("AND model_name = ? AND model_revision = ? AND prompt_version = ? AND schema_version = ?"),
+                any(RowMapper.class), eq(PATIENT_ID), eq(REPORT_ID), anyString(),
+                eq("google/medgemma-1.5-4b-it"), eq("main"), eq("patient-lab-report-v1"), eq("1.0")
+            )).thenAnswer(invocation -> {
+                requestedFingerprint = invocation.getArgument(4);
+                return List.of(mapJob(invocation, requestedFingerprint, "SUCCEEDED"));
+            });
+        }
+
+        private void staleSnapshotRegeneration() throws Exception {
+            when(jdbc.query(
+                contains("status = 'SUCCEEDED'\nORDER BY completed_at DESC"),
+                any(RowMapper.class), eq(PATIENT_ID), eq(REPORT_ID)
+            )).thenAnswer(invocation -> List.of(mapJob(invocation, "old-evidence-fingerprint", "SUCCEEDED")));
+            when(jdbc.query(
+                contains("AND model_name = ? AND model_revision = ? AND prompt_version = ? AND schema_version = ?"),
+                any(RowMapper.class), eq(PATIENT_ID), eq(REPORT_ID), anyString(),
+                eq("google/medgemma-1.5-4b-it"), eq("main"), eq("patient-lab-report-v1"), eq("1.0")
+            )).thenAnswer(invocation -> {
+                requestedFingerprint = invocation.getArgument(4);
+                return List.of();
+            });
+            noReusableJob();
+            when(jdbc.query(
+                contains("WHERE report_id = ? AND status IN"), any(RowMapper.class), eq(REPORT_ID)
+            )).thenAnswer(new org.mockito.stubbing.Answer<List<Object>>() {
+                private int calls;
+                @Override public List<Object> answer(org.mockito.invocation.InvocationOnMock invocation) throws Throwable {
+                    calls++;
+                    return calls == 1 ? List.of() : List.of(mapJob(invocation, requestedFingerprint, "QUEUED"));
+                }
+            });
+            when(jdbc.query(
+                contains("FROM medical_report_ai_analysis_jobs\nWHERE id = ?"),
+                any(RowMapper.class), any(UUID.class)
+            )).thenAnswer(invocation -> List.of(mapJob(invocation, requestedFingerprint, "QUEUED")));
+        }
+
+        private void failedExactSnapshotCanRetry() throws Exception {
+            when(jdbc.query(
+                contains("AND model_name = ? AND model_revision = ? AND prompt_version = ? AND schema_version = ?"),
+                any(RowMapper.class), eq(PATIENT_ID), eq(REPORT_ID), anyString(),
+                eq("google/medgemma-1.5-4b-it"), eq("main"), eq("patient-lab-report-v1"), eq("1.0")
+            )).thenAnswer(invocation -> {
+                requestedFingerprint = invocation.getArgument(4);
+                String sql = invocation.getArgument(0);
+                return sql.contains("AND status IN ('QUEUED', 'PROCESSING', 'SUCCEEDED')")
+                    ? List.of()
+                    : List.of(mapJob(invocation, requestedFingerprint, "FAILED"));
+            });
+            noReusableJob();
+            when(jdbc.query(
+                contains("WHERE report_id = ? AND status IN"), any(RowMapper.class), eq(REPORT_ID)
+            )).thenAnswer(new org.mockito.stubbing.Answer<List<Object>>() {
+                private int calls;
+                @Override public List<Object> answer(org.mockito.invocation.InvocationOnMock invocation) throws Throwable {
+                    calls++;
+                    return calls == 1 ? List.of() : List.of(mapJob(invocation, requestedFingerprint, "QUEUED"));
+                }
+            });
+            when(jdbc.query(
+                contains("FROM medical_report_ai_analysis_jobs\nWHERE id = ?"),
+                any(RowMapper.class), any(UUID.class)
+            )).thenAnswer(invocation -> List.of(mapJob(invocation, requestedFingerprint, "QUEUED")));
+        }
+
         private void successfulPriorJob() throws Exception {
             when(jdbc.query(
                 contains("status = 'SUCCEEDED' AND id <> ?"),
@@ -627,6 +777,7 @@ class PatientReportAiAnalysisServiceTest {
             when(rs.getString("prompt_version")).thenReturn("patient-lab-report-v1");
             when(rs.getString("schema_version")).thenReturn("1.0");
             when(rs.getTimestamp("requested_at")).thenReturn(Timestamp.from(NOW));
+            if ("SUCCEEDED".equals(status)) when(rs.getTimestamp("completed_at")).thenReturn(Timestamp.from(NOW));
             return mapper.mapRow(rs, 0);
         }
     }

@@ -54,6 +54,7 @@ minio-data/
 
 # Local AI weights and Phase 10P development captures
 /ai-service/models/
+/ai-service/var/
 *.gguf
 /.codex-smoke/
 /..phase10p-*-extracted-*/

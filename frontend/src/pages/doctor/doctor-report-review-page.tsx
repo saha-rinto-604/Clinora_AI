@@ -22,6 +22,7 @@ import {
   type DoctorReportReview,
 } from '../../features/doctor/doctor-api';
 import { formatDoctorDate, reportTypeLabel } from '../../features/doctor/doctor-display';
+import { ClinoraClinicalSupportPanel } from '../../features/doctor/clinora-clinical-support-panel';
 
 export function DoctorReportReviewPage() {
   const { appointmentId = '', reportId = '' } = useParams();
@@ -32,13 +33,24 @@ export function DoctorReportReviewPage() {
   const [previewType, setPreviewType] = useState('');
   const [previewError, setPreviewError] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [selectedObservationIds, setSelectedObservationIds] = useState<string[]>([]);
+  const [comparableReportsAvailable, setComparableReportsAvailable] = useState(false);
 
   const load = useCallback(async () => {
     if (!appointmentId || !reportId) return;
     setLoading(true);
     setError('');
     try {
-      setData(await doctorApi.reportReview(appointmentId, reportId));
+      const [review, appointment] = await Promise.all([
+        doctorApi.reportReview(appointmentId, reportId),
+        doctorApi.appointment(appointmentId),
+      ]);
+      setData(review);
+      setComparableReportsAvailable(
+        appointment.sharedReports.some(
+          (report) => report.reportId !== reportId && report.reportType === review.reportType,
+        ),
+      );
     } catch (requestError) {
       setError(doctorError(requestError, 'This report is not available for this appointment.'));
     } finally {
@@ -163,6 +175,14 @@ export function DoctorReportReviewPage() {
         </p>
       </AppSurface>
 
+      <ClinoraClinicalSupportPanel
+        appointmentId={appointmentId}
+        screen="REPORT_REVIEW"
+        currentReportId={reportId}
+        selectedObservationIds={selectedObservationIds}
+        comparableReportsAvailable={comparableReportsAvailable}
+      />
+
       {data.extractionReviewStatus === 'VERIFIED' && data.observations.length ? (
         <div className="grid gap-3 sm:grid-cols-3">
           <SummaryTile
@@ -279,6 +299,14 @@ export function DoctorReportReviewPage() {
                   observation={observation}
                   appointmentId={appointmentId}
                   reportId={reportId}
+                  selected={selectedObservationIds.includes(observation.id)}
+                  onSelectionChange={(selected) =>
+                    setSelectedObservationIds((current) =>
+                      selected
+                        ? [...new Set([...current, observation.id])]
+                        : current.filter((id) => id !== observation.id),
+                    )
+                  }
                   onUpdated={(decision, comment) =>
                     setData((current) =>
                       current
@@ -307,17 +335,24 @@ function ObservationRow({
   observation,
   appointmentId,
   reportId,
+  selected,
+  onSelectionChange,
   onUpdated,
 }: {
   observation: DoctorReportObservation;
   appointmentId: string;
   reportId: string;
+  selected: boolean;
+  onSelectionChange: (selected: boolean) => void;
   onUpdated: (decision: DoctorObservationDecision, comment?: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [comment, setComment] = useState(observation.doctorComment || '');
   const status = useMemo(() => observationStatus(observation), [observation]);
+  const selectable = ['PATIENT_CONFIRMED', 'PATIENT_CORRECTED', 'DOCTOR_VERIFIED'].includes(
+    observation.patientVerification || '',
+  );
 
   const save = async (decision: DoctorObservationDecision) => {
     setSaving(true);
@@ -333,10 +368,23 @@ function ObservationRow({
   };
 
   return (
-    <article className="px-5 py-5 sm:px-6">
+    <article className={`px-5 py-5 sm:px-6 ${selected ? 'bg-cyan-300/[.045] ring-1 ring-inset ring-cyan-300/20' : ''}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            <label
+              className={`inline-flex min-h-8 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-xs font-semibold ${selected ? 'border-cyan-300/40 bg-cyan-300/10 text-cyan-100' : 'border-white/10 text-slate-300'} ${!selectable ? 'cursor-not-allowed opacity-50' : ''}`}
+            >
+              <input
+                type="checkbox"
+                checked={selected}
+                disabled={!selectable}
+                onChange={(event) => onSelectionChange(event.target.checked)}
+                aria-label={`Select ${observation.label} for Clinora Clinical Support`}
+                className="accent-cyan-400"
+              />
+              {selected ? 'Selected' : 'Select'}
+            </label>
             <h3 className="text-sm font-semibold text-white">{observation.label}</h3>
             <StatusPill tone={status.tone}>{status.label}</StatusPill>
             {observation.patientVerification === 'PATIENT_CORRECTED' ? (

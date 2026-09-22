@@ -48,6 +48,7 @@ public final class DoctorWorkspaceModels {
         String timezone,
         String status,
         String reason,
+        String consultationMode,
         int sharedReportCount
     ) {}
 
@@ -58,6 +59,10 @@ public final class DoctorWorkspaceModels {
         Instant scheduledStart,
         Instant scheduledEnd,
         String timezone,
+        String consultationMode,
+        String meetingUrl,
+        Instant meetingLinkUpdatedAt,
+        String visitLocation,
         boolean canModify,
         boolean reportAccessActive,
         PatientContext patient,
@@ -87,6 +92,7 @@ public final class DoctorWorkspaceModels {
 
     public record CancelAppointmentRequest(String reason) {}
     public record RescheduleAppointmentRequest(UUID slotId, String timezone) {}
+    public record MeetingLinkRequest(String meetingUrl) {}
 
     public record ReportReviewView(
         UUID appointmentId,

@@ -17,8 +17,23 @@ class ModelUnavailableError(RuntimeError):
     pass
 
 
-class ModelCapacityError(RuntimeError):
+class ModelTimeoutError(ModelUnavailableError):
     pass
+
+
+class ModelCapacityError(RuntimeError):
+    def __init__(
+        self,
+        message: str = "The model provider is temporarily busy.",
+        *,
+        provider_attempts: int = 1,
+        retry_after_seconds: float | None = None,
+        rate_limit_category: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider_attempts = max(0, provider_attempts)
+        self.retry_after_seconds = retry_after_seconds
+        self.rate_limit_category = rate_limit_category
 
 
 class MalformedModelResponseError(RuntimeError):
@@ -41,6 +56,7 @@ class ModelGeneration:
     finish_reason: str | None
     completion_tokens: int | None
     prompt_tokens: int | None = None
+    provider_attempts: int = 1
 
 
 class VerifiedObservationIds(tuple):
@@ -209,8 +225,15 @@ class MedGemmaRuntime:
         self,
         messages: list[dict[str, object]],
         allowed_observation_ids: Iterable[str] | None = None,
+        response_schema: dict[str, object] | None = None,
+        max_tokens: int | None = None,
     ) -> ModelGeneration:
         request_messages = [self._chat_message(message) for message in messages]
+        effective_max_tokens = (
+            self._max_new_tokens
+            if max_tokens is None
+            else max(64, min(int(max_tokens), self._max_new_tokens))
+        )
         try:
             response = self._client.post(
                 "/v1/chat/completions",
@@ -219,11 +242,11 @@ class MedGemmaRuntime:
                     "temperature": 0,
                     "top_p": 1,
                     "seed": self._seed,
-                    "max_tokens": self._max_new_tokens,
+                    "max_tokens": effective_max_tokens,
                     "stream": False,
                     "response_format": {
                         "type": "json_object",
-                        "schema": _llama_response_schema(allowed_observation_ids),
+                        "schema": response_schema or _llama_response_schema(allowed_observation_ids),
                     },
                 },
             )
@@ -232,6 +255,9 @@ class MedGemmaRuntime:
             response.raise_for_status()
         except ModelCapacityError:
             raise
+        except httpx.TimeoutException as exc:
+            self._last_error = exc.__class__.__name__
+            raise ModelTimeoutError("MedGemma inference timed out.") from exc
         except httpx.HTTPError as exc:
             self._ready = False
             self._last_error = exc.__class__.__name__

@@ -9,6 +9,7 @@ export interface DoctorSummary {
   yearsExperience: number | null;
   currentOrganization: string | null;
   currentPosition: string | null;
+  practiceLocation?: string | null;
   registrationJurisdiction: string | null;
   registrationAuthority: string | null;
   registrationType: string | null;
@@ -22,7 +23,10 @@ export interface AvailabilitySlot {
   endsAt: string;
   timezone: string;
   status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED';
+  consultationMode?: AvailabilityConsultationMode;
 }
+export type ConsultationMode = 'ONLINE' | 'IN_PERSON';
+export type AvailabilityConsultationMode = ConsultationMode | 'BOTH';
 export interface DoctorDetail {
   doctor: DoctorSummary;
   availability: AvailabilitySlot[];
@@ -36,6 +40,10 @@ export interface Appointment {
   bookingTimezone: string;
   bookedAt: string;
   cancelledAt: string | null;
+  consultationMode?: ConsultationMode | null;
+  meetingUrl?: string | null;
+  meetingLinkUpdatedAt?: string | null;
+  visitLocation?: string | null;
   doctorId: string;
   doctorName: string;
   specialization: string;
@@ -64,7 +72,13 @@ export const appointmentApi = {
     return response.data.data;
   },
   async book(
-    input: { slotId: string; reasonForVisit?: string; timezone: string; reportIds: string[] },
+    input: {
+      slotId: string;
+      reasonForVisit?: string;
+      timezone: string;
+      consultationMode: ConsultationMode;
+      reportIds: string[];
+    },
     idempotencyKey: string,
   ) {
     const response = await apiClient.post<ApiEnvelope<Appointment>>('/patient/appointments', input, {
@@ -86,10 +100,11 @@ export const appointmentApi = {
     const response = await apiClient.post<ApiEnvelope<Appointment>>(`/patient/appointments/${id}/cancel`, { reason });
     return response.data.data;
   },
-  async reschedule(id: string, slotId: string, timezone: string) {
+  async reschedule(id: string, slotId: string, timezone: string, consultationMode?: ConsultationMode) {
     const response = await apiClient.post<ApiEnvelope<Appointment>>(`/patient/appointments/${id}/reschedule`, {
       slotId,
       timezone,
+      consultationMode,
     });
     return response.data.data;
   },
@@ -113,7 +128,13 @@ export const doctorAvailabilityApi = {
     const response = await apiClient.get<ApiEnvelope<AvailabilitySlot[]>>('/doctor/availability');
     return response.data.data;
   },
-  async create(input: { startsAt: string; endsAt: string; slotMinutes: number; timezone: string }) {
+  async create(input: {
+    startsAt: string;
+    endsAt: string;
+    slotMinutes: number;
+    timezone: string;
+    consultationMode?: AvailabilityConsultationMode;
+  }) {
     const response = await apiClient.post<ApiEnvelope<AvailabilitySlot[]>>('/doctor/availability', input);
     return response.data.data;
   },

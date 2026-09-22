@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   appointments: vi.fn(),
   cancelAppointment: vi.fn(),
   rescheduleAppointment: vi.fn(),
+  updateMeetingLink: vi.fn(),
   reportReview: vi.fn(),
   compareReports: vi.fn(),
   reviewObservation: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock('../../features/doctor/doctor-api', () => ({
     appointments: mocks.appointments,
     cancelAppointment: mocks.cancelAppointment,
     rescheduleAppointment: mocks.rescheduleAppointment,
+    updateMeetingLink: mocks.updateMeetingLink,
     reportReview: mocks.reportReview,
     compareReports: mocks.compareReports,
     reviewObservation: mocks.reviewObservation,
@@ -171,6 +173,49 @@ describe('Phase 6A–6C Doctor workspace', () => {
     expect(screen.getByText(/continue the consultation without uploaded files/i)).toBeInTheDocument();
     expect(screen.queryByText(/^Phone$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Address$/i)).not.toBeInTheDocument();
+  });
+
+  it('allows meeting-link editing only for online appointments', async () => {
+    const user = userEvent.setup();
+    const online = {
+      ...appointment,
+      consultationMode: 'ONLINE' as const,
+      meetingUrl: null,
+      meetingLinkUpdatedAt: null,
+      visitLocation: null,
+    };
+    mocks.appointment.mockResolvedValue(online);
+    mocks.updateMeetingLink.mockResolvedValue({
+      ...online,
+      meetingUrl: 'https://meet.example.test/clinora-visit',
+    });
+
+    const rendered = render(
+      <MemoryRouter initialEntries={[`/doctor/appointments/${appointment.id}`]}>
+        <Routes>
+          <Route path="/doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.type(await screen.findByLabelText('Meeting URL'), 'https://meet.example.test/clinora-visit');
+    await user.click(screen.getByRole('button', { name: 'Add meeting link' }));
+    expect(mocks.updateMeetingLink).toHaveBeenCalledWith(
+      appointment.id,
+      'https://meet.example.test/clinora-visit',
+    );
+    rendered.unmount();
+
+    mocks.appointment.mockResolvedValue({ ...online, consultationMode: 'IN_PERSON', meetingUrl: null });
+    render(
+      <MemoryRouter initialEntries={[`/doctor/appointments/${appointment.id}`]}>
+        <Routes>
+          <Route path="/doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('In-person')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Meeting URL')).not.toBeInTheDocument();
   });
 
   it('closes source-report navigation when the appointment is no longer active', async () => {

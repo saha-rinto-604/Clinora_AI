@@ -34,6 +34,7 @@ const blankEditable: DoctorEditableProfile = {
   displayTitle: null,
   currentOrganization: null,
   currentPosition: null,
+  practiceLocation: null,
   preferredTimezone: null,
   defaultConsultationMinutes: null,
 };
@@ -404,6 +405,14 @@ function PreferencesTab({
           </p>
         </div>
         <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+          <Field
+            label="Practice location"
+            value={draft.practiceLocation ?? ''}
+            maxLength={500}
+            placeholder="Building, street, area, city"
+            hint="Required before Patients can confirm an in-person appointment."
+            onChange={(value) => update('practiceLocation', value || null)}
+          />
           <TimezoneField
             value={draft.preferredTimezone ?? ''}
             onChange={(value) => update('preferredTimezone', value || null)}

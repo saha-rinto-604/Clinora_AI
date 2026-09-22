@@ -57,6 +57,7 @@ public class DoctorProfileController {
                     request.displayTitle(),
                     request.currentOrganization(),
                     request.currentPosition(),
+                    request.practiceLocation(),
                     request.preferredTimezone(),
                     request.defaultConsultationMinutes()
                 ),
@@ -121,6 +122,7 @@ public class DoctorProfileController {
         @Size(max = 160) String displayTitle,
         @Size(max = 220) String currentOrganization,
         @Size(max = 180) String currentPosition,
+        @Size(max = 500) String practiceLocation,
         @Size(max = 80) String preferredTimezone,
         @Min(15) @Max(120) Integer defaultConsultationMinutes
     ) {}

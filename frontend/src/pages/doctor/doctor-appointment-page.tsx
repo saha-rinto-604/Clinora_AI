@@ -27,6 +27,7 @@ import {
   reportTypeLabel,
 } from '../../features/doctor/doctor-display';
 import { ProfileAvatar } from '../../features/profile/profile-image';
+import { ClinoraClinicalSupportPanel } from '../../features/doctor/clinora-clinical-support-panel';
 
 export function DoctorAppointmentPage() {
   const { appointmentId = '' } = useParams();
@@ -39,6 +40,7 @@ export function DoctorAppointmentPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [leftReport, setLeftReport] = useState('');
   const [rightReport, setRightReport] = useState('');
 
@@ -49,6 +51,7 @@ export function DoctorAppointmentPage() {
     try {
       const appointment = await doctorApi.appointment(appointmentId);
       setData(appointment);
+      setMeetingUrl(appointment.meetingUrl || '');
       if (appointment.sharedReports.length >= 2) {
         setLeftReport((current) => current || appointment.sharedReports[0].reportId);
         setRightReport((current) => current || appointment.sharedReports[1].reportId);
@@ -70,10 +73,30 @@ export function DoctorAppointmentPage() {
     try {
       const slots = await doctorAvailabilityApi.list();
       setAvailability(
-        slots.filter((slot) => slot.status === 'AVAILABLE' && new Date(slot.startsAt).getTime() > Date.now()),
+        slots.filter(
+          (slot) =>
+            slot.status === 'AVAILABLE' &&
+            new Date(slot.startsAt).getTime() > Date.now() &&
+            (!data?.consultationMode ||
+              slot.consultationMode === 'BOTH' ||
+              slot.consultationMode === data.consultationMode),
+        ),
       );
     } catch (requestError) {
       setActionError(doctorError(requestError, 'We could not load your available times.'));
+    }
+  };
+
+  const saveMeetingLink = async () => {
+    if (!data || !meetingUrl.trim()) return;
+    setBusy(true);
+    setActionError('');
+    try {
+      setData(await doctorApi.updateMeetingLink(data.id, meetingUrl.trim()));
+    } catch (requestError) {
+      setActionError(doctorError(requestError, 'We could not save this meeting link.'));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -187,6 +210,10 @@ export function DoctorAppointmentPage() {
           ) : null}
         </div>
       </div>
+
+      {data.reportAccessActive ? (
+        <ClinoraClinicalSupportPanel appointmentId={data.id} screen="APPOINTMENT" appointmentMode />
+      ) : null}
 
       {action === 'cancel' ? (
         <AppSurface as="section" variant="attention" aria-labelledby="cancel-appointment-title">
@@ -302,6 +329,41 @@ export function DoctorAppointmentPage() {
               {formatDoctorDateTime(data.scheduledStart, data.timezone)}
             </p>
             <p className="mt-1 text-xs text-[var(--clinora-text-faint)]">{data.timezone || 'Local time'}</p>
+            <p className="mt-3 text-sm font-semibold text-cyan-100">
+              {data.consultationMode === 'ONLINE'
+                ? 'Online'
+                : data.consultationMode === 'IN_PERSON'
+                  ? 'In-person'
+                  : 'Consultation type not recorded'}
+            </p>
+            {data.consultationMode === 'ONLINE' ? (
+              <div className="mt-5 border-t border-[var(--clinora-border-subtle)] pt-5">
+                <label className="block text-sm font-semibold text-white">
+                  Meeting URL
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={meetingUrl}
+                    onChange={(event) => setMeetingUrl(event.target.value)}
+                    placeholder="https://meet.example.com/consultation"
+                    disabled={!data.canModify || busy}
+                    className="mt-2 min-h-11 w-full rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] px-3 text-sm font-normal text-white outline-none focus:border-[var(--clinora-border-interactive)]"
+                  />
+                </label>
+                <p className="mt-2 text-xs text-[var(--clinora-text-faint)]">A secure HTTPS URL is required.</p>
+                {actionError ? <p role="alert" className="mt-2 text-xs text-rose-200">{actionError}</p> : null}
+                {data.canModify ? (
+                  <Button
+                    variant="appSecondary"
+                    className="mt-3"
+                    disabled={busy || !meetingUrl.trim() || meetingUrl.trim() === (data.meetingUrl || '')}
+                    onClick={() => void saveMeetingLink()}
+                  >
+                    {busy ? 'Saving…' : data.meetingUrl ? 'Update meeting link' : 'Add meeting link'}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </AppSurface>
 
           <AppSurface as="section" aria-labelledby="patient-context-title">

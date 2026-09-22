@@ -12,6 +12,7 @@ from app.model_runtime import (
     MedGemmaRuntime,
     ModelCapacityError,
     ModelUnavailableError,
+    ModelTimeoutError,
 )
 
 
@@ -103,11 +104,30 @@ class MedGemmaRuntimeTests(unittest.TestCase):
         )
         self.assertNotIn("model", observed_request)
 
-    def test_generate_maps_timeout_to_controlled_unavailable_state(self) -> None:
+    def test_generate_honors_a_smaller_per_call_token_budget(self) -> None:
+        observed_request: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            observed_request.update(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"role": "assistant", "content": '{"safe":true}'}}]},
+            )
+
+        with patch.dict(os.environ, {"AI_MAX_NEW_TOKENS": "600"}):
+            self.runtime(handler).generate(
+                [{"role": "user", "content": "Return a small semantic frame."}],
+                response_schema={"type": "object", "additionalProperties": True},
+                max_tokens=192,
+            )
+
+        self.assertEqual(observed_request["max_tokens"], 192)
+
+    def test_generate_maps_timeout_to_distinct_controlled_timeout_state(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             raise httpx.ReadTimeout("timed out", request=request)
 
-        with self.assertRaises(ModelUnavailableError):
+        with self.assertRaises(ModelTimeoutError):
             self.runtime(handler).generate([{"role": "user", "content": "safe prompt"}])
 
     def test_generate_maps_busy_server_to_capacity_state(self) -> None:

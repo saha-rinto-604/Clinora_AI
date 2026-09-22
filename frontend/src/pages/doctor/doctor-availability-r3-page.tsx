@@ -8,6 +8,7 @@ import {
   appointmentError,
   doctorAvailabilityApi,
   type AvailabilitySlot,
+  type AvailabilityConsultationMode,
 } from '../../features/appointments/appointment-api';
 import { cn } from '../../lib/cn';
 
@@ -16,6 +17,7 @@ export function DoctorAvailabilityWorkspacePage() {
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [slotMinutes, setSlotMinutes] = useState(30);
+  const [consultationMode, setConsultationMode] = useState<AvailabilityConsultationMode>('BOTH');
   const [weekOffset, setWeekOffset] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,7 @@ export function DoctorAvailabilityWorkspacePage() {
         endsAt: new Date(endsAt).toISOString(),
         slotMinutes,
         timezone,
+        consultationMode,
       });
       setStartsAt('');
       setEndsAt('');
@@ -298,6 +301,17 @@ export function DoctorAvailabilityWorkspacePage() {
                 ))}
               </select>
             </Field>
+            <Field label="Consultation types">
+              <select
+                value={consultationMode}
+                onChange={(event) => setConsultationMode(event.target.value as AvailabilityConsultationMode)}
+                className={inputClass}
+              >
+                <option value="BOTH">Online and In-person</option>
+                <option value="ONLINE">Online only</option>
+                <option value="IN_PERSON">In-person only</option>
+              </select>
+            </Field>
             {dialogError ? (
               <p
                 role="alert"
@@ -351,6 +365,7 @@ function AvailabilityBlock({ slot, busy, onRemove }: { slot: AvailabilitySlot; b
         <div className="min-w-0">
           <p className="text-xs font-semibold tabular-nums text-slate-100">{formatSlotTime(slot)}</p>
           <p className="mt-1 text-[10px] text-slate-600">{slotDuration(slot)}</p>
+          <p className="mt-1 text-[10px] font-medium text-slate-500">{availabilityModeLabel(slot.consultationMode)}</p>
         </div>
         {available ? (
           <button
@@ -436,4 +451,10 @@ function slotDuration(slot: AvailabilitySlot) {
   const minutes = Math.round((new Date(slot.endsAt).getTime() - new Date(slot.startsAt).getTime()) / 60_000);
   if (!Number.isFinite(minutes) || minutes <= 0) return 'Invalid duration';
   return `${minutes} min`;
+}
+
+function availabilityModeLabel(mode?: AvailabilityConsultationMode) {
+  if (mode === 'ONLINE') return 'Online';
+  if (mode === 'IN_PERSON') return 'In-person';
+  return 'Online or In-person';
 }

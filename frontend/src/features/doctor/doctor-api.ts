@@ -21,6 +21,7 @@ export interface DoctorAppointmentSummary {
   timezone: string;
   status: 'BOOKED' | 'CANCELLED' | 'COMPLETED';
   reason: string | null;
+  consultationMode?: 'ONLINE' | 'IN_PERSON' | null;
   sharedReportCount: number;
 }
 
@@ -80,6 +81,10 @@ export interface DoctorAppointmentDetail {
   scheduledStart: string;
   scheduledEnd: string;
   timezone: string;
+  consultationMode?: 'ONLINE' | 'IN_PERSON' | null;
+  meetingUrl?: string | null;
+  meetingLinkUpdatedAt?: string | null;
+  visitLocation?: string | null;
   canModify: boolean;
   reportAccessActive: boolean;
   patient: DoctorPatientContext;
@@ -156,6 +161,14 @@ export const doctorApi = {
     const response = await apiClient.post<ApiEnvelope<DoctorAppointmentDetail>>(
       `/doctor/appointments/${encodeURIComponent(appointmentId)}/reschedule`,
       { slotId, timezone },
+    );
+    return response.data.data;
+  },
+
+  async updateMeetingLink(appointmentId: string, meetingUrl: string) {
+    const response = await apiClient.post<ApiEnvelope<DoctorAppointmentDetail>>(
+      `/doctor/appointments/${encodeURIComponent(appointmentId)}/meeting-link`,
+      { meetingUrl },
     );
     return response.data.data;
   },

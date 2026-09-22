@@ -1,13 +1,19 @@
-# Clinora Report AI Service
+# Clinora AI Service
 
-This FastAPI service is the privacy and safety boundary for Patient report interpretation. Spring calls only this
-service on port `8001`. It accepts verified structured Phase 9P observations and never receives or forwards the
-original report, raw OCR text, Patient identity, report binary, storage keys, or authentication/session data.
+This FastAPI service is the privacy and safety boundary for Patient report interpretation and live Doctor clinical
+support. Spring calls only this service on port `8001`. Patient report analysis accepts verified structured Phase 9P
+observations. Doctor reasoning accepts a compact, freshly authorized evidence pack plus report-scoped advisory
+snapshots and relevant Doctor-authored text. Neither path receives or forwards the original report, raw OCR text,
+Patient identity, report binary, storage keys, or authentication/session data.
 
-## Local inference boundary
+## Inference boundaries
 
-MedGemma inference runs in a separate local llama.cpp process bound to `127.0.0.1:8002`. Start the currently proven
-local feasibility profile from a PowerShell terminal:
+Patient report analysis remains background MedGemma inference in a separate local llama.cpp process bound to
+`127.0.0.1:8002`. Live Doctor routing, interpretation, and reasoning use the server-side Gemini API adapter and do
+not wait on or share the local GPU lock. The Doctor path receives only current authorized report evidence and READY
+report snapshots; Clinora validates and expands evidence handles after generation.
+
+Start the currently proven local MedGemma feasibility profile from a PowerShell terminal:
 
 ```powershell
 llama-server -hf gguf-org/medgemma-1.5-4b-it-gguf:Q4_0 --no-mmproj --device Vulkan1 --gpu-layers auto --fit on --parallel 1 -c 8192 --port 8002
@@ -51,6 +57,11 @@ including explicitly empty values. No service-specific env file or manual `$env:
 `AI_INTERNAL_TOKEN` is shared with the backend through that same root file. Tokens are never logged.
 `AI_PROMPT_VERSION=patient-lab-report-v5` and `AI_SCHEMA_VERSION=1.1` must match backend job provenance. The service uses the v5 implementation; environment metadata does not dynamically select an older prompt. Use `AI_MAX_NEW_TOKENS=3072` for the bounded cluster response (accepted range: 256-3072). The context must also fit the complete verified input; the current local runtime acceptance uses an 8192-token context. Large reports may require more context or fail without an interpretation.
 
+Live Doctor inference reads the existing server-only `GEMINI_API_KEY`, `GEMINI_MODEL`, and
+`GEMINI_API_BASE_URL` settings. `GEMINI_CONNECT_TIMEOUT_SECONDS`, `GEMINI_READ_TIMEOUT_SECONDS` (12 seconds by default), and
+`GEMINI_MAX_ATTEMPTS` control bounded network behavior; attempts are capped at two. Missing credentials fail the
+Doctor reasoning path safely and do not affect deterministic Doctor tasks or background Patient MedGemma jobs.
+
 The default `docker compose up -d` starts frontend, backend, OCR, Postgres, RabbitMQ, Redis, MinIO, and ClamAV.
 It leaves FastAPI and llama.cpp manual on Windows. The Docker backend receives
 `AI_SERVICE_URL=${COMPOSE_AI_SERVICE_URL:-http://host.docker.internal:8001}`. Keep llama.cpp bound to loopback.
@@ -69,7 +80,6 @@ The existing llama.cpp client still only accepts loopback URLs. Thus optional co
 llama.cpp server reachable on loopback in that container's network namespace; it cannot use the Windows
 loopback-only llama.cpp server through bridge networking. Enabling the profile alone does not make inference ready.
 
-
 ## Tests
 
 The CI-safe adapter tests use a mock HTTP transport and do not download or start a model:
@@ -82,6 +92,23 @@ python -m compileall -q app tests
 
 A local runtime gate should separately exercise llama.cpp `:8002`, FastAPI `/ready` on `:8001`, a synthetic internal
 analysis request, Spring connectivity, and a real VERIFIED Patient report through the Patient AI Insight view.
+
+## Curated Doctor clinical knowledge
+
+Doctor Clinical Support can use a separate, approved-only local knowledge index. Runtime startup never downloads,
+crawls, or ingests content and never indexes Patient evidence. A reviewer prepares a local manifest and explicitly
+runs ingestion from `ai-service`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.knowledge.cli --db var/clinical-knowledge.db ingest --manifest path\to\manifest.json
+.\.venv\Scripts\python.exe -m app.knowledge.cli --db var/clinical-knowledge.db status
+```
+
+Only `APPROVED` documents are retrievable; `DRAFT` and `RETIRED` documents are excluded. The default runtime path is
+`var/clinical-knowledge.db` and can be changed with `CLINICAL_KNOWLEDGE_DB_PATH`. `GET /health/clinical-knowledge`
+reports only safe readiness, version, model, and count metadata. An unavailable optional index does not make the
+MedGemma service unready. The current deterministic CPU hash embedding is an offline baseline behind an embedding
+interface; index provenance records its exact version so a validated local model can replace it later.
 
 ## Safety boundary
 
@@ -117,7 +144,6 @@ Focused checks and real-model synthetic acceptance (from `ai-service`):
 ```
 
 The opt-in runtime runner sends synthetic reports A/B/C through the current FastAPI route in-process to the real loopback model. It records counts and synthetic final interpretations under `docs/validation/phase10p-r5-runtime.json`. It never logs or reads patient records, and does not restart the existing app services.
-
 
 ### Phase 10P-R5.1 evidence premises
 
@@ -158,7 +184,6 @@ alternative explanation, in addition to eligible support and an independent rati
 Explicitly mentioned unclassified tests omitted from the evidence array can be
 recovered as CONTEXT only. Repeated identical groups are consolidated; independent
 supported processes remain separate.
-
 
 The R5.1 runtime continuation binds each generated evidence label to its exact
 verified UUID and authoritative state using a case-specific grammar. Allowed

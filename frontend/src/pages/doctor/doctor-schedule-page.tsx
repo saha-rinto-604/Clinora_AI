@@ -148,6 +148,13 @@ export function DoctorSchedulePage() {
                       <span className="mt-1 block truncate text-xs text-[var(--clinora-text-muted)]">
                         {appointment.reason || 'Consultation'}
                       </span>
+                      <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--clinora-info-foreground)]">
+                        {appointment.consultationMode === 'ONLINE'
+                          ? 'Online'
+                          : appointment.consultationMode === 'IN_PERSON'
+                            ? 'In-person'
+                            : 'Type not recorded'}
+                      </span>
                     </span>
                   </span>
                   <span>

@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarClock, FileText, RefreshCcw, ShieldCheck, Stethoscope, XCircle } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ExternalLink, FileText, RefreshCcw, ShieldCheck, Stethoscope, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
@@ -10,6 +10,7 @@ import {
   appointmentError,
   type Appointment,
   type AvailabilitySlot,
+  type ConsultationMode,
   type ReportShare,
 } from '../../features/appointments/appointment-api';
 import { patientReportApi } from '../../features/patient-reports/patient-report-api';
@@ -23,6 +24,7 @@ export function PatientAppointmentDetailPage() {
   const [reports, setReports] = useState<PatientReport[]>([]);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [rescheduleMode, setRescheduleMode] = useState<ConsultationMode | null>(null);
   const [selectedReport, setSelectedReport] = useState('');
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -92,12 +94,13 @@ export function PatientAppointmentDetailPage() {
     );
 
   const reschedule = async () => {
-    if (!appointmentId || !selectedSlot) return;
+    if (!appointmentId || !selectedSlot || !rescheduleMode) return;
     setBusy('reschedule');
     setError('');
     try {
-      setAppointment(await appointmentApi.reschedule(appointmentId, selectedSlot, timezone));
+      setAppointment(await appointmentApi.reschedule(appointmentId, selectedSlot, timezone, rescheduleMode));
       setSelectedSlot('');
+      setRescheduleMode(null);
       await reload();
     } catch (requestError) {
       setError(
@@ -209,8 +212,39 @@ export function PatientAppointmentDetailPage() {
               <Datum label="Specialty" value={appointment.specialization} />
               <Datum label="Date & time" value={formatDateTime(appointment.scheduledStart)} />
               <Datum label="Timezone" value={appointment.bookingTimezone} />
+              <Datum label="Consultation type" value={modeLabel(appointment.consultationMode)} />
               <Datum label="Reason for visit" value={appointment.reasonForVisit || 'No reason provided'} />
             </dl>
+            {appointment.consultationMode === 'ONLINE' ? (
+              <div className="mt-5 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4">
+                <p className="text-sm font-semibold text-white">Online consultation</p>
+                {appointment.status === 'BOOKED' && safeMeetingUrl(appointment.meetingUrl) ? (
+                  <a
+                    href={safeMeetingUrl(appointment.meetingUrl) ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-300 px-4 text-sm font-semibold text-slate-950"
+                  >
+                    Join consultation <ExternalLink size={14} aria-hidden="true" />
+                  </a>
+                ) : appointment.status === 'BOOKED' ? (
+                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
+                    Meeting link will be provided by the Doctor.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
+                    This appointment is no longer active.
+                  </p>
+                )}
+              </div>
+            ) : appointment.consultationMode === 'IN_PERSON' ? (
+              <div className="mt-5 rounded-xl bg-[var(--clinora-surface-nested)] p-4">
+                <p className="text-sm font-semibold text-white">In-person consultation</p>
+                {appointment.visitLocation ? (
+                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">{appointment.visitLocation}</p>
+                ) : null}
+              </div>
+            ) : null}
           </AppSurface>
 
           <AppSurface as="section" aria-labelledby="appointment-sharing-title">
@@ -307,7 +341,14 @@ export function PatientAppointmentDetailPage() {
                           key={slot.id}
                           type="button"
                           aria-pressed={selectedSlot === slot.id}
-                          onClick={() => setSelectedSlot(slot.id)}
+                          onClick={() => {
+                            setSelectedSlot(slot.id);
+                            setRescheduleMode(
+                              appointment.consultationMode && slotSupportsMode(slot, appointment.consultationMode)
+                                ? appointment.consultationMode
+                                : null,
+                            );
+                          }}
                           className={cn(
                             'min-h-10 rounded-xl border px-3 text-xs font-semibold transition',
                             selectedSlot === slot.id
@@ -329,11 +370,37 @@ export function PatientAppointmentDetailPage() {
                       No alternative times are currently published.
                     </p>
                   )}
+                  {selectedSlot ? (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold text-slate-300">Consultation type for the new time</p>
+                      <div className="mt-2 flex gap-2">
+                        {availableModes(availability.find((slot) => slot.id === selectedSlot)).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={rescheduleMode === mode}
+                            onClick={() => setRescheduleMode(mode)}
+                            className={cn(
+                              'min-h-10 rounded-xl border px-3 text-xs font-semibold',
+                              rescheduleMode === mode
+                                ? 'border-[var(--clinora-border-interactive)] bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]'
+                                : 'border-[var(--clinora-border-subtle)] text-slate-300',
+                            )}
+                          >
+                            {modeLabel(mode)}
+                          </button>
+                        ))}
+                      </div>
+                      {!rescheduleMode ? (
+                        <p className="mt-2 text-xs text-amber-200">Choose a valid consultation type for this time.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 <Button
                   variant="appSecondary"
                   className="mt-4 w-full"
-                  disabled={!selectedSlot || busy === 'reschedule'}
+                  disabled={!selectedSlot || !rescheduleMode || busy === 'reschedule'}
                   onClick={() => void reschedule()}
                 >
                   <RefreshCcw size={15} aria-hidden="true" />
@@ -431,4 +498,29 @@ function formatDateTime(value: string) {
 }
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function modeLabel(mode?: ConsultationMode | null) {
+  if (mode === 'ONLINE') return 'Online';
+  if (mode === 'IN_PERSON') return 'In-person';
+  return 'Not recorded (legacy appointment)';
+}
+
+function slotSupportsMode(slot: AvailabilitySlot, mode: ConsultationMode) {
+  return !slot.consultationMode || slot.consultationMode === 'BOTH' || slot.consultationMode === mode;
+}
+
+function availableModes(slot?: AvailabilitySlot): ConsultationMode[] {
+  if (!slot || slot.consultationMode === 'BOTH') return ['ONLINE', 'IN_PERSON'];
+  return slot.consultationMode ? [slot.consultationMode] : ['ONLINE', 'IN_PERSON'];
+}
+
+function safeMeetingUrl(value?: string | null) {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
 }

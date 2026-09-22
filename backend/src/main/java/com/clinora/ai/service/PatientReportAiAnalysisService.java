@@ -204,6 +204,110 @@ public class PatientReportAiAnalysisService {
             .orElseGet(() -> AnalysisView.notRequested(reportId));
     }
 
+    /**
+     * Resolves the reusable report-scoped MedGemma result for a freshly authorized Doctor request.
+     * Missing or stale results are queued through the existing background worker and are never
+     * generated synchronously on the Doctor request thread.
+     */
+    @Transactional
+    public DoctorSnapshot resolveDoctorSnapshot(UUID patientUserId, UUID reportId) {
+        ReportRow report = requireOwnedReport(patientUserId, reportId);
+        if (report.archivedAt() != null) {
+            return DoctorSnapshot.unavailable(reportId, "FAILED", "REPORT_ARCHIVED");
+        }
+        lockReport(reportId);
+        AnalysisContext context = requireVerifiedContext(patientUserId, reportId, report.reportType());
+        boolean staleReadyExists = latestSuccessfulJob(patientUserId, reportId).stream()
+            .anyMatch(job -> !matchesCurrentSnapshot(job, context));
+        Optional<JobRow> exact = exactSnapshotJob(patientUserId, reportId, context.fingerprint());
+        JobRow job;
+        if (exact.isPresent()) {
+            job = exact.get();
+        } else {
+            AnalysisView queued = request(patientUserId, reportId, false);
+            if (queued.jobId() == null) {
+                return DoctorSnapshot.unavailable(reportId, staleReadyExists ? "STALE" : "PENDING", null);
+            }
+            job = requireJob(queued.jobId());
+        }
+
+        if (!matchesCurrentSnapshot(job, context)) {
+            return DoctorSnapshot.pending(
+                reportId, job.id(), context.fingerprint(), staleReadyExists ? "STALE" : "PENDING",
+                job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion()
+            );
+        }
+        if ("QUEUED".equals(job.status())) {
+            return DoctorSnapshot.pending(
+                reportId, job.id(), context.fingerprint(), staleReadyExists ? "STALE" : "PENDING",
+                job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion()
+            );
+        }
+        if ("PROCESSING".equals(job.status())) {
+            return DoctorSnapshot.pending(
+                reportId, job.id(), context.fingerprint(), staleReadyExists ? "STALE" : "RUNNING",
+                job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion()
+            );
+        }
+        if ("FAILED".equals(job.status())) {
+            return DoctorSnapshot.unavailable(reportId, "FAILED", job.failureCode());
+        }
+        AnalysisResultRow result = resultForJob(job.id()).orElse(null);
+        if (!"SUCCEEDED".equals(job.status()) || result == null) {
+            return DoctorSnapshot.unavailable(reportId, "FAILED", "SNAPSHOT_RESULT_MISSING");
+        }
+        return new DoctorSnapshot(
+            result.id(), job.id(), reportId, context.fingerprint(), "READY", parseResponse(result.resultJson()),
+            job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion(), job.completedAt(), null
+        );
+    }
+
+    /**
+     * Reads the current report snapshot without creating work. This is used by the
+     * deterministic Doctor brief so opening Clinora never starts MedGemma.
+     */
+    @Transactional(readOnly = true)
+    public DoctorSnapshot peekDoctorSnapshot(UUID patientUserId, UUID reportId) {
+        ReportRow report = requireOwnedReport(patientUserId, reportId);
+        if (report.archivedAt() != null) {
+            return DoctorSnapshot.unavailable(reportId, "FAILED", "REPORT_ARCHIVED");
+        }
+        AnalysisContext context = requireVerifiedContext(patientUserId, reportId, report.reportType());
+        boolean staleReadyExists = latestSuccessfulJob(patientUserId, reportId).stream()
+            .anyMatch(job -> !matchesCurrentSnapshot(job, context));
+        Optional<JobRow> exact = exactSnapshotJob(patientUserId, reportId, context.fingerprint());
+        if (exact.isEmpty()) {
+            return DoctorSnapshot.pending(
+                reportId, null, context.fingerprint(), staleReadyExists ? "STALE" : "PENDING",
+                modelName, modelRevision, promptVersion, schemaVersion
+            );
+        }
+        JobRow job = exact.get();
+        if ("QUEUED".equals(job.status())) {
+            return DoctorSnapshot.pending(
+                reportId, job.id(), context.fingerprint(), staleReadyExists ? "STALE" : "PENDING",
+                job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion()
+            );
+        }
+        if ("PROCESSING".equals(job.status())) {
+            return DoctorSnapshot.pending(
+                reportId, job.id(), context.fingerprint(), staleReadyExists ? "STALE" : "RUNNING",
+                job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion()
+            );
+        }
+        if ("FAILED".equals(job.status())) {
+            return DoctorSnapshot.unavailable(reportId, "FAILED", job.failureCode());
+        }
+        AnalysisResultRow result = resultForJob(job.id()).orElse(null);
+        if (!"SUCCEEDED".equals(job.status()) || result == null) {
+            return DoctorSnapshot.unavailable(reportId, "FAILED", "SNAPSHOT_RESULT_MISSING");
+        }
+        return new DoctorSnapshot(
+            result.id(), job.id(), reportId, context.fingerprint(), "READY", parseResponse(result.resultJson()),
+            job.modelName(), job.modelRevision(), job.promptVersion(), job.schemaVersion(), job.completedAt(), null
+        );
+    }
+
     @Transactional
     public WorkItem claim(UUID jobId) {
         Instant now = clock.instant();
@@ -562,13 +666,42 @@ public class PatientReportAiAnalysisService {
             WHERE patient_user_id = ? AND report_id = ? AND input_fingerprint = ?
               AND status IN ('QUEUED', 'PROCESSING', 'SUCCEEDED')
             ORDER BY requested_at DESC, created_at DESC
-            LIMIT 1
             """,
             (rs, rowNum) -> jobRow(rs),
             patientUserId,
             reportId,
             fingerprint
+        ).stream().filter(this::matchesCurrentVersions).findFirst();
+    }
+
+    private Optional<JobRow> exactSnapshotJob(UUID patientUserId, UUID reportId, String fingerprint) {
+        return jdbc.query(
+            """
+            SELECT id, report_id, patient_user_id, extraction_result_id, input_fingerprint, status,
+                failure_code, model_name, model_revision, prompt_version, schema_version,
+                requested_at, started_at, completed_at
+            FROM medical_report_ai_analysis_jobs
+            WHERE patient_user_id = ? AND report_id = ? AND input_fingerprint = ?
+              AND model_name = ? AND model_revision = ? AND prompt_version = ? AND schema_version = ?
+              AND status IN ('QUEUED', 'PROCESSING', 'SUCCEEDED')
+            ORDER BY requested_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (rs, rowNum) -> jobRow(rs),
+            patientUserId, reportId, fingerprint, modelName, modelRevision, promptVersion, schemaVersion
         ).stream().findFirst();
+    }
+
+    private boolean matchesCurrentSnapshot(JobRow job, AnalysisContext context) {
+        return context.fingerprint().equals(job.inputFingerprint())
+            && matchesCurrentVersions(job);
+    }
+
+    private boolean matchesCurrentVersions(JobRow job) {
+        return modelName.equals(job.modelName())
+            && modelRevision.equals(job.modelRevision())
+            && promptVersion.equals(job.promptVersion())
+            && schemaVersion.equals(job.schemaVersion());
     }
 
     private Optional<JobRow> activeJob(UUID reportId) {
@@ -616,6 +749,21 @@ public class PatientReportAiAnalysisService {
             LIMIT 1
             """,
             (rs, rowNum) -> jobRow(rs), patientUserId, reportId, excludedJobId
+        ).stream().findFirst();
+    }
+
+    private Optional<JobRow> latestSuccessfulJob(UUID patientUserId, UUID reportId) {
+        return jdbc.query(
+            """
+            SELECT id, report_id, patient_user_id, extraction_result_id, input_fingerprint, status,
+                failure_code, model_name, model_revision, prompt_version, schema_version,
+                requested_at, started_at, completed_at
+            FROM medical_report_ai_analysis_jobs
+            WHERE patient_user_id = ? AND report_id = ? AND status = 'SUCCEEDED'
+            ORDER BY completed_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (rs, rowNum) -> jobRow(rs), patientUserId, reportId
         ).stream().findFirst();
     }
 
@@ -896,6 +1044,37 @@ public class PatientReportAiAnalysisService {
         String promptVersion,
         String schemaVersion
     ) {
+    }
+
+    public record DoctorSnapshot(
+        UUID snapshotId,
+        UUID jobId,
+        UUID reportId,
+        String evidenceVersion,
+        String status,
+        ReportAnalysisResponse reasoning,
+        String modelName,
+        String modelRevision,
+        String promptVersion,
+        String schemaVersion,
+        Instant generatedAt,
+        String failureCode
+    ) {
+        static DoctorSnapshot pending(
+            UUID reportId, UUID jobId, String evidenceVersion, String status,
+            String modelName, String modelRevision, String promptVersion, String schemaVersion
+        ) {
+            return new DoctorSnapshot(
+                null, jobId, reportId, evidenceVersion, status, null, modelName, modelRevision,
+                promptVersion, schemaVersion, null, null
+            );
+        }
+
+        static DoctorSnapshot unavailable(UUID reportId, String status, String failureCode) {
+            return new DoctorSnapshot(
+                null, null, reportId, null, status, null, null, null, null, null, null, failureCode
+            );
+        }
     }
 
     public record AnalysisView(

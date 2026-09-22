@@ -312,7 +312,7 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
     private void seedDoctorAvailability(UUID doctorId, DoctorFixture doctor, Instant now) {
         if (!doctor.hasAvailability()) return;
         Integer futureSlots = jdbc.queryForObject(
-            "SELECT COUNT(*)::int FROM doctor_availability_slots WHERE doctor_user_id = ? AND starts_at > CURRENT_TIMESTAMP",
+            "SELECT COUNT(*)::int FROM doctor_availability_slots WHERE doctor_user_id = ? AND status = 'AVAILABLE' AND starts_at > CURRENT_TIMESTAMP",
             Integer.class,
             doctorId
         );
@@ -530,11 +530,11 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
     ) {
         UUID doctorId = id(doctor.email(), "user");
         UUID patientId = id(patient.email(), "user");
-        UUID slotId = id(doctor.email(), "appointment-slot-" + key);
+        UUID requestedSlotId = id(doctor.email(), "appointment-slot-" + key);
         UUID appointmentId = id(doctor.email() + ":" + patient.email(), "appointment-" + key);
         Instant start = roundToQuarterHour(startsAt);
         Instant end = start.plus(Duration.ofMinutes(30));
-        upsertSlot(slotId, doctorId, start, end, "BOOKED", now);
+        UUID slotId = upsertSlot(requestedSlotId, doctorId, start, end, "BOOKED", now);
         jdbc.update(
             """
             INSERT INTO appointments
@@ -581,11 +581,18 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
     ) {
         UUID doctorId = id(doctor.email(), "user");
         UUID patientId = id(patient.email(), "user");
-        UUID slotId = id(doctor.email(), "appointment-slot-" + key);
+        UUID requestedSlotId = id(doctor.email(), "appointment-slot-" + key);
         UUID appointmentId = id(doctor.email() + ":" + patient.email(), "appointment-" + key);
         Instant start = roundToQuarterHour(startsAt);
         Instant end = start.plus(Duration.ofMinutes(30));
-        upsertSlot(slotId, doctorId, start, end, "CANCELLED".equals(status) ? "AVAILABLE" : "BOOKED", now);
+        UUID slotId = upsertSlot(
+            requestedSlotId,
+            doctorId,
+            start,
+            end,
+            "CANCELLED".equals(status) ? "AVAILABLE" : "BOOKED",
+            now
+        );
         jdbc.update(
             """
             INSERT INTO appointments
@@ -594,9 +601,14 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
                  booked_at, cancelled_at, cancellation_reason, created_at, updated_at, version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Dhaka', ?, ?, ?, ?, ?, ?, 0)
             ON CONFLICT (id) DO UPDATE SET
+                patient_user_id = EXCLUDED.patient_user_id,
+                doctor_user_id = EXCLUDED.doctor_user_id,
+                slot_id = EXCLUDED.slot_id,
                 status = EXCLUDED.status,
+                reason_for_visit = EXCLUDED.reason_for_visit,
                 scheduled_start = EXCLUDED.scheduled_start,
                 scheduled_end = EXCLUDED.scheduled_end,
+                booking_timezone = EXCLUDED.booking_timezone,
                 cancelled_at = EXCLUDED.cancelled_at,
                 cancellation_reason = EXCLUDED.cancellation_reason,
                 updated_at = EXCLUDED.updated_at
@@ -618,21 +630,54 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
         );
     }
 
-    private void upsertSlot(UUID slotId, UUID doctorId, Instant startsAt, Instant endsAt, String status, Instant now) {
-        jdbc.update(
+    UUID upsertSlot(UUID slotId, UUID doctorId, Instant startsAt, Instant endsAt, String status, Instant now) {
+        List<UUID> matchingSlotIds = jdbc.query(
+            """
+            SELECT id
+            FROM doctor_availability_slots
+            WHERE doctor_user_id = ? AND starts_at = ? AND ends_at = ?
+            """,
+            (resultSet, rowNumber) -> resultSet.getObject("id", UUID.class),
+            doctorId,
+            Timestamp.from(startsAt),
+            Timestamp.from(endsAt)
+        );
+        if (!matchingSlotIds.isEmpty()) {
+            UUID existingSlotId = matchingSlotIds.getFirst();
+            jdbc.update(
+                """
+                UPDATE doctor_availability_slots
+                SET timezone = 'Asia/Dhaka',
+                    status = ?,
+                    consultation_mode = 'BOTH',
+                    updated_at = ?,
+                    version = version + 1
+                WHERE id = ?
+                """,
+                status,
+                Timestamp.from(now),
+                existingSlotId
+            );
+            return existingSlotId;
+        }
+
+        return jdbc.queryForObject(
             """
             INSERT INTO doctor_availability_slots
-                (id, doctor_user_id, starts_at, ends_at, timezone, status, created_at, updated_at, version)
-            VALUES (?, ?, ?, ?, 'Asia/Dhaka', ?, ?, ?, 0)
+                (id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode, created_at, updated_at, version)
+            VALUES (?, ?, ?, ?, 'Asia/Dhaka', ?, 'BOTH', ?, ?, 0)
             ON CONFLICT (id) DO UPDATE SET
                 doctor_user_id = EXCLUDED.doctor_user_id,
                 starts_at = EXCLUDED.starts_at,
                 ends_at = EXCLUDED.ends_at,
                 timezone = EXCLUDED.timezone,
                 status = EXCLUDED.status,
+                consultation_mode = EXCLUDED.consultation_mode,
                 updated_at = EXCLUDED.updated_at,
                 version = doctor_availability_slots.version + 1
+            RETURNING id
             """,
+            UUID.class,
             slotId,
             doctorId,
             Timestamp.from(startsAt),

@@ -1,16 +1,41 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
+import re
 import secrets
+import time
 
 from fastapi import APIRouter, Header, HTTPException, status
 
-from app.model_runtime import MalformedModelResponseError, ModelCapacityError, ModelUnavailableError
+from app.model_runtime import MalformedModelResponseError, ModelCapacityError, ModelUnavailableError, ModelTimeoutError
 from app.schemas.report_analysis import ReportAnalysisRequest, ReportAnalysisResponse
 from app.services.report_analysis_service import InvalidModelOutputError, ReportAnalysisService, UnsafeModelOutputError
+from app.schemas.doctor_support import DoctorSupportRoutingDecision, DoctorSupportRoutingRequest
+from app.services.doctor_support_routing_service import DoctorSupportRoutingService, InvalidRouterOutputError
+from app.schemas.doctor_support_execution import DoctorSupportExecutionRequest, DoctorSupportExecutionResponse
+from app.services.doctor_support_execution_service import DoctorSupportExecutionService
+from app.schemas.doctor_query_frame import DoctorQueryInterpretationRequest, DoctorQueryInterpretationResponse
+from app.services.doctor_query_interpreter_service import (
+    DoctorQueryInterpreterService,
+    InvalidDoctorQueryInterpretationError,
+)
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _capacity_headers(exc: ModelCapacityError) -> dict[str, str]:
+    retry_after = getattr(exc, "retry_after_seconds", None)
+    headers = {
+        "Retry-After": str(max(1, math.ceil(retry_after if retry_after is not None else 1))),
+        "X-Clinora-Provider-Attempts": str(max(0, getattr(exc, "provider_attempts", 1))),
+        "X-Clinora-Successful-Generations": "0",
+    }
+    category = getattr(exc, "rate_limit_category", None)
+    if category and re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", category):
+        headers["X-Clinora-Rate-Limit-Category"] = category
+    return headers
 
 
 def _expected_internal_token() -> str:
@@ -23,7 +48,12 @@ def _authorize(token: str | None) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized internal request.")
 
 
-def build_router(service: ReportAnalysisService) -> APIRouter:
+def build_router(
+    service: ReportAnalysisService,
+    doctor_support_service: DoctorSupportRoutingService | None = None,
+    doctor_support_execution_service: DoctorSupportExecutionService | None = None,
+    doctor_query_interpreter_service: DoctorQueryInterpreterService | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/internal/v1", tags=["internal"])
 
     @router.post("/report-analysis", response_model=ReportAnalysisResponse)
@@ -58,5 +88,93 @@ def build_router(service: ReportAnalysisService) -> APIRouter:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="The AI response did not pass Clinora safety validation.",
             ) from exc
+
+    if doctor_support_service is not None:
+        @router.post("/doctor-support/route", response_model=DoctorSupportRoutingDecision)
+        def route_doctor_support(
+            request: DoctorSupportRoutingRequest,
+            x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
+        ) -> DoctorSupportRoutingDecision:
+            started = time.perf_counter()
+
+            def failure(
+                http_status: int, category: str, reason: str, headers: dict[str, str] | None = None
+            ) -> HTTPException:
+                LOGGER.warning(
+                    "doctor_router_failure request_id=%s category=%s downstream_status=%d "
+                    "duration_ms=%d endpoint=/internal/v1/doctor-support/route reason=%s",
+                    request.requestId, category, http_status, round((time.perf_counter() - started) * 1000), reason,
+                )
+                return HTTPException(status_code=http_status, detail={
+                    "errorCode": category, "reasonCode": reason, "requestId": str(request.requestId),
+                }, headers=headers)
+
+            try:
+                _authorize(x_clinora_internal_token)
+            except HTTPException as exc:
+                raise failure(401, "ROUTER_AUTH_CONFIGURATION_ERROR", "INTERNAL_AUTH_FAILED") from exc
+            try:
+                return doctor_support_service.route(request)
+            except ModelCapacityError as exc:
+                raise failure(429, "ROUTER_MODEL_BUSY", "PROVIDER_RATE_LIMITED", _capacity_headers(exc)) from exc
+            except ModelTimeoutError as exc:
+                raise failure(504, "ROUTER_TIMEOUT", "MODEL_TIMEOUT") from exc
+            except ModelUnavailableError as exc:
+                raise failure(503, "ROUTER_MODEL_UNAVAILABLE", "MODEL_UNAVAILABLE") from exc
+            except InvalidRouterOutputError as exc:
+                raise failure(502, "ROUTER_INVALID_RESPONSE", exc.reason_code) from exc
+            except MalformedModelResponseError as exc:
+                raise failure(502, "ROUTER_INVALID_RESPONSE", "MALFORMED_PROVIDER_ENVELOPE") from exc
+
+    if doctor_query_interpreter_service is not None:
+        @router.post("/doctor-support/interpret", response_model=DoctorQueryInterpretationResponse)
+        def interpret_doctor_query(
+            request: DoctorQueryInterpretationRequest,
+            x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
+        ) -> DoctorQueryInterpretationResponse:
+            _authorize(x_clinora_internal_token)
+            try:
+                return doctor_query_interpreter_service.interpret(request)
+            except ModelCapacityError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Clinical reasoning is temporarily busy. Please try again shortly.",
+                    headers=_capacity_headers(exc),
+                ) from exc
+            except ModelTimeoutError as exc:
+                raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Clinora reasoning timed out.") from exc
+            except ModelUnavailableError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Clinora reasoning is unavailable.") from exc
+            except (InvalidDoctorQueryInterpretationError, MalformedModelResponseError) as exc:
+                LOGGER.warning(
+                    "Doctor query interpretation rejected for request %s: type=%s reason=%s",
+                    request.requestId,
+                    exc.__class__.__name__,
+                    getattr(exc, "reason_code", "UNKNOWN_REJECTION"),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="The Doctor query could not be interpreted safely.",
+                ) from exc
+
+    if doctor_support_execution_service is not None:
+        @router.post("/doctor-support/execute", response_model=DoctorSupportExecutionResponse)
+        def execute_doctor_support(
+            request: DoctorSupportExecutionRequest,
+            x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
+        ) -> DoctorSupportExecutionResponse:
+            _authorize(x_clinora_internal_token)
+            try:
+                return doctor_support_execution_service.execute(request)
+            except ModelCapacityError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Clinical reasoning is temporarily busy. Please try again shortly.",
+                    headers=_capacity_headers(exc),
+                ) from exc
+            except ModelTimeoutError as exc:
+                raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Clinora reasoning timed out.") from exc
+            except ModelUnavailableError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Clinora reasoning is unavailable.") from exc
 
     return router

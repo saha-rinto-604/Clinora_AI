@@ -148,6 +148,7 @@ clinora:
     ai-token: ${AI_INTERNAL_TOKEN:dev-only-clinora-ai-token-change-me}
     ai-connect-timeout-ms: ${AI_BACKEND_CONNECT_TIMEOUT_MS:5000}
     ai-read-timeout-ms: ${AI_BACKEND_READ_TIMEOUT_MS:240000}
+    ai-doctor-read-timeout-ms: ${AI_DOCTOR_READ_TIMEOUT_MS:15000}
   storage:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
     region: ${S3_REGION:us-east-1}

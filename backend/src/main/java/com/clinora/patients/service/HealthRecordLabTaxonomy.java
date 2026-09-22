@@ -14,14 +14,14 @@ import java.util.Set;
  * longitudinal health records. Unknown legitimate tests are preserved under
  * OTHER; classification is never delegated to an LLM.
  */
-final class HealthRecordLabTaxonomy {
+public final class HealthRecordLabTaxonomy {
     private static final MathContext MC = new MathContext(12, RoundingMode.HALF_UP);
     private static final Map<String, Concept> ALIASES = aliases();
 
     private HealthRecordLabTaxonomy() {
     }
 
-    enum Category {
+    public enum Category {
         BODY("Body & Vitals", 5),
         HEMATOLOGY("Blood & Hematology", 10),
         GLUCOSE("Glucose & Metabolic", 20),
@@ -42,16 +42,16 @@ final class HealthRecordLabTaxonomy {
             this.order = order;
         }
 
-        String displayName() {
+        public String displayName() {
             return displayName;
         }
 
-        int order() {
+        public int order() {
             return order;
         }
     }
 
-    enum UnitFamily {
+    public enum UnitFamily {
         NONE,
         PERCENT,
         MASS_CONCENTRATION,
@@ -67,13 +67,13 @@ final class HealthRecordLabTaxonomy {
         OTHER
     }
 
-    record Concept(String code, String displayName, Category category, UnitFamily preferredFamily, String preferredUnit) {
+    public record Concept(String code, String displayName, Category category, UnitFamily preferredFamily, String preferredUnit) {
     }
 
-    record NormalizedNumeric(BigDecimal value, String unit, String comparisonKey, boolean converted) {
+    public record NormalizedNumeric(BigDecimal value, String unit, String comparisonKey, boolean converted) {
     }
 
-    static Concept resolve(String effectiveLabel, String normalizedLabel) {
+    public static Concept resolve(String effectiveLabel, String normalizedLabel) {
         String first = normalizeLabel(effectiveLabel);
         String second = normalizeLabel(normalizedLabel);
         Concept concept = ALIASES.get(first);
@@ -92,7 +92,7 @@ final class HealthRecordLabTaxonomy {
         );
     }
 
-    static NormalizedNumeric normalizeNumeric(Concept concept, BigDecimal value, String rawUnit) {
+    public static NormalizedNumeric normalizeNumeric(Concept concept, BigDecimal value, String rawUnit) {
         if (value == null) return null;
         String unit = normalizeUnit(rawUnit);
         if (unit.isBlank()) {

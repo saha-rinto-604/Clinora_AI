@@ -6,6 +6,8 @@ import {
   Clock3,
   ExternalLink,
   FileText,
+  MapPin,
+  Monitor,
   ShieldCheck,
   Stethoscope,
 } from 'lucide-react';
@@ -19,6 +21,7 @@ import {
   appointmentError,
   appointmentErrorCode,
   type AvailabilitySlot,
+  type ConsultationMode,
   type DoctorDetail,
 } from '../../features/appointments/appointment-api';
 import { patientFacingDoctorProfile, type PatientFacingDoctorProfile } from '../../features/doctor/doctor-profile-api';
@@ -34,6 +37,7 @@ export function PatientDoctorDetailPage() {
   const [detail, setDetail] = useState<DoctorDetail | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<PatientFacingDoctorProfile | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+  const [consultationMode, setConsultationMode] = useState<ConsultationMode | null>(null);
   const [selectedDateKey, setSelectedDateKey] = useState('');
   const [reason, setReason] = useState('');
   const [selectedReports, setSelectedReports] = useState<PatientReport[]>([]);
@@ -61,10 +65,19 @@ export function PatientDoctorDetailPage() {
     bookingKeyRef.current = null;
   }, [selectedSlot?.id]);
 
-  const validAvailability = useMemo(
+  const allValidAvailability = useMemo(
     () => (detail?.availability ?? []).filter((slot) => durationMinutes(slot) > 0),
     [detail],
   );
+  const validAvailability = useMemo(
+    () =>
+      consultationMode
+        ? allValidAvailability.filter((slot) => slotSupportsMode(slot, consultationMode))
+        : [],
+    [allValidAvailability, consultationMode],
+  );
+  const hasOnlineAvailability = allValidAvailability.some((slot) => slotSupportsMode(slot, 'ONLINE'));
+  const hasInPersonAvailability = allValidAvailability.some((slot) => slotSupportsMode(slot, 'IN_PERSON'));
   const dateGroups = useMemo(() => groupSlots(validAvailability, timezone), [validAvailability, timezone]);
   const selectedGroup = dateGroups.find((group) => group.key === selectedDateKey) ?? dateGroups[0] ?? null;
 
@@ -72,6 +85,7 @@ export function PatientDoctorDetailPage() {
     if (!dateGroups.length) {
       setSelectedDateKey('');
       setSelectedSlot(null);
+      setConsultationMode(null);
       return;
     }
     if (!dateGroups.some((group) => group.key === selectedDateKey)) setSelectedDateKey(dateGroups[0].key);
@@ -109,6 +123,13 @@ export function PatientDoctorDetailPage() {
     setError('');
   };
 
+  const chooseMode = (mode: ConsultationMode) => {
+    setConsultationMode(mode);
+    setSelectedSlot(null);
+    setSelectedDateKey('');
+    setError('');
+  };
+
   const chooseSlot = (slot: AvailabilitySlot) => {
     setSelectedSlot(slot);
     setSelectedDateKey(localDateKey(slot.startsAt, timezone));
@@ -116,7 +137,7 @@ export function PatientDoctorDetailPage() {
   };
 
   const book = async () => {
-    if (!selectedSlot) return;
+    if (!selectedSlot || !consultationMode) return;
     setBooking(true);
     setError('');
     try {
@@ -127,6 +148,7 @@ export function PatientDoctorDetailPage() {
           slotId: selectedSlot.id,
           reasonForVisit: reason.trim() || undefined,
           timezone,
+          consultationMode,
           reportIds: selectedReports.map((report) => report.id),
         },
         idempotencyKey,
@@ -158,6 +180,7 @@ export function PatientDoctorDetailPage() {
           setDetail(refreshed);
           const replacement = refreshed.availability.find((slot) => slot.id === selectedSlot.id) ?? null;
           setSelectedSlot(replacement);
+          if (!replacement) setConsultationMode(null);
           if (!replacement) bookingKeyRef.current = null;
         } catch {
           // Preserve the Patient's form state even if the availability refresh also fails.
@@ -252,10 +275,60 @@ export function PatientDoctorDetailPage() {
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <main className="space-y-5">
+          <section className="clinora-r3-panel p-5 sm:p-6" aria-labelledby="choose-mode-title">
+            <p className="clinora-r3-kicker">Step 1</p>
+            <h2 id="choose-mode-title" className="mt-1 text-xl font-semibold tracking-[-0.03em] text-white">
+              Choose consultation mode
+            </h2>
+            <p className="mt-1.5 text-xs leading-5 text-slate-500">
+              Select how you want to meet before choosing a date and time. A time published as Both remains one slot.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                aria-pressed={consultationMode === 'ONLINE'}
+                disabled={!hasOnlineAvailability}
+                onClick={() => chooseMode('ONLINE')}
+                className={cn(
+                  'rounded-[13px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
+                  consultationMode === 'ONLINE'
+                    ? 'border-cyan-300/[0.3] bg-cyan-300/[0.08]'
+                    : 'border-white/[0.07] bg-white/[0.018] hover:border-cyan-300/[0.16]',
+                )}
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <Monitor size={16} className="text-cyan-200" aria-hidden="true" /> Online consultation
+                </span>
+                <span className="mt-2 block text-xs leading-5 text-slate-500">
+                  Meeting details will be provided before the appointment.
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={consultationMode === 'IN_PERSON'}
+                disabled={!doctor.practiceLocation || !hasInPersonAvailability}
+                onClick={() => chooseMode('IN_PERSON')}
+                className={cn(
+                  'rounded-[13px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
+                  consultationMode === 'IN_PERSON'
+                    ? 'border-teal-300/[0.3] bg-teal-300/[0.08]'
+                    : 'border-white/[0.07] bg-white/[0.018] hover:border-teal-300/[0.16]',
+                )}
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <MapPin size={16} className="text-teal-200" aria-hidden="true" /> In-person consultation
+                </span>
+                <span className="mt-2 block text-xs leading-5 text-slate-500">
+                  {doctor.practiceLocation || 'This Doctor has not published a practice location yet.'}
+                </span>
+              </button>
+            </div>
+          </section>
+
           <section className="clinora-r3-panel overflow-hidden" aria-labelledby="choose-time-title">
             <div className="flex flex-col gap-3 border-b border-white/[0.055] px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
               <div>
-                <p className="clinora-r3-kicker">Appointment time</p>
+                <p className="clinora-r3-kicker">Step 2</p>
                 <h2 id="choose-time-title" className="mt-1 text-xl font-semibold tracking-[-0.03em] text-white">
                   Choose a date and time
                 </h2>
@@ -263,7 +336,15 @@ export function PatientDoctorDetailPage() {
               <p className="text-[11px] text-slate-600">Shown in {timezone.replaceAll('_', ' ')}</p>
             </div>
 
-            {!dateGroups.length ? (
+            {!consultationMode ? (
+              <div className="px-5 py-10 text-center sm:px-6">
+                <Clock3 size={22} className="mx-auto text-slate-700" aria-hidden="true" />
+                <p className="mt-3 text-sm font-semibold text-white">Choose Online or In-person first</p>
+                <p className="mx-auto mt-1.5 max-w-md text-xs leading-5 text-slate-600">
+                  Clinora will then show only real future times compatible with that consultation mode.
+                </p>
+              </div>
+            ) : !dateGroups.length ? (
               <div className="px-5 py-10 text-center sm:px-6">
                 <CalendarDays size={22} className="mx-auto text-slate-700" aria-hidden="true" />
                 <p className="mt-3 text-sm font-semibold text-white">No appointments published yet</p>
@@ -420,6 +501,23 @@ export function PatientDoctorDetailPage() {
                       : 'Shown after time selection'
                 }
               />
+              <Review
+                label="Consultation type"
+                value={consultationMode ? `${modeLabel(consultationMode)} consultation` : 'Choose a mode'}
+                strong={Boolean(consultationMode)}
+              />
+              <Review label="Timezone" value={timezone.replaceAll('_', ' ')} />
+              <Review
+                label={consultationMode === 'IN_PERSON' ? 'Visit location' : 'Online logistics'}
+                value={
+                  consultationMode === 'IN_PERSON'
+                    ? doctor.practiceLocation || 'Location unavailable'
+                    : consultationMode === 'ONLINE'
+                      ? 'Meeting details will be provided before the appointment.'
+                      : 'Choose a consultation mode'
+                }
+                muted={!consultationMode}
+              />
               <Review label="Visit note" value={reason.trim() || 'No note added'} muted={!reason.trim()} />
               <Review
                 label="Reports"
@@ -457,7 +555,7 @@ export function PatientDoctorDetailPage() {
               <Button
                 variant="appPrimary"
                 className="w-full"
-                disabled={!selectedSlot || booking}
+                disabled={!selectedSlot || !consultationMode || booking}
                 onClick={() => void book()}
               >
                 {booking ? (
@@ -558,6 +656,14 @@ function localDateKey(value: string, timezone: string) {
 function durationMinutes(slot: AvailabilitySlot) {
   const minutes = Math.round((new Date(slot.endsAt).getTime() - new Date(slot.startsAt).getTime()) / 60_000);
   return Math.max(0, minutes);
+}
+
+function slotSupportsMode(slot: AvailabilitySlot, mode: ConsultationMode) {
+  return !slot.consultationMode || slot.consultationMode === 'BOTH' || slot.consultationMode === mode;
+}
+
+function modeLabel(mode: ConsultationMode) {
+  return mode === 'ONLINE' ? 'Online' : 'In-person';
 }
 
 function formatTime(value: string, timezone: string) {

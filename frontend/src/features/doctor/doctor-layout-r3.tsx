@@ -79,7 +79,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="clinora-r3-shell relative isolate min-h-dvh overflow-x-clip text-white">
+    <div className="clinora-r3-shell doctor-theme relative isolate min-h-dvh overflow-x-clip text-white">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-white/[0.055] bg-[#040b13]/95 px-4 py-5 backdrop-blur-xl lg:flex">
         <NavLink
           to="/doctor"

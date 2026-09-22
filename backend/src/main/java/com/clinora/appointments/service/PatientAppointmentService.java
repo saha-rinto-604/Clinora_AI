@@ -6,11 +6,13 @@ import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.service.PatientReportDisplayName;
 import com.clinora.patients.service.PatientTimelineService;
 import com.clinora.patients.service.PatientTimelineService.TimelineCategory;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +52,7 @@ public class PatientAppointmentService {
             """
             SELECT p.doctor_user_id, p.display_name,
                    COALESCE(p.display_title, p.professional_title) AS professional_title, p.specialization,
-                   p.years_experience, p.current_organization, p.current_position,
+                   p.years_experience, p.current_organization, p.current_position, p.practice_location,
                    p.registration_jurisdiction, p.registration_authority, p.registration_type,
                    p.registration_valid_until,
                    (SELECT MIN(s.starts_at) FROM doctor_availability_slots s
@@ -82,7 +84,7 @@ public class PatientAppointmentService {
             """
             SELECT p.doctor_user_id, p.display_name,
                    COALESCE(p.display_title, p.professional_title) AS professional_title, p.specialization,
-                   p.years_experience, p.current_organization, p.current_position,
+                   p.years_experience, p.current_organization, p.current_position, p.practice_location,
                    p.registration_jurisdiction, p.registration_authority, p.registration_type,
                    p.registration_valid_until,
                    (SELECT MIN(s.starts_at) FROM doctor_availability_slots s
@@ -109,7 +111,7 @@ public class PatientAppointmentService {
         Instant start = after == null || after.isBefore(clock.instant()) ? clock.instant() : after;
         return jdbc.query(
             """
-            SELECT id, doctor_user_id, starts_at, ends_at, timezone, status
+            SELECT id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode
             FROM doctor_availability_slots
             WHERE doctor_user_id = ? AND status = 'AVAILABLE' AND starts_at > ?
             ORDER BY starts_at
@@ -121,7 +123,7 @@ public class PatientAppointmentService {
                 rs.getTimestamp("starts_at").toInstant(),
                 rs.getTimestamp("ends_at").toInstant(),
                 rs.getString("timezone"),
-                rs.getString("status")
+                rs.getString("status"), rs.getString("consultation_mode")
             ),
             doctorUserId, Timestamp.from(start), safeLimit
         );
@@ -133,12 +135,14 @@ public class PatientAppointmentService {
         Instant startsAt,
         Instant endsAt,
         int slotMinutes,
-        String timezone
+        String timezone,
+        String consultationMode
     ) {
         requireActiveUser(doctorUserId, "DOCTOR");
         refreshDoctorBookingProjection(doctorUserId);
         requireBookableDoctor(doctorUserId);
         requireTimezone(timezone);
+        String mode = requireAvailabilityMode(consultationMode);
         // Serialize availability mutations for a Doctor so overlapping windows cannot pass the pre-insert check concurrently.
         jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", UUID.class, doctorUserId);
         Instant now = clock.instant();
@@ -171,13 +175,13 @@ public class PatientAppointmentService {
             jdbc.update(
                 """
                 INSERT INTO doctor_availability_slots
-                    (id, doctor_user_id, starts_at, ends_at, timezone, status, created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, ?, 'AVAILABLE', ?, ?, 0)
+                    (id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode, created_at, updated_at, version)
+                VALUES (?, ?, ?, ?, ?, 'AVAILABLE', ?, ?, ?, 0)
                 """,
-                id, doctorUserId, Timestamp.from(cursor), Timestamp.from(slotEnd), timezone,
+                id, doctorUserId, Timestamp.from(cursor), Timestamp.from(slotEnd), timezone, mode,
                 Timestamp.from(now), Timestamp.from(now)
             );
-            created.add(new AvailabilitySlotView(id, doctorUserId, cursor, slotEnd, timezone, "AVAILABLE"));
+            created.add(new AvailabilitySlotView(id, doctorUserId, cursor, slotEnd, timezone, "AVAILABLE", mode));
             cursor = slotEnd;
         }
         if (created.isEmpty()) throw badRequest("AVAILABILITY_SLOT_INVALID", "The availability window is shorter than one appointment.");
@@ -191,7 +195,7 @@ public class PatientAppointmentService {
         // Reading an empty schedule must remain side-effect free so the page can initialize cleanly.
         return jdbc.query(
             """
-            SELECT id, doctor_user_id, starts_at, ends_at, timezone, status
+            SELECT id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode
             FROM doctor_availability_slots
             WHERE doctor_user_id = ? AND starts_at > CURRENT_TIMESTAMP
             ORDER BY starts_at LIMIT 120
@@ -199,7 +203,7 @@ public class PatientAppointmentService {
             (rs, rowNum) -> new AvailabilitySlotView(
                 rs.getObject("id", UUID.class), rs.getObject("doctor_user_id", UUID.class),
                 rs.getTimestamp("starts_at").toInstant(), rs.getTimestamp("ends_at").toInstant(), rs.getString("timezone"),
-                rs.getString("status")
+                rs.getString("status"), rs.getString("consultation_mode")
             ),
             doctorUserId
         );
@@ -224,6 +228,7 @@ public class PatientAppointmentService {
         UUID slotId,
         String reasonForVisit,
         String timezone,
+        String consultationMode,
         List<UUID> reportIds
     ) {
         requireActiveUser(patientUserId, "PATIENT");
@@ -238,6 +243,9 @@ public class PatientAppointmentService {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_SLOT_UNAVAILABLE", "That appointment time is no longer available.");
         }
         requireBookableDoctor(slot.doctorUserId());
+        String mode = requireAppointmentMode(consultationMode);
+        requireSlotSupportsMode(slot.consultationMode(), mode);
+        String visitLocation = requirePracticeLocation(mode, slot.practiceLocation());
         String reason = text(reasonForVisit, 500);
         Instant now = clock.instant();
         UUID appointmentId = UUID.randomUUID();
@@ -253,11 +261,11 @@ public class PatientAppointmentService {
             INSERT INTO appointments (
                 id, patient_user_id, doctor_user_id, slot_id, status, reason_for_visit,
                 scheduled_start, scheduled_end, booking_timezone, idempotency_key,
-                booked_at, created_at, updated_at, version
-            ) VALUES (?, ?, ?, ?, 'BOOKED', ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                consultation_mode, visit_location, booked_at, created_at, updated_at, version
+            ) VALUES (?, ?, ?, ?, 'BOOKED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """,
             appointmentId, patientUserId, slot.doctorUserId(), slotId, reason,
-            Timestamp.from(slot.startsAt()), Timestamp.from(slot.endsAt()), timezone, key,
+            Timestamp.from(slot.startsAt()), Timestamp.from(slot.endsAt()), timezone, key, mode, visitLocation,
             Timestamp.from(now), Timestamp.from(now), Timestamp.from(now)
         );
         for (UUID reportId : distinct(reportIds)) addShareInternal(patientUserId, appointmentId, reportId, now);
@@ -283,7 +291,8 @@ public class PatientAppointmentService {
         return jdbc.query(
             """
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
-                   a.booked_at, a.cancelled_at, p.doctor_user_id, p.display_name, p.specialization,
+                   a.booked_at, a.cancelled_at, a.consultation_mode, a.meeting_url, a.meeting_link_updated_at,
+                   a.visit_location, p.doctor_user_id, p.display_name, p.specialization,
                    (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.patient_user_id = ? AND """ + condition + " ORDER BY a.scheduled_start " + direction + " LIMIT 100",
@@ -298,7 +307,8 @@ public class PatientAppointmentService {
         List<AppointmentView> items = jdbc.query(
             """
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
-                   a.booked_at, a.cancelled_at, p.doctor_user_id, p.display_name, p.specialization,
+                   a.booked_at, a.cancelled_at, a.consultation_mode, a.meeting_url, a.meeting_link_updated_at,
+                   a.visit_location, p.doctor_user_id, p.display_name, p.specialization,
                    (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.id = ? AND a.patient_user_id = ?
@@ -347,7 +357,7 @@ public class PatientAppointmentService {
     }
 
     @Transactional
-    public AppointmentView reschedule(UUID patientUserId, UUID appointmentId, UUID nextSlotId, String timezone) {
+    public AppointmentView reschedule(UUID patientUserId, UUID appointmentId, UUID nextSlotId, String timezone, String consultationMode) {
         requireActiveUser(patientUserId, "PATIENT");
         requireTimezone(timezone);
         LockedAppointment appointment = lockAppointment(patientUserId, appointmentId);
@@ -368,6 +378,13 @@ public class PatientAppointmentService {
         if (!"AVAILABLE".equals(next.status()) || !next.startsAt().isAfter(now)) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_SLOT_UNAVAILABLE", "That appointment time is no longer available.");
         }
+        String mode = consultationMode == null || consultationMode.isBlank()
+            ? appointment.consultationMode()
+            : requireAppointmentMode(consultationMode);
+        if (mode == null) {
+            throw badRequest("CONSULTATION_MODE_REQUIRED", "Choose Online or In-person for the new appointment time.");
+        }
+        requireSlotSupportsMode(next.consultationMode(), mode);
         int nextReserved = jdbc.update(
             "UPDATE doctor_availability_slots SET status = 'BOOKED', updated_at = ?, version = version + 1 WHERE id = ? AND status = 'AVAILABLE'",
             Timestamp.from(now), nextSlotId
@@ -381,10 +398,14 @@ public class PatientAppointmentService {
         );
         jdbc.update(
             """
-            UPDATE appointments SET slot_id = ?, scheduled_start = ?, scheduled_end = ?, booking_timezone = ?,
+            UPDATE appointments SET slot_id = ?, scheduled_start = ?, scheduled_end = ?, booking_timezone = ?, consultation_mode = ?,
+                meeting_url = CASE WHEN ? = 'ONLINE' THEN meeting_url ELSE NULL END,
+                meeting_link_updated_at = CASE WHEN ? = 'ONLINE' THEN meeting_link_updated_at ELSE NULL END,
+                visit_location = CASE WHEN ? = 'IN_PERSON' THEN visit_location ELSE NULL END,
                 updated_at = ?, version = version + 1 WHERE id = ?
             """,
-            nextSlotId, Timestamp.from(next.startsAt()), Timestamp.from(next.endsAt()), timezone, Timestamp.from(now), appointmentId
+            nextSlotId, Timestamp.from(next.startsAt()), Timestamp.from(next.endsAt()), timezone, mode,
+            mode, mode, mode, Timestamp.from(now), appointmentId
         );
         timeline.append(
             patientUserId, "APPOINTMENT_RESCHEDULED", TimelineCategory.APPOINTMENTS, "APPOINTMENT", appointmentId,
@@ -396,6 +417,44 @@ public class PatientAppointmentService {
             "APPOINTMENT", appointmentId, "appointment-rescheduled:" + appointmentId + ":" + next.startsAt().toEpochMilli()
         );
         return appointment(patientUserId, appointmentId);
+    }
+
+    @Transactional
+    public void updateMeetingUrl(UUID doctorUserId, UUID appointmentId, String meetingUrl) {
+        requireActiveUser(doctorUserId, "DOCTOR");
+        String safeUrl = requireSafeMeetingUrl(meetingUrl);
+        List<MeetingLinkLock> rows = jdbc.query(
+            """
+            SELECT id, patient_user_id, status, consultation_mode, meeting_url, version
+            FROM appointments
+            WHERE id = ? AND doctor_user_id = ?
+            FOR UPDATE
+            """,
+            (rs, rowNum) -> new MeetingLinkLock(
+                rs.getObject("id", UUID.class), rs.getObject("patient_user_id", UUID.class), rs.getString("status"),
+                rs.getString("consultation_mode"), rs.getString("meeting_url"), rs.getLong("version")
+            ),
+            appointmentId, doctorUserId
+        );
+        if (rows.isEmpty()) throw notFound("APPOINTMENT_NOT_FOUND", "That appointment could not be found.");
+        MeetingLinkLock appointment = rows.getFirst();
+        if (!"ONLINE".equals(appointment.consultationMode())) {
+            throw new PatientApiException(HttpStatus.CONFLICT, "MEETING_LINK_NOT_ALLOWED", "Meeting links are only available for online appointments.");
+        }
+        if (!"BOOKED".equals(appointment.status())) {
+            throw new PatientApiException(HttpStatus.CONFLICT, "MEETING_LINK_NOT_MODIFIABLE", "Only a booked online appointment can be updated.");
+        }
+        if (safeUrl.equals(appointment.meetingUrl())) return;
+        Instant now = clock.instant();
+        jdbc.update(
+            "UPDATE appointments SET meeting_url = ?, meeting_link_updated_at = ?, updated_at = ?, version = version + 1 WHERE id = ? AND doctor_user_id = ?",
+            safeUrl, Timestamp.from(now), Timestamp.from(now), appointmentId, doctorUserId
+        );
+        notifications.create(
+            appointment.patientUserId(), "APPOINTMENT_MEETING_LINK_UPDATED", NotificationCategory.APPOINTMENTS,
+            "Online consultation link available", "Your Doctor added or updated the meeting link for your online appointment.",
+            "APPOINTMENT", appointmentId, "appointment-meeting-link:" + appointmentId + ":" + (appointment.version() + 1)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -558,7 +617,8 @@ public class PatientAppointmentService {
     private SlotLock lockSlot(UUID slotId) {
         List<SlotLock> rows = jdbc.query(
             """
-            SELECT s.id, s.doctor_user_id, s.starts_at, s.ends_at, s.status, p.display_name
+            SELECT s.id, s.doctor_user_id, s.starts_at, s.ends_at, s.status, s.consultation_mode,
+                   p.display_name, p.practice_location
             FROM doctor_availability_slots s
             JOIN doctor_booking_profiles p ON p.doctor_user_id = s.doctor_user_id
             WHERE s.id = ? FOR UPDATE OF s
@@ -566,7 +626,8 @@ public class PatientAppointmentService {
             (rs, rowNum) -> new SlotLock(
                 rs.getObject("id", UUID.class), rs.getObject("doctor_user_id", UUID.class),
                 rs.getTimestamp("starts_at").toInstant(), rs.getTimestamp("ends_at").toInstant(),
-                rs.getString("status"), rs.getString("display_name")
+                rs.getString("status"), rs.getString("consultation_mode"), rs.getString("display_name"),
+                rs.getString("practice_location")
             ),
             slotId
         );
@@ -577,14 +638,16 @@ public class PatientAppointmentService {
     private LockedAppointment lockAppointment(UUID patientUserId, UUID appointmentId) {
         List<LockedAppointment> rows = jdbc.query(
             """
-            SELECT a.id, a.patient_user_id, a.doctor_user_id, a.slot_id, a.status, a.scheduled_start, p.display_name
+            SELECT a.id, a.patient_user_id, a.doctor_user_id, a.slot_id, a.status, a.scheduled_start,
+                   a.consultation_mode, p.display_name
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.id = ? AND a.patient_user_id = ? FOR UPDATE OF a
             """,
             (rs, rowNum) -> new LockedAppointment(
                 rs.getObject("id", UUID.class), rs.getObject("patient_user_id", UUID.class),
                 rs.getObject("doctor_user_id", UUID.class), rs.getObject("slot_id", UUID.class),
-                rs.getString("status"), rs.getTimestamp("scheduled_start").toInstant(), rs.getString("display_name")
+                rs.getString("status"), rs.getTimestamp("scheduled_start").toInstant(),
+                rs.getString("consultation_mode"), rs.getString("display_name")
             ),
             appointmentId, patientUserId
         );
@@ -596,7 +659,8 @@ public class PatientAppointmentService {
         return jdbc.query(
             """
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
-                   a.booked_at, a.cancelled_at, p.doctor_user_id, p.display_name, p.specialization,
+                   a.booked_at, a.cancelled_at, a.consultation_mode, a.meeting_url, a.meeting_link_updated_at,
+                   a.visit_location, p.doctor_user_id, p.display_name, p.specialization,
                    (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.patient_user_id = ? AND a.idempotency_key = ?
@@ -660,6 +724,55 @@ public class PatientAppointmentService {
         }
     }
 
+    static String requireAvailabilityMode(String value) {
+        String mode = value == null || value.isBlank() ? "BOTH" : value.trim().toUpperCase(Locale.ROOT);
+        if (!List.of("ONLINE", "IN_PERSON", "BOTH").contains(mode)) {
+            throw badRequest("CONSULTATION_MODE_INVALID", "Choose Online, In-person, or Both.");
+        }
+        return mode;
+    }
+
+    static String requireAppointmentMode(String value) {
+        String mode = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+        if (!List.of("ONLINE", "IN_PERSON").contains(mode)) {
+            throw badRequest("CONSULTATION_MODE_INVALID", "Choose Online or In-person.");
+        }
+        return mode;
+    }
+
+    static void requireSlotSupportsMode(String slotMode, String appointmentMode) {
+        if (!("BOTH".equals(slotMode) || appointmentMode.equals(slotMode))) {
+            throw new PatientApiException(HttpStatus.CONFLICT, "CONSULTATION_MODE_UNAVAILABLE", "That appointment time does not support the selected consultation type.");
+        }
+    }
+
+    static String requirePracticeLocation(String appointmentMode, String practiceLocation) {
+        if (!"IN_PERSON".equals(appointmentMode)) return null;
+        String location = text(practiceLocation, 500);
+        if (location == null) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "PRACTICE_LOCATION_REQUIRED",
+                "This Doctor must add a practice location before accepting in-person bookings."
+            );
+        }
+        return location;
+    }
+
+    static String requireSafeMeetingUrl(String value) {
+        String result = requiredText(value, 2048, "MEETING_URL_REQUIRED", "Enter a secure meeting URL.");
+        try {
+            URI uri = new URI(result);
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getHost().isBlank()
+                || uri.getUserInfo() != null) {
+                throw badRequest("MEETING_URL_UNSAFE", "Use a valid HTTPS meeting URL without embedded credentials.");
+            }
+            return uri.toASCIIString();
+        } catch (URISyntaxException exception) {
+            throw badRequest("MEETING_URL_UNSAFE", "Use a valid HTTPS meeting URL without embedded credentials.");
+        }
+    }
+
     private static PatientApiException badRequest(String code, String message) {
         return new PatientApiException(HttpStatus.BAD_REQUEST, code, message);
     }
@@ -671,7 +784,7 @@ public class PatientAppointmentService {
     private static final org.springframework.jdbc.core.RowMapper<DoctorView> DOCTOR_MAPPER = (rs, rowNum) -> new DoctorView(
         rs.getObject("doctor_user_id", UUID.class), rs.getString("display_name"), rs.getString("professional_title"),
         rs.getString("specialization"), (Integer) rs.getObject("years_experience"), rs.getString("current_organization"),
-        rs.getString("current_position"), rs.getString("registration_jurisdiction"), rs.getString("registration_authority"),
+        rs.getString("current_position"), rs.getString("practice_location"), rs.getString("registration_jurisdiction"), rs.getString("registration_authority"),
         rs.getString("registration_type"), rs.getDate("registration_valid_until") == null ? null : rs.getDate("registration_valid_until").toLocalDate(),
         rs.getTimestamp("next_available_at") == null ? null : rs.getTimestamp("next_available_at").toInstant()
     );
@@ -680,25 +793,30 @@ public class PatientAppointmentService {
         rs.getObject("id", UUID.class), rs.getString("status"), rs.getString("reason_for_visit"),
         rs.getTimestamp("scheduled_start").toInstant(), rs.getTimestamp("scheduled_end").toInstant(), rs.getString("booking_timezone"),
         rs.getTimestamp("booked_at").toInstant(), rs.getTimestamp("cancelled_at") == null ? null : rs.getTimestamp("cancelled_at").toInstant(),
-        rs.getObject("doctor_user_id", UUID.class), rs.getString("display_name"), rs.getString("specialization"), rs.getLong("shared_report_count")
+        rs.getString("consultation_mode"), rs.getString("meeting_url"),
+        rs.getTimestamp("meeting_link_updated_at") == null ? null : rs.getTimestamp("meeting_link_updated_at").toInstant(),
+        rs.getString("visit_location"), rs.getObject("doctor_user_id", UUID.class), rs.getString("display_name"),
+        rs.getString("specialization"), rs.getLong("shared_report_count")
     );
 
-    private record SlotLock(UUID id, UUID doctorUserId, Instant startsAt, Instant endsAt, String status, String doctorName) {}
-    private record LockedAppointment(UUID id, UUID patientUserId, UUID doctorUserId, UUID slotId, String status, Instant scheduledStart, String doctorName) {}
+    private record SlotLock(UUID id, UUID doctorUserId, Instant startsAt, Instant endsAt, String status, String consultationMode, String doctorName, String practiceLocation) {}
+    private record LockedAppointment(UUID id, UUID patientUserId, UUID doctorUserId, UUID slotId, String status, Instant scheduledStart, String consultationMode, String doctorName) {}
+    private record MeetingLinkLock(UUID id, UUID patientUserId, String status, String consultationMode, String meetingUrl, long version) {}
 
     public enum AppointmentCollection { UPCOMING, PAST }
     public record DoctorSearchPage(List<DoctorView> items) {}
     public record DoctorView(
         UUID id, String displayName, String professionalTitle, String specialization, Integer yearsExperience,
-        String currentOrganization, String currentPosition, String registrationJurisdiction,
+        String currentOrganization, String currentPosition, String practiceLocation, String registrationJurisdiction,
         String registrationAuthority, String registrationType, java.time.LocalDate registrationValidUntil,
         Instant nextAvailableAt
     ) {}
     public record DoctorDetailView(DoctorView doctor, List<AvailabilitySlotView> availability) {}
-    public record AvailabilitySlotView(UUID id, UUID doctorId, Instant startsAt, Instant endsAt, String timezone, String status) {}
+    public record AvailabilitySlotView(UUID id, UUID doctorId, Instant startsAt, Instant endsAt, String timezone, String status, String consultationMode) {}
     public record AppointmentView(
         UUID id, String status, String reasonForVisit, Instant scheduledStart, Instant scheduledEnd, String bookingTimezone,
-        Instant bookedAt, Instant cancelledAt, UUID doctorId, String doctorName, String specialization, long sharedReportCount
+        Instant bookedAt, Instant cancelledAt, String consultationMode, String meetingUrl, Instant meetingLinkUpdatedAt,
+        String visitLocation, UUID doctorId, String doctorName, String specialization, long sharedReportCount
     ) {}
     public record ReportShareView(UUID reportId, String reportName, String reportType, java.time.LocalDate reportDate, Instant sharedAt, Instant revokedAt) {}
     public record PortalCareSummary(AppointmentView nextAppointment, long activeReportShareCount, long doctorCount) {}

@@ -199,7 +199,7 @@ class DoctorPhase6ServiceTest {
             service.reschedule(doctorId, appointmentId, slotId, "Asia/Dhaka", "127.0.0.1", "test")
         );
 
-        verify(patientAppointments).reschedule(patientId, appointmentId, slotId, "Asia/Dhaka");
+        verify(patientAppointments).reschedule(patientId, appointmentId, slotId, "Asia/Dhaka", null);
     }
 
     @Test

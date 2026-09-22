@@ -7,6 +7,7 @@ export interface DoctorEditableProfile {
   displayTitle: string | null;
   currentOrganization: string | null;
   currentPosition: string | null;
+  practiceLocation: string | null;
   preferredTimezone: string | null;
   defaultConsultationMinutes: number | null;
 }
@@ -83,6 +84,7 @@ export interface PatientFacingDoctorProfile {
   currentPosition: string | null;
   professionalBio: string | null;
   professionalProfileUrl: string | null;
+  practiceLocation: string | null;
   preferredTimezone: string | null;
   defaultConsultationMinutes: number | null;
   nextAvailableAt: string | null;

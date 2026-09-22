@@ -129,6 +129,7 @@ export function PatientDoctorDetailPage() {
           slotId: selectedSlot.id,
           reasonForVisit: reason.trim() || undefined,
           timezone,
+          consultationMode: selectedSlot.consultationMode === 'IN_PERSON' ? 'IN_PERSON' : 'ONLINE',
           reportIds: selectedReports.map((report) => report.id),
         },
         idempotencyKey,

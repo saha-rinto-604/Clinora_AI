@@ -181,7 +181,7 @@ public class DoctorWorkspaceService {
         }
         String chosenTimezone = clean(timezone, 80);
         if (chosenTimezone == null) chosenTimezone = appointment.timezone();
-        patientAppointments.reschedule(appointment.patientId(), appointmentId, slotId, chosenTimezone);
+        patientAppointments.reschedule(appointment.patientId(), appointmentId, slotId, chosenTimezone, null);
         audit.record(
             doctorId,
             AuthAuditAction.DOCTOR_APPOINTMENT_RESCHEDULED,
@@ -190,6 +190,28 @@ public class DoctorWorkspaceService {
             userAgent,
             appointmentId.toString(),
             "patientId=" + appointment.patientId() + ";slotId=" + slotId
+        );
+        return appointmentDetail(access.requireOwnedAppointment(doctorId, appointmentId));
+    }
+
+    @Transactional
+    public DoctorWorkspaceModels.AppointmentDetail updateMeetingLink(
+        UUID doctorId,
+        UUID appointmentId,
+        String meetingUrl,
+        String ip,
+        String userAgent
+    ) {
+        DoctorClinicalAccessService.AppointmentAccess appointment = access.requireOwnedAppointment(doctorId, appointmentId);
+        patientAppointments.updateMeetingUrl(doctorId, appointmentId, meetingUrl);
+        audit.record(
+            doctorId,
+            AuthAuditAction.DOCTOR_APPOINTMENT_MEETING_LINK_UPDATED,
+            AuthAuditOutcome.SUCCESS,
+            ip,
+            userAgent,
+            appointmentId.toString(),
+            "patientId=" + appointment.patientId()
         );
         return appointmentDetail(access.requireOwnedAppointment(doctorId, appointmentId));
     }
@@ -205,6 +227,10 @@ public class DoctorWorkspaceService {
                    a.scheduled_start,
                    a.scheduled_end,
                    a.booking_timezone,
+                   a.consultation_mode,
+                   a.meeting_url,
+                   a.meeting_link_updated_at,
+                   a.visit_location,
                    u.id AS patient_id,
                    u.first_name,
                    u.last_name,
@@ -224,6 +250,10 @@ public class DoctorWorkspaceService {
                 instant(rs.getTimestamp("scheduled_start")),
                 instant(rs.getTimestamp("scheduled_end")),
                 rs.getString("booking_timezone"),
+                rs.getString("consultation_mode"),
+                rs.getString("meeting_url"),
+                instant(rs.getTimestamp("meeting_link_updated_at")),
+                rs.getString("visit_location"),
                 rs.getObject("patient_id", UUID.class),
                 rs.getObject("patient_profile_id", UUID.class),
                 displayName(rs.getString("first_name"), rs.getString("last_name")),
@@ -258,6 +288,10 @@ public class DoctorWorkspaceService {
             core.scheduledStart(),
             core.scheduledEnd(),
             core.timezone(),
+            core.consultationMode(),
+            core.meetingUrl(),
+            core.meetingLinkUpdatedAt(),
+            core.visitLocation(),
             access.mayModifyAppointment(appointment),
             reportAccessActive,
             patient,
@@ -331,6 +365,7 @@ public class DoctorWorkspaceService {
                    a.booking_timezone,
                    a.status,
                    a.reason_for_visit,
+                   a.consultation_mode,
                    (SELECT COUNT(*)::int
                       FROM appointment_report_shares s
                       JOIN patient_medical_reports sr
@@ -357,6 +392,7 @@ public class DoctorWorkspaceService {
                 rs.getString("booking_timezone"),
                 rs.getString("status"),
                 rs.getString("reason_for_visit"),
+                rs.getString("consultation_mode"),
                 rs.getInt("shared_report_count")
             ),
             doctorId,
@@ -459,13 +495,13 @@ public class DoctorWorkspaceService {
     private DoctorProfileModels.ProfileReadiness profileReadiness(UUID doctorId, boolean hasAvailability) {
         var rows = jdbc.query(
             """
-            SELECT p.professional_bio, p.professional_profile_url, p.display_title,
+            SELECT p.professional_bio, p.professional_profile_url, p.display_title, p.practice_location,
                    p.preferred_timezone, p.default_consultation_minutes
             FROM doctor_booking_profiles p
             WHERE p.doctor_user_id = ?
             """,
             (rs, rowNum) -> {
-                int score = 60;
+                int score = 55;
                 int completed = 0;
                 List<DoctorProfileModels.MissingSetupItem> missing = new ArrayList<>();
                 if (notBlank(rs.getString("professional_profile_url"))) { score += 10; completed++; }
@@ -474,18 +510,20 @@ public class DoctorWorkspaceService {
                 else missing.add(new DoctorProfileModels.MissingSetupItem("professionalBio", "Professional bio", "/doctor/profile"));
                 if (notBlank(rs.getString("display_title"))) { score += 5; completed++; }
                 else missing.add(new DoctorProfileModels.MissingSetupItem("displayTitle", "Display title", "/doctor/profile"));
+                if (notBlank(rs.getString("practice_location"))) { score += 5; completed++; }
+                else missing.add(new DoctorProfileModels.MissingSetupItem("practiceLocation", "Practice location", "/doctor/profile"));
                 if (notBlank(rs.getString("preferred_timezone"))) { score += 5; completed++; }
                 else missing.add(new DoctorProfileModels.MissingSetupItem("preferredTimezone", "Preferred timezone", "/doctor/profile"));
                 if (rs.getObject("default_consultation_minutes") != null) { score += 5; completed++; }
                 else missing.add(new DoctorProfileModels.MissingSetupItem("defaultConsultationMinutes", "Default consultation duration", "/doctor/profile"));
                 if (hasAvailability) { score += 5; completed++; }
                 else missing.add(new DoctorProfileModels.MissingSetupItem("availability", "Future availability", "/doctor/availability"));
-                return new DoctorProfileModels.ProfileReadiness(Math.min(100, score), completed, 6, List.copyOf(missing));
+                return new DoctorProfileModels.ProfileReadiness(Math.min(100, score), completed, 7, List.copyOf(missing));
             },
             doctorId
         );
         if (!rows.isEmpty()) return rows.getFirst();
-        return new DoctorProfileModels.ProfileReadiness(60, 0, 6, List.of());
+        return new DoctorProfileModels.ProfileReadiness(55, 0, 7, List.of());
     }
 
     private String normalizeScope(String scope) {
@@ -531,6 +569,10 @@ public class DoctorWorkspaceService {
         Instant scheduledStart,
         Instant scheduledEnd,
         String timezone,
+        String consultationMode,
+        String meetingUrl,
+        Instant meetingLinkUpdatedAt,
+        String visitLocation,
         UUID patientId,
         UUID patientProfileId,
         String patientName,
