@@ -1,13 +1,14 @@
-import { CalendarClock, Clock3, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Clock3, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
+import { buttonVariants } from '../../components/ui/button-variants';
 import { Skeleton } from '../../components/ui/feedback';
 import {
   appointmentError,
   doctorAvailabilityApi,
   type AvailabilitySlot,
-  type AvailabilityConsultationMode,
 } from '../../features/appointments/appointment-api';
 
 export function DoctorAvailabilityPage() {
@@ -15,7 +16,6 @@ export function DoctorAvailabilityPage() {
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [slotMinutes, setSlotMinutes] = useState(30);
-  const [consultationMode, setConsultationMode] = useState<AvailabilityConsultationMode>('BOTH');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -48,7 +48,6 @@ export function DoctorAvailabilityPage() {
         endsAt: new Date(endsAt).toISOString(),
         slotMinutes,
         timezone,
-        consultationMode,
       });
       setStartsAt('');
       setEndsAt('');
@@ -73,18 +72,23 @@ export function DoctorAvailabilityPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] space-y-7">
-        <header>
+    <main className="min-h-screen bg-[var(--clinora-bg-canvas)] px-4 py-8 text-white sm:px-7 lg:px-10">
+      <div className="mx-auto w-full max-w-[1000px]">
+        <Link to="/account" className={buttonVariants({ variant: 'appSecondary' })}>
+          <ArrowLeft size={15} />
+          Account
+        </Link>
+        <header className="mt-7">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
             Clinora Doctor
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">Booking times</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">My availability</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
             Set the future times when Patients can book an appointment with you.
           </p>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[23rem_minmax(0,1fr)]">
+        <div className="mt-7 grid gap-6 lg:grid-cols-[23rem_minmax(0,1fr)]">
           <AppSurface as="section" variant="elevated" className="h-fit" aria-labelledby="add-availability-title">
             <AppSectionHeader
               eyebrow="Booking availability"
@@ -120,17 +124,6 @@ export function DoctorAvailabilityPage() {
                       {minutes} minutes
                     </option>
                   ))}
-                </select>
-              </Field>
-              <Field label="Consultation mode">
-                <select
-                  value={consultationMode}
-                  onChange={(event) => setConsultationMode(event.target.value as AvailabilityConsultationMode)}
-                  className={inputClass}
-                >
-                  <option value="BOTH">Online or in-person</option>
-                  <option value="ONLINE">Online only</option>
-                  <option value="IN_PERSON">In-person only</option>
                 </select>
               </Field>
               <Button
@@ -199,7 +192,6 @@ export function DoctorAvailabilityPage() {
                       <StatusPill tone={slot.status === 'AVAILABLE' ? 'success' : 'info'}>
                         {slot.status === 'AVAILABLE' ? 'Available' : 'Booked'}
                       </StatusPill>
-                      <StatusPill tone="neutral">{availabilityModeLabel(slot.consultationMode)}</StatusPill>
                       {slot.status === 'AVAILABLE' ? (
                         <Button
                           variant="ghost"
@@ -218,14 +210,9 @@ export function DoctorAvailabilityPage() {
             ) : null}
           </AppSurface>
         </div>
-    </div>
+      </div>
+    </main>
   );
-}
-
-function availabilityModeLabel(mode?: AvailabilityConsultationMode) {
-  if (mode === 'ONLINE') return 'Online';
-  if (mode === 'IN_PERSON') return 'In-person';
-  return 'Online or in-person';
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
