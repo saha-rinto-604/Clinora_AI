@@ -3,7 +3,7 @@
  * Scope is intentionally presentation-only: no API, auth, consent, or domain behavior changes.
  */
 
-.clinora-r3-shell,
+.clinora-r3-shell:not(.doctor-theme),
 .clinora-r3-patient {
   --clinora-surface-1: #07111b;
   --clinora-surface-2: #0a1521;
@@ -25,21 +25,28 @@
     linear-gradient(180deg, #030914 0%, #050c15 46%, #030914 100%);
 }
 
-/* Doctor keeps the approved R3 composition while using the Patient Clinora palette. */
+/* Doctor keeps the approved R3 composition while using the rendered Patient Home palette. */
 .clinora-r3-shell.doctor-theme {
-  --clinora-surface-1: #0b0f22;
-  --clinora-surface-2: var(--color-primary);
-  --clinora-surface-hero: #082b30;
-  --clinora-surface-nested: rgba(255, 255, 255, 0.035);
-  --clinora-surface-hover: rgba(255, 255, 255, 0.055);
-  --clinora-border-subtle: rgba(255, 255, 255, 0.08);
-  --clinora-border-interactive: rgba(14, 165, 233, 0.24);
+  --clinora-bg-canvas: #020b14;
+  --clinora-bg-chrome: #04121c;
+  --clinora-surface-1: #061521;
+  --clinora-surface-2: #092638;
+  --clinora-surface-hero: #06374a;
+  --clinora-surface-nested: rgba(5, 27, 40, 0.68);
+  --clinora-surface-hover: #06374a;
+  --clinora-border-subtle: rgba(125, 211, 252, 0.14);
+  --clinora-border-interactive: #22d3ee;
+  --clinora-text-primary: #f1f7fc;
+  --clinora-text-muted: #a0b4c7;
+  --clinora-text-faint: #7c93a8;
+  --clinora-accent-cyan: #00d8ee;
+  --clinora-accent-teal: #00e9df;
   --clinora-info-soft: rgba(14, 165, 233, 0.085);
-  --clinora-success-soft: rgba(20, 184, 166, 0.085);
-  --clinora-focus-ring-soft: color-mix(in srgb, var(--clinora-accent-cyan) 6%, transparent);
-  background:
-    radial-gradient(circle at 76% -10%, var(--clinora-ambient-cyan), transparent 30rem),
-    var(--clinora-bg-canvas);
+  --clinora-success-soft: rgba(0, 104, 130, 0.2);
+  --clinora-info-foreground: #22e6f1;
+  --clinora-success-foreground: #00e9df;
+  --clinora-focus-ring-soft: #67e8f9;
+  background: var(--clinora-bg-canvas);
 }
 
 .doctor-theme > aside,
@@ -50,17 +57,17 @@
 
 .doctor-theme > div > header {
   border-color: var(--clinora-border-subtle);
-  background: color-mix(in srgb, var(--clinora-bg-canvas) 92%, transparent);
+  background: var(--clinora-bg-canvas);
 }
 
 .doctor-theme .clinora-r3-panel {
-  background: linear-gradient(180deg, var(--clinora-surface-2), var(--clinora-surface-1));
-  box-shadow: 0 18px 44px rgba(2, 6, 23, 0.22);
+  background: linear-gradient(130deg, rgba(4, 26, 39, 0.94), rgba(2, 17, 27, 0.97));
+  box-shadow: none;
 }
 
 .doctor-theme .clinora-r3-panel--raised {
-  background: linear-gradient(180deg, var(--clinora-surface-hero), var(--clinora-surface-2));
-  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.28);
+  background: rgba(2, 20, 31, 0.76);
+  box-shadow: none;
 }
 
 .doctor-theme .clinora-r3-panel--interactive:hover {
@@ -74,11 +81,98 @@
 }
 
 .doctor-theme [class~='bg-[#07111b]/95'] {
-  background-color: color-mix(in srgb, var(--clinora-bg-chrome) 95%, transparent);
+  background-color: var(--clinora-surface-1);
 }
 
 .doctor-theme section[aria-label='Clinora Clinical Support actions'] {
-  background: linear-gradient(145deg, var(--clinora-surface-hero), var(--clinora-surface-2));
+  background: rgba(2, 20, 31, 0.76);
+  box-shadow: none;
+}
+
+.doctor-theme
+  :is(
+    [class~='bg-white/[0.018]'],
+    [class~='bg-white/[0.02]'],
+    [class~='bg-white/[0.022]'],
+    [class~='bg-white/[0.025]'],
+    [class~='bg-white/[0.03]'],
+    [class~='bg-white/[.025]'],
+    [class~='bg-white/[.035]']
+  ) {
+  background-color: var(--clinora-surface-nested);
+}
+
+.doctor-theme
+  :is(
+    [class~='bg-white/[0.035]'],
+    [class~='bg-white/[0.045]'],
+    [class~='bg-white/[0.05]'],
+    [class~='bg-white/[0.055]'],
+    [class~='bg-white/[0.06]'],
+    [class~='bg-white/[0.08]']
+  ) {
+  background-color: var(--clinora-surface-hover);
+}
+
+.doctor-theme
+  :is(
+    [class~='border-white/[0.045]'],
+    [class~='border-white/[0.05]'],
+    [class~='border-white/[0.055]'],
+    [class~='border-white/[0.06]'],
+    [class~='border-white/[0.065]'],
+    [class~='border-white/[0.07]'],
+    [class~='border-white/[0.08]']
+  ) {
+  border-color: var(--clinora-border-subtle);
+}
+
+.doctor-theme :is([class~='text-slate-100'], [class~='text-slate-200']) {
+  color: var(--clinora-text-primary);
+}
+
+.doctor-theme :is([class~='text-slate-300'], [class~='text-slate-400'], [class~='text-slate-500']) {
+  color: var(--clinora-text-muted);
+}
+
+.doctor-theme :is([class~='text-slate-600'], [class~='text-slate-700']) {
+  color: var(--clinora-text-faint);
+}
+
+.doctor-theme [class~='text-cyan-200'] {
+  color: var(--clinora-info-foreground);
+}
+
+.doctor-theme [class~='text-teal-200'] {
+  color: var(--clinora-success-foreground);
+}
+
+.doctor-theme nav a[aria-current='page'] {
+  background-color: var(--clinora-info-soft);
+  color: var(--clinora-info-foreground);
+}
+
+.doctor-theme nav a[aria-current='page'] svg {
+  color: var(--clinora-info-foreground);
+}
+
+.doctor-theme
+  :is(
+    [class~='hover:bg-white/[0.03]'],
+    [class~='hover:bg-white/[0.035]'],
+    [class~='hover:bg-white/[0.05]'],
+    [class~='hover:bg-white/[0.06]']
+  ):hover {
+  background-color: var(--clinora-surface-hover);
+}
+
+.doctor-theme :is(input, select, textarea):focus {
+  border-color: var(--clinora-border-interactive);
+  box-shadow: 0 0 0 2px var(--clinora-focus-ring-soft);
+}
+
+.doctor-theme [class~='shadow-[0_18px_50px_rgba(0,0,0,.28)]'] {
+  box-shadow: 0 5px 20px #0008;
 }
 
 .clinora-r3-shell::before,
