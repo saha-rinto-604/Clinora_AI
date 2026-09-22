@@ -3,6 +3,7 @@ package com.clinora.consultations.api;
 import com.clinora.common.api.ApiResponse;
 import com.clinora.consultations.service.ConsultationModels;
 import com.clinora.consultations.service.ConsultationService;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +21,28 @@ public class PatientConsultationController {
 
     public PatientConsultationController(ConsultationService consultations) {
         this.consultations = consultations;
+    }
+
+
+    @GetMapping("/prescriptions")
+    public ApiResponse<List<ConsultationModels.PatientConsultationSummary>> prescriptions(
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ApiResponse.success(
+            "Prescriptions loaded.",
+            consultations.patientPrescriptions(userId(jwt))
+        );
+    }
+
+    @GetMapping("/doctors/{doctorId}/care-relationship")
+    public ApiResponse<ConsultationModels.PatientDoctorCareRelationship> doctorCareRelationship(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable UUID doctorId
+    ) {
+        return ApiResponse.success(
+            "Doctor care relationship loaded.",
+            consultations.patientDoctorRelationship(userId(jwt), doctorId)
+        );
     }
 
     @GetMapping("/appointments/{appointmentId}/consultation-summary")

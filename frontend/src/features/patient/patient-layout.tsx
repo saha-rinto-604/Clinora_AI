@@ -10,6 +10,7 @@ import {
   LockKeyhole,
   LogOut,
   Menu,
+  Pill,
   ScanText,
   Stethoscope,
 } from 'lucide-react';
@@ -57,9 +58,10 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
   {
     label: 'Care',
     items: [
-      { to: '/patient/blood-network', label: 'Blood Network', shortLabel: 'Blood', icon: Droplets },
       { to: '/patient/doctors', label: 'Find a Doctor', shortLabel: 'Doctors', icon: Stethoscope },
       { to: '/patient/appointments', label: 'Appointments', shortLabel: 'Care', icon: CalendarDays },
+      { to: '/patient/prescriptions', label: 'Prescriptions', shortLabel: 'Rx', icon: Pill },
+      { to: '/patient/blood-network', label: 'Blood Network', shortLabel: 'Blood', icon: Droplets },
     ],
   },
   {

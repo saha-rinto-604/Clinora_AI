@@ -7,6 +7,7 @@ import com.clinora.consultations.service.ConsultationModels.FollowUpView;
 import com.clinora.consultations.service.ConsultationModels.InvestigationInput;
 import com.clinora.consultations.service.ConsultationModels.InvestigationView;
 import com.clinora.consultations.service.ConsultationModels.PatientConsultationSummary;
+import com.clinora.consultations.service.ConsultationModels.PatientDoctorCareRelationship;
 import com.clinora.consultations.service.ConsultationModels.PrescriptionInput;
 import com.clinora.consultations.service.ConsultationModels.PrescriptionView;
 import com.clinora.doctors.api.DoctorApiException;
@@ -18,6 +19,7 @@ import com.clinora.patients.service.PatientTimelineService;
 import com.clinora.patients.service.PatientTimelineService.TimelineCategory;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -34,11 +36,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConsultationService {
     private static final int MAX_NOTE_LENGTH = 8_000;
     private static final int MAX_CARE_ITEMS = 20;
+    private static final Duration MAX_LATE_START_AGE = Duration.ofDays(30);
 
     private final JdbcTemplate jdbc;
     private final DoctorClinicalAccessService access;
     private final PatientNotificationService notifications;
     private final PatientTimelineService timeline;
+    private final PrescriptionDocumentService prescriptionDocuments;
     private final Clock clock;
 
     public ConsultationService(
@@ -46,12 +50,14 @@ public class ConsultationService {
         DoctorClinicalAccessService access,
         PatientNotificationService notifications,
         PatientTimelineService timeline,
+        PrescriptionDocumentService prescriptionDocuments,
         Clock clock
     ) {
         this.jdbc = jdbc;
         this.access = access;
         this.notifications = notifications;
         this.timeline = timeline;
+        this.prescriptionDocuments = prescriptionDocuments;
         this.clock = clock;
     }
 
@@ -69,12 +75,16 @@ public class ConsultationService {
     @Transactional
     public ConsultationView start(UUID doctorId, UUID appointmentId) {
         DoctorClinicalAccessService.AppointmentAccess appointment = access.requireOwnedAppointment(doctorId, appointmentId);
-        String appointmentStatus = jdbc.queryForObject(
-            "SELECT status FROM appointments WHERE id = ? AND doctor_user_id = ? FOR UPDATE",
-            String.class,
+        AppointmentStartState appointmentState = jdbc.queryForObject(
+            "SELECT status, scheduled_end FROM appointments WHERE id = ? AND doctor_user_id = ? FOR UPDATE",
+            (rs, rowNum) -> new AppointmentStartState(
+                rs.getString("status"),
+                instant(rs.getTimestamp("scheduled_end"))
+            ),
             appointmentId,
             doctorId
         );
+        String appointmentStatus = appointmentState == null ? null : appointmentState.status();
 
         List<ConsultationCore> existing = consultationRows(
             "WHERE c.appointment_id = ? AND c.doctor_user_id = ?",
@@ -91,6 +101,14 @@ public class ConsultationService {
         }
 
         Instant now = clock.instant();
+        if (appointmentState != null
+            && appointmentState.scheduledEnd() != null
+            && appointmentState.scheduledEnd().isBefore(now.minus(MAX_LATE_START_AGE))) {
+            throw conflict(
+                "CONSULTATION_APPOINTMENT_TOO_OLD",
+                "This appointment ended more than 30 days ago and can no longer start a new consultation."
+            );
+        }
         UUID consultationId = UUID.randomUUID();
         jdbc.update(
             """
@@ -228,7 +246,7 @@ public class ConsultationService {
             "CONSULTATION_COMPLETED",
             NotificationCategory.APPOINTMENTS,
             "Your consultation summary is ready",
-            "Your Doctor completed the consultation. Review the assessment, care plan, investigations and follow-up.",
+            "Your Doctor completed the consultation. Review the assessment, care plan, prescriptions, investigations and follow-up.",
             "APPOINTMENT",
             locked.appointmentId(),
             "consultation-completed:" + consultationId
@@ -277,9 +295,83 @@ public class ConsultationService {
             core.plan(),
             core.completedAt(),
             prescriptions(core.consultationId()),
+            prescriptionDocuments.listForConsultation(core.consultationId()),
             investigations(core.consultationId()),
             followUp(core.consultationId())
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<PatientConsultationSummary> patientPrescriptions(UUID patientId) {
+        requireActivePatient(patientId);
+        List<PatientSummaryCore> rows = jdbc.query(
+            """
+            SELECT c.id, c.appointment_id, c.assessment, c.plan, c.completed_at,
+                   c.doctor_user_id, p.display_name, p.specialization
+              FROM doctor_consultations c
+              JOIN doctor_booking_profiles p ON p.doctor_user_id = c.doctor_user_id
+             WHERE c.patient_user_id = ?
+               AND c.status = 'COMPLETED'
+               AND (
+                   EXISTS (SELECT 1 FROM consultation_prescriptions rx WHERE rx.consultation_id = c.id)
+                   OR EXISTS (SELECT 1 FROM consultation_prescription_documents d WHERE d.consultation_id = c.id)
+               )
+             ORDER BY c.completed_at DESC
+             LIMIT 100
+            """,
+            (rs, rowNum) -> new PatientSummaryCore(
+                rs.getObject("id", UUID.class),
+                rs.getObject("appointment_id", UUID.class),
+                rs.getObject("doctor_user_id", UUID.class),
+                rs.getString("display_name"),
+                rs.getString("specialization"),
+                rs.getString("assessment"),
+                rs.getString("plan"),
+                instant(rs.getTimestamp("completed_at"))
+            ),
+            patientId
+        );
+        return rows.stream().map(core -> new PatientConsultationSummary(
+            core.consultationId(),
+            core.appointmentId(),
+            core.doctorId(),
+            core.doctorName(),
+            core.specialization(),
+            core.assessment(),
+            core.plan(),
+            core.completedAt(),
+            prescriptions(core.consultationId()),
+            prescriptionDocuments.listForConsultation(core.consultationId()),
+            investigations(core.consultationId()),
+            followUp(core.consultationId())
+        )).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PatientDoctorCareRelationship patientDoctorRelationship(UUID patientId, UUID doctorId) {
+        requireActivePatient(patientId);
+        List<PatientDoctorCareRelationship> rows = jdbc.query(
+            """
+            SELECT c.completed_at,
+                   (SELECT f.recommended_date
+                      FROM consultation_follow_ups f
+                     WHERE f.consultation_id = c.id) AS follow_up_date
+              FROM doctor_consultations c
+             WHERE c.patient_user_id = ?
+               AND c.doctor_user_id = ?
+               AND c.status = 'COMPLETED'
+             ORDER BY c.completed_at DESC, c.id DESC
+             LIMIT 1
+            """,
+            (rs, rowNum) -> new PatientDoctorCareRelationship(
+                true,
+                instant(rs.getTimestamp("completed_at")),
+                rs.getDate("follow_up_date") == null ? null : rs.getDate("follow_up_date").toLocalDate()
+            ),
+            patientId,
+            doctorId
+        );
+        return rows.isEmpty() ? new PatientDoctorCareRelationship(false, null, null) : rows.getFirst();
     }
 
     private void replaceCareActions(UUID consultationId, NormalizedDraft draft, Instant now) {
@@ -352,6 +444,7 @@ public class ConsultationService {
             core.startedAt(),
             core.completedAt(),
             prescriptions(core.id()),
+            prescriptionDocuments.listForConsultation(core.id()),
             investigations(core.id()),
             followUp(core.id())
         );
@@ -606,6 +699,7 @@ public class ConsultationService {
     ) {}
 
     private record LockedConsultation(UUID id, UUID appointmentId, UUID patientId, String status, long version) {}
+    private record AppointmentStartState(String status, Instant scheduledEnd) {}
 
     private record PatientSummaryCore(
         UUID consultationId,

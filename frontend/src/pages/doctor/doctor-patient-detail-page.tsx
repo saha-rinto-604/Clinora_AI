@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileText,
   FlaskConical,
+  Paperclip,
   Pill,
   Stethoscope,
   UserRound,
@@ -48,6 +49,7 @@ export function DoctorPatientDetailPage() {
     return (
       <div className="space-y-5" role="status" aria-label="Loading Patient care history">
         <Skeleton className="h-28 rounded-[20px]" />
+        <Skeleton className="h-48 rounded-[20px]" />
         <Skeleton className="h-72 rounded-[20px]" />
       </div>
     );
@@ -71,6 +73,8 @@ export function DoctorPatientDetailPage() {
     );
   }
 
+  const care = data.currentCare;
+
   return (
     <div className="space-y-6">
       <Link
@@ -85,22 +89,80 @@ export function DoctorPatientDetailPage() {
           <IconWell tone="info">
             <UserRound size={20} />
           </IconWell>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Care relationship</p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Continuing care</p>
+              <StatusPill
+                tone={
+                  care.careState === 'NEW_PATIENT' ? 'info' : care.careState === 'FOLLOW_UP' ? 'warning' : 'success'
+                }
+              >
+                {care.careState === 'NEW_PATIENT'
+                  ? 'New Patient'
+                  : care.careState === 'FOLLOW_UP'
+                    ? 'Follow-up'
+                    : 'Active care'}
+              </StatusPill>
+              {care.consultationInProgress ? <StatusPill tone="warning">Consultation in progress</StatusPill> : null}
+            </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
               {data.patientName}
             </h1>
             <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-              Your appointments and Doctor-authored consultation history only. Patient report access remains separately
-              controlled.
+              Doctor-authored care history across your consultations. Patient report access remains separately
+              controlled and revocable.
             </p>
           </div>
         </div>
       </AppSurface>
 
+      <AppSurface>
+        <AppSectionHeader
+          eyebrow="Current care"
+          title="Clinical continuity"
+          copy="Latest completed Doctor-authored care, not AI output or unfinished draft notes."
+        />
+        {care.latestConsultationAt ? (
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <CurrentCareBlock
+              title="Latest assessment"
+              value={care.latestAssessment || 'No assessment text was recorded.'}
+            />
+            <CurrentCareBlock title="Current plan" value={care.latestPlan || 'No plan text was recorded.'} />
+            <div className="lg:col-span-2 flex flex-wrap gap-2 text-xs text-[var(--clinora-text-muted)]">
+              <CareChip
+                icon={<CalendarClock size={13} />}
+                text={`Last consultation ${shortDateTime(care.latestConsultationAt)}`}
+              />
+              <CareChip
+                icon={<Pill size={13} />}
+                text={`${care.prescriptionCount} structured prescription item${care.prescriptionCount === 1 ? '' : 's'}`}
+              />
+              <CareChip
+                icon={<Paperclip size={13} />}
+                text={`${care.prescriptionDocumentCount} prescription document${care.prescriptionDocumentCount === 1 ? '' : 's'}`}
+              />
+              <CareChip
+                icon={<FlaskConical size={13} />}
+                text={`${care.requestedInvestigationCount} requested investigation${care.requestedInvestigationCount === 1 ? '' : 's'}`}
+              />
+              {care.followUpDate ? (
+                <CareChip icon={<CalendarClock size={13} />} text={`Follow-up ${localDate(care.followUpDate)}`} />
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-[var(--clinora-text-muted)]">
+            {care.consultationInProgress
+              ? 'A consultation is in progress. Draft assessment and plan stay inside that encounter until the Doctor completes it.'
+              : 'No completed consultation yet. Upcoming booking context is shown below.'}
+          </p>
+        )}
+      </AppSurface>
+
       <AppSurface padding="none" className="overflow-hidden">
         <div className="border-b border-[var(--clinora-border-subtle)] px-5 py-4 sm:px-6">
-          <AppSectionHeader eyebrow="Next care" title="Upcoming appointments" />
+          <AppSectionHeader eyebrow="Upcoming care" title="Appointments" />
         </div>
         {data.upcomingAppointments.length ? (
           <ul className="divide-y divide-[var(--clinora-border-subtle)]">
@@ -119,7 +181,7 @@ export function DoctorPatientDetailPage() {
                         {formatDateTime(appointment.scheduledStart)}
                       </strong>
                       <span className="mt-1 block text-xs text-[var(--clinora-text-muted)]">
-                        {appointment.consultationMode === 'ONLINE' ? 'Online' : 'In-person'} ·{' '}
+                        {appointment.consultationMode === 'ONLINE' ? 'Online' : 'In-person'} -{' '}
                         {appointment.sharedReportCount} currently shared report
                         {appointment.sharedReportCount === 1 ? '' : 's'}
                       </span>
@@ -143,9 +205,9 @@ export function DoctorPatientDetailPage() {
       <AppSurface padding="none" className="overflow-hidden">
         <div className="border-b border-[var(--clinora-border-subtle)] px-5 py-4 sm:px-6">
           <AppSectionHeader
-            eyebrow="Your clinical record"
-            title="Consultation history"
-            copy="Doctor-authored encounter records remain available without reopening revoked Patient report access."
+            eyebrow="Care history"
+            title="Consultations over time"
+            copy="Your encounter records remain available without reopening expired or revoked Patient report access."
           />
         </div>
         {data.careHistory.length ? (
@@ -167,53 +229,77 @@ export function DoctorPatientDetailPage() {
   );
 }
 
+function CurrentCareBlock({ title, value }: { title: string; value: string }) {
+  return (
+    <section className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4">
+      <h2 className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--clinora-text-faint)]">{title}</h2>
+      <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">{value}</p>
+    </section>
+  );
+}
+
 function CareEpisode({ episode }: { episode: PatientCareEpisode }) {
+  const completed = episode.status === 'COMPLETED';
   return (
     <article className="px-5 py-5 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold text-white">
-              {episode.completedAt ? `Consultation · ${shortDate(episode.completedAt)}` : 'Consultation in progress'}
+              {completed && episode.completedAt
+                ? `Consultation - ${shortDate(episode.completedAt)}`
+                : 'Consultation in progress'}
             </h2>
-            <StatusPill tone={episode.status === 'COMPLETED' ? 'success' : 'warning'}>
-              {episode.status === 'COMPLETED' ? 'Completed' : 'In progress'}
-            </StatusPill>
+            <StatusPill tone={completed ? 'success' : 'warning'}>{completed ? 'Completed' : 'In progress'}</StatusPill>
           </div>
-          {episode.assessment ? (
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-              <span className="font-semibold text-white">Assessment: </span>
-              {episode.assessment}
+          {completed ? (
+            <>
+              {episode.assessment ? (
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+                  <span className="font-semibold text-white">Assessment: </span>
+                  {episode.assessment}
+                </p>
+              ) : null}
+              {episode.plan ? (
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
+                  <span className="font-semibold text-slate-300">Plan: </span>
+                  {episode.plan}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-[var(--clinora-text-muted)]">
+              Draft assessment and plan remain inside the active consultation until completion.
             </p>
-          ) : null}
-          {episode.plan ? (
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-              <span className="font-semibold text-slate-300">Plan: </span>
-              {episode.plan}
-            </p>
-          ) : null}
+          )}
         </div>
         <Link
           to={`/doctor/appointments/${episode.appointmentId}/consultation`}
           className={buttonVariants({ variant: 'appSecondary', size: 'sm' })}
         >
-          <Stethoscope size={14} /> Open record
+          <Stethoscope size={14} /> {completed ? 'Open record' : 'Resume'}
         </Link>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--clinora-text-muted)]">
-        <CareChip
-          icon={<Pill size={13} />}
-          text={`${episode.prescriptionCount} prescription item${episode.prescriptionCount === 1 ? '' : 's'}`}
-        />
-        <CareChip
-          icon={<FlaskConical size={13} />}
-          text={`${episode.investigationCount} investigation${episode.investigationCount === 1 ? '' : 's'}`}
-        />
-        {episode.followUpDate ? (
-          <CareChip icon={<CalendarClock size={13} />} text={`Follow-up ${shortDate(episode.followUpDate)}`} />
-        ) : null}
-        <CareChip icon={<FileText size={13} />} text="Source reports remain Patient-controlled" />
-      </div>
+      {completed ? (
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--clinora-text-muted)]">
+          <CareChip
+            icon={<Pill size={13} />}
+            text={`${episode.prescriptionCount} prescription item${episode.prescriptionCount === 1 ? '' : 's'}`}
+          />
+          <CareChip
+            icon={<Paperclip size={13} />}
+            text={`${episode.prescriptionDocumentCount} document${episode.prescriptionDocumentCount === 1 ? '' : 's'}`}
+          />
+          <CareChip
+            icon={<FlaskConical size={13} />}
+            text={`${episode.requestedInvestigationCount} requested investigation${episode.requestedInvestigationCount === 1 ? '' : 's'}`}
+          />
+          {episode.followUpDate ? (
+            <CareChip icon={<CalendarClock size={13} />} text={`Follow-up ${localDate(episode.followUpDate)}`} />
+          ) : null}
+          <CareChip icon={<FileText size={13} />} text="Source reports remain Patient-controlled" />
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -240,4 +326,18 @@ function formatDateTime(value: string) {
 
 function shortDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function shortDateTime(value: string) {
+  return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function localDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }

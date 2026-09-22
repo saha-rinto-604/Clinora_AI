@@ -45,6 +45,7 @@ import { PatientDoctorsPage } from './pages/patient/patient-doctors-page';
 import { PatientDoctorDetailPage } from './pages/patient/patient-doctor-detail-r3-page';
 import { PatientAppointmentsPage } from './pages/patient/patient-appointments-page';
 import { PatientAppointmentDetailPage } from './pages/patient/patient-appointment-detail-page';
+import { PatientPrescriptionsPage } from './pages/patient/patient-prescriptions-page';
 import { PatientNotificationsPage } from './pages/patient/patient-notifications-page';
 import { PatientBloodNetworkPage } from './pages/patient/patient-blood-network-page';
 import { DoctorLayout, DoctorShell } from './features/doctor/doctor-layout-r3';
@@ -114,6 +115,7 @@ export function AppRoutes() {
           <Route path="patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
           <Route path="patient/appointments" element={<PatientAppointmentsPage />} />
           <Route path="patient/appointments/:appointmentId" element={<PatientAppointmentDetailPage />} />
+          <Route path="patient/prescriptions" element={<PatientPrescriptionsPage />} />
           <Route path="patient/blood-network" element={<PatientBloodNetworkPage />} />
           <Route path="patient/notifications" element={<PatientNotificationsPage />} />
         </Route>

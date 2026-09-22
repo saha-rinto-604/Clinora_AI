@@ -3,6 +3,7 @@ import type { ApiEnvelope } from '../auth/auth-types';
 
 export type ConsultationStatus = 'IN_PROGRESS' | 'COMPLETED';
 export type InvestigationPriority = 'ROUTINE' | 'URGENT';
+export type PatientCareState = 'NEW_PATIENT' | 'ACTIVE_CARE' | 'FOLLOW_UP';
 
 export interface PrescriptionDraft {
   medicationName: string;
@@ -16,6 +17,15 @@ export interface PrescriptionDraft {
 
 export interface PrescriptionView extends PrescriptionDraft {
   id: string;
+}
+
+export interface PrescriptionDocumentView {
+  id: string;
+  consultationId: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
 }
 
 export interface InvestigationDraft {
@@ -52,6 +62,7 @@ export interface ConsultationView {
   startedAt: string;
   completedAt: string | null;
   prescriptions: PrescriptionView[];
+  prescriptionDocuments: PrescriptionDocumentView[];
   investigations: InvestigationView[];
   followUp: FollowUpView | null;
 }
@@ -77,11 +88,18 @@ export interface PatientConsultationSummary {
   plan: string | null;
   completedAt: string;
   prescriptions: PrescriptionView[];
+  prescriptionDocuments: PrescriptionDocumentView[];
   investigations: InvestigationView[];
   followUp: FollowUpView | null;
 }
 
-export type ClinicalInboxType = 'IN_PROGRESS' | 'EVIDENCE_READY' | 'FOLLOW_UP' | 'UPCOMING';
+export interface PatientDoctorCareRelationship {
+  returningPatient: boolean;
+  lastConsultationAt: string | null;
+  followUpDate: string | null;
+}
+
+export type ClinicalInboxType = 'IN_PROGRESS' | 'EVIDENCE_READY' | 'FOLLOW_UP';
 
 export interface ClinicalInboxItem {
   key: string;
@@ -94,6 +112,7 @@ export interface ClinicalInboxItem {
   title: string;
   detail: string;
   dueAt: string | null;
+  dueDate: string | null;
   destination: string;
 }
 
@@ -101,17 +120,34 @@ export interface ClinicalInboxView {
   inProgressCount: number;
   evidenceReadyCount: number;
   followUpCount: number;
-  upcomingCount: number;
+  needsAttentionCount: number;
   items: ClinicalInboxItem[];
 }
 
 export interface DoctorPatientListItem {
   patientId: string;
   patientName: string;
-  lastConsultationAt: string | null;
+  careState: PatientCareState;
+  consultationInProgress: boolean;
+  latestConsultationAt: string | null;
+  latestAssessment: string | null;
+  latestPlan: string | null;
+  requestedInvestigationCount: number;
+  followUpDate: string | null;
   nextAppointmentAt: string | null;
-  investigationCount: number;
   currentlySharedReportCount: number;
+}
+
+export interface DoctorPatientCurrentCare {
+  careState: PatientCareState;
+  consultationInProgress: boolean;
+  latestConsultationAt: string | null;
+  latestAssessment: string | null;
+  latestPlan: string | null;
+  prescriptionCount: number;
+  prescriptionDocumentCount: number;
+  requestedInvestigationCount: number;
+  followUpDate: string | null;
 }
 
 export interface PatientAppointmentLink {
@@ -132,13 +168,15 @@ export interface PatientCareEpisode {
   assessment: string | null;
   plan: string | null;
   prescriptionCount: number;
-  investigationCount: number;
+  prescriptionDocumentCount: number;
+  requestedInvestigationCount: number;
   followUpDate: string | null;
 }
 
 export interface DoctorPatientDetail {
   patientId: string;
   patientName: string;
+  currentCare: DoctorPatientCurrentCare;
   upcomingAppointments: PatientAppointmentLink[];
   careHistory: PatientCareEpisode[];
 }
@@ -174,9 +212,53 @@ export const consultationApi = {
     return response.data.data;
   },
 
+  async uploadPrescriptionDocument(consultationId: string, file: File) {
+    const body = new FormData();
+    body.append('file', file);
+    const response = await apiClient.post<ApiEnvelope<PrescriptionDocumentView>>(
+      `/doctor/consultations/${encodeURIComponent(consultationId)}/prescription-documents`,
+      body,
+    );
+    return response.data.data;
+  },
+
+  async removePrescriptionDocument(consultationId: string, documentId: string) {
+    await apiClient.delete(
+      `/doctor/consultations/${encodeURIComponent(consultationId)}/prescription-documents/${encodeURIComponent(documentId)}`,
+    );
+  },
+
+  async doctorPrescriptionDocument(consultationId: string, documentId: string, disposition: 'view' | 'download') {
+    const response = await apiClient.get<Blob>(
+      `/doctor/consultations/${encodeURIComponent(consultationId)}/prescription-documents/${encodeURIComponent(documentId)}/content`,
+      { params: { disposition }, responseType: 'blob' },
+    );
+    return response.data;
+  },
+
   async patientSummary(appointmentId: string) {
     const response = await apiClient.get<ApiEnvelope<PatientConsultationSummary | null>>(
       `/patient/appointments/${encodeURIComponent(appointmentId)}/consultation-summary`,
+    );
+    return response.data.data;
+  },
+
+  async patientPrescriptions() {
+    const response = await apiClient.get<ApiEnvelope<PatientConsultationSummary[]>>('/patient/prescriptions');
+    return response.data.data;
+  },
+
+  async patientPrescriptionDocument(consultationId: string, documentId: string, disposition: 'view' | 'download') {
+    const response = await apiClient.get<Blob>(
+      `/patient/consultations/${encodeURIComponent(consultationId)}/prescription-documents/${encodeURIComponent(documentId)}/content`,
+      { params: { disposition }, responseType: 'blob' },
+    );
+    return response.data;
+  },
+
+  async patientDoctorRelationship(doctorId: string) {
+    const response = await apiClient.get<ApiEnvelope<PatientDoctorCareRelationship>>(
+      `/patient/doctors/${encodeURIComponent(doctorId)}/care-relationship`,
     );
     return response.data.data;
   },

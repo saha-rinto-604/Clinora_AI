@@ -1,13 +1,14 @@
-import { ArrowRight, CalendarClock, FileText, FlaskConical, Search, UserRound, UsersRound } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ArrowRight, Search, Stethoscope, UserRound, UsersRound } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { AppSectionHeader, AppSurface, EmptyState, IconWell } from '../../components/app/app-ui';
+import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/feedback';
 import {
   consultationApi,
   consultationError,
   type DoctorPatientListItem,
+  type PatientCareState,
 } from '../../features/consultations/consultation-api';
 
 export function DoctorPatientsPage() {
@@ -42,9 +43,9 @@ export function DoctorPatientsPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-5 border-b border-[var(--clinora-border-subtle)] pb-6 lg:flex-row lg:items-end lg:justify-between">
         <AppSectionHeader
-          eyebrow="Care relationships"
+          eyebrow="Continuing care"
           title="Patients"
-          copy="People you have actually cared for or who have booked with you. This is not a global Patient directory."
+          copy="Your Patient relationships over time - latest completed care, follow-up context and upcoming appointments."
         />
         <label className="relative block w-full lg:max-w-sm">
           <Search
@@ -76,11 +77,11 @@ export function DoctorPatientsPage() {
       ) : null}
 
       {loading ? (
-        <div className="grid gap-4 lg:grid-cols-2" role="status" aria-label="Loading Patients">
-          <Skeleton className="h-40 rounded-[18px]" />
-          <Skeleton className="h-40 rounded-[18px]" />
-          <Skeleton className="h-40 rounded-[18px]" />
-          <Skeleton className="h-40 rounded-[18px]" />
+        <div className="grid gap-3 xl:grid-cols-2" role="status" aria-label="Loading Patients">
+          <Skeleton className="h-36 rounded-[18px]" />
+          <Skeleton className="h-36 rounded-[18px]" />
+          <Skeleton className="h-36 rounded-[18px]" />
+          <Skeleton className="h-36 rounded-[18px]" />
         </div>
       ) : filtered.length === 0 ? (
         <AppSurface>
@@ -90,58 +91,14 @@ export function DoctorPatientsPage() {
             copy={
               query.trim()
                 ? 'Try another name from your existing care relationships.'
-                : 'Patients appear here after they book an appointment with you. Clinora never exposes a global Patient directory.'
+                : 'A Patient appears here after a current booking or an actual consultation with you. Cancelled-only bookings are not kept as care relationships.'
             }
           />
         </AppSurface>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 xl:grid-cols-2">
           {filtered.map((patient) => (
-            <Link
-              key={patient.patientId}
-              to={`/doctor/patients/${patient.patientId}`}
-              className="group rounded-[var(--radius-app-card)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-1)] p-5 transition hover:border-[var(--clinora-border-interactive)] hover:bg-[var(--clinora-surface-hover)] sm:p-6"
-            >
-              <div className="flex items-start gap-4">
-                <IconWell tone="info">
-                  <UserRound size={18} />
-                </IconWell>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="truncate text-base font-semibold text-white">{patient.patientName}</h2>
-                      <p className="mt-1 text-xs text-[var(--clinora-text-muted)]">Established through Clinora care</p>
-                    </div>
-                    <ArrowRight
-                      size={16}
-                      className="mt-1 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-cyan-200"
-                    />
-                  </div>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <PatientMetric
-                      icon={<CalendarClock size={14} />}
-                      label="Next care"
-                      value={patient.nextAppointmentAt ? shortDate(patient.nextAppointmentAt) : 'None booked'}
-                    />
-                    <PatientMetric
-                      icon={<FileText size={14} />}
-                      label="Shared now"
-                      value={`${patient.currentlySharedReportCount} report${patient.currentlySharedReportCount === 1 ? '' : 's'}`}
-                    />
-                    <PatientMetric
-                      icon={<FlaskConical size={14} />}
-                      label="Requested tests"
-                      value={String(patient.investigationCount)}
-                    />
-                  </div>
-                  <p className="mt-4 border-t border-[var(--clinora-border-subtle)] pt-4 text-xs text-[var(--clinora-text-faint)]">
-                    {patient.lastConsultationAt
-                      ? `Last consultation ${shortDate(patient.lastConsultationAt)}`
-                      : 'No completed consultation yet'}
-                  </p>
-                </div>
-              </div>
-            </Link>
+            <PatientCard key={patient.patientId} patient={patient} />
           ))}
         </div>
       )}
@@ -149,17 +106,105 @@ export function DoctorPatientsPage() {
   );
 }
 
-function PatientMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function PatientCard({ patient }: { patient: DoctorPatientListItem }) {
+  const isNew = patient.careState === 'NEW_PATIENT';
+  const primaryContext = isNew
+    ? patient.nextAppointmentAt
+      ? `First appointment ${shortDateTime(patient.nextAppointmentAt)}`
+      : 'No completed consultation yet'
+    : patient.latestConsultationAt
+      ? `Last consultation ${shortDate(patient.latestConsultationAt)}`
+      : 'Active consultation';
+  const clinicalLine = isNew
+    ? 'Open the Patient to review this booking and currently authorized evidence.'
+    : patient.latestAssessment || 'No assessment text was recorded in the latest completed consultation.';
+
+  const metadata: string[] = [];
+  if (patient.requestedInvestigationCount > 0) {
+    metadata.push(
+      `${patient.requestedInvestigationCount} requested test${patient.requestedInvestigationCount === 1 ? '' : 's'}`,
+    );
+  }
+  if (patient.followUpDate) metadata.push(`Follow-up ${localDate(patient.followUpDate)}`);
+  if (patient.currentlySharedReportCount > 0) {
+    metadata.push(
+      `${patient.currentlySharedReportCount} shared report${patient.currentlySharedReportCount === 1 ? '' : 's'}`,
+    );
+  }
+  if (!isNew && patient.nextAppointmentAt) metadata.push(`Next ${shortDate(patient.nextAppointmentAt)}`);
+
   return (
-    <span className="rounded-xl bg-[var(--clinora-surface-nested)] p-3">
-      <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--clinora-text-faint)]">
-        {icon} {label}
-      </span>
-      <strong className="mt-1.5 block text-xs font-semibold text-slate-200">{value}</strong>
-    </span>
+    <Link
+      to={`/doctor/patients/${patient.patientId}`}
+      className="group min-h-[132px] rounded-[var(--radius-app-card)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-1)] p-4 transition hover:border-[var(--clinora-border-interactive)] hover:bg-[var(--clinora-surface-hover)] sm:p-5"
+    >
+      <div className="flex h-full items-start gap-3.5">
+        <IconWell tone="info">
+          <UserRound size={17} />
+        </IconWell>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-[15px] font-semibold text-white">{patient.patientName}</h2>
+                <CareState state={patient.careState} />
+                {patient.consultationInProgress ? <StatusPill tone="warning">In progress</StatusPill> : null}
+              </div>
+              <p className="mt-1 text-[11px] text-[var(--clinora-text-faint)]">{primaryContext}</p>
+            </div>
+            <ArrowRight
+              size={15}
+              className="mt-1 shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-cyan-200"
+            />
+          </div>
+
+          <p className="mt-3 line-clamp-1 text-sm leading-5 text-slate-200">{clinicalLine}</p>
+          {!isNew && patient.latestPlan ? (
+            <p className="mt-1 line-clamp-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+              <span className="font-semibold text-slate-400">Plan:</span> {patient.latestPlan}
+            </p>
+          ) : null}
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--clinora-border-subtle)] pt-2.5 text-[11px] text-[var(--clinora-text-faint)]">
+            {metadata.length ? (
+              metadata.map((item) => <span key={item}>{item}</span>)
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Stethoscope size={12} /> Open continuing care
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
   );
+}
+
+function CareState({ state }: { state: PatientCareState }) {
+  if (state === 'NEW_PATIENT') return <StatusPill tone="info">New Patient</StatusPill>;
+  if (state === 'FOLLOW_UP') return <StatusPill tone="warning">Follow-up</StatusPill>;
+  return <StatusPill tone="success">Active care</StatusPill>;
 }
 
 function shortDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function shortDateTime(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function localDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }

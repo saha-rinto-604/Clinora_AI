@@ -30,6 +30,19 @@ class ConsultationMigrationContractTest {
         assertTrue(sql.contains("consultation_id UUID NOT NULL UNIQUE REFERENCES doctor_consultations(id)"));
     }
 
+    @Test
+    void v31KeepsPrescriptionDocumentsPrivateConsultationArtifactsAndSupportsCompositeOwnershipFk() throws IOException {
+        String sql = migration("db/migration/V31__create_consultation_prescription_documents.sql");
+
+        assertTrue(sql.contains("UNIQUE (id, doctor_user_id, patient_user_id)"));
+        assertTrue(sql.contains("CREATE TABLE consultation_prescription_documents"));
+        assertTrue(sql.contains("FOREIGN KEY (consultation_id, doctor_user_id, patient_user_id)"));
+        assertTrue(sql.contains("REFERENCES doctor_consultations (id, doctor_user_id, patient_user_id)"));
+        assertTrue(sql.contains("CHECK (position >= 0 AND position < 5)"));
+        assertTrue(sql.contains("UNIQUE (consultation_id, sha256_checksum)"));
+        assertTrue(!sql.contains("patient_medical_reports"));
+    }
+
     private String migration(String resource) throws IOException {
         try (var stream = getClass().getClassLoader().getResourceAsStream(resource)) {
             assertNotNull(stream);

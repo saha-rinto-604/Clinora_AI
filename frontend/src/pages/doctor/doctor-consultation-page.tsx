@@ -2,13 +2,17 @@ import {
   ArrowLeft,
   CheckCircle2,
   ClipboardList,
+  Download,
+  Eye,
   FileText,
   FlaskConical,
+  Paperclip,
   Pill,
   Plus,
   Save,
   Stethoscope,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
@@ -28,7 +32,9 @@ import {
   type FollowUpDraft,
   type InvestigationDraft,
   type PrescriptionDraft,
+  type PrescriptionDocumentView,
 } from '../../features/consultations/consultation-api';
+import { presentPrescriptionDocument } from '../../features/consultations/prescription-document-file';
 
 type PrescriptionRow = PrescriptionDraft & { key: string };
 type InvestigationRow = InvestigationDraft & { key: string };
@@ -49,6 +55,8 @@ export function DoctorConsultationPage() {
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState('');
+  const [documentError, setDocumentError] = useState('');
 
   const hydrate = useCallback((value: ConsultationView | null) => {
     setConsultation(value);
@@ -191,6 +199,48 @@ export function DoctorConsultationPage() {
     }
   };
 
+  const uploadPrescriptionDocument = async (file: File) => {
+    if (!consultation || consultation.status !== 'IN_PROGRESS') return;
+    setDocumentBusy('upload');
+    setDocumentError('');
+    try {
+      await consultationApi.uploadPrescriptionDocument(consultation.id, file);
+      hydrate(await consultationApi.byAppointment(appointmentId));
+    } catch (requestError) {
+      setDocumentError(consultationError(requestError, 'We could not upload this prescription document.'));
+    } finally {
+      setDocumentBusy('');
+    }
+  };
+
+  const removePrescriptionDocument = async (documentId: string) => {
+    if (!consultation || consultation.status !== 'IN_PROGRESS') return;
+    setDocumentBusy(`remove:${documentId}`);
+    setDocumentError('');
+    try {
+      await consultationApi.removePrescriptionDocument(consultation.id, documentId);
+      hydrate(await consultationApi.byAppointment(appointmentId));
+    } catch (requestError) {
+      setDocumentError(consultationError(requestError, 'We could not remove this prescription document.'));
+    } finally {
+      setDocumentBusy('');
+    }
+  };
+
+  const openPrescriptionDocument = async (document: PrescriptionDocumentView, disposition: 'view' | 'download') => {
+    if (!consultation) return;
+    setDocumentBusy(`${disposition}:${document.id}`);
+    setDocumentError('');
+    try {
+      const blob = await consultationApi.doctorPrescriptionDocument(consultation.id, document.id, disposition);
+      presentPrescriptionDocument(blob, document.originalFilename, disposition);
+    } catch (requestError) {
+      setDocumentError(consultationError(requestError, 'We could not open this prescription document.'));
+    } finally {
+      setDocumentBusy('');
+    }
+  };
+
   const markDirty = () => setDirty(true);
 
   if (loading) {
@@ -215,6 +265,8 @@ export function DoctorConsultationPage() {
       </AppSurface>
     );
   }
+
+  const timingWarning = consultationTimingWarning(appointment);
 
   if (!consultation) {
     return (
@@ -252,6 +304,14 @@ export function DoctorConsultationPage() {
           </div>
         </AppSurface>
         {error ? <ErrorBanner message={error} onReload={() => void load()} /> : null}
+        {timingWarning ? (
+          <AppSurface variant="attention">
+            <p className="text-sm font-semibold text-amber-100">Appointment timing check</p>
+            <p className="mt-1 text-xs leading-5 text-amber-100/80">
+              {timingWarning} Starting remains an explicit Doctor action.
+            </p>
+          </AppSurface>
+        ) : null}
         <AppSurface>
           <AppSectionHeader
             eyebrow="Before you begin"
@@ -437,8 +497,11 @@ export function DoctorConsultationPage() {
           <CarePlanBuilder
             editable={editable}
             prescriptions={prescriptions}
+            prescriptionDocuments={consultation.prescriptionDocuments}
             investigations={investigations}
             followUp={followUp}
+            documentBusy={documentBusy}
+            documentError={documentError}
             onPrescriptions={(value) => {
               setPrescriptions(value);
               markDirty();
@@ -451,6 +514,9 @@ export function DoctorConsultationPage() {
               setFollowUp(value);
               markDirty();
             }}
+            onUploadDocument={uploadPrescriptionDocument}
+            onRemoveDocument={removePrescriptionDocument}
+            onOpenDocument={openPrescriptionDocument}
           />
 
           {editable ? (
@@ -464,8 +530,9 @@ export function DoctorConsultationPage() {
                     <div>
                       <h2 className="text-base font-semibold text-white">Finalize this consultation?</h2>
                       <p className="mt-1 text-sm leading-6 text-slate-400">
-                        Completion makes the Doctor-authored record read-only and publishes the assessment, plan and
-                        structured care actions to the Patient.
+                        Completion makes the Doctor-authored record read-only and publishes the assessment, plan,
+                        structured care actions and attached prescription documents to the Patient. Attached documents
+                        become immutable.
                       </p>
                     </div>
                   </div>
@@ -483,6 +550,12 @@ export function DoctorConsultationPage() {
                   <div>
                     <h2 className="text-base font-semibold text-white">Ready to finish?</h2>
                     <p className="mt-1 text-sm text-slate-400">Assessment or plan is required before completion.</p>
+                    {prescriptions.some(hasLimitedMedicationInstructions) ? (
+                      <p className="mt-2 text-xs text-amber-200">
+                        One or more medications have only a name and limited instructions. Review them before
+                        finalizing.
+                      </p>
+                    ) : null}
                   </div>
                   <Button
                     variant="appPrimary"
@@ -519,26 +592,38 @@ export function DoctorConsultationPage() {
 function CarePlanBuilder({
   editable,
   prescriptions,
+  prescriptionDocuments,
   investigations,
   followUp,
+  documentBusy,
+  documentError,
   onPrescriptions,
   onInvestigations,
   onFollowUp,
+  onUploadDocument,
+  onRemoveDocument,
+  onOpenDocument,
 }: {
   editable: boolean;
   prescriptions: PrescriptionRow[];
+  prescriptionDocuments: PrescriptionDocumentView[];
   investigations: InvestigationRow[];
   followUp: FollowUpDraft | null;
+  documentBusy: string;
+  documentError: string;
   onPrescriptions: (value: PrescriptionRow[]) => void;
   onInvestigations: (value: InvestigationRow[]) => void;
   onFollowUp: (value: FollowUpDraft | null) => void;
+  onUploadDocument: (file: File) => Promise<void>;
+  onRemoveDocument: (documentId: string) => Promise<void>;
+  onOpenDocument: (document: PrescriptionDocumentView, disposition: 'view' | 'download') => Promise<void>;
 }) {
   return (
     <AppSurface>
       <AppSectionHeader
         eyebrow="Care plan"
         title="Structured care plan"
-        copy="Doctor-authored medication instructions, investigations and follow-up. Clinora does not autonomously prescribe or determine dosage."
+        copy="Doctor-authored medication instructions, optional original prescription documents, investigations and follow-up. Clinora does not autonomously prescribe or determine dosage."
       />
 
       <CareSection
@@ -608,6 +693,12 @@ function CarePlanBuilder({
                 editable={editable}
                 onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { instructions: value }))}
               />
+              {hasLimitedMedicationInstructions(item) ? (
+                <p className="mt-2 text-xs text-amber-200">
+                  Limited instructions: review strength, dose, frequency, duration or free-text instructions before
+                  finalizing if clinically applicable.
+                </p>
+              ) : null}
               {editable ? (
                 <Button
                   className="mt-3 text-rose-200"
@@ -621,12 +712,106 @@ function CarePlanBuilder({
             </div>
           ))
         ) : (
-          <p className="text-sm text-slate-500">No medication instructions added.</p>
+          <p className="text-sm text-slate-500">No structured medication instructions added.</p>
         )}
+
+        <div className="mt-4 rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Paperclip size={14} /> Original prescription documents{' '}
+                <span className="text-[11px] font-normal text-[var(--clinora-text-faint)]">Optional</span>
+              </h4>
+              <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                Attach up to five Doctor-authored PDF, JPG or PNG prescription documents. Files become Patient-visible
+                and immutable only when the consultation is completed.
+              </p>
+            </div>
+            {editable && prescriptionDocuments.length < 5 ? (
+              <label className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-1)] px-3 text-xs font-semibold text-slate-200 hover:border-[var(--clinora-border-interactive)]">
+                <Upload size={13} /> {documentBusy === 'upload' ? 'Uploading...' : 'Upload prescription'}
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                  disabled={documentBusy !== ''}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.currentTarget.value = '';
+                    if (file) void onUploadDocument(file);
+                  }}
+                />
+              </label>
+            ) : null}
+          </div>
+          {documentError ? (
+            <p role="alert" className="mt-3 text-xs text-amber-200">
+              {documentError}
+            </p>
+          ) : null}
+          {prescriptionDocuments.length ? (
+            <ul className="mt-3 space-y-2">
+              {prescriptionDocuments.map((document) => (
+                <li
+                  key={document.id}
+                  className="flex flex-col gap-2 rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)]/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="min-w-0">
+                    <strong className="block truncate text-xs font-semibold text-white">
+                      {document.originalFilename}
+                    </strong>
+                    <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
+                      {prescriptionFileLabel(document.mimeType)} - {prescriptionFileSize(document.sizeBytes)}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="appSecondary"
+                      disabled={documentBusy !== ''}
+                      onClick={() => void onOpenDocument(document, 'view')}
+                    >
+                      <Eye size={13} /> View
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="appSecondary"
+                      disabled={documentBusy !== ''}
+                      onClick={() => void onOpenDocument(document, 'download')}
+                    >
+                      <Download size={13} /> Download
+                    </Button>
+                    {editable ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-200"
+                        disabled={documentBusy !== ''}
+                        onClick={() => {
+                          if (window.confirm('Remove this prescription document from the draft consultation?'))
+                            void onRemoveDocument(document.id);
+                        }}
+                      >
+                        <Trash2 size={13} /> Remove
+                      </Button>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">No original prescription document attached.</p>
+          )}
+          {prescriptionDocuments.length >= 5 ? (
+            <p className="mt-2 text-[11px] text-[var(--clinora-text-faint)]">
+              Maximum five prescription documents reached.
+            </p>
+          ) : null}
+        </div>
       </CareSection>
 
       <CareSection
-        title="Investigations"
+        title="Requested investigations"
         icon={<FlaskConical size={15} />}
         action={
           editable ? (
@@ -726,7 +911,7 @@ function CarePlanBuilder({
                 Recommended date
                 <input
                   type="date"
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={localToday()}
                   disabled={!editable}
                   value={followUp.recommendedDate}
                   onChange={(event) => onFollowUp({ ...followUp, recommendedDate: event.target.value })}
@@ -884,6 +1069,48 @@ function ErrorBanner({ message, onReload }: { message: string; onReload?: () => 
       ) : null}
     </div>
   );
+}
+
+function hasLimitedMedicationInstructions(item: PrescriptionDraft) {
+  return (
+    Boolean(item.medicationName.trim()) &&
+    ![item.strength, item.dose, item.frequency, item.duration, item.instructions].some((value) => value.trim())
+  );
+}
+
+function prescriptionFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function prescriptionFileLabel(mimeType: string) {
+  if (mimeType === 'application/pdf') return 'PDF';
+  if (mimeType === 'image/png') return 'PNG';
+  return 'JPEG';
+}
+
+function localToday() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function consultationTimingWarning(appointment: DoctorAppointmentDetail) {
+  if (appointment.status !== 'BOOKED') return null;
+  const now = Date.now();
+  const start = new Date(appointment.scheduledStart).getTime();
+  const end = new Date(appointment.scheduledEnd).getTime();
+  const day = 24 * 60 * 60 * 1000;
+  if (Number.isFinite(start) && start - now > day) {
+    return `This consultation is scheduled for ${formatDoctorDateTime(appointment.scheduledStart, appointment.timezone)}.`;
+  }
+  if (Number.isFinite(end) && now - end > day) {
+    return `This appointment ended ${formatDoctorDateTime(appointment.scheduledEnd, appointment.timezone)}. Very old bookings are blocked by the server.`;
+  }
+  return null;
 }
 
 function emptyPrescription(): PrescriptionRow {

@@ -21,6 +21,7 @@ public final class ConsultationModels {
         Instant startedAt,
         Instant completedAt,
         List<PrescriptionView> prescriptions,
+        List<PrescriptionDocumentView> prescriptionDocuments,
         List<InvestigationView> investigations,
         FollowUpView followUp
     ) {}
@@ -55,6 +56,15 @@ public final class ConsultationModels {
         String frequency,
         String duration,
         String instructions
+    ) {}
+
+    public record PrescriptionDocumentView(
+        UUID id,
+        UUID consultationId,
+        String originalFilename,
+        String mimeType,
+        long sizeBytes,
+        Instant createdAt
     ) {}
 
     public record InvestigationInput(
@@ -95,15 +105,22 @@ public final class ConsultationModels {
         String plan,
         Instant completedAt,
         List<PrescriptionView> prescriptions,
+        List<PrescriptionDocumentView> prescriptionDocuments,
         List<InvestigationView> investigations,
         FollowUpView followUp
+    ) {}
+
+    public record PatientDoctorCareRelationship(
+        boolean returningPatient,
+        Instant lastConsultationAt,
+        LocalDate followUpDate
     ) {}
 
     public record ClinicalInboxView(
         int inProgressCount,
         int evidenceReadyCount,
         int followUpCount,
-        int upcomingCount,
+        int needsAttentionCount,
         List<ClinicalInboxItem> items
     ) {}
 
@@ -118,23 +135,42 @@ public final class ConsultationModels {
         String title,
         String detail,
         Instant dueAt,
+        LocalDate dueDate,
         String destination
     ) {}
 
     public record DoctorPatientListItem(
         UUID patientId,
         String patientName,
-        Instant lastConsultationAt,
+        String careState,
+        boolean consultationInProgress,
+        Instant latestConsultationAt,
+        String latestAssessment,
+        String latestPlan,
+        int requestedInvestigationCount,
+        LocalDate followUpDate,
         Instant nextAppointmentAt,
-        int investigationCount,
         int currentlySharedReportCount
     ) {}
 
     public record DoctorPatientDetail(
         UUID patientId,
         String patientName,
+        DoctorPatientCurrentCare currentCare,
         List<PatientAppointmentLink> upcomingAppointments,
         List<PatientCareEpisode> careHistory
+    ) {}
+
+    public record DoctorPatientCurrentCare(
+        String careState,
+        boolean consultationInProgress,
+        Instant latestConsultationAt,
+        String latestAssessment,
+        String latestPlan,
+        int prescriptionCount,
+        int prescriptionDocumentCount,
+        int requestedInvestigationCount,
+        LocalDate followUpDate
     ) {}
 
     public record PatientAppointmentLink(
@@ -155,7 +191,8 @@ public final class ConsultationModels {
         String assessment,
         String plan,
         int prescriptionCount,
-        int investigationCount,
+        int prescriptionDocumentCount,
+        int requestedInvestigationCount,
         LocalDate followUpDate
     ) {}
 }
