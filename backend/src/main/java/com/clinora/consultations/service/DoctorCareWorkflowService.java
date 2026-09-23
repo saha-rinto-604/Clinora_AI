@@ -195,9 +195,19 @@ public class DoctorCareWorkflowService {
                  WHERE c.doctor_user_id = ? AND c.status = 'COMPLETED'
                  ORDER BY c.patient_user_id, c.completed_at DESC, c.id DESC
             ), in_progress AS (
-                SELECT DISTINCT c.patient_user_id
+                SELECT DISTINCT ON (c.patient_user_id)
+                       c.patient_user_id, c.appointment_id, c.started_at
                   FROM doctor_consultations c
                  WHERE c.doctor_user_id = ? AND c.status = 'IN_PROGRESS'
+                 ORDER BY c.patient_user_id, c.started_at DESC, c.id DESC
+            ), next_appointment AS (
+                SELECT DISTINCT ON (a.patient_user_id)
+                       a.patient_user_id, a.id AS appointment_id, a.scheduled_start,
+                       a.booking_timezone, a.consultation_mode, a.reason_for_visit
+                  FROM appointments a
+                 WHERE a.doctor_user_id = ? AND a.status = 'BOOKED'
+                   AND a.scheduled_start >= CURRENT_TIMESTAMP
+                 ORDER BY a.patient_user_id, a.scheduled_start ASC, a.id ASC
             )
             SELECT u.id AS patient_id, u.first_name, u.last_name,
                    lc.completed_at AS latest_consultation_at,
@@ -210,10 +220,12 @@ public class DoctorCareWorkflowService {
                    (SELECT f.recommended_date
                       FROM consultation_follow_ups f
                      WHERE f.consultation_id = lc.consultation_id) AS follow_up_date,
-                   (SELECT MIN(a2.scheduled_start)
-                      FROM appointments a2
-                     WHERE a2.doctor_user_id = ? AND a2.patient_user_id = u.id
-                       AND a2.status = 'BOOKED' AND a2.scheduled_start >= CURRENT_TIMESTAMP) AS next_appointment_at,
+                   na.scheduled_start AS next_appointment_at,
+                   COALESCE(ip.appointment_id, na.appointment_id) AS context_appointment_id,
+                   COALESCE(ipa.scheduled_start, na.scheduled_start) AS context_appointment_at,
+                   COALESCE(ipa.booking_timezone, na.booking_timezone) AS context_appointment_timezone,
+                   COALESCE(ipa.consultation_mode, na.consultation_mode) AS context_appointment_mode,
+                   COALESCE(ipa.reason_for_visit, na.reason_for_visit) AS context_appointment_reason,
                    (SELECT COUNT(*)::int
                       FROM appointment_report_shares s
                       JOIN appointments a3 ON a3.id = s.appointment_id
@@ -221,6 +233,9 @@ public class DoctorCareWorkflowService {
                        AND a3.status = 'BOOKED' AND s.revoked_at IS NULL) AS shared_report_count
               FROM users u
               LEFT JOIN latest_completed lc ON lc.patient_user_id = u.id
+              LEFT JOIN in_progress ip ON ip.patient_user_id = u.id
+              LEFT JOIN appointments ipa ON ipa.id = ip.appointment_id
+              LEFT JOIN next_appointment na ON na.patient_user_id = u.id
              WHERE u.role = 'PATIENT'
                AND (
                    EXISTS (
@@ -233,7 +248,8 @@ public class DoctorCareWorkflowService {
                           AND relc.status IN ('IN_PROGRESS', 'COMPLETED')
                    )
                )
-             ORDER BY next_appointment_at NULLS LAST, latest_consultation_at DESC NULLS LAST,
+             ORDER BY consultation_in_progress DESC, next_appointment_at NULLS LAST,
+                      latest_consultation_at DESC NULLS LAST,
                       lower(u.first_name), lower(u.last_name)
              LIMIT 200
             """,
@@ -254,6 +270,11 @@ public class DoctorCareWorkflowService {
                     rs.getInt("requested_investigation_count"),
                     followUp,
                     instant(rs.getTimestamp("next_appointment_at")),
+                    rs.getObject("context_appointment_id", UUID.class),
+                    instant(rs.getTimestamp("context_appointment_at")),
+                    rs.getString("context_appointment_timezone"),
+                    rs.getString("context_appointment_mode"),
+                    rs.getString("context_appointment_reason"),
                     rs.getInt("shared_report_count")
                 );
             },

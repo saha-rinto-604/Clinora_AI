@@ -20,6 +20,9 @@ class DoctorCareWorkflowContractTest {
         assertTrue(source.contains("Patient-shared evidence ready"));
         assertTrue(source.contains("ROW_NUMBER() OVER"));
         assertTrue(source.contains("next_a.status = 'BOOKED'"));
+        assertTrue(source.contains("COALESCE(ip.appointment_id, na.appointment_id) AS context_appointment_id"));
+        assertTrue(source.contains("COALESCE(ipa.consultation_mode, na.consultation_mode) AS context_appointment_mode"));
+        assertTrue(source.contains("ORDER BY consultation_in_progress DESC"));
         assertFalse(source.contains("\"UPCOMING\""));
         assertFalse(source.contains("Pending investigations"));
     }

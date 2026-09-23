@@ -228,25 +228,25 @@ export function ClinoraClinicalSupportPanel({
   };
 
   const quickActions = (
-    <div className="grid gap-2 sm:grid-cols-2" aria-label="Clinical Support quick actions">
-      <Action label="Explore clinical patterns" disabled={!evidenceReady || requestInFlight} onClick={() => runKnownAction('EXPLORE_EXPLANATIONS', 'Explore clinical patterns')} />
-      <Action label="Check a clinical hypothesis" disabled={!evidenceReady || requestInFlight} onClick={() => openHypothesis()} />
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Clinical Support quick actions">
+      <Action label="Explore patterns" ariaLabel="Explore clinical patterns" disabled={!evidenceReady || requestInFlight} onClick={() => runKnownAction('EXPLORE_EXPLANATIONS', 'Explore clinical patterns')} />
+      <Action label="Check hypothesis" ariaLabel="Check a clinical hypothesis" disabled={!evidenceReady || requestInFlight} onClick={() => openHypothesis()} />
       <Action label="Compare reports" disabled={!compareReady || requestInFlight} onClick={() => runKnownAction('COMPARE_EVIDENCE', 'Compare the available reports')} />
-      <Action label="What information is missing?" disabled={!evidenceReady || requestInFlight} onClick={() => runKnownAction('FIND_GAPS', 'What important information is missing?')} />
+      <Action label="Missing information" ariaLabel="What information is missing?" disabled={!evidenceReady || requestInFlight} onClick={() => runKnownAction('FIND_GAPS', 'What important information is missing?')} />
     </div>
   );
 
   return (
     <>
-      <section className="rounded-[var(--radius-app-card)] border border-cyan-400/20 bg-[linear-gradient(145deg,rgba(7,25,38,.94),rgba(16,15,42,.94))] p-4 shadow-[0_20px_60px_rgba(14,165,233,.08)]" aria-label="Clinora Clinical Support actions">
+      <section className="rounded-[var(--radius-app-compact)] border border-cyan-400/20 bg-[linear-gradient(145deg,rgba(7,25,38,.94),rgba(7,28,40,.94))] p-3.5 shadow-[0_20px_60px_rgba(14,165,233,.06)]" aria-label="Clinora Clinical Support actions">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="grid size-9 place-items-center rounded-xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-200"><Sparkles size={17} aria-hidden="true" /></span>
-            <div><h2 className="text-sm font-semibold text-white">Clinora Clinical Support</h2><p className="text-xs text-slate-400">One assistant grounded in currently authorized evidence</p></div>
+            <div><h2 className="text-xs font-semibold text-white">Clinora Clinical Support</h2><p className="mt-0.5 text-[10px] text-slate-400">Evidence-linked support for this encounter.</p></div>
           </div>
           <Button variant="appPrimary" size="sm" onClick={() => setOpen(true)}>Open Clinora</Button>
         </div>
-        <div className="mt-4">{quickActions}</div>
+        <div className="mt-3 border-t border-cyan-300/[0.08] pt-2.5">{quickActions}</div>
       </section>
 
       {open ? (
@@ -301,8 +301,8 @@ export function ClinoraClinicalSupportPanel({
   );
 }
 
-function Action({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
-  return <Button variant="appSecondary" size="sm" disabled={disabled} onClick={onClick}>{label}</Button>;
+function Action({ label, ariaLabel, disabled, onClick }: { label: string; ariaLabel?: string; disabled: boolean; onClick: () => void }) {
+  return <Button aria-label={ariaLabel} variant="appSecondary" size="sm" disabled={disabled} onClick={onClick}>{label}</Button>;
 }
 
 function PatientClinicalBrief({ response, loading, message }: { response: DoctorSupportExecutionResponse | null; loading: boolean; message: string }) {

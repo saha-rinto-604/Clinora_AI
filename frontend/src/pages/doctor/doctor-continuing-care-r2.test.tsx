@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DoctorClinicalInboxPage } from './doctor-clinical-inbox-page';
@@ -42,6 +43,11 @@ describe('Doctor continuing-care information architecture', () => {
         requestedInvestigationCount: 1,
         followUpDate: '2026-10-07',
         nextAppointmentAt: '2026-09-30T09:00:00Z',
+        contextAppointmentId: '22222222-2222-2222-2222-222222222222',
+        contextAppointmentAt: '2026-09-30T09:00:00Z',
+        contextAppointmentTimezone: 'Asia/Dhaka',
+        contextAppointmentMode: 'IN_PERSON',
+        contextAppointmentReason: 'Review progress',
         currentlySharedReportCount: 2,
       },
     ]);
@@ -57,7 +63,8 @@ describe('Doctor continuing-care information architecture', () => {
       'data-density',
       'compact',
     );
-    expect(screen.getByText('Active care')).toBeInTheDocument();
+    expect(screen.getAllByText('Active care')).toHaveLength(2);
+    expect(screen.getByRole('tab', { name: /Active care 1/ })).toBeInTheDocument();
     expect(screen.getByText('Iron deficiency under evaluation')).toBeInTheDocument();
     expect(screen.getByText(/Plan:/)).toBeInTheDocument();
     expect(screen.getByText(/requested investigation/)).toBeInTheDocument();
@@ -79,6 +86,11 @@ describe('Doctor continuing-care information architecture', () => {
         requestedInvestigationCount: 0,
         followUpDate: null,
         nextAppointmentAt: '2026-09-23T10:30:00Z',
+        contextAppointmentId: '22222222-2222-2222-2222-222222222222',
+        contextAppointmentAt: '2026-09-23T10:30:00Z',
+        contextAppointmentTimezone: 'Asia/Dhaka',
+        contextAppointmentMode: 'ONLINE',
+        contextAppointmentReason: 'Review current symptoms',
         currentlySharedReportCount: 9,
       },
     ]);
@@ -90,9 +102,69 @@ describe('Doctor continuing-care information architecture', () => {
     );
 
     expect(await screen.findByText('Anika Islam')).toBeInTheDocument();
-    expect(screen.getAllByText('In progress')).toHaveLength(1);
-    expect(screen.getByText('Consultation currently in progress')).toBeInTheDocument();
+    expect(screen.getByText('Consultation in progress')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Resume/ })).toHaveAttribute(
+      'href',
+      '/doctor/appointments/22222222-2222-2222-2222-222222222222/consultation',
+    );
+    expect(screen.getByText('Review current symptoms')).toBeInTheDocument();
     expect(screen.queryByText(/No assessment text was recorded/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps Patient search and real care-state filters functional', async () => {
+    const user = userEvent.setup();
+    mocks.patients.mockResolvedValue([
+      {
+        patientId: '11111111-1111-1111-1111-111111111111',
+        patientName: 'First Patient',
+        careState: 'ACTIVE_CARE',
+        consultationInProgress: false,
+        latestConsultationAt: '2026-09-20T09:00:00Z',
+        latestAssessment: null,
+        latestPlan: null,
+        requestedInvestigationCount: 0,
+        followUpDate: null,
+        nextAppointmentAt: null,
+        contextAppointmentId: null,
+        contextAppointmentAt: null,
+        contextAppointmentTimezone: null,
+        contextAppointmentMode: null,
+        contextAppointmentReason: null,
+        currentlySharedReportCount: 0,
+      },
+      {
+        patientId: '22222222-2222-2222-2222-222222222222',
+        patientName: 'Second Patient',
+        careState: 'NEW_PATIENT',
+        consultationInProgress: false,
+        latestConsultationAt: null,
+        latestAssessment: null,
+        latestPlan: null,
+        requestedInvestigationCount: 0,
+        followUpDate: null,
+        nextAppointmentAt: '2026-09-30T09:00:00Z',
+        contextAppointmentId: '33333333-3333-3333-3333-333333333333',
+        contextAppointmentAt: '2026-09-30T09:00:00Z',
+        contextAppointmentTimezone: 'Asia/Dhaka',
+        contextAppointmentMode: 'ONLINE',
+        contextAppointmentReason: 'First visit',
+        currentlySharedReportCount: 0,
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <DoctorPatientsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('First Patient')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: /New patient 1/ }));
+    expect(screen.queryByText('First Patient')).not.toBeInTheDocument();
+    expect(screen.getByText('Second Patient')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search your Patients' }), 'missing');
+    expect(screen.getByText('No matching Patient')).toBeInTheDocument();
   });
 
   it('renders Clinical Inbox as an action queue without a generic upcoming bucket', async () => {

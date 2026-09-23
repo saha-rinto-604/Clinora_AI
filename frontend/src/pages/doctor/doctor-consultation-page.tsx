@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   ClipboardList,
   Download,
@@ -334,7 +335,7 @@ export function DoctorConsultationPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1240px] space-y-4" data-density="compact">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-2 border-b border-cyan-300/[0.08] pb-2">
         <Link
           to={`/doctor/appointments/${appointment.id}`}
           className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white"
@@ -342,14 +343,18 @@ export function DoctorConsultationPage() {
           <ArrowLeft size={14} /> Back to appointment
         </Link>
         <div className="flex items-center gap-2">
-          {dirty && editable ? <span className="text-[11px] font-medium text-amber-200">Unsaved changes</span> : null}
+          {dirty && editable ? (
+            <span className="text-[10px] font-medium text-amber-200">Unsaved changes</span>
+          ) : editable ? (
+            <span className="text-[10px] text-slate-500">Draft saved</span>
+          ) : null}
           <StatusPill tone={editable ? 'success' : 'neutral'} className="min-h-6 px-2 py-0.5 text-[10px]">
             {editable ? 'In progress' : 'Completed'}
           </StatusPill>
         </div>
       </div>
 
-      <section className="relative overflow-hidden rounded-[18px] border border-[var(--clinora-border-interactive)] bg-[linear-gradient(105deg,var(--clinora-surface-hero),var(--clinora-surface-2))] px-4 py-3.5 sm:px-5">
+      <section className="relative overflow-hidden rounded-[16px] border border-cyan-300/[0.16] bg-[linear-gradient(105deg,#062238,#06263c_55%,#042036)] px-4 py-4 sm:px-5">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border border-cyan-300/10"
@@ -358,31 +363,35 @@ export function DoctorConsultationPage() {
           aria-hidden="true"
           className="pointer-events-none absolute right-8 top-6 h-20 w-20 rounded-full border border-teal-300/10"
         />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-[62%] opacity-80 [background:linear-gradient(140deg,transparent_24%,rgba(34,211,238,.14)_24.5%,transparent_25.5%,transparent_48%,rgba(45,212,191,.12)_48.5%,transparent_50%)]"
+        />
         <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <ProfileAvatar
               source={{ kind: 'doctor-patient', appointmentId: appointment.id }}
               name={appointment.patient.displayName}
-              size="md"
-              className="rounded-xl"
+              size="lg"
+              className="rounded-full"
             />
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">Consultation workspace</p>
-              <h1 className="mt-0.5 truncate text-xl font-semibold tracking-[-0.03em] text-white sm:text-[1.35rem]">
+              <h1 className="truncate text-xl font-semibold tracking-[-0.03em] text-white sm:text-[1.4rem]">
                 {appointment.patient.displayName}
               </h1>
-              <p className="mt-1 truncate text-xs text-slate-400">
-                {appointment.reason || 'Consultation'} ·{' '}
-                {formatDoctorDateTime(appointment.scheduledStart, appointment.timezone)}
+              {patientDemographics(appointment.patient.dateOfBirth, appointment.patient.gender) ? (
+                <p className="mt-1 text-[11px] font-medium text-slate-400">
+                  {patientDemographics(appointment.patient.dateOfBirth, appointment.patient.gender)}
+                </p>
+              ) : null}
+              <p className="mt-1.5 flex items-center gap-1.5 truncate text-[11px] text-slate-300">
+                <CalendarDays size={12} aria-hidden="true" />
+                {formatDoctorDateTime(appointment.scheduledStart, appointment.timezone)} ·{' '}
+                {appointment.consultationMode === 'ONLINE' ? 'Online' : 'In-person'}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {editable ? (
-              <Button size="sm" variant="appSecondary" disabled={busy !== '' || !dirty} onClick={() => void save()}>
-                <Save size={14} /> {busy === 'save' ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
-              </Button>
-            ) : null}
             <Link
               to={`/doctor/patients/${appointment.patient.id}`}
               className={buttonVariants({ variant: 'appSecondary', size: 'sm' })}
@@ -395,14 +404,11 @@ export function DoctorConsultationPage() {
 
       {error ? <ErrorBanner message={error} onReload={() => void load()} /> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[16.5rem_minmax(0,1fr)]">
+      <div className="grid items-start gap-3 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[18.5rem_minmax(0,1fr)]">
         <aside className="space-y-3">
-          <AppSurface padding="compact" radius="compact">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--clinora-info-foreground)]">
-              Patient context
-            </p>
-            <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-white">What matters today</h2>
-            <div className="mt-3 space-y-3 text-xs">
+          <AppSurface padding="compact" radius="compact" className="border-cyan-300/[0.14] bg-[#04131f]/82">
+            <h2 className="text-xs font-semibold text-cyan-200">Patient context</h2>
+            <div className="mt-3 divide-y divide-cyan-300/[0.07] text-xs [&>div]:py-3 [&>div:first-child]:pt-0 [&>div:last-child]:pb-0">
               <ContextMetric label="Reason for visit" value={appointment.reason || 'Not provided'} />
               <ClinicalChips label="Allergies" values={appointment.patient.allergies} empty="None recorded" />
               <ClinicalChips
@@ -418,10 +424,17 @@ export function DoctorConsultationPage() {
             </div>
           </AppSurface>
 
-          <AppSurface padding="none" radius="compact" className="overflow-hidden">
+          <AppSurface
+            padding="none"
+            radius="compact"
+            className="overflow-hidden border-cyan-300/[0.14] bg-[#04131f]/82"
+          >
             <div className="border-b border-[var(--clinora-border-subtle)] px-4 py-3">
               <h2 className="text-xs font-semibold text-white">Authorized evidence</h2>
-              <p className="mt-1 text-[10px] leading-4 text-slate-600">Patient-controlled · appointment-scoped.</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                {appointment.sharedReports.length} report{appointment.sharedReports.length === 1 ? '' : 's'} available
+                for this consultation
+              </p>
             </div>
             {appointment.reportAccessActive && appointment.sharedReports.length ? (
               <ul className="divide-y divide-[var(--clinora-border-subtle)]">
@@ -436,8 +449,13 @@ export function DoctorConsultationPage() {
                       </IconWell>
                       <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">
                         {report.displayName}
+                        {report.reportDate ? (
+                          <span className="mt-0.5 block text-[9px] font-normal text-slate-500">
+                            {report.reportDate}
+                          </span>
+                        ) : null}
                       </span>
-                      <span className="text-[10px] font-semibold text-cyan-200">Review</span>
+                      <span className="text-[10px] font-semibold text-cyan-200">View</span>
                     </Link>
                   </li>
                 ))}
@@ -458,20 +476,17 @@ export function DoctorConsultationPage() {
             <ClinoraClinicalSupportPanel appointmentId={appointment.id} screen="APPOINTMENT" appointmentMode />
           ) : null}
 
-          <AppSurface padding="compact" radius="compact">
+          <AppSurface padding="compact" radius="compact" className="border-cyan-300/[0.14] bg-[#04131f]/82">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--clinora-info-foreground)]">
                   Doctor authored
                 </p>
                 <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-white">Clinical documentation</h2>
-                <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--clinora-text-muted)]">
-                  Clinora can support reasoning; only your reviewed text becomes part of the consultation record.
-                </p>
               </div>
               {editable ? <span className="text-[10px] text-[var(--clinora-text-faint)]">Draft workspace</span> : null}
             </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
               <NoteField
                 label="History"
                 value={historyNotes}
@@ -541,7 +556,12 @@ export function DoctorConsultationPage() {
           />
 
           {editable ? (
-            <AppSurface variant="elevated" padding="compact" radius="compact">
+            <AppSurface
+              variant="elevated"
+              padding="compact"
+              radius="compact"
+              className="sticky bottom-4 z-20 border-cyan-300/[0.15] bg-[#062038]/95 shadow-[0_18px_55px_rgba(0,0,0,.35)] backdrop-blur-xl"
+            >
               {confirmComplete ? (
                 <div>
                   <div className="flex items-start gap-3">
@@ -578,14 +598,24 @@ export function DoctorConsultationPage() {
                       </p>
                     ) : null}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="appPrimary"
-                    disabled={!assessment.trim() && !plan.trim()}
-                    onClick={() => setConfirmComplete(true)}
-                  >
-                    Complete consultation
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="appSecondary"
+                      disabled={busy !== '' || !dirty}
+                      onClick={() => void save()}
+                    >
+                      <Save size={14} /> {busy === 'save' ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="appPrimary"
+                      disabled={!assessment.trim() && !plan.trim()}
+                      onClick={() => setConfirmComplete(true)}
+                    >
+                      Complete consultation
+                    </Button>
+                  </div>
                 </div>
               )}
             </AppSurface>
@@ -644,121 +674,30 @@ function CarePlanBuilder({
     <AppSurface padding="compact" radius="compact" data-density="compact">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--clinora-info-foreground)]">
-            Care plan
-          </p>
-          <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em] text-white">Actions after the consultation</h2>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">Care plan</p>
+          <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-white">Actions after the consultation</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--clinora-text-muted)]">
-            Doctor-authored medication instructions, original prescription documents, investigations and follow-up.
+            Add prescriptions, investigations and follow-up. These will be shared with the Patient after completion.
           </p>
         </div>
-        <span className="text-[10px] text-[var(--clinora-text-faint)]">Patient receives the finalized version</span>
       </div>
 
-      <CareSection
-        title="Prescription"
-        icon={<Pill size={15} />}
-        action={
-          editable ? (
-            <Button
-              size="sm"
-              variant="appSecondary"
-              disabled={prescriptions.length >= 20}
-              onClick={() => onPrescriptions([...prescriptions, emptyPrescription()])}
-            >
-              <Plus size={14} /> Add medication
-            </Button>
-          ) : null
-        }
-      >
-        {prescriptions.length ? (
-          prescriptions.map((item, index) => (
-            <div
-              key={item.key}
-              className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4"
-            >
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <MiniInput
-                  label="Medication"
-                  value={item.medicationName}
-                  editable={editable}
-                  onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { medicationName: value }))}
-                />
-                <MiniInput
-                  label="Strength"
-                  value={item.strength}
-                  editable={editable}
-                  onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { strength: value }))}
-                />
-                <MiniInput
-                  label="Dose"
-                  value={item.dose}
-                  editable={editable}
-                  onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { dose: value }))}
-                />
-                <MiniInput
-                  label="Route"
-                  value={item.route}
-                  editable={editable}
-                  onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { route: value }))}
-                />
-                <MiniInput
-                  label="Frequency"
-                  value={item.frequency}
-                  editable={editable}
-                  onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { frequency: value }))}
-                />
-                <MiniInput
-                  label="Duration"
-                  value={item.duration}
-                  editable={editable}
-                  onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { duration: value }))}
-                />
-              </div>
-              <MiniInput
-                className="mt-3"
-                label="Instructions"
-                value={item.instructions}
-                editable={editable}
-                onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { instructions: value }))}
-              />
-              {hasLimitedMedicationInstructions(item) ? (
-                <p className="mt-2 text-xs text-amber-200">
-                  Limited instructions: review strength, dose, frequency, duration or free-text instructions before
-                  finalizing if clinically applicable.
-                </p>
-              ) : null}
-              {editable ? (
-                <Button
-                  className="mt-3 text-rose-200"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onPrescriptions(prescriptions.filter((_, itemIndex) => itemIndex !== index))}
-                >
-                  <Trash2 size={14} /> Remove
-                </Button>
-              ) : null}
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-slate-500">No structured medication instructions added.</p>
-        )}
-
-        <div className="mt-4 rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
-                <Paperclip size={14} /> Original prescription documents{' '}
-                <span className="text-[11px] font-normal text-[var(--clinora-text-faint)]">Optional</span>
-              </h4>
-              <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
-                Attach up to five Doctor-authored PDF, JPG or PNG prescription documents. Files become Patient-visible
-                and immutable only when the consultation is completed.
-              </p>
-            </div>
-            {editable && prescriptionDocuments.length < 5 ? (
-              <label className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-1)] px-3 text-xs font-semibold text-slate-200 hover:border-[var(--clinora-border-interactive)]">
-                <Upload size={13} /> {documentBusy === 'upload' ? 'Uploading...' : 'Upload prescription'}
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        <CarePlanAction
+          icon={<Pill size={15} />}
+          title="Prescription"
+          description={
+            prescriptions.length
+              ? `${prescriptions.length} medication${prescriptions.length === 1 ? '' : 's'} added`
+              : 'Structured medication or original prescription.'
+          }
+          actionLabel="Add medication"
+          disabled={!editable || prescriptions.length >= 20}
+          onClick={() => onPrescriptions([...prescriptions, emptyPrescription()])}
+          secondaryAction={
+            editable && prescriptionDocuments.length < 5 ? (
+              <label className="inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-cyan-300/[0.12] bg-transparent px-2.5 text-[10px] font-semibold text-slate-300 hover:border-cyan-300/25 hover:text-white">
+                <Upload size={12} /> {documentBusy === 'upload' ? 'Uploading…' : 'Upload prescription'}
                 <input
                   type="file"
                   className="sr-only"
@@ -771,169 +710,316 @@ function CarePlanBuilder({
                   }}
                 />
               </label>
-            ) : null}
-          </div>
-          {documentError ? (
-            <p role="alert" className="mt-3 text-xs text-amber-200">
-              {documentError}
-            </p>
-          ) : null}
-          {prescriptionDocuments.length ? (
-            <ul className="mt-3 space-y-2">
-              {prescriptionDocuments.map((document) => (
-                <li
-                  key={document.id}
-                  className="flex flex-col gap-2 rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)]/50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <span className="min-w-0">
-                    <strong className="block truncate text-xs font-semibold text-white">
-                      {document.originalFilename}
-                    </strong>
-                    <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
-                      {prescriptionFileLabel(document.mimeType)} - {prescriptionFileSize(document.sizeBytes)}
-                    </span>
-                  </span>
-                  <span className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="appSecondary"
-                      disabled={documentBusy !== ''}
-                      onClick={() => void onOpenDocument(document, 'view')}
-                    >
-                      <Eye size={13} /> View
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="appSecondary"
-                      disabled={documentBusy !== ''}
-                      onClick={() => void onOpenDocument(document, 'download')}
-                    >
-                      <Download size={13} /> Download
-                    </Button>
-                    {editable ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-rose-200"
-                        disabled={documentBusy !== ''}
-                        onClick={() => {
-                          if (window.confirm('Remove this prescription document from the draft consultation?'))
-                            void onRemoveDocument(document.id);
-                        }}
-                      >
-                        <Trash2 size={13} /> Remove
-                      </Button>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">No original prescription document attached.</p>
-          )}
-          {prescriptionDocuments.length >= 5 ? (
-            <p className="mt-2 text-[11px] text-[var(--clinora-text-faint)]">
-              Maximum five prescription documents reached.
-            </p>
-          ) : null}
-        </div>
-      </CareSection>
+            ) : null
+          }
+        />
+        <CarePlanAction
+          icon={<FlaskConical size={15} />}
+          title="Investigations"
+          description={
+            investigations.length
+              ? `${investigations.length} investigation${investigations.length === 1 ? '' : 's'} requested`
+              : 'Request tests or investigations.'
+          }
+          actionLabel="Request investigation"
+          disabled={!editable || investigations.length >= 20}
+          onClick={() => onInvestigations([...investigations, emptyInvestigation()])}
+        />
+        <CarePlanAction
+          icon={<ClipboardList size={15} />}
+          title="Follow-up"
+          description={
+            followUp?.recommendedDate
+              ? `Recommended ${localDate(followUp.recommendedDate)}`
+              : 'Set recommended follow-up.'
+          }
+          actionLabel={followUp ? 'Follow-up added' : 'Add follow-up'}
+          disabled={!editable || Boolean(followUp)}
+          onClick={() => onFollowUp({ recommendedDate: '', reason: '', instructions: '' })}
+        />
+      </div>
 
-      <CareSection
-        title="Requested investigations"
-        icon={<FlaskConical size={15} />}
-        action={
-          editable ? (
-            <Button
-              size="sm"
-              variant="appSecondary"
-              disabled={investigations.length >= 20}
-              onClick={() => onInvestigations([...investigations, emptyInvestigation()])}
-            >
-              <Plus size={14} /> Request investigation
-            </Button>
-          ) : null
-        }
-      >
-        {investigations.length ? (
-          investigations.map((item, index) => (
-            <div
-              key={item.key}
-              className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4"
-            >
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
-                <MiniInput
-                  label="Investigation"
-                  value={item.testName}
-                  editable={editable}
-                  onChange={(value) => onInvestigations(updateAt(investigations, index, { testName: value }))}
-                />
-                <label className="text-xs font-semibold text-slate-400">
-                  Priority
-                  <select
-                    disabled={!editable}
-                    value={item.priority}
-                    onChange={(event) =>
-                      onInvestigations(
-                        updateAt(investigations, index, {
-                          priority: event.target.value as InvestigationDraft['priority'],
-                        }),
-                      )
-                    }
-                    className="mt-1.5 min-h-10 w-full rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-2.5 text-sm text-white disabled:opacity-70"
-                  >
-                    <option value="ROUTINE">Routine</option>
-                    <option value="URGENT">Urgent</option>
-                  </select>
-                </label>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <MiniInput
-                  label="Reason"
-                  value={item.reason}
-                  editable={editable}
-                  onChange={(value) => onInvestigations(updateAt(investigations, index, { reason: value }))}
-                />
-                <MiniInput
-                  label="Patient instructions"
-                  value={item.instructions}
-                  editable={editable}
-                  onChange={(value) => onInvestigations(updateAt(investigations, index, { instructions: value }))}
-                />
-              </div>
-              {editable ? (
-                <Button
-                  className="mt-3 text-rose-200"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onInvestigations(investigations.filter((_, itemIndex) => itemIndex !== index))}
+      {prescriptions.length || prescriptionDocuments.length ? (
+        <CareSection
+          title="Prescription"
+          icon={<Pill size={15} />}
+          action={
+            editable ? (
+              <Button
+                size="sm"
+                variant="appSecondary"
+                disabled={prescriptions.length >= 20}
+                onClick={() => onPrescriptions([...prescriptions, emptyPrescription()])}
+              >
+                <Plus size={14} /> Add medication
+              </Button>
+            ) : null
+          }
+        >
+          {prescriptions.length
+            ? prescriptions.map((item, index) => (
+                <div
+                  key={item.key}
+                  className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4"
                 >
-                  <Trash2 size={14} /> Remove
-                </Button>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <MiniInput
+                      label="Medication"
+                      value={item.medicationName}
+                      editable={editable}
+                      onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { medicationName: value }))}
+                    />
+                    <MiniInput
+                      label="Strength"
+                      value={item.strength}
+                      editable={editable}
+                      onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { strength: value }))}
+                    />
+                    <MiniInput
+                      label="Dose"
+                      value={item.dose}
+                      editable={editable}
+                      onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { dose: value }))}
+                    />
+                    <MiniInput
+                      label="Route"
+                      value={item.route}
+                      editable={editable}
+                      onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { route: value }))}
+                    />
+                    <MiniInput
+                      label="Frequency"
+                      value={item.frequency}
+                      editable={editable}
+                      onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { frequency: value }))}
+                    />
+                    <MiniInput
+                      label="Duration"
+                      value={item.duration}
+                      editable={editable}
+                      onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { duration: value }))}
+                    />
+                  </div>
+                  <MiniInput
+                    className="mt-3"
+                    label="Instructions"
+                    value={item.instructions}
+                    editable={editable}
+                    onChange={(value) => onPrescriptions(updateAt(prescriptions, index, { instructions: value }))}
+                  />
+                  {hasLimitedMedicationInstructions(item) ? (
+                    <p className="mt-2 text-xs text-amber-200">
+                      Limited instructions: review strength, dose, frequency, duration or free-text instructions before
+                      finalizing if clinically applicable.
+                    </p>
+                  ) : null}
+                  {editable ? (
+                    <Button
+                      className="mt-3 text-rose-200"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onPrescriptions(prescriptions.filter((_, itemIndex) => itemIndex !== index))}
+                    >
+                      <Trash2 size={14} /> Remove
+                    </Button>
+                  ) : null}
+                </div>
+              ))
+            : null}
+
+          <div className="mt-4 rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <Paperclip size={14} /> Original prescription documents{' '}
+                  <span className="text-[11px] font-normal text-[var(--clinora-text-faint)]">Optional</span>
+                </h4>
+                <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
+                  Attach up to five Doctor-authored PDF, JPG or PNG prescription documents. Files become Patient-visible
+                  and immutable only when the consultation is completed.
+                </p>
+              </div>
+              {editable && prescriptionDocuments.length < 5 ? (
+                <label className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-1)] px-3 text-xs font-semibold text-slate-200 hover:border-[var(--clinora-border-interactive)]">
+                  <Upload size={13} /> {documentBusy === 'upload' ? 'Uploading...' : 'Upload prescription'}
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                    disabled={documentBusy !== ''}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.currentTarget.value = '';
+                      if (file) void onUploadDocument(file);
+                    }}
+                  />
+                </label>
               ) : null}
             </div>
-          ))
-        ) : (
-          <p className="text-sm text-slate-500">No investigations requested.</p>
-        )}
-      </CareSection>
+            {documentError ? (
+              <p role="alert" className="mt-3 text-xs text-amber-200">
+                {documentError}
+              </p>
+            ) : null}
+            {prescriptionDocuments.length ? (
+              <ul className="mt-3 space-y-2">
+                {prescriptionDocuments.map((document) => (
+                  <li
+                    key={document.id}
+                    className="flex flex-col gap-2 rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)]/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <span className="min-w-0">
+                      <strong className="block truncate text-xs font-semibold text-white">
+                        {document.originalFilename}
+                      </strong>
+                      <span className="mt-1 block text-[11px] text-[var(--clinora-text-faint)]">
+                        {prescriptionFileLabel(document.mimeType)} - {prescriptionFileSize(document.sizeBytes)}
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="appSecondary"
+                        disabled={documentBusy !== ''}
+                        onClick={() => void onOpenDocument(document, 'view')}
+                      >
+                        <Eye size={13} /> View
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="appSecondary"
+                        disabled={documentBusy !== ''}
+                        onClick={() => void onOpenDocument(document, 'download')}
+                      >
+                        <Download size={13} /> Download
+                      </Button>
+                      {editable ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose-200"
+                          disabled={documentBusy !== ''}
+                          onClick={() => {
+                            if (window.confirm('Remove this prescription document from the draft consultation?'))
+                              void onRemoveDocument(document.id);
+                          }}
+                        >
+                          <Trash2 size={13} /> Remove
+                        </Button>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-xs text-[var(--clinora-text-faint)]">
+                No original prescription document attached.
+              </p>
+            )}
+            {prescriptionDocuments.length >= 5 ? (
+              <p className="mt-2 text-[11px] text-[var(--clinora-text-faint)]">
+                Maximum five prescription documents reached.
+              </p>
+            ) : null}
+          </div>
+        </CareSection>
+      ) : null}
 
-      <CareSection
-        title="Follow-up"
-        icon={<ClipboardList size={15} />}
-        action={
-          editable && !followUp ? (
-            <Button
-              size="sm"
-              variant="appSecondary"
-              onClick={() => onFollowUp({ recommendedDate: '', reason: '', instructions: '' })}
-            >
-              <Plus size={14} /> Add follow-up
-            </Button>
-          ) : null
-        }
-      >
-        {followUp ? (
+      {investigations.length ? (
+        <CareSection
+          title="Requested investigations"
+          icon={<FlaskConical size={15} />}
+          action={
+            editable ? (
+              <Button
+                size="sm"
+                variant="appSecondary"
+                disabled={investigations.length >= 20}
+                onClick={() => onInvestigations([...investigations, emptyInvestigation()])}
+              >
+                <Plus size={14} /> Request investigation
+              </Button>
+            ) : null
+          }
+        >
+          {investigations.length
+            ? investigations.map((item, index) => (
+                <div
+                  key={item.key}
+                  className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4"
+                >
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                    <MiniInput
+                      label="Investigation"
+                      value={item.testName}
+                      editable={editable}
+                      onChange={(value) => onInvestigations(updateAt(investigations, index, { testName: value }))}
+                    />
+                    <label className="text-xs font-semibold text-slate-400">
+                      Priority
+                      <select
+                        disabled={!editable}
+                        value={item.priority}
+                        onChange={(event) =>
+                          onInvestigations(
+                            updateAt(investigations, index, {
+                              priority: event.target.value as InvestigationDraft['priority'],
+                            }),
+                          )
+                        }
+                        className="mt-1.5 min-h-10 w-full rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-2.5 text-sm text-white disabled:opacity-70"
+                      >
+                        <option value="ROUTINE">Routine</option>
+                        <option value="URGENT">Urgent</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <MiniInput
+                      label="Reason"
+                      value={item.reason}
+                      editable={editable}
+                      onChange={(value) => onInvestigations(updateAt(investigations, index, { reason: value }))}
+                    />
+                    <MiniInput
+                      label="Patient instructions"
+                      value={item.instructions}
+                      editable={editable}
+                      onChange={(value) => onInvestigations(updateAt(investigations, index, { instructions: value }))}
+                    />
+                  </div>
+                  {editable ? (
+                    <Button
+                      className="mt-3 text-rose-200"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onInvestigations(investigations.filter((_, itemIndex) => itemIndex !== index))}
+                    >
+                      <Trash2 size={14} /> Remove
+                    </Button>
+                  ) : null}
+                </div>
+              ))
+            : null}
+        </CareSection>
+      ) : null}
+
+      {followUp ? (
+        <CareSection
+          title="Follow-up"
+          icon={<ClipboardList size={15} />}
+          action={
+            editable && !followUp ? (
+              <Button
+                size="sm"
+                variant="appSecondary"
+                onClick={() => onFollowUp({ recommendedDate: '', reason: '', instructions: '' })}
+              >
+                <Plus size={14} /> Add follow-up
+              </Button>
+            ) : null
+          }
+        >
           <div className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="text-xs font-semibold text-slate-400">
@@ -966,11 +1052,42 @@ function CarePlanBuilder({
               </Button>
             ) : null}
           </div>
-        ) : (
-          <p className="text-sm text-slate-500">No follow-up recommendation added.</p>
-        )}
-      </CareSection>
+        </CareSection>
+      ) : null}
     </AppSurface>
+  );
+}
+
+function CarePlanAction({
+  icon,
+  title,
+  description,
+  actionLabel,
+  disabled,
+  onClick,
+  secondaryAction,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  actionLabel: string;
+  disabled: boolean;
+  onClick: () => void;
+  secondaryAction?: ReactNode;
+}) {
+  return (
+    <section className="flex min-h-[128px] flex-col rounded-xl border border-cyan-300/[0.12] bg-[#061927]/75 p-3">
+      <h3 className="flex items-center gap-2 text-xs font-semibold text-white">
+        <span className="text-cyan-300">{icon}</span> {title}
+      </h3>
+      <p className="mt-2 min-h-8 text-[10px] leading-4 text-slate-500">{description}</p>
+      <div className="mt-auto grid gap-1.5">
+        <Button className="w-full justify-start" size="sm" variant="appSecondary" disabled={disabled} onClick={onClick}>
+          <Plus size={13} /> {actionLabel}
+        </Button>
+        {secondaryAction}
+      </div>
+    </section>
   );
 }
 
@@ -1021,7 +1138,7 @@ function NoteField({
         maxLength={8000}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-1.5 min-h-24 w-full resize-y rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-2.5 text-sm font-normal leading-5 text-white outline-none placeholder:text-slate-600 focus:border-[var(--clinora-border-interactive)] focus:ring-4 focus:ring-[var(--clinora-focus-ring-soft)] disabled:opacity-80"
+        className="mt-1.5 min-h-[104px] w-full resize-y rounded-lg border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-2.5 text-xs font-normal leading-5 text-white outline-none placeholder:text-slate-600 focus:border-[var(--clinora-border-interactive)] focus:ring-4 focus:ring-[var(--clinora-focus-ring-soft)] disabled:opacity-80"
       />
     </label>
   );
@@ -1055,9 +1172,9 @@ function MiniInput({
 
 function ContextMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-l-2 border-cyan-400/20 pl-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">{label}</p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-white">{value}</p>
+    <div>
+      <p className="text-[10px] font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-[11px] font-medium leading-5 text-slate-200">{value}</p>
     </div>
   );
 }
@@ -1125,6 +1242,41 @@ function localToday() {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function localDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function patientDemographics(dateOfBirth: string | null, gender: string | null) {
+  const values: string[] = [];
+  if (dateOfBirth) {
+    const birth = new Date(`${dateOfBirth}T00:00:00`);
+    if (!Number.isNaN(birth.getTime())) {
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const beforeBirthday =
+        today.getMonth() < birth.getMonth() ||
+        (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
+      if (beforeBirthday) age -= 1;
+      if (age >= 0 && age < 130) values.push(`Age ${age}`);
+    }
+  }
+  if (gender) {
+    values.push(
+      gender
+        .toLowerCase()
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+    );
+  }
+  return values.join(' · ');
 }
 
 function consultationTimingWarning(appointment: DoctorAppointmentDetail) {

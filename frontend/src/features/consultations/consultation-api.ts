@@ -135,6 +135,11 @@ export interface DoctorPatientListItem {
   requestedInvestigationCount: number;
   followUpDate: string | null;
   nextAppointmentAt: string | null;
+  contextAppointmentId: string | null;
+  contextAppointmentAt: string | null;
+  contextAppointmentTimezone: string | null;
+  contextAppointmentMode: 'ONLINE' | 'IN_PERSON' | null;
+  contextAppointmentReason: string | null;
   currentlySharedReportCount: number;
 }
 

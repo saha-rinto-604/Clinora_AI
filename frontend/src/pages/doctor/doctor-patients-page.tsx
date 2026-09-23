@@ -1,7 +1,7 @@
-import { ArrowRight, Search, UserRound, UsersRound } from 'lucide-react';
+import { ArrowRight, CalendarDays, FileText, FlaskConical, Search, UsersRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
+import { AppSurface, EmptyState, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/feedback';
 import {
@@ -10,9 +10,11 @@ import {
   type DoctorPatientListItem,
   type PatientCareState,
 } from '../../features/consultations/consultation-api';
+import { ProfileAvatar } from '../../features/profile/profile-image';
 
 export function DoctorPatientsPage() {
   const [items, setItems] = useState<DoctorPatientListItem[]>([]);
+  const [filter, setFilter] = useState<PatientFilter>('ALL');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,102 +37,163 @@ export function DoctorPatientsPage() {
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return items;
-    return items.filter((item) => item.patientName.toLowerCase().includes(normalized));
-  }, [items, query]);
+    return items.filter(
+      (item) =>
+        (filter === 'ALL' || item.careState === filter) &&
+        (!normalized || item.patientName.toLowerCase().includes(normalized)),
+    );
+  }, [filter, items, query]);
+
+  const counts = useMemo(
+    () => ({
+      ALL: items.length,
+      ACTIVE_CARE: items.filter((item) => item.careState === 'ACTIVE_CARE').length,
+      NEW_PATIENT: items.filter((item) => item.careState === 'NEW_PATIENT').length,
+      FOLLOW_UP: items.filter((item) => item.careState === 'FOLLOW_UP').length,
+    }),
+    [items],
+  );
 
   return (
-    <div className="mx-auto w-full max-w-[1180px] space-y-4">
-      <header className="border-b border-[var(--clinora-border-subtle)] pb-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto w-full max-w-[1180px] overflow-hidden rounded-[18px] border border-cyan-300/[0.1] bg-[#03101a]/72 shadow-[0_28px_90px_rgba(0,0,0,.2)]">
+      <header className="relative isolate min-h-[142px] overflow-hidden border-b border-cyan-300/[0.08] px-5 py-6 sm:px-7">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-20 bg-[linear-gradient(100deg,#042033_0%,#052139_48%,#03121f_100%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-y-0 right-0 -z-10 w-[58%] opacity-65 [background:radial-gradient(ellipse_at_55%_20%,rgba(34,211,238,.2),transparent_48%),linear-gradient(125deg,transparent_20%,rgba(6,182,212,.12)_20.5%,transparent_21.5%,transparent_43%,rgba(45,212,191,.09)_43.5%,transparent_45%)]"
+        />
+        <div className="flex min-h-[94px] items-center">
           <div className="max-w-2xl">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--clinora-info-foreground)]">
               Continuing care
             </p>
-            <h1 className="mt-1.5 text-2xl font-semibold tracking-[-0.035em] text-white">Patients</h1>
-            <p className="mt-1.5 text-xs leading-5 text-[var(--clinora-text-muted)] sm:text-sm">
-              Ongoing care relationships, latest completed context and next steps.
+            <h1 className="mt-2 text-[1.7rem] font-semibold tracking-[-0.04em] text-white sm:text-[2rem]">Patients</h1>
+            <p className="mt-2 max-w-xl text-xs leading-5 text-slate-300 sm:text-[13px]">
+              Your ongoing clinical relationships, latest completed care, follow-up context and upcoming appointments.
             </p>
           </div>
-          <label className="relative block w-full lg:max-w-[19rem]">
-            <Search
-              size={14}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--clinora-text-faint)]"
-            />
-            <span className="sr-only">Search your Patients</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search patients"
-              className="min-h-10 w-full rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] pl-9 pr-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-[var(--clinora-border-interactive)] focus:ring-4 focus:ring-[var(--clinora-focus-ring-soft)]"
-            />
-          </label>
         </div>
       </header>
 
-      {error ? (
-        <AppSurface variant="attention" padding="compact" radius="compact">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p role="alert" className="text-sm text-amber-100">
-              {error}
-            </p>
-            <Button size="sm" variant="appSecondary" onClick={() => void load()}>
-              Try again
-            </Button>
-          </div>
-        </AppSurface>
-      ) : null}
-
-      {loading ? (
-        <div
-          className="overflow-hidden rounded-[var(--radius-app-card)] border border-[var(--clinora-border-subtle)]"
-          role="status"
-          aria-label="Loading Patients"
-        >
-          <Skeleton className="h-28 rounded-none" />
-          <Skeleton className="h-28 rounded-none border-t border-[var(--clinora-border-subtle)]" />
-          <Skeleton className="h-28 rounded-none border-t border-[var(--clinora-border-subtle)]" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <AppSurface padding="compact" radius="compact">
-          <EmptyState
-            icon={<UsersRound size={18} />}
-            title={query.trim() ? 'No matching Patient' : 'No care relationships yet'}
-            copy={
-              query.trim()
-                ? 'Try another name from your existing care relationships.'
-                : 'A Patient appears here after a current booking or an actual consultation with you. Cancelled-only bookings are not kept as care relationships.'
-            }
-          />
-        </AppSurface>
-      ) : (
-        <div
-          role="list"
-          data-density="compact"
-          aria-label="Continuing care Patient list"
-          className="overflow-hidden rounded-[var(--radius-app-card)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-1)]"
-        >
-          {filtered.map((patient, index) => (
-            <div key={patient.patientId} role="listitem">
-              <PatientRow patient={patient} divided={index > 0} />
-            </div>
+      <div className="flex flex-col gap-2 border-b border-cyan-300/[0.08] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex min-w-0 gap-1 overflow-x-auto" role="tablist" aria-label="Filter Patients by care state">
+          {patientFilters.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              role="tab"
+              aria-selected={filter === item.value}
+              onClick={() => setFilter(item.value)}
+              className={`inline-flex min-h-8 shrink-0 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold transition ${
+                filter === item.value
+                  ? 'bg-cyan-400/15 text-cyan-100 ring-1 ring-inset ring-cyan-300/15'
+                  : 'text-slate-400 hover:bg-white/[0.035] hover:text-slate-200'
+              }`}
+            >
+              {item.label}{' '}
+              <span className="font-normal tabular-nums text-current opacity-70">{counts[item.value]}</span>
+            </button>
           ))}
         </div>
-      )}
+        <label className="relative block w-full sm:w-52">
+          <Search
+            size={13}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600"
+            aria-hidden="true"
+          />
+          <span className="sr-only">Search your Patients</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search patients"
+            className="min-h-8 w-full rounded-lg border border-cyan-300/[0.1] bg-[#020d16]/75 pl-8 pr-2.5 text-[11px] text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/30 focus:ring-2 focus:ring-cyan-400/10"
+          />
+        </label>
+      </div>
+
+      <div className="p-3 sm:p-4">
+        {error ? (
+          <AppSurface variant="attention" padding="compact" radius="compact">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p role="alert" className="text-sm text-amber-100">
+                {error}
+              </p>
+              <Button size="sm" variant="appSecondary" onClick={() => void load()}>
+                Try again
+              </Button>
+            </div>
+          </AppSurface>
+        ) : null}
+
+        {loading ? (
+          <div
+            className="overflow-hidden rounded-[var(--radius-app-card)] border border-[var(--clinora-border-subtle)]"
+            role="status"
+            aria-label="Loading Patients"
+          >
+            <Skeleton className="h-28 rounded-none" />
+            <Skeleton className="h-28 rounded-none border-t border-[var(--clinora-border-subtle)]" />
+            <Skeleton className="h-28 rounded-none border-t border-[var(--clinora-border-subtle)]" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <AppSurface padding="compact" radius="compact">
+            <EmptyState
+              icon={<UsersRound size={18} />}
+              title={
+                query.trim()
+                  ? 'No matching Patient'
+                  : filter === 'ALL'
+                    ? 'No care relationships yet'
+                    : 'No Patients in this care state'
+              }
+              copy={
+                query.trim()
+                  ? 'Try another Patient name or care-state filter.'
+                  : 'A Patient appears here after a current booking or an actual consultation with you. Cancelled-only bookings are not kept as care relationships.'
+              }
+            />
+          </AppSurface>
+        ) : (
+          <div
+            role="list"
+            data-density="compact"
+            aria-label="Continuing care Patient list"
+            className="overflow-hidden rounded-xl border border-cyan-300/[0.12] bg-[#04131f]/82"
+          >
+            {filtered.map((patient, index) => (
+              <div key={patient.patientId} role="listitem">
+                <PatientRow patient={patient} divided={index > 0} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+type PatientFilter = 'ALL' | PatientCareState;
+
+const patientFilters: Array<{ value: PatientFilter; label: string }> = [
+  { value: 'ALL', label: 'All' },
+  { value: 'ACTIVE_CARE', label: 'Active care' },
+  { value: 'NEW_PATIENT', label: 'New patient' },
+  { value: 'FOLLOW_UP', label: 'Follow-up' },
+];
+
 function PatientRow({ patient, divided }: { patient: DoctorPatientListItem; divided: boolean }) {
   const isNew = patient.careState === 'NEW_PATIENT';
   const primaryContext = patient.consultationInProgress
-    ? patient.latestConsultationAt
-      ? `Consultation in progress · previous completed ${shortDate(patient.latestConsultationAt)}`
+    ? patient.contextAppointmentAt
+      ? `Consultation started · ${appointmentDateTime(patient.contextAppointmentAt, patient.contextAppointmentTimezone)}`
       : 'Consultation currently in progress'
     : isNew
-      ? patient.nextAppointmentAt
-        ? `First appointment · ${shortDateTime(patient.nextAppointmentAt)}`
+      ? patient.contextAppointmentAt
+        ? `First appointment · ${appointmentDateTime(patient.contextAppointmentAt, patient.contextAppointmentTimezone)}`
         : 'First consultation not yet completed'
       : patient.latestConsultationAt
         ? `Latest completed consultation · ${shortDate(patient.latestConsultationAt)}`
@@ -143,40 +206,67 @@ function PatientRow({ patient, divided }: { patient: DoctorPatientListItem; divi
     );
   }
   if (patient.followUpDate) metadata.push(`Follow-up · ${localDate(patient.followUpDate)}`);
-  if (patient.currentlySharedReportCount > 0) {
+  if (patient.currentlySharedReportCount > 0 || isNew || patient.consultationInProgress) {
     metadata.push(
-      `${patient.currentlySharedReportCount} shared report${patient.currentlySharedReportCount === 1 ? '' : 's'}`,
+      patient.currentlySharedReportCount > 0
+        ? `${patient.currentlySharedReportCount} shared report${patient.currentlySharedReportCount === 1 ? '' : 's'}`
+        : 'No reports shared',
     );
   }
+  if (patient.contextAppointmentMode) metadata.push(modeLabel(patient.contextAppointmentMode));
+  if (isNew && !patient.latestConsultationAt) metadata.push('No previous consultation');
   if (!isNew && patient.nextAppointmentAt) metadata.push(`Next · ${shortDate(patient.nextAppointmentAt)}`);
 
+  const destination =
+    patient.consultationInProgress && patient.contextAppointmentId
+      ? `/doctor/appointments/${patient.contextAppointmentId}/consultation`
+      : `/doctor/patients/${patient.patientId}`;
+
   return (
-    <Link
-      to={`/doctor/patients/${patient.patientId}`}
-      className={`group block px-4 py-3.5 transition hover:bg-[var(--clinora-surface-hover)] sm:px-5 ${
+    <article
+      className={`group px-3 py-3 transition hover:bg-cyan-300/[0.035] sm:px-4 ${
         divided ? 'border-t border-[var(--clinora-border-subtle)]' : ''
       }`}
     >
       <div className="flex min-w-0 items-start gap-3">
-        <IconWell tone="info" className="h-9 w-9 rounded-xl">
-          <UserRound size={15} />
-        </IconWell>
+        {patient.contextAppointmentId ? (
+          <ProfileAvatar
+            source={{ kind: 'doctor-patient', appointmentId: patient.contextAppointmentId }}
+            name={patient.patientName}
+            size="sm"
+            className="h-10 w-10 rounded-full"
+          />
+        ) : (
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-cyan-300/15 bg-cyan-400/[0.09] text-xs font-bold text-cyan-200">
+            {patientInitials(patient.patientName)}
+          </span>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-sm font-semibold text-white">{patient.patientName}</h2>
+                <h2 className="truncate text-sm font-semibold text-white">
+                  <Link to={`/doctor/patients/${patient.patientId}`} className="hover:text-cyan-100">
+                    {patient.patientName}
+                  </Link>
+                </h2>
                 <PrimaryCareState patient={patient} />
               </div>
               <p className="mt-1 text-[11px] leading-4 text-[var(--clinora-text-faint)]">{primaryContext}</p>
             </div>
-            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-cyan-200 opacity-80 transition group-hover:opacity-100">
-              Open patient <ArrowRight size={13} className="transition group-hover:translate-x-0.5" />
-            </span>
+            <Link
+              to={destination}
+              className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-cyan-300/20 bg-cyan-400/[0.05] px-3 text-[10px] font-semibold text-cyan-200 transition group-hover:border-cyan-300/35 group-hover:bg-cyan-400/[0.09]"
+            >
+              {patient.consultationInProgress && patient.contextAppointmentId ? 'Resume' : 'Open patient'}
+              <ArrowRight size={12} className="transition group-hover:translate-x-0.5" />
+            </Link>
           </div>
 
-          {!isNew && (patient.latestAssessment || patient.latestPlan) ? (
+          {(patient.consultationInProgress || isNew) && patient.contextAppointmentReason ? (
+            <p className="mt-2 line-clamp-1 text-[12px] leading-5 text-slate-200">{patient.contextAppointmentReason}</p>
+          ) : !isNew && (patient.latestAssessment || patient.latestPlan) ? (
             <div className="mt-2.5 grid gap-1">
               {patient.latestAssessment ? (
                 <p className="line-clamp-1 text-[13px] leading-5 text-slate-200">{patient.latestAssessment}</p>
@@ -191,22 +281,43 @@ function PatientRow({ patient, divided }: { patient: DoctorPatientListItem; divi
 
           {metadata.length ? (
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--clinora-text-faint)] sm:text-[11px]">
-              {metadata.map((item) => (
-                <span key={item}>{item}</span>
+              {metadata.map((item, index) => (
+                <span key={item} className="inline-flex items-center gap-1.5">
+                  {metadataIcon(item, index)} {item}
+                </span>
               ))}
             </div>
           ) : null}
         </div>
       </div>
-    </Link>
+    </article>
   );
+}
+
+function patientInitials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+function metadataIcon(value: string, index: number) {
+  if (value.includes('investigation')) return <FlaskConical size={12} aria-hidden="true" />;
+  if (value.includes('report')) return <FileText size={12} aria-hidden="true" />;
+  if (value.startsWith('Follow-up') || value.startsWith('Next')) return <CalendarDays size={12} aria-hidden="true" />;
+  return index === 0 ? <CalendarDays size={12} aria-hidden="true" /> : null;
 }
 
 function PrimaryCareState({ patient }: { patient: DoctorPatientListItem }) {
   if (patient.consultationInProgress) {
     return (
       <StatusPill tone="warning" className="min-h-6 px-2 py-0.5 text-[10px]">
-        In progress
+        Consultation in progress
       </StatusPill>
     );
   }
@@ -240,13 +351,19 @@ function shortDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function shortDateTime(value: string) {
+function appointmentDateTime(value: string, timezone: string | null) {
   return new Date(value).toLocaleString(undefined, {
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    ...(timezone ? { timeZone: timezone } : {}),
   });
+}
+
+function modeLabel(mode: 'ONLINE' | 'IN_PERSON') {
+  return mode === 'ONLINE' ? 'Online' : 'In-person';
 }
 
 function localDate(value: string) {

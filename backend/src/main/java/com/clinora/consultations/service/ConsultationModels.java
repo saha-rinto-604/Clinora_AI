@@ -150,6 +150,11 @@ public final class ConsultationModels {
         int requestedInvestigationCount,
         LocalDate followUpDate,
         Instant nextAppointmentAt,
+        UUID contextAppointmentId,
+        Instant contextAppointmentAt,
+        String contextAppointmentTimezone,
+        String contextAppointmentMode,
+        String contextAppointmentReason,
         int currentlySharedReportCount
     ) {}
 
