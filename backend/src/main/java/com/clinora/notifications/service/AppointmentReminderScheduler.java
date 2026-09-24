@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class AppointmentReminderScheduler {
@@ -24,8 +25,14 @@ public class AppointmentReminderScheduler {
     }
 
     @Scheduled(fixedDelayString = "${clinora.notifications.reminder-scan-delay-ms:60000}")
+    @Transactional
     public void createReminders() {
-        Instant target = clock.instant().plus(24, ChronoUnit.HOURS);
+        createWindow(24);
+        createWindow(1);
+    }
+
+    private void createWindow(int hours) {
+        Instant target = clock.instant().plus(hours, ChronoUnit.HOURS);
         Instant from = target.minus(10, ChronoUnit.MINUTES);
         Instant to = target.plus(10, ChronoUnit.MINUTES);
         List<ReminderCandidate> candidates = jdbc.query(
@@ -37,6 +44,7 @@ public class AppointmentReminderScheduler {
             WHERE a.status = 'BOOKED'
               AND u.role = 'PATIENT' AND u.account_status = 'ACTIVE' AND u.email_verified_at IS NOT NULL
               AND a.scheduled_start >= ? AND a.scheduled_start < ?
+            ORDER BY a.id FOR UPDATE OF a
             """,
             (rs, rowNum) -> new ReminderCandidate(
                 rs.getObject("id", UUID.class), rs.getObject("patient_user_id", UUID.class),
@@ -49,11 +57,11 @@ public class AppointmentReminderScheduler {
                 candidate.patientUserId(),
                 "APPOINTMENT_REMINDER",
                 NotificationCategory.APPOINTMENTS,
-                "Appointment tomorrow",
-                "Your appointment with " + candidate.doctorName() + " is tomorrow.",
+                hours == 24 ? "Appointment tomorrow" : "Appointment in about an hour",
+                "Your appointment with " + candidate.doctorName() + (hours == 24 ? " is tomorrow." : " starts in about an hour."),
                 "APPOINTMENT",
                 candidate.appointmentId(),
-                "appointment-reminder-24h:" + candidate.appointmentId() + ":" + candidate.startsAt().toEpochMilli()
+                "appointment-reminder-" + hours + "h:" + candidate.appointmentId() + ":" + candidate.startsAt().toEpochMilli()
             );
         }
     }

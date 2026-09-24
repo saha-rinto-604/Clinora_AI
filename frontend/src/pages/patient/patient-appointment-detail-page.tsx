@@ -1,17 +1,9 @@
-import {
-  ArrowLeft,
-  CalendarClock,
-  ExternalLink,
-  FileText,
-  RefreshCcw,
-  ShieldCheck,
-  Stethoscope,
-  XCircle,
-} from 'lucide-react';
+import { ArrowLeft, CalendarClock, FileText, RefreshCcw, ShieldCheck, Stethoscope, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { PatientConsultationSummary } from '../../components/patient/patient-consultation-summary';
+import { PatientConsultationJoin } from '../../features/appointments/patient-consultation-join';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/feedback';
@@ -230,19 +222,8 @@ export function PatientAppointmentDetailPage() {
             {appointment.consultationMode === 'ONLINE' ? (
               <div className="mt-5 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4">
                 <p className="text-sm font-semibold text-white">Online consultation</p>
-                {appointment.status === 'BOOKED' && safeMeetingUrl(appointment.meetingUrl) ? (
-                  <a
-                    href={safeMeetingUrl(appointment.meetingUrl) ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-300 px-4 text-sm font-semibold text-slate-950"
-                  >
-                    Join consultation <ExternalLink size={14} aria-hidden="true" />
-                  </a>
-                ) : appointment.status === 'BOOKED' ? (
-                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-                    Meeting link will be provided by the Doctor.
-                  </p>
+                {appointment.status === 'BOOKED' ? (
+                  <PatientConsultationJoin appointmentId={appointment.id} />
                 ) : (
                   <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">This appointment is no longer active.</p>
                 )}
@@ -523,14 +504,4 @@ function slotSupportsMode(slot: AvailabilitySlot, mode: ConsultationMode) {
 function availableModes(slot?: AvailabilitySlot): ConsultationMode[] {
   if (!slot || slot.consultationMode === 'BOTH') return ['ONLINE', 'IN_PERSON'];
   return slot.consultationMode ? [slot.consultationMode] : ['ONLINE', 'IN_PERSON'];
-}
-
-function safeMeetingUrl(value?: string | null) {
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:' ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
 }

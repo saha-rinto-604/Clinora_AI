@@ -27,6 +27,20 @@ export interface AvailabilitySlot {
 }
 export type ConsultationMode = 'ONLINE' | 'IN_PERSON';
 export type AvailabilityConsultationMode = ConsultationMode | 'BOTH';
+export interface WeeklyAvailabilityBlock {
+  weekday: number;
+  start: string;
+  end: string;
+  consultationMode: AvailabilityConsultationMode;
+  enabled: boolean;
+}
+export interface WeeklyRoutine {
+  version: number;
+  slotMinutes: number;
+  timezone: string;
+  defaultMeetingUrl: string | null;
+  blocks: WeeklyAvailabilityBlock[];
+}
 export interface DoctorDetail {
   doctor: DoctorSummary;
   availability: AvailabilitySlot[];
@@ -58,7 +72,22 @@ export interface ReportShare {
   revokedAt: string | null;
 }
 
+export interface ConsultationJoinStatus {
+  roomReady: boolean;
+  canJoin: boolean;
+  state: 'UNAVAILABLE' | 'ROOM_NOT_READY' | 'TOO_EARLY' | 'ENDED' | 'READY';
+  opensAt: string | null;
+}
+
 export const appointmentApi = {
+  async joinStatus(id: string) {
+    const response = await apiClient.get<ApiEnvelope<ConsultationJoinStatus>>(`/patient/appointments/${id}/join`);
+    return response.data.data;
+  },
+  async join(id: string) {
+    const response = await apiClient.post<ApiEnvelope<{ meetingUrl: string }>>(`/patient/appointments/${id}/join`);
+    return response.data.data;
+  },
   async doctors(params: { query?: string; specialty?: string; limit?: number } = {}) {
     const response = await apiClient.get<ApiEnvelope<{ items: DoctorSummary[] }>>('/patient/doctors', { params });
     return response.data.data.items;
@@ -124,6 +153,21 @@ export const appointmentApi = {
 };
 
 export const doctorAvailabilityApi = {
+  async saveMeetingRoom(meetingUrl: string) {
+    const response = await apiClient.put<ApiEnvelope<{ defaultMeetingUrl: string; updatedAppointments: number }>>(
+      '/doctor/availability/meeting-room',
+      { meetingUrl },
+    );
+    return response.data.data;
+  },
+  async weekly() {
+    const response = await apiClient.get<ApiEnvelope<WeeklyRoutine>>('/doctor/availability/weekly');
+    return response.data.data;
+  },
+  async saveWeekly(input: Omit<WeeklyRoutine, 'defaultMeetingUrl'>) {
+    const response = await apiClient.put<ApiEnvelope<WeeklyRoutine>>('/doctor/availability/weekly', input);
+    return response.data.data;
+  },
   async list() {
     const response = await apiClient.get<ApiEnvelope<AvailabilitySlot[]>>('/doctor/availability');
     return response.data.data;

@@ -251,6 +251,11 @@ public class ConsultationService {
             locked.appointmentId(),
             "consultation-completed:" + consultationId
         );
+        if (draft.followUp() != null) {
+            notifications.create(locked.patientId(), "FOLLOW_UP_RECOMMENDED", NotificationCategory.APPOINTMENTS,
+                "Follow-up recommended", "Your Doctor recommended a follow-up on " + draft.followUp().recommendedDate() + ". Review the recommendation in Clinora.",
+                "APPOINTMENT", locked.appointmentId(), "follow-up-recommended:" + consultationId);
+        }
         return requireView(consultationId, doctorId);
     }
 

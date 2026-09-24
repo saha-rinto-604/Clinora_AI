@@ -1,6 +1,7 @@
 package com.clinora.audit;
 
 public enum AuthAuditAction {
+    DOCTOR_DEFAULT_MEETING_ROOM_UPDATED,
     PATIENT_REGISTERED,
     PATIENT_PROFILE_CREATED,
     PATIENT_PROFILE_UPDATED,

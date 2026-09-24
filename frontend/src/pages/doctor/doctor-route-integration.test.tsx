@@ -45,6 +45,11 @@ vi.mock('../../features/doctor/doctor-api', () => ({
 vi.mock('../../features/appointments/appointment-api', () => ({
   appointmentError: (_error: unknown, fallback: string) => fallback,
   doctorAvailabilityApi: {
+    weekly: vi
+      .fn()
+      .mockResolvedValue({ version: 0, slotMinutes: 30, timezone: 'Asia/Dhaka', defaultMeetingUrl: null, blocks: [] }),
+    saveWeekly: vi.fn(),
+    saveMeetingRoom: vi.fn(),
     create: vi.fn(),
     list: mocks.availability,
     remove: vi.fn(),
@@ -155,7 +160,7 @@ describe('Doctor route integration', () => {
 
   it.each([
     ['/doctor/schedule', 'Appointments'],
-    ['/doctor/availability', 'Booking times'],
+    ['/doctor/availability', 'Weekly availability'],
     [`/doctor/appointments/${appointment.id}`, 'Rumana Akter'],
     [`/doctor/appointments/${appointment.id}/reports/44444444-4444-4444-4444-444444444444`, 'Complete Blood Count'],
     [

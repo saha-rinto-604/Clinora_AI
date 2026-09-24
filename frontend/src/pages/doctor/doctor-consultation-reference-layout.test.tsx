@@ -101,7 +101,27 @@ describe('Doctor consultation reference layout', () => {
     const prescriptionFile = new File(['authorized prescription'], 'prescription.pdf', {
       type: 'application/pdf',
     });
+    const draft = await mocks.byAppointment();
+    mocks.byAppointment.mockResolvedValue({
+      ...draft,
+      prescriptionDocuments: [
+        {
+          id: 'document-1',
+          consultationId: 'consultation-1',
+          originalFilename: 'prescription.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 23,
+          createdAt: '2026-09-23T04:35:00Z',
+        },
+      ],
+    });
     await userEvent.upload(screen.getByLabelText('Upload prescription'), prescriptionFile);
     expect(mocks.uploadPrescriptionDocument).toHaveBeenCalledWith('consultation-1', prescriptionFile);
+    expect(await screen.findByText('prescription.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Add medication/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('textbox', { name: /Medication name/ })).not.toBeInTheDocument();
   });
 });

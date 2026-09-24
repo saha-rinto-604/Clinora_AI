@@ -175,8 +175,7 @@ describe('Phase 6A–6C Doctor workspace', () => {
     expect(screen.queryByText(/^Address$/i)).not.toBeInTheDocument();
   });
 
-  it('allows meeting-link editing only for online appointments', async () => {
-    const user = userEvent.setup();
+  it('links online appointments to the reusable meeting-room configuration', async () => {
     const online = {
       ...appointment,
       consultationMode: 'ONLINE' as const,
@@ -198,12 +197,12 @@ describe('Phase 6A–6C Doctor workspace', () => {
       </MemoryRouter>,
     );
 
-    await user.type(await screen.findByLabelText('Meeting URL'), 'https://meet.example.test/clinora-visit');
-    await user.click(screen.getByRole('button', { name: 'Add meeting link' }));
-    expect(mocks.updateMeetingLink).toHaveBeenCalledWith(
-      appointment.id,
-      'https://meet.example.test/clinora-visit',
+    expect(await screen.findByRole('link', { name: 'Manage online consultation room' })).toHaveAttribute(
+      'href',
+      '/doctor/availability',
     );
+    expect(screen.queryByLabelText('Meeting URL')).not.toBeInTheDocument();
+    expect(mocks.updateMeetingLink).not.toHaveBeenCalled();
     rendered.unmount();
 
     mocks.appointment.mockResolvedValue({ ...online, consultationMode: 'IN_PERSON', meetingUrl: null });
