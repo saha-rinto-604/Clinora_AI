@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
 import { adminResearchApi } from '../../features/research/research-api';
 import { ResearchStatusBadge } from '../../features/research/research-status-badge';
+import { CinematicBackground } from '../../components/app/cinematic-background';
 import type {
   AdminProjectDetailResponse,
   AdminProjectQueueItem,
@@ -173,31 +174,35 @@ export function AdminResearchProjectsPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-      {/* Executive Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--clinora-border-subtle)]">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">
-            <ShieldCheck className="w-4 h-4" />
-            Governance Review Board
+      {/* Executive Page Header with Cinematic Background */}
+      <div className="relative isolate overflow-hidden rounded-2xl border border-cyan-500/25 bg-[linear-gradient(135deg,rgba(4,20,27,0.85),rgba(2,11,20,0.90)_50%,rgba(4,20,27,0.95))] p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+        <CinematicBackground heightClass="h-full" className="rounded-2xl" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-800/60 bg-cyan-950/60 px-3 py-1 text-xs font-medium text-cyan-300 mb-3">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Institutional Review Board (IRB)
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              Research Protocol Governance
+            </h1>
+            <p className="mt-2 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Audit, inspect scientific rationale, request amendments, and grant institutional IRB approval for
+              biomedical research initiatives.
+            </p>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            Research Protocol Governance
-          </h1>
-          <p className="mt-1 text-xs text-slate-400">
-            Audit, inspect scientific rationale, request amendments, and grant institutional IRB approval.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={loadQueue}
-            className="text-xs border-white/10 bg-white/[0.04] text-slate-300 hover:text-white hover:bg-white/[0.08]"
-            title="Refresh list"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loadingQueue ? 'animate-spin text-cyan-400' : ''}`} />
-            Refresh Queue
-          </Button>
+          <div className="flex items-center gap-3 shrink-0">
+            <Button
+              variant="secondary"
+              onClick={loadQueue}
+              className="text-xs border-white/10 bg-slate-950/70 text-slate-200 hover:text-white hover:bg-slate-900 shadow-md backdrop-blur-md"
+              title="Refresh list"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loadingQueue ? 'animate-spin text-cyan-400' : ''}`} />
+              Refresh Queue
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -208,8 +213,8 @@ export function AdminResearchProjectsPage() {
           onClick={() => setStatusFilter('')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === ''
-              ? 'border-cyan-500/50 bg-cyan-950/30 shadow-[0_0_15px_rgba(6,182,212,0.12)]'
-              : 'border-white/[0.07] bg-white/[0.035] hover:border-white/15 hover:bg-white/[0.05]'
+              ? 'border-cyan-500/50 bg-cyan-950/40 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+              : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80'
           }`}
         >
           <div className="flex items-center justify-between text-slate-400">
@@ -217,7 +222,7 @@ export function AdminResearchProjectsPage() {
             <FolderGit2 className="w-4 h-4 text-slate-400" />
           </div>
           <div className="mt-2 text-2xl font-bold text-white">{metrics.total}</div>
-          <div className="mt-0.5 text-[10px] text-slate-500">Total submitted to platform</div>
+          <div className="mt-0.5 text-[10px] text-slate-400">Total submitted to platform</div>
         </div>
 
         {/* Needs Action / Submitted */}
@@ -225,8 +230,8 @@ export function AdminResearchProjectsPage() {
           onClick={() => setStatusFilter('SUBMITTED')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'SUBMITTED'
-              ? 'border-amber-500/50 bg-amber-950/30 shadow-[0_0_15px_rgba(245,158,11,0.12)]'
-              : 'border-white/[0.07] bg-white/[0.035] hover:border-white/15 hover:bg-white/[0.05]'
+              ? 'border-amber-500/50 bg-amber-950/40 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+              : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80'
           }`}
         >
           <div className="flex items-center justify-between text-amber-400">
@@ -242,8 +247,8 @@ export function AdminResearchProjectsPage() {
           onClick={() => setStatusFilter('UNDER_REVIEW')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'UNDER_REVIEW'
-              ? 'border-cyan-500/50 bg-cyan-950/30 shadow-[0_0_15px_rgba(6,182,212,0.12)]'
-              : 'border-white/[0.07] bg-white/[0.035] hover:border-white/15 hover:bg-white/[0.05]'
+              ? 'border-cyan-500/50 bg-cyan-950/40 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+              : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80'
           }`}
         >
           <div className="flex items-center justify-between text-cyan-400">
@@ -259,8 +264,8 @@ export function AdminResearchProjectsPage() {
           onClick={() => setStatusFilter('MORE_INFO_REQUIRED')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'MORE_INFO_REQUIRED'
-              ? 'border-indigo-500/50 bg-indigo-950/30 shadow-[0_0_15px_rgba(99,102,241,0.12)]'
-              : 'border-white/[0.07] bg-white/[0.035] hover:border-white/15 hover:bg-white/[0.05]'
+              ? 'border-indigo-500/50 bg-indigo-950/40 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
+              : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80'
           }`}
         >
           <div className="flex items-center justify-between text-indigo-400">
@@ -276,8 +281,8 @@ export function AdminResearchProjectsPage() {
           onClick={() => setStatusFilter('APPROVED')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'APPROVED'
-              ? 'border-emerald-500/50 bg-emerald-950/30 shadow-[0_0_15px_rgba(16,185,129,0.12)]'
-              : 'border-white/[0.07] bg-white/[0.035] hover:border-white/15 hover:bg-white/[0.05]'
+              ? 'border-emerald-500/50 bg-emerald-950/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+              : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/80'
           }`}
         >
           <div className="flex items-center justify-between text-emerald-400">

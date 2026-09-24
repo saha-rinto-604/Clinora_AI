@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../com
 import { FormField, Label, Select, Textarea } from '../../components/ui/form';
 import { adminAccessReviewApi, reviewErrorMessage } from '../../features/admin-access-reviews/admin-access-review-api';
 import { DoctorInterviewAdminPanel } from '../../features/admin-access-reviews/doctor-interview-admin-panel';
+import { CinematicBackground } from '../../components/app/cinematic-background';
 import type {
   AccessReviewDetail,
   AccessReviewQueueItem,
@@ -278,36 +279,42 @@ export function AccessReviewsPage() {
   return (
     <div className="w-full text-slate-100">
       <div className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--clinora-border-subtle)]">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">
-              <ShieldCheck className="w-4 h-4" />
-              Institutional Review Board
+        {/* Executive Page Header with Cinematic Background */}
+        <div className="relative isolate overflow-hidden rounded-2xl border border-cyan-500/25 bg-[linear-gradient(135deg,rgba(4,20,27,0.85),rgba(2,11,20,0.90)_50%,rgba(4,20,27,0.95))] p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+          <CinematicBackground heightClass="h-full" className="rounded-2xl" />
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-800/60 bg-cyan-950/60 px-3 py-1 text-xs font-medium text-cyan-300 mb-3">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Institutional Review Board
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
+                Professional Access Reviews
+              </h1>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                Verify credentials, licenses, identity documentation, and conduct onboarding interviews.
+              </p>
             </div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">Professional Access Reviews</h1>
-            <p className="mt-1 text-xs text-slate-400">
-              Verify credentials, licenses, identity documentation, and conduct onboarding interviews.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 p-1 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
-            <Link
-              to="/admin/access-reviews"
-              className="px-3 py-1.5 rounded-lg bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)] border border-[var(--clinora-border-interactive)] font-semibold shadow-sm"
-            >
-              Access Applications
-            </Link>
-            <Link
-              to="/admin/research/projects"
-              className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              Research Projects
-            </Link>
-            <Link
-              to="/admin/research/dataset-requests"
-              className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              Dataset Requests
-            </Link>
+            <div className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs backdrop-blur-md shrink-0">
+              <Link
+                to="/admin/access-reviews"
+                className="px-3 py-1.5 rounded-lg bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)] border border-[var(--clinora-border-interactive)] font-semibold shadow-sm"
+              >
+                Access Applications
+              </Link>
+              <Link
+                to="/admin/research/projects"
+                className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Research Projects
+              </Link>
+              <Link
+                to="/admin/research/dataset-requests"
+                className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Dataset Requests
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -318,7 +325,7 @@ export function AccessReviewsPage() {
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-white">Access Reviews</h1>
           </div>
 
-          <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+          <div className="grid gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="grid grid-cols-2 gap-3">
               <FormField>
                 <Label htmlFor="applicationType">Type</Label>
