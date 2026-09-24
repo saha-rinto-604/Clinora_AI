@@ -24,6 +24,7 @@ import { ClinoraBrandMark } from '../../components/ui/clinora-brand-mark';
 import { cn } from '../../lib/cn';
 import { authApi } from '../auth/auth-api';
 import { useAuthStore } from '../auth/auth-store';
+import { DoctorNotificationBell } from '../notifications/doctor-notification-bell';
 import { ProfileAvatar } from '../profile/profile-image';
 
 type NavigationItem = {
@@ -99,7 +100,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-white/[0.055] bg-[#040b13]/95 px-4 py-5 backdrop-blur-xl lg:flex">
         <NavLink
           to="/doctor"
-          className="flex min-h-12 items-center gap-3 rounded-xl px-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+          className="flex min-h-12 items-center gap-3 rounded-xl px-2.5 pr-14 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
         >
           <ClinoraBrandMark />
           <span className="min-w-0">
@@ -110,6 +111,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
             </span>
           </span>
         </NavLink>
+        <DoctorNotificationBell className="absolute right-4 top-6" />
 
         <div className="mt-6 h-px bg-white/[0.055]" />
 
@@ -212,6 +214,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
               <span className="tracking-[-0.02em]">Clinora Doctor</span>
             </NavLink>
             <div className="flex items-center gap-2">
+              <DoctorNotificationBell />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

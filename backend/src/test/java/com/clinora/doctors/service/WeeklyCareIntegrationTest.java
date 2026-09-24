@@ -42,6 +42,7 @@ class WeeklyCareIntegrationTest {
     PatientAppointmentService appointments;
     WeeklyAvailabilityService weekly;
     PatientNotificationService notifications;
+    DoctorNotificationService doctorNotifications;
     DoctorMeetingRoomService rooms;
     AuthAuditService audit;
     @BeforeAll static void migrate() {
@@ -52,7 +53,8 @@ class WeeklyCareIntegrationTest {
         jdbc = new JdbcTemplate(source); tx = new TransactionTemplate(new DataSourceTransactionManager(source));
         clock = Clock.fixed(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS), ZoneOffset.UTC);
         notifications = new PatientNotificationService(jdbc,clock);
-        appointments = new PatientAppointmentService(jdbc,new PatientTimelineService(jdbc,clock),notifications,clock);
+        doctorNotifications = new DoctorNotificationService(jdbc,clock);
+        appointments = new PatientAppointmentService(jdbc,new PatientTimelineService(jdbc,clock),notifications,doctorNotifications,clock);
         weekly = new WeeklyAvailabilityService(jdbc,new DoctorClinicalAccessService(jdbc,clock),appointments,clock);
         audit = mock(AuthAuditService.class);
         rooms = new DoctorMeetingRoomService(jdbc,new DoctorClinicalAccessService(jdbc,clock),appointments,notifications,audit,clock);
@@ -153,6 +155,10 @@ class WeeklyCareIntegrationTest {
         var cancelled = bookAt(day,11,"ONLINE"); var completed = bookAt(day,12,"ONLINE");
         assertNull(online.meetingUrl(), "Patient APIs must not release reusable URLs");
         assertEquals("https://meet.example.test/first",storedRoom(online.id())); assertNull(storedRoom(inPerson.id()));
+        jdbc.update("UPDATE appointments SET meeting_url=NULL, meeting_link_updated_at=NULL WHERE id=?",online.id());
+        var repaired = tx.execute(s -> rooms.save(doctor,"https://meet.example.test/first",null,null));
+        assertEquals(1,repaired.updatedAppointments());
+        assertEquals("https://meet.example.test/first",storedRoom(online.id()));
         tx.execute(s -> appointments.cancel(patient,cancelled.id(),null));
         jdbc.update("UPDATE appointments SET status='COMPLETED' WHERE id=?",completed.id());
         var result = tx.execute(s -> rooms.save(doctor,"https://meet.example.test/second",null,null));
@@ -161,8 +167,8 @@ class WeeklyCareIntegrationTest {
         assertEquals("https://meet.example.test/first",storedRoom(cancelled.id()));
         assertEquals("https://meet.example.test/first",storedRoom(completed.id()));
         assertEquals(0,tx.execute(s -> rooms.save(doctor,"https://meet.example.test/second",null,null)).updatedAppointments());
-        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notifications WHERE target_id=? AND type='APPOINTMENT_MEETING_LINK_UPDATED'",Integer.class,online.id()));
-        verify(audit,times(2)).record(eq(doctor),eq(com.clinora.audit.AuthAuditAction.DOCTOR_DEFAULT_MEETING_ROOM_UPDATED),any(),isNull(),isNull(),eq(doctor.toString()),argThat(s -> !s.contains("https")));
+        assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notifications WHERE target_id=? AND type='APPOINTMENT_MEETING_LINK_UPDATED'",Integer.class,online.id()));
+        verify(audit,times(3)).record(eq(doctor),eq(com.clinora.audit.AuthAuditAction.DOCTOR_DEFAULT_MEETING_ROOM_UPDATED),any(),isNull(),isNull(),eq(doctor.toString()),argThat(s -> !s.contains("https")));
         var lateClock = Clock.fixed(online.scheduledEnd().plusSeconds(1),ZoneOffset.UTC);
         var lateRoomService = new DoctorMeetingRoomService(jdbc,new DoctorClinicalAccessService(jdbc,lateClock),appointments,notifications,audit,lateClock);
         tx.execute(s -> lateRoomService.save(doctor,"https://meet.example.test/third",null,null));
@@ -221,6 +227,73 @@ class WeeklyCareIntegrationTest {
         assertEquals(1,countNotification(appointment.id(),"APPOINTMENT_RESCHEDULED"));
         assertEquals(jdbc.queryForObject("SELECT count(*) FROM notifications WHERE user_id=?",Integer.class,patient),
             jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE user_id=?",Integer.class,patient));
+    }
+
+    @Test void doctorAppointmentNotificationsAreIdempotentOwnedAndReadable() {
+        LocalDate day = LocalDate.now(clock).plusDays(2); save(0,day.getDayOfWeek().getValue(),9,12,"IN_PERSON");
+        var appointment = bookAt(day,9,"IN_PERSON");
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notifications WHERE user_id=? AND type='DOCTOR_APPOINTMENT_BOOKED'",Integer.class,doctor));
+        doctorNotifications.create(doctor,"DOCTOR_APPOINTMENT_BOOKED",PatientNotificationService.NotificationCategory.APPOINTMENTS,
+            "New appointment booked","A Patient booked an appointment in your schedule.","APPOINTMENT",appointment.id(),
+            "doctor-appointment-booked:"+appointment.id());
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notifications WHERE user_id=? AND type='DOCTOR_APPOINTMENT_BOOKED'",Integer.class,doctor));
+        tx.execute(s -> appointments.reschedule(patient,appointment.id(),slotAt(day,10),"UTC","IN_PERSON"));
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notifications WHERE user_id=? AND type='DOCTOR_APPOINTMENT_RESCHEDULED'",Integer.class,doctor));
+        tx.execute(s -> appointments.cancel(patient,appointment.id(),null));
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notifications WHERE user_id=? AND type='DOCTOR_APPOINTMENT_CANCELLED'",Integer.class,doctor));
+        assertEquals(3,doctorNotifications.unreadCount(doctor));
+        var page = doctorNotifications.list(doctor,false,null,null,10);
+        assertEquals(3,page.items().size());
+        doctorNotifications.markRead(doctor,page.items().getFirst().id());
+        assertEquals(2,doctorNotifications.unreadCount(doctor));
+        UUID otherDoctor = user("DOCTOR");
+        assertThrows(com.clinora.doctors.api.DoctorApiException.class,
+            () -> doctorNotifications.markRead(otherDoctor,page.items().getFirst().id()));
+    }
+
+    @Test void emptyConsultationCompletesAndPrunesWhollyEmptyCareRows() {
+        LocalDate day = LocalDate.now(clock).plusDays(1); save(0,day.getDayOfWeek().getValue(),9,10,"IN_PERSON");
+        var appointment = bookAt(day,9,"IN_PERSON");
+        var access = new DoctorClinicalAccessService(jdbc,clock);
+        var documents = new PrescriptionDocumentService(jdbc,access,mock(PatientReportStoragePort.class),
+            new PatientReportStorageProperties(),mock(PatientReportMalwareScanner.class),new PatientReportSecurityProperties(),audit,clock);
+        var consultations = new ConsultationService(jdbc,access,notifications,new PatientTimelineService(jdbc,clock),documents,clock);
+        var started = tx.execute(s -> consultations.start(doctor,appointment.id()));
+        var completed = tx.execute(s -> consultations.complete(doctor,started.id(),new ConsultationDraftRequest(
+            started.version(),null,null,null,null,
+            java.util.Collections.nCopies(25,new PrescriptionInput("","","","","","","")),
+            java.util.Collections.nCopies(25,new InvestigationInput("","","","ROUTINE")),
+            new FollowUpInput(null,"","")
+        )));
+        assertEquals("COMPLETED",completed.status());
+        assertNull(completed.assessment()); assertNull(completed.plan());
+        assertTrue(completed.prescriptions().isEmpty()); assertTrue(completed.investigations().isEmpty()); assertNull(completed.followUp());
+        assertEquals("COMPLETED",jdbc.queryForObject("SELECT status FROM appointments WHERE id=?",String.class,appointment.id()));
+        assertEquals("Your Doctor marked the consultation as completed.",jdbc.queryForObject(
+            "SELECT body FROM notifications WHERE user_id=? AND source_event_id=?",String.class,patient,"consultation-completed:"+started.id()));
+    }
+
+    @Test void prescriptionDocumentOnlyConsultationCompletesAndFinalizesTheDocument() {
+        LocalDate day = LocalDate.now(clock).plusDays(1); save(0,day.getDayOfWeek().getValue(),9,10,"IN_PERSON");
+        var appointment = bookAt(day,9,"IN_PERSON");
+        var access = new DoctorClinicalAccessService(jdbc,clock);
+        var storage = mock(PatientReportStoragePort.class); var scanner = mock(PatientReportMalwareScanner.class);
+        when(scanner.scan(any())).thenReturn(PatientReportMalwareScanner.ScanResult.CLEAN);
+        var documents = new PrescriptionDocumentService(jdbc,access,storage,new PatientReportStorageProperties(),scanner,
+            new PatientReportSecurityProperties(),audit,clock);
+        var consultations = new ConsultationService(jdbc,access,notifications,new PatientTimelineService(jdbc,clock),documents,clock);
+        var started = tx.execute(s -> consultations.start(doctor,appointment.id()));
+        byte[] pdf = "%PDF-1.4\n1 0 obj <<>> endobj\n%%EOF".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        when(storage.get(any())).thenReturn(new PatientReportStoragePort.StoredObject(pdf,"application/pdf"));
+        var file = new MockMultipartFile("file","prescription.pdf","application/pdf",pdf);
+        var document = tx.execute(s -> documents.upload(doctor,started.id(),file,null,null));
+        var completed = tx.execute(s -> consultations.complete(doctor,started.id(),new ConsultationDraftRequest(
+            started.version(),null,null,null,null,List.of(),List.of(),null
+        )));
+        assertEquals("COMPLETED",completed.status()); assertEquals(1,completed.prescriptionDocuments().size());
+        assertArrayEquals(pdf,documents.patientContent(patient,started.id(),document.id(),false,null,null).bytes());
+        assertThrows(com.clinora.doctors.api.DoctorApiException.class,
+            () -> tx.executeWithoutResult(s -> documents.remove(doctor,started.id(),document.id(),null,null)));
     }
 
     @Test void documentOnlyPrescriptionCompletesAndNotifiesFollowUpOnlyAfterCompletion() {

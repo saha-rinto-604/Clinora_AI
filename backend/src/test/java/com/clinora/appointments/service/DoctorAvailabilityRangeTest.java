@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.clinora.notifications.service.PatientNotificationService;
+import com.clinora.notifications.service.DoctorNotificationService;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.service.PatientTimelineService;
 import java.sql.Timestamp;
@@ -24,7 +25,7 @@ class DoctorAvailabilityRangeTest {
     private final Instant from = Instant.parse("2026-09-24T00:00:00Z");
     private final Instant until = Instant.parse("2026-10-09T00:00:00Z");
     private final PatientAppointmentService service = new PatientAppointmentService(jdbc,
-        mock(PatientTimelineService.class), mock(PatientNotificationService.class), Clock.systemUTC());
+        mock(PatientTimelineService.class), mock(PatientNotificationService.class), mock(DoctorNotificationService.class), Clock.systemUTC());
 
     @Test void completeCalendarIsDoctorScopedBoundedAndNotTruncatedTo120Slots() {
         when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(doctor), eq("DOCTOR"))).thenReturn(1);

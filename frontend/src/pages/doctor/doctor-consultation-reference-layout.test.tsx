@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   appointment: vi.fn(),
   byAppointment: vi.fn(),
   uploadPrescriptionDocument: vi.fn(),
+  complete: vi.fn(),
 }));
 
 vi.mock('../../features/doctor/doctor-api', () => ({
@@ -24,6 +25,7 @@ vi.mock('../../features/consultations/consultation-api', async () => {
       ...actual.consultationApi,
       byAppointment: mocks.byAppointment,
       uploadPrescriptionDocument: mocks.uploadPrescriptionDocument,
+      complete: mocks.complete,
     },
   };
 });
@@ -77,6 +79,13 @@ describe('Doctor consultation reference layout', () => {
       investigations: [],
       followUp: null,
     });
+    mocks.complete.mockImplementation(async (_id, draft) => ({
+      ...(await mocks.byAppointment()),
+      status: 'COMPLETED',
+      version: 2,
+      completedAt: '2026-09-23T05:00:00Z',
+      ...draft,
+    }));
 
     render(
       <MemoryRouter initialEntries={['/doctor/appointments/appointment-1/consultation']}>
@@ -96,7 +105,14 @@ describe('Doctor consultation reference layout', () => {
     expect(screen.getByText('Upload prescription')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Request investigation/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add follow-up/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Complete consultation' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Complete consultation' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Complete consultation' }));
+    expect(screen.getByRole('heading', { name: 'Complete this consultation?' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/You have not added digital clinical notes or care actions to this consultation/),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('heading', { name: 'Complete this consultation?' })).not.toBeInTheDocument();
 
     const prescriptionFile = new File(['authorized prescription'], 'prescription.pdf', {
       type: 'application/pdf',
@@ -123,5 +139,12 @@ describe('Doctor consultation reference layout', () => {
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Add medication/ }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('textbox', { name: /Medication name/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Complete consultation' }));
+    expect(screen.getByText(/any Doctor-authored information saved here will be finalized/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Complete consultation' }));
+    expect(mocks.complete).toHaveBeenCalledWith(
+      'consultation-1',
+      expect.objectContaining({ assessment: '', plan: '', prescriptions: [] }),
+    );
   });
 });

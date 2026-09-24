@@ -135,7 +135,7 @@ public class ConsultationService {
         if (!"IN_PROGRESS".equals(locked.status())) {
             throw conflict("CONSULTATION_ALREADY_COMPLETED", "A completed consultation cannot be edited.");
         }
-        NormalizedDraft draft = normalize(request, false);
+        NormalizedDraft draft = normalize(request);
         requireVersion(locked, draft.version());
         Instant now = clock.instant();
         int changed = jdbc.update(
@@ -165,7 +165,7 @@ public class ConsultationService {
         LockedConsultation locked = lockConsultation(doctorId, consultationId);
         if ("COMPLETED".equals(locked.status())) return requireView(consultationId, doctorId);
 
-        NormalizedDraft draft = normalize(request, true);
+        NormalizedDraft draft = normalize(request);
         requireVersion(locked, draft.version());
         Instant now = clock.instant();
 
@@ -241,12 +241,15 @@ public class ConsultationService {
             now,
             "consultation-completed:" + consultationId
         );
+        boolean hasDigitalCareContent = hasDigitalCareContent(consultationId, draft);
         notifications.create(
             locked.patientId(),
             "CONSULTATION_COMPLETED",
             NotificationCategory.APPOINTMENTS,
-            "Your consultation summary is ready",
-            "Your Doctor completed the consultation. Review the assessment, care plan, prescriptions, investigations and follow-up.",
+            hasDigitalCareContent ? "Your consultation summary is ready" : "Consultation completed",
+            hasDigitalCareContent
+                ? "Your Doctor completed the consultation. Review the care information available in Clinora."
+                : "Your Doctor marked the consultation as completed.",
             "APPOINTMENT",
             locked.appointmentId(),
             "consultation-completed:" + consultationId
@@ -563,7 +566,7 @@ public class ConsultationService {
         return rows.getFirst();
     }
 
-    private NormalizedDraft normalize(ConsultationDraftRequest request, boolean completing) {
+    private NormalizedDraft normalize(ConsultationDraftRequest request) {
         if (request == null || request.version() == null || request.version() < 0) {
             throw badRequest("CONSULTATION_VERSION_REQUIRED", "Reload the consultation and try again.");
         }
@@ -571,22 +574,18 @@ public class ConsultationService {
         String findings = optionalText(request.findingsNotes(), MAX_NOTE_LENGTH, "Findings");
         String assessment = optionalText(request.assessment(), MAX_NOTE_LENGTH, "Assessment");
         String plan = optionalText(request.plan(), MAX_NOTE_LENGTH, "Plan");
-        if (completing && assessment == null && plan == null) {
-            throw badRequest(
-                "CONSULTATION_CLINICAL_CONTENT_REQUIRED",
-                "Add a Doctor assessment or plan before completing the consultation."
-            );
-        }
-
-        List<PrescriptionInput> prescriptionInputs = request.prescriptions() == null ? List.of() : request.prescriptions();
-        List<InvestigationInput> investigationInputs = request.investigations() == null ? List.of() : request.investigations();
+        List<PrescriptionInput> prescriptionInputs = request.prescriptions() == null
+            ? List.of()
+            : request.prescriptions().stream().filter(input -> input != null && !prescriptionIsEmpty(input)).toList();
+        List<InvestigationInput> investigationInputs = request.investigations() == null
+            ? List.of()
+            : request.investigations().stream().filter(input -> input != null && !investigationIsEmpty(input)).toList();
         if (prescriptionInputs.size() > MAX_CARE_ITEMS || investigationInputs.size() > MAX_CARE_ITEMS) {
             throw badRequest("CONSULTATION_CARE_ITEM_LIMIT", "A consultation can contain up to 20 prescriptions and 20 investigations.");
         }
 
         List<NormalizedPrescription> prescriptions = new ArrayList<>();
         for (PrescriptionInput input : prescriptionInputs) {
-            if (input == null) continue;
             prescriptions.add(new NormalizedPrescription(
                 requiredText(input.medicationName(), 180, "Medication name"),
                 optionalText(input.strength(), 120, "Medication strength"),
@@ -600,7 +599,6 @@ public class ConsultationService {
 
         List<NormalizedInvestigation> investigations = new ArrayList<>();
         for (InvestigationInput input : investigationInputs) {
-            if (input == null) continue;
             String priority = input.priority() == null || input.priority().isBlank()
                 ? "ROUTINE"
                 : input.priority().trim().toUpperCase(Locale.ROOT);
@@ -617,7 +615,7 @@ public class ConsultationService {
 
         NormalizedFollowUp followUp = null;
         FollowUpInput followUpInput = request.followUp();
-        if (followUpInput != null) {
+        if (followUpInput != null && !followUpIsEmpty(followUpInput)) {
             if (followUpInput.recommendedDate() == null) {
                 throw badRequest("FOLLOW_UP_DATE_REQUIRED", "Choose a follow-up date or remove the follow-up recommendation.");
             }
@@ -638,6 +636,36 @@ public class ConsultationService {
             request.version(), history, findings, assessment, plan,
             List.copyOf(prescriptions), List.copyOf(investigations), followUp
         );
+    }
+
+    private boolean hasDigitalCareContent(UUID consultationId, NormalizedDraft draft) {
+        if (draft.historyNotes() != null || draft.findingsNotes() != null || draft.assessment() != null || draft.plan() != null
+            || !draft.prescriptions().isEmpty() || !draft.investigations().isEmpty() || draft.followUp() != null) {
+            return true;
+        }
+        Integer documentCount = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM consultation_prescription_documents WHERE consultation_id = ?",
+            Integer.class,
+            consultationId
+        );
+        return documentCount != null && documentCount > 0;
+    }
+
+    private static boolean prescriptionIsEmpty(PrescriptionInput input) {
+        return blank(input.medicationName()) && blank(input.strength()) && blank(input.dose()) && blank(input.route())
+            && blank(input.frequency()) && blank(input.duration()) && blank(input.instructions());
+    }
+
+    private static boolean investigationIsEmpty(InvestigationInput input) {
+        return blank(input.testName()) && blank(input.reason()) && blank(input.instructions());
+    }
+
+    private static boolean followUpIsEmpty(FollowUpInput input) {
+        return input.recommendedDate() == null && blank(input.reason()) && blank(input.instructions());
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void requireVersion(LockedConsultation locked, long requestedVersion) {

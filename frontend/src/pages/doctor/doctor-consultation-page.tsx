@@ -139,7 +139,7 @@ export function DoctorConsultationPage() {
       findingsNotes,
       assessment,
       plan,
-      prescriptions: prescriptions.map((item) => ({
+      prescriptions: prescriptions.filter((item) => !isEmptyPrescriptionDraft(item)).map((item) => ({
         medicationName: item.medicationName,
         strength: item.strength,
         dose: item.dose,
@@ -148,15 +148,25 @@ export function DoctorConsultationPage() {
         duration: item.duration,
         instructions: item.instructions,
       })),
-      investigations: investigations.map((item) => ({
+      investigations: investigations.filter((item) => !isEmptyInvestigationDraft(item)).map((item) => ({
         testName: item.testName,
         reason: item.reason,
         instructions: item.instructions,
         priority: item.priority,
       })),
-      followUp,
+      followUp: followUp && !isEmptyFollowUpDraft(followUp) ? followUp : null,
     };
   }, [assessment, consultation, findingsNotes, followUp, historyNotes, investigations, plan, prescriptions]);
+  const hasDigitalContent = Boolean(
+    historyNotes.trim() ||
+      findingsNotes.trim() ||
+      assessment.trim() ||
+      plan.trim() ||
+      draft?.prescriptions.length ||
+      consultation?.prescriptionDocuments.length ||
+      draft?.investigations.length ||
+      draft?.followUp,
+  );
 
   const start = async () => {
     if (!appointmentId) return;
@@ -569,20 +579,20 @@ export function DoctorConsultationPage() {
                       <CheckCircle2 size={15} />
                     </IconWell>
                     <div>
-                      <h2 className="text-sm font-semibold text-white">Finalize this consultation?</h2>
+                      <h2 className="text-sm font-semibold text-white">Complete this consultation?</h2>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        Completion makes the Doctor-authored record read-only and publishes the assessment, plan,
-                        structured care actions and attached prescription documents to the Patient. Attached documents
-                        become immutable.
+                        {hasDigitalContent
+                          ? 'Are you sure you want to finish this consultation? Once completed, the consultation becomes read-only and any Doctor-authored information saved here will be finalized for the Patient workflow.'
+                          : 'You have not added digital clinical notes or care actions to this consultation. You can still complete it. Are you sure you want to finish?'}
                       </p>
                     </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" variant="appPrimary" disabled={busy !== ''} onClick={() => void complete()}>
-                      {busy === 'complete' ? 'Completing…' : 'Complete consultation'}
-                    </Button>
                     <Button size="sm" variant="ghost" disabled={busy !== ''} onClick={() => setConfirmComplete(false)}>
                       Keep editing
+                    </Button>
+                    <Button size="sm" variant="appPrimary" disabled={busy !== ''} onClick={() => void complete()}>
+                      {busy === 'complete' ? 'Completing…' : 'Complete consultation'}
                     </Button>
                   </div>
                 </div>
@@ -590,7 +600,9 @@ export function DoctorConsultationPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-white">Ready to finish?</h2>
-                    <p className="mt-1 text-xs text-slate-400">Assessment or plan is required before completion.</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Completion is available with any amount of digital documentation, including none.
+                    </p>
                     {prescriptions.some(hasLimitedMedicationInstructions) ? (
                       <p className="mt-1.5 text-[11px] text-amber-200">
                         One or more medications have only a name and limited instructions. Review them before
@@ -610,7 +622,7 @@ export function DoctorConsultationPage() {
                     <Button
                       size="sm"
                       variant="appPrimary"
-                      disabled={!assessment.trim() && !plan.trim()}
+                      disabled={busy !== '' || documentBusy !== ''}
                       onClick={() => setConfirmComplete(true)}
                     >
                       Complete consultation
@@ -1222,6 +1234,26 @@ function hasLimitedMedicationInstructions(item: PrescriptionDraft) {
     Boolean(item.medicationName.trim()) &&
     ![item.strength, item.dose, item.frequency, item.duration, item.instructions].some((value) => value.trim())
   );
+}
+
+function isEmptyPrescriptionDraft(item: PrescriptionDraft) {
+  return ![
+    item.medicationName,
+    item.strength,
+    item.dose,
+    item.route,
+    item.frequency,
+    item.duration,
+    item.instructions,
+  ].some((value) => value.trim());
+}
+
+function isEmptyInvestigationDraft(item: InvestigationDraft) {
+  return ![item.testName, item.reason, item.instructions].some((value) => value.trim());
+}
+
+function isEmptyFollowUpDraft(item: FollowUpDraft) {
+  return !item.recommendedDate && !item.reason.trim() && !item.instructions.trim();
 }
 
 function prescriptionFileSize(bytes: number) {

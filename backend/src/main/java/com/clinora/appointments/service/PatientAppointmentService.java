@@ -2,6 +2,7 @@ package com.clinora.appointments.service;
 
 import com.clinora.notifications.service.PatientNotificationService;
 import com.clinora.notifications.service.PatientNotificationService.NotificationCategory;
+import com.clinora.notifications.service.DoctorNotificationService;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.service.PatientReportDisplayName;
 import com.clinora.patients.service.PatientTimelineService;
@@ -28,17 +29,20 @@ public class PatientAppointmentService {
     private final JdbcTemplate jdbc;
     private final PatientTimelineService timeline;
     private final PatientNotificationService notifications;
+    private final DoctorNotificationService doctorNotifications;
     private final Clock clock;
 
     public PatientAppointmentService(
         JdbcTemplate jdbc,
         PatientTimelineService timeline,
         PatientNotificationService notifications,
+        DoctorNotificationService doctorNotifications,
         Clock clock
     ) {
         this.jdbc = jdbc;
         this.timeline = timeline;
         this.notifications = notifications;
+        this.doctorNotifications = doctorNotifications;
         this.clock = clock;
     }
 
@@ -308,6 +312,11 @@ public class PatientAppointmentService {
             "Appointment confirmed", "Your appointment with " + slot.doctorName() + " is confirmed.",
             "APPOINTMENT", appointmentId, "appointment-booked:" + appointmentId
         );
+        doctorNotifications.create(
+            slot.doctorUserId(), "DOCTOR_APPOINTMENT_BOOKED", NotificationCategory.APPOINTMENTS,
+            "New appointment booked", "A Patient booked an appointment in your schedule.",
+            "APPOINTMENT", appointmentId, "doctor-appointment-booked:" + appointmentId
+        );
         return appointment(patientUserId, appointmentId);
     }
 
@@ -390,6 +399,11 @@ public class PatientAppointmentService {
             "Appointment cancelled", "Your appointment with " + appointment.doctorName() + " has been cancelled.",
             "APPOINTMENT", appointmentId, "appointment-cancelled:" + appointmentId
         );
+        doctorNotifications.create(
+            appointment.doctorUserId(), "DOCTOR_APPOINTMENT_CANCELLED", NotificationCategory.APPOINTMENTS,
+            "Appointment cancelled", "A Patient cancelled an appointment in your schedule.",
+            "APPOINTMENT", appointmentId, "doctor-appointment-cancelled:" + appointmentId
+        );
         return appointment(patientUserId, appointmentId);
     }
 
@@ -458,6 +472,11 @@ public class PatientAppointmentService {
             patientUserId, "APPOINTMENT_RESCHEDULED", NotificationCategory.APPOINTMENTS,
             "Appointment rescheduled", "Your appointment with " + next.doctorName() + " has a new time.",
             "APPOINTMENT", appointmentId, "appointment-rescheduled:" + appointmentId + ":" + next.startsAt().toEpochMilli()
+        );
+        doctorNotifications.create(
+            next.doctorUserId(), "DOCTOR_APPOINTMENT_RESCHEDULED", NotificationCategory.APPOINTMENTS,
+            "Appointment rescheduled", "A Patient moved an appointment to a new time in your schedule.",
+            "APPOINTMENT", appointmentId, "doctor-appointment-rescheduled:" + appointmentId + ":" + next.startsAt().toEpochMilli()
         );
         return appointment(patientUserId, appointmentId);
     }

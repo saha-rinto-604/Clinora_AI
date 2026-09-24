@@ -18,6 +18,13 @@ export function PatientConsultationJoin({ appointmentId }: { appointmentId: stri
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  useEffect(() => {
+    if (status?.state !== 'TOO_EARLY' || !status.opensAt) return undefined;
+    const opensAt = new Date(status.opensAt).getTime();
+    const delay = Math.max(250, Math.min(60_000, opensAt - Date.now() + 250));
+    const timer = window.setTimeout(() => void refresh(), delay);
+    return () => window.clearTimeout(timer);
+  }, [refresh, status]);
   const join = async () => {
     setBusy(true);
     setError('');
@@ -40,8 +47,13 @@ export function PatientConsultationJoin({ appointmentId }: { appointmentId: stri
         <p>{status ? 'Meeting room is not available.' : 'Checking consultation room…'}</p>
       )}
       {status?.state === 'TOO_EARLY' ? (
-        <p>Join will be available shortly. Access opens 15 minutes before your appointment.</p>
+        <p>
+          Join will be available shortly
+          {status.opensAt ? ` at ${new Date(status.opensAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}.
+          Access opens 15 minutes before your appointment.
+        </p>
       ) : null}
+      {status?.state === 'ROOM_NOT_READY' ? <p>Your Doctor has not made the secure room available yet.</p> : null}
       {status?.state === 'ENDED' ? <p>The scheduled join window has ended.</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       <div className="flex flex-wrap gap-2">

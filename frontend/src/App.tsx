@@ -60,6 +60,7 @@ import { DoctorProfilePage } from './pages/doctor/doctor-profile-r3-page';
 import { DoctorReportComparePage } from './pages/doctor/doctor-report-compare-page';
 import { DoctorReportReviewPage } from './pages/doctor/doctor-report-review-page';
 import { DoctorSchedulePage } from './pages/doctor/doctor-schedule-r3-page';
+import { DoctorNotificationsPage } from './pages/doctor/doctor-notifications-page';
 
 export function AppRoutes() {
   return (
@@ -126,6 +127,7 @@ export function AppRoutes() {
           <Route path="doctor" element={<DoctorDashboardPage />} />
           <Route path="doctor/schedule" element={<DoctorSchedulePage />} />
           <Route path="doctor/inbox" element={<DoctorClinicalInboxPage />} />
+          <Route path="doctor/notifications" element={<DoctorNotificationsPage />} />
           <Route path="doctor/patients" element={<DoctorPatientsPage />} />
           <Route path="doctor/patients/:patientId" element={<DoctorPatientDetailPage />} />
           <Route path="doctor/appointments/:appointmentId" element={<DoctorAppointmentPage />} />

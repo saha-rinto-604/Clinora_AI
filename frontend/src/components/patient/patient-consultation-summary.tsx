@@ -67,6 +67,15 @@ export function PatientConsultationSummary({ appointmentId }: { appointmentId: s
 
   if (!summary) return null;
 
+  const hasPatientVisibleContent = Boolean(
+    summary.assessment ||
+      summary.plan ||
+      summary.prescriptions.length ||
+      summary.prescriptionDocuments.length ||
+      summary.investigations.length ||
+      summary.followUp,
+  );
+
   return (
     <AppSurface as="section" variant="elevated" className="mt-6" aria-labelledby="consultation-summary-title">
       <div className="flex items-start gap-3">
@@ -76,9 +85,13 @@ export function PatientConsultationSummary({ appointmentId }: { appointmentId: s
         <div className="min-w-0 flex-1">
           <AppSectionHeader
             eyebrow="Doctor completed"
-            title="Consultation & care plan"
+            title={hasPatientVisibleContent ? 'Consultation & care plan' : 'Consultation completed'}
             titleId="consultation-summary-title"
-            copy={`Completed ${formatDateTime(summary.completedAt)}. These are Doctor-authored instructions from this consultation.`}
+            copy={
+              hasPatientVisibleContent
+                ? `Completed ${formatDateTime(summary.completedAt)}. These are Doctor-authored instructions from this consultation.`
+                : `Completed ${formatDateTime(summary.completedAt)}. No additional digital care notes were added for this consultation.`
+            }
           />
         </div>
       </div>
@@ -89,10 +102,12 @@ export function PatientConsultationSummary({ appointmentId }: { appointmentId: s
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <SummaryBlock title="Doctor assessment" value={summary.assessment || 'No assessment text was added.'} />
-        <SummaryBlock title="Plan" value={summary.plan || 'No additional plan text was added.'} />
-      </div>
+      {summary.assessment || summary.plan ? (
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {summary.assessment ? <SummaryBlock title="Doctor assessment" value={summary.assessment} /> : null}
+          {summary.plan ? <SummaryBlock title="Plan" value={summary.plan} /> : null}
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <section className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-4">
@@ -228,7 +243,14 @@ export function PatientConsultationSummary({ appointmentId }: { appointmentId: s
         </section>
       ) : null}
 
-      {!summary.prescriptions.length &&
+      {!hasPatientVisibleContent ? (
+        <EmptyState
+          className="mt-5"
+          icon={<Stethoscope size={17} />}
+          title="Consultation completed"
+          copy="No additional digital care notes were added for this consultation."
+        />
+      ) : !summary.prescriptions.length &&
       !summary.prescriptionDocuments.length &&
       !summary.investigations.length &&
       !summary.followUp ? (

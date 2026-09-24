@@ -44,7 +44,7 @@ public class NotificationDeliveryConsumer {
             message.notificationId(),
             message.userId()
         );
-        if (delivery == null || !activePatient(message.userId())) return;
+        if (delivery == null || !activeNotificationRecipient(message.userId())) return;
         NotificationView notification = delivery.notification();
         if (delivery.deliverEmail()) {
             try {
@@ -62,9 +62,9 @@ public class NotificationDeliveryConsumer {
         }
     }
 
-    private boolean activePatient(UUID userId) {
+    private boolean activeNotificationRecipient(UUID userId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'DOCTOR') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
             Integer.class,
             userId
         );
@@ -83,8 +83,17 @@ public class NotificationDeliveryConsumer {
         String text = "You have a new Clinora update. Sign in to Clinora to review the details securely.";
         String html = "<p>You have a new Clinora update.</p><p>Sign in to Clinora to review the details securely.</p>";
         String base = emailProperties.getFrontendUrl().replaceAll("/+$", "");
-        String path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
-            ? "/patient/appointments/" + notification.targetId() : "/patient/notifications";
+        String role = jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, userId);
+        String path;
+        if ("DOCTOR".equals(role)) {
+            path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
+                ? "/doctor/appointments/" + notification.targetId()
+                : "/doctor/notifications";
+        } else {
+            path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
+                ? "/patient/appointments/" + notification.targetId()
+                : "/patient/notifications";
+        }
         String link = base + path;
         text += "\n\nView securely: " + link;
         html += "<p><a href=\"" + HtmlUtils.htmlEscape(link) + "\">View securely in Clinora</a></p>";

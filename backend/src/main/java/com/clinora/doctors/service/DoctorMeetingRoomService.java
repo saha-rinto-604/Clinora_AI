@@ -33,9 +33,10 @@ public class DoctorMeetingRoomService {
         jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", UUID.class, doctor);
         appointments.prepareDoctorBookingProfile(doctor);
         String previous = jdbc.queryForObject("SELECT default_meeting_url FROM doctor_booking_profiles WHERE doctor_user_id = ?", String.class, doctor);
-        if (safe.equals(previous)) return new RoomView(safe, 0);
         var now = Timestamp.from(clock.instant());
-        jdbc.update("UPDATE doctor_booking_profiles SET default_meeting_url = ?, updated_at = ? WHERE doctor_user_id = ?", safe, now, doctor);
+        if (!safe.equals(previous)) {
+            jdbc.update("UPDATE doctor_booking_profiles SET default_meeting_url = ?, updated_at = ? WHERE doctor_user_id = ?", safe, now, doctor);
+        }
         var updated = jdbc.query("""
             UPDATE appointments SET meeting_url = ?, meeting_link_updated_at = ?, updated_at = ?, version = version + 1
             WHERE doctor_user_id = ? AND status = 'BOOKED' AND consultation_mode = 'ONLINE'
@@ -47,6 +48,7 @@ public class DoctorMeetingRoomService {
             "APPOINTMENT_MEETING_LINK_UPDATED", NotificationCategory.APPOINTMENTS,
             "Online consultation details updated", "Your Doctor updated the room for your online appointment. Sign in to review your appointment.",
             "APPOINTMENT", appointment.id(), "appointment-meeting-link:" + appointment.id() + ":" + appointment.version());
+        if (safe.equals(previous) && updated.isEmpty()) return new RoomView(safe, 0);
         audit.record(doctor, AuthAuditAction.DOCTOR_DEFAULT_MEETING_ROOM_UPDATED, AuthAuditOutcome.SUCCESS,
             ip, userAgent, doctor.toString(), "affectedAppointments=" + updated.size());
         return new RoomView(safe, updated.size());
