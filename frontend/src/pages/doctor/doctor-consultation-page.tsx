@@ -14,13 +14,22 @@ import {
   Stethoscope,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { buttonVariants } from '../../components/ui/button-variants';
 import { Skeleton } from '../../components/ui/feedback';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '../../components/ui/dialog';
 import { ClinoraClinicalSupportPanel } from '../../features/doctor/clinora-clinical-support-panel';
 import { doctorApi, type DoctorAppointmentDetail } from '../../features/doctor/doctor-api';
 import { formatDoctorDateTime } from '../../features/doctor/doctor-display';
@@ -56,6 +65,7 @@ export function DoctorConsultationPage() {
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
+  const completionPending = useRef(false);
   const [documentBusy, setDocumentBusy] = useState('');
   const [documentError, setDocumentError] = useState('');
 
@@ -165,7 +175,7 @@ export function DoctorConsultationPage() {
       draft?.prescriptions.length ||
       consultation?.prescriptionDocuments.length ||
       draft?.investigations.length ||
-      draft?.followUp,
+      followUp !== null,
   );
 
   const start = async () => {
@@ -196,16 +206,18 @@ export function DoctorConsultationPage() {
   };
 
   const complete = async () => {
-    if (!consultation || !draft) return;
+    if (!consultation || !draft || !editable || busy !== '' || documentBusy !== '' || completionPending.current) return;
+    completionPending.current = true;
     setBusy('complete');
     setError('');
     try {
       hydrate(await consultationApi.complete(consultation.id, draft));
-      setAppointment(await doctorApi.appointment(appointmentId));
       setConfirmComplete(false);
+      setAppointment(await doctorApi.appointment(appointmentId));
     } catch (requestError) {
       setError(consultationError(requestError, 'We could not complete the consultation.'));
     } finally {
+      completionPending.current = false;
       setBusy('');
     }
   };
@@ -566,37 +578,18 @@ export function DoctorConsultationPage() {
           />
 
           {editable ? (
-            <AppSurface
-              variant="elevated"
-              padding="compact"
-              radius="compact"
-              className="sticky bottom-4 z-20 border-cyan-300/[0.15] bg-[#062038]/95 shadow-[0_18px_55px_rgba(0,0,0,.35)] backdrop-blur-xl"
+            <Dialog
+              open={confirmComplete}
+              onOpenChange={(open) => {
+                if (!completionPending.current) setConfirmComplete(open);
+              }}
             >
-              {confirmComplete ? (
-                <div>
-                  <div className="flex items-start gap-3">
-                    <IconWell tone="success" className="h-9 w-9 rounded-xl">
-                      <CheckCircle2 size={15} />
-                    </IconWell>
-                    <div>
-                      <h2 className="text-sm font-semibold text-white">Complete this consultation?</h2>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">
-                        {hasDigitalContent
-                          ? 'Are you sure you want to finish this consultation? Once completed, the consultation becomes read-only and any Doctor-authored information saved here will be finalized for the Patient workflow.'
-                          : 'You have not added digital clinical notes or care actions to this consultation. You can still complete it. Are you sure you want to finish?'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" variant="ghost" disabled={busy !== ''} onClick={() => setConfirmComplete(false)}>
-                      Keep editing
-                    </Button>
-                    <Button size="sm" variant="appPrimary" disabled={busy !== ''} onClick={() => void complete()}>
-                      {busy === 'complete' ? 'Completing…' : 'Complete consultation'}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
+              <AppSurface
+                variant="elevated"
+                padding="compact"
+                radius="compact"
+                className="sticky bottom-4 z-20 border-cyan-300/[0.15] bg-[#062038]/95 shadow-[0_18px_55px_rgba(0,0,0,.35)] backdrop-blur-xl"
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-white">Ready to finish?</h2>
@@ -619,18 +612,67 @@ export function DoctorConsultationPage() {
                     >
                       <Save size={14} /> {busy === 'save' ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="appPrimary"
-                      disabled={busy !== '' || documentBusy !== ''}
-                      onClick={() => setConfirmComplete(true)}
-                    >
-                      Complete consultation
-                    </Button>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="appPrimary" disabled={busy !== '' || documentBusy !== ''}>
+                        Complete consultation
+                      </Button>
+                    </DialogTrigger>
                   </div>
                 </div>
-              )}
-            </AppSurface>
+              </AppSurface>
+              <DialogContent
+                className="max-w-[480px] border-cyan-300/[0.15] bg-[#061521] text-[#f1f7fc] shadow-[0_18px_55px_rgba(0,0,0,.35)]"
+                aria-busy={busy === 'complete'}
+                onEscapeKeyDown={(event) => {
+                  if (completionPending.current) event.preventDefault();
+                }}
+                onInteractOutside={(event) => {
+                  if (completionPending.current) event.preventDefault();
+                }}
+              >
+                <IconWell tone="success" className="h-10 w-10 rounded-xl">
+                  <CheckCircle2 size={18} aria-hidden="true" />
+                </IconWell>
+                <DialogTitle className="pr-6 text-lg font-semibold tracking-tight">
+                  Complete this consultation?
+                </DialogTitle>
+                <DialogDescription className="text-sm leading-6 text-[#a0b4c7]">
+                  {hasDigitalContent
+                    ? 'Are you sure you want to finish this consultation? Once completed, the Doctor-authored information saved here will be finalized and the consultation will become read-only.'
+                    : 'You have not added digital clinical notes or care actions to this consultation. You can still complete it. Are you sure you want to finish?'}
+                </DialogDescription>
+                {error ? (
+                  <p role="alert" className="text-sm text-amber-200">
+                    {error}
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button size="sm" variant="appSecondary" disabled={busy === 'complete'}>
+                      Keep editing
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    size="sm"
+                    variant="appPrimary"
+                    disabled={busy !== '' || documentBusy !== ''}
+                    onClick={() => void complete()}
+                  >
+                    {busy === 'complete' ? 'Completing…' : 'Complete consultation'}
+                  </Button>
+                </div>
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    aria-label="Close completion confirmation"
+                    disabled={busy === 'complete'}
+                    className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:opacity-50"
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </DialogClose>
+              </DialogContent>
+            </Dialog>
           ) : (
             <AppSurface variant="elevated" padding="compact" radius="compact">
               <div className="flex items-center gap-3">
