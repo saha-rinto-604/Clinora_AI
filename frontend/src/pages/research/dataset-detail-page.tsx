@@ -18,7 +18,9 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  LoaderCircle,
 } from 'lucide-react';
+import { apiErrorMessage } from '../../features/auth/auth-api';
 import {
   BarChart as RechartsBarChart,
   Bar,
@@ -321,11 +323,15 @@ function OverviewTab({
   versions,
   stats,
   onDownload,
+  downloading,
+  downloadError,
 }: {
   dataset: ResearchDataset;
   versions: DatasetVersion[];
   stats: DatasetStatsSummary | null;
   onDownload: (v: DatasetVersion) => void;
+  downloading?: boolean;
+  downloadError?: string | null;
 }) {
   const latest = versions[0];
 
@@ -431,15 +437,19 @@ function OverviewTab({
 
       {/* Download */}
       {latest && (
-        <div className="flex justify-end">
+        <div className="flex flex-col items-end gap-2">
+          {downloadError && (
+            <div className="text-xs text-rose-400 font-medium">{downloadError}</div>
+          )}
           <button
             id="dataset-download-btn"
             type="button"
+            disabled={downloading}
             onClick={() => onDownload(latest)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/25 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/25 transition-colors disabled:opacity-50"
           >
-            <Download className="w-4 h-4" />
-            Download v{latest.versionNumber} ({latest.format})
+            {downloading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {downloading ? 'Downloading...' : `Download v${latest.versionNumber} (${latest.format})`}
           </button>
         </div>
       )}
@@ -720,6 +730,8 @@ export function DatasetDetailPage() {
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!datasetId) return;
@@ -753,16 +765,28 @@ export function DatasetDetailPage() {
 
   const handleDownload = async (version: DatasetVersion) => {
     if (!datasetId) return;
+    setDownloading(true);
+    setDownloadError(null);
     try {
       const response = await researchApi.downloadDatasetVersion(datasetId, version.versionNumber);
-      const url = URL.createObjectURL(new Blob([response.data]));
+      const blob = new Blob([response.data], {
+        type: version.format === 'JSON' ? 'application/json' : 'text/csv;charset=utf-8;'
+      });
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
-      a.download = `dataset-v${version.versionNumber}.${version.format?.toLowerCase() ?? 'csv'}`;
+      a.setAttribute('download', `dataset-${(dataset?.name ?? 'data').replace(/[^a-zA-Z0-9_-]/g, '_')}-v${version.versionNumber}.${version.format?.toLowerCase() ?? 'csv'}`);
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      // Error handled gracefully — button shows nothing
+      window.setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 200);
+    } catch (err: unknown) {
+      setDownloadError(apiErrorMessage(err, 'Failed to download dataset.'));
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -851,6 +875,8 @@ export function DatasetDetailPage() {
           versions={versions}
           stats={statsLoading ? null : stats}
           onDownload={handleDownload}
+          downloading={downloading}
+          downloadError={downloadError}
         />
       )}
       {activeTab === 'descriptive' && (

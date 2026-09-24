@@ -123,7 +123,16 @@ export function AdminResearchDatasetRequestsPage() {
         updated = await adminResearchApi.requestDatasetInfo(selectedId, notesText);
         setActionSuccess('Additional information requested for dataset cohort.');
       } else if (modalType === 'APPROVE') {
-        const isoDate = expiresAtInput ? new Date(expiresAtInput).toISOString() : undefined;
+        let isoDate: string | undefined = undefined;
+        if (expiresAtInput) {
+          const parsed = new Date(expiresAtInput);
+          if (!isNaN(parsed.getTime())) {
+            if (parsed.getFullYear() < 100) {
+              parsed.setFullYear(parsed.getFullYear() + 2000);
+            }
+            isoDate = parsed.toISOString();
+          }
+        }
         updated = await adminResearchApi.approveDataset(selectedId, notesText, isoDate);
         setActionSuccess('Dataset extraction request approved.');
       } else {

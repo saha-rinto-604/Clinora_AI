@@ -26,6 +26,7 @@ public class DefaultDeidentificationService implements DeidentificationService {
     private final int minCohortSize;
     private final String pseudonymSecret;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public DefaultDeidentificationService(
             ObjectMapper objectMapper,
             @Value("${clinora.research.min-cohort-size:5}") int minCohortSize,
@@ -35,13 +36,13 @@ public class DefaultDeidentificationService implements DeidentificationService {
         this.objectMapper = objectMapper;
         this.minCohortSize = minCohortSize;
         if (pseudonymSecret == null || pseudonymSecret.isBlank()) {
-            boolean isTest = environment != null && (
-                    environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test")) ||
+            boolean isDevOrTest = environment != null && (
+                    environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test", "dev")) ||
                     System.getProperty("surefire.test.class.path") != null ||
                     System.getProperty("sun.java.command", "").contains("surefire")
             );
-            if (isTest) {
-                this.pseudonymSecret = "test-only-deterministic-pseudonym-secret-key-material";
+            if (isDevOrTest) {
+                this.pseudonymSecret = "dev-only-clinora-research-pseudonym-secret-change-me";
             } else {
                 throw new IllegalStateException("CLINORA_RESEARCH_PSEUDONYM_SECRET is required but not configured. Application startup aborted for security.");
             }

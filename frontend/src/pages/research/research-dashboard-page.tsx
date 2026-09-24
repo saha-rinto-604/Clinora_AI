@@ -17,6 +17,7 @@ import { apiErrorMessage } from '../../features/auth/auth-api';
 import { researchApi } from '../../features/research/research-api';
 import { ResearchStatusBadge } from '../../features/research/research-status-badge';
 import type { DatasetRequest, ResearchProject } from '../../features/research/research-types';
+import { CinematicBackground } from '../../components/app/cinematic-background';
 
 export function ResearchDashboardPage() {
   const [projects, setProjects] = useState<ResearchProject[]>([]);
@@ -70,8 +71,9 @@ export function ResearchDashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Top Workspace Header */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 p-6 sm:p-8 shadow-xl">
+      {/* Top Workspace Header with Cinematic Background */}
+      <div className="relative isolate overflow-hidden rounded-2xl border border-cyan-500/25 bg-[linear-gradient(135deg,rgba(4,20,27,0.78),rgba(2,11,20,0.85)_50%,rgba(4,20,27,0.92))] p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+        <CinematicBackground heightClass="h-full" className="rounded-2xl" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-800/60 bg-cyan-950/40 px-3 py-1 text-xs font-medium text-cyan-300 mb-3">
