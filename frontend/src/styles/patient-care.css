@@ -1,0 +1,192 @@
+/* Scoped care-page layout. The existing Patient tokens and primitives own the palette. */
+.patient-care {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-bottom: 2rem;
+  overflow-wrap: anywhere;
+}
+
+.patient-care-art {
+  background-image:
+    linear-gradient(90deg, var(--clinora-bg-canvas), transparent 150%),
+    url('/assets/biomedical/patient-care-header-background.webp');
+  background-position:
+    center,
+    right center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.patient-care-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.25rem 1rem 1.5rem;
+  border-radius: var(--radius-app-card);
+  box-shadow: inset 0 -22px 22px -14px var(--clinora-bg-canvas);
+}
+
+.patient-care-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block: 1.25rem 0.875rem;
+}
+
+.patient-care-control {
+  min-height: 40px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--clinora-border-subtle);
+  border-radius: var(--radius-app-compact);
+  background: var(--clinora-surface-1);
+  padding-inline: 0.75rem;
+  color: var(--clinora-text-primary);
+  font-size: 0.8125rem;
+}
+
+.patient-care :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--clinora-info-foreground);
+  outline-offset: 3px;
+}
+
+.patient-care-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.patient-care-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  text-align: left;
+  border-radius: inherit;
+}
+
+.patient-care-appointment-row {
+  display: grid;
+  grid-template-columns: 3.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.patient-care-doctor-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 12rem;
+  align-items: center;
+  gap: 1rem;
+}
+
+.patient-care-doctor-next {
+  border-left: 1px solid var(--clinora-border-subtle);
+  padding-left: 1rem;
+}
+
+.patient-care-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.patient-care-identity-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  border-left: 1px solid var(--clinora-border-interactive);
+}
+
+.patient-care-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.patient-care-datum {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1.2fr);
+  align-items: baseline;
+  gap: 0.625rem;
+  padding-block: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.patient-care-section-heading h2 {
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+.patient-care-section-heading p {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1199px) {
+  .patient-care-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .patient-care-identity {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .patient-care-identity > :first-child {
+    grid-column: 1 / -1;
+  }
+  .patient-care-identity-meta {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .patient-care-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 639px) {
+  .patient-care-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1rem 0.25rem;
+  }
+  .patient-care-appointment-row {
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .patient-care-appointment-row > a {
+    grid-column: 1 / -1;
+  }
+  .patient-care-doctor-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .patient-care-doctor-next {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--clinora-border-subtle);
+    padding: 0.75rem 0 0;
+  }
+  .patient-care-summary-item {
+    padding: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .patient-care-identity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .patient-care-datum {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+  .patient-care-datum dd {
+    margin-left: 1.5625rem;
+  }
+}
