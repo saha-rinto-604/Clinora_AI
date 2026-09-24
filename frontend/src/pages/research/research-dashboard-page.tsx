@@ -34,9 +34,7 @@ export function ResearchDashboardPage() {
         setProjects(projectsData.items);
 
         // For approved projects, fetch their dataset requests
-        const approvedProjects = projectsData.items.filter(
-          (p) => p.status === 'APPROVED' || p.status === 'ACTIVE'
-        );
+        const approvedProjects = projectsData.items.filter((p) => p.status === 'APPROVED' || p.status === 'ACTIVE');
 
         const allRequests: DatasetRequest[] = [];
         for (const p of approvedProjects) {
@@ -61,11 +59,9 @@ export function ResearchDashboardPage() {
   // Compute real metrics from API data (zero fake data!)
   const activeProjectsCount = projects.filter((p) => p.status === 'ACTIVE').length;
   const pendingReviewsCount = projects.filter(
-    (p) => p.status === 'SUBMITTED' || p.status === 'UNDER_REVIEW' || p.status === 'MORE_INFO_REQUIRED'
+    (p) => p.status === 'SUBMITTED' || p.status === 'UNDER_REVIEW' || p.status === 'MORE_INFO_REQUIRED',
   ).length;
-  const approvedProjectsCount = projects.filter(
-    (p) => p.status === 'APPROVED' || p.status === 'ACTIVE'
-  ).length;
+  const approvedProjectsCount = projects.filter((p) => p.status === 'APPROVED' || p.status === 'ACTIVE').length;
   const totalDatasetRequests = datasetRequests.length;
   const approvedDatasetRequests = datasetRequests.filter((r) => r.status === 'APPROVED').length;
 
@@ -80,12 +76,10 @@ export function ResearchDashboardPage() {
               <ShieldCheck className="w-3.5 h-3.5" />
               Governed Research Environment
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">
-              Research Workspace
-            </h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">Research Workspace</h1>
             <p className="mt-2 text-sm text-slate-400 max-w-2xl leading-relaxed">
-              Governed access to privacy-preserving Clinora research resources. Create research protocols,
-              submit studies for institutional review, and manage structured dataset extraction requests.
+              Governed access to privacy-preserving Clinora research resources. Create research protocols, submit
+              studies for institutional review, and manage structured dataset extraction requests.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -178,8 +172,8 @@ export function ResearchDashboardPage() {
                 <FolderGit2 className="w-10 h-10 mx-auto text-slate-600 mb-3" />
                 <div className="text-sm font-medium text-slate-300">No research projects yet</div>
                 <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-                  Start by drafting a research study protocol. Projects require System Admin governance
-                  approval before dataset requests can be submitted.
+                  Start by drafting a research study protocol. Projects require System Admin governance approval before
+                  dataset requests can be submitted.
                 </p>
                 <div className="mt-4">
                   <Link to="/research/projects/new">
@@ -235,9 +229,7 @@ export function ResearchDashboardPage() {
                 <Database className="w-5 h-5 text-indigo-400" />
                 <h2 className="text-lg font-semibold text-slate-100">Dataset Requests</h2>
               </div>
-              <span className="text-xs text-slate-400">
-                {datasetRequests.length} total requests
-              </span>
+              <span className="text-xs text-slate-400">{datasetRequests.length} total requests</span>
             </div>
 
             {loading ? (
@@ -267,9 +259,7 @@ export function ResearchDashboardPage() {
                       >
                         {req.name}
                       </Link>
-                      <div className="mt-0.5 text-xs text-slate-400 font-mono">
-                        Format: {req.requestedFormat}
-                      </div>
+                      <div className="mt-0.5 text-xs text-slate-400 font-mono">Format: {req.requestedFormat}</div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <ResearchStatusBadge status={req.status} />
@@ -295,8 +285,8 @@ export function ResearchDashboardPage() {
               <h3 className="font-semibold text-slate-100 text-sm">Research Data Pipeline</h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Clinical dataset generation is not yet available until eligible verified clinical
-              observations are configured in subsequent phases.
+              Clinical dataset generation is not yet available until eligible verified clinical observations are
+              configured in subsequent phases.
             </p>
             <div className="mt-4 pt-4 border-t border-cyan-900/30 space-y-2.5 text-xs">
               <div className="flex items-center gap-2 text-slate-300">
@@ -316,9 +306,7 @@ export function ResearchDashboardPage() {
 
           {/* Privacy & Governance Principles */}
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5 sm:p-6 backdrop-blur-sm text-xs space-y-3">
-            <h3 className="font-semibold text-slate-200 uppercase tracking-wider text-[11px]">
-              Privacy Commitments
-            </h3>
+            <h3 className="font-semibold text-slate-200 uppercase tracking-wider text-[11px]">Privacy Commitments</h3>
             <ul className="space-y-2 text-slate-400">
               <li className="flex items-start gap-2">
                 <span className="text-cyan-400">•</span>

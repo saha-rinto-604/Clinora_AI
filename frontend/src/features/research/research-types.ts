@@ -11,13 +11,7 @@ export type ResearchProjectStatus =
   | 'WITHDRAWN';
 
 export type DatasetRequestStatus =
-  | 'DRAFT'
-  | 'SUBMITTED'
-  | 'UNDER_REVIEW'
-  | 'MORE_INFO_REQUIRED'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'CANCELLED';
+  'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'MORE_INFO_REQUIRED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 export type DatasetFormat = 'CSV' | 'JSON' | 'PARQUET';
 
@@ -411,12 +405,7 @@ export interface UpdateMemberRolePayload {
 // ─── Phase R15: Publications ─────────────────────────────────────────────────
 
 export type PublicationType =
-  | 'JOURNAL_ARTICLE'
-  | 'CONFERENCE_PAPER'
-  | 'PREPRINT'
-  | 'BOOK_CHAPTER'
-  | 'REPORT'
-  | 'THESIS';
+  'JOURNAL_ARTICLE' | 'CONFERENCE_PAPER' | 'PREPRINT' | 'BOOK_CHAPTER' | 'REPORT' | 'THESIS';
 
 export interface CitationFormats {
   apa: string;
@@ -476,5 +465,3 @@ export interface ResearchAuditLogEntry {
   occurredAt: string;
   metadata?: string;
 }
-
-

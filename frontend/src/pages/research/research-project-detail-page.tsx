@@ -41,7 +41,9 @@ export function ResearchProjectDetailPage() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'collaborators' | 'evaluations' | 'publications' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'collaborators' | 'evaluations' | 'publications' | 'audit'>(
+    'overview',
+  );
 
   const loadData = useCallback(async () => {
     if (!projectId) return;
@@ -69,7 +71,13 @@ export function ResearchProjectDetailPage() {
   }, [loadData]);
 
   const handleSubmit = async () => {
-    if (!projectId || !window.confirm('Submit this research project for administrative review? Editing will be locked until review is complete.')) return;
+    if (
+      !projectId ||
+      !window.confirm(
+        'Submit this research project for administrative review? Editing will be locked until review is complete.',
+      )
+    )
+      return;
     setActionLoading(true);
     setError('');
     setActionSuccess('');
@@ -334,20 +342,14 @@ export function ResearchProjectDetailPage() {
             <>
               {/* Objective */}
               <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 space-y-3">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Research Objective
-                </h2>
-                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-                  {project.objective}
-                </p>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Research Objective</h2>
+                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{project.objective}</p>
               </div>
 
               {/* Methodology */}
               {project.methodologySummary ? (
                 <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 space-y-3">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Methodology Summary
-                  </h2>
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Methodology Summary</h2>
                   <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
                     {project.methodologySummary}
                   </p>
@@ -360,9 +362,7 @@ export function ResearchProjectDetailPage() {
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Study Background &amp; Details
                   </h2>
-                  <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-                    {project.description}
-                  </p>
+                  <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{project.description}</p>
                 </div>
               ) : null}
 
@@ -415,9 +415,7 @@ export function ResearchProjectDetailPage() {
                           >
                             {req.name}
                           </Link>
-                          <div className="text-xs text-slate-400 font-mono mt-0.5">
-                            Format: {req.requestedFormat}
-                          </div>
+                          <div className="text-xs text-slate-400 font-mono mt-0.5">Format: {req.requestedFormat}</div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <ResearchStatusBadge status={req.status} />
@@ -436,10 +434,7 @@ export function ResearchProjectDetailPage() {
           )}
 
           {activeTab === 'collaborators' && (
-            <ProjectCollaboratorsSection
-              projectId={project.id}
-              isOwner={user?.id === project.ownerUserId}
-            />
+            <ProjectCollaboratorsSection projectId={project.id} isOwner={user?.id === project.ownerUserId} />
           )}
 
           {activeTab === 'evaluations' && (
@@ -447,44 +442,31 @@ export function ResearchProjectDetailPage() {
           )}
 
           {activeTab === 'publications' && (
-            <ProjectPublicationsSection
-              projectId={project.id}
-              isOwnerOrCollaborator={true}
-            />
+            <ProjectPublicationsSection projectId={project.id} isOwnerOrCollaborator={true} />
           )}
 
-          {activeTab === 'audit' && (
-            <ProjectAuditTrailSection projectId={project.id} />
-          )}
+          {activeTab === 'audit' && <ProjectAuditTrailSection projectId={project.id} />}
         </div>
 
         {/* Right Col: Governance Timeline & Metadata */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-xs space-y-4">
-            <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">
-              Governance Timestamps
-            </h3>
+            <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">Governance Timestamps</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Created:</span>
-                <span className="font-mono text-slate-200">
-                  {new Date(project.createdAt).toLocaleDateString()}
-                </span>
+                <span className="font-mono text-slate-200">{new Date(project.createdAt).toLocaleDateString()}</span>
               </div>
               {project.submittedAt ? (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Submitted:</span>
-                  <span className="font-mono text-slate-200">
-                    {new Date(project.submittedAt).toLocaleDateString()}
-                  </span>
+                  <span className="font-mono text-slate-200">{new Date(project.submittedAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
               {project.reviewedAt ? (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Reviewed:</span>
-                  <span className="font-mono text-slate-200">
-                    {new Date(project.reviewedAt).toLocaleDateString()}
-                  </span>
+                  <span className="font-mono text-slate-200">{new Date(project.reviewedAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
               {project.approvedAt ? (
@@ -498,21 +480,17 @@ export function ResearchProjectDetailPage() {
               {project.archivedAt ? (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Archived:</span>
-                  <span className="font-mono text-slate-400">
-                    {new Date(project.archivedAt).toLocaleDateString()}
-                  </span>
+                  <span className="font-mono text-slate-400">{new Date(project.archivedAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5 text-xs space-y-3">
-            <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">
-              Protocol Integrity
-            </h3>
+            <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">Protocol Integrity</h3>
             <p className="text-slate-400 leading-relaxed">
-              This study is bound to Clinora's de-identification protocol. No direct patient identifying
-              variables will ever be exposed to the research workspace.
+              This study is bound to Clinora's de-identification protocol. No direct patient identifying variables will
+              ever be exposed to the research workspace.
             </p>
           </div>
         </div>

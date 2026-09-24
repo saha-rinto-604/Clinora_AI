@@ -1,10 +1,4 @@
-import {
-  AlertCircle,
-  FolderGit2,
-  Plus,
-  Search,
-  ShieldAlert,
-} from 'lucide-react';
+import { AlertCircle, FolderGit2, Plus, Search, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../../components/ui/button';
@@ -79,14 +73,21 @@ export function ResearchProjectsPage() {
 
       {/* Error & Permission States */}
       {error ? (
-        error.includes('403') || error.toLowerCase().includes('forbidden') || error.toLowerCase().includes('permission') ? (
+        error.includes('403') ||
+        error.toLowerCase().includes('forbidden') ||
+        error.toLowerCase().includes('permission') ? (
           <div className="p-6 rounded-2xl border border-amber-800/80 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 text-amber-200 text-sm space-y-2">
             <div className="flex items-center gap-2 font-semibold text-amber-300">
               <ShieldAlert className="w-5 h-5 text-amber-400" />
               <span>Researcher Permission Required</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed pl-7">
-              Your current Clinora credentials do not have the <code className="font-mono text-cyan-300 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">RESEARCHER</code> role required to create or browse clinical research projects. Please contact your institutional system administrator.
+              Your current Clinora credentials do not have the{' '}
+              <code className="font-mono text-cyan-300 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                RESEARCHER
+              </code>{' '}
+              role required to create or browse clinical research projects. Please contact your institutional system
+              administrator.
             </p>
           </div>
         ) : (
@@ -134,10 +135,7 @@ export function ResearchProjectsPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5 space-y-4 animate-pulse"
-            >
+            <div key={i} className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5 space-y-4 animate-pulse">
               <div className="flex items-center justify-between">
                 <div className="h-4 w-28 bg-slate-800 rounded" />
                 <div className="h-5 w-20 bg-slate-800 rounded-full" />
@@ -195,9 +193,7 @@ export function ResearchProjectsPage() {
                 <h2 className="text-base font-semibold text-slate-100 group-hover:text-cyan-300 transition-colors line-clamp-1">
                   {project.title}
                 </h2>
-                <p className="mt-2 text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                  {project.objective}
-                </p>
+                <p className="mt-2 text-xs text-slate-400 line-clamp-2 leading-relaxed">{project.objective}</p>
               </div>
 
               <div className="mt-5 pt-4 border-t border-slate-800/60 flex items-center justify-between gap-2 text-xs">
@@ -208,7 +204,10 @@ export function ResearchProjectsPage() {
                   </span>
                 </div>
                 <Link to={`/research/projects/${project.id}`}>
-                  <Button variant="secondary" className="text-xs py-1 px-3 h-auto hover:border-cyan-500/40 hover:text-cyan-300">
+                  <Button
+                    variant="secondary"
+                    className="text-xs py-1 px-3 h-auto hover:border-cyan-500/40 hover:text-cyan-300"
+                  >
                     Manage Workspace
                   </Button>
                 </Link>

@@ -1,10 +1,4 @@
-import {
-  AlertCircle,
-  History,
-  LoaderCircle,
-  RefreshCw,
-  ShieldCheck,
-} from 'lucide-react';
+import { AlertCircle, History, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
@@ -66,12 +60,11 @@ export function ProjectAuditTrailSection({ projectId }: ProjectAuditTrailSection
         <div>
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-purple-400" />
-            <h2 className="text-base font-semibold text-slate-100">
-              Research Security Audit Trail
-            </h2>
+            <h2 className="text-base font-semibold text-slate-100">Research Security Audit Trail</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Auditable, scrubbed operational log tracking protocol reviews, collaborator changes, data exports, and AI benchmarks.
+            Auditable, scrubbed operational log tracking protocol reviews, collaborator changes, data exports, and AI
+            benchmarks.
           </p>
         </div>
 
@@ -89,8 +82,9 @@ export function ProjectAuditTrailSection({ projectId }: ProjectAuditTrailSection
       <div className="p-3.5 rounded-xl border border-purple-900/60 bg-purple-950/20 text-xs text-purple-200/90 flex items-start gap-2.5">
         <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
-          <span className="font-semibold text-purple-300">Research Security Audit Policy:</span>{' '}
-          All audit records are automatically sanitized. Raw patient clinical data, identifiers, credentials, and dataset payloads are strictly excluded from audit storage to maintain research data isolation.
+          <span className="font-semibold text-purple-300">Research Security Audit Policy:</span> All audit records are
+          automatically sanitized. Raw patient clinical data, identifiers, credentials, and dataset payloads are
+          strictly excluded from audit storage to maintain research data isolation.
         </div>
       </div>
 
@@ -106,9 +100,7 @@ export function ProjectAuditTrailSection({ projectId }: ProjectAuditTrailSection
           <span>{error}</span>
         </div>
       ) : events.length === 0 ? (
-        <div className="py-8 text-center text-slate-400 text-xs">
-          No audit entries recorded for this project yet.
-        </div>
+        <div className="py-8 text-center text-slate-400 text-xs">No audit entries recorded for this project yet.</div>
       ) : (
         <div className="relative border-l border-slate-800 ml-3 space-y-6 py-2">
           {events.map((event) => (

@@ -52,7 +52,12 @@ function StatusBadge({ status }: { status: string }) {
     EXPIRED: <AlertTriangle className="w-3 h-3" />,
   };
   return (
-    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', styles[status] ?? styles.EXPIRED)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border',
+        styles[status] ?? styles.EXPIRED,
+      )}
+    >
       {icons[status]}
       {status}
     </span>
@@ -87,9 +92,7 @@ function DatasetCard({ dataset, latestVersion }: DatasetCardProps) {
             <div className="font-semibold text-slate-100 text-sm truncate leading-tight group-hover:text-cyan-300 transition-colors">
               {dataset.name}
             </div>
-            <div className="text-[11px] text-slate-400 mt-0.5 font-mono truncate">
-              ID: {dataset.id.slice(0, 8)}…
-            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5 font-mono truncate">ID: {dataset.id.slice(0, 8)}…</div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -114,17 +117,20 @@ function DatasetCard({ dataset, latestVersion }: DatasetCardProps) {
         </div>
         <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-2.5 text-center">
           <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Format</div>
-          <div className="text-sm font-bold text-cyan-300 mt-0.5">
-            {latestVersion?.format ?? '—'}
-          </div>
+          <div className="text-sm font-bold text-cyan-300 mt-0.5">{latestVersion?.format ?? '—'}</div>
         </div>
-        <div className={cn(
-          'rounded-lg border p-2.5 text-center',
-          expiry.urgent
-            ? 'bg-amber-500/10 border-amber-500/30'
-            : 'bg-slate-800/50 border-slate-700/40'
-        )}>
-          <div className={cn('text-[10px] font-medium uppercase tracking-wider', expiry.urgent ? 'text-amber-400' : 'text-slate-400')}>
+        <div
+          className={cn(
+            'rounded-lg border p-2.5 text-center',
+            expiry.urgent ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-800/50 border-slate-700/40',
+          )}
+        >
+          <div
+            className={cn(
+              'text-[10px] font-medium uppercase tracking-wider',
+              expiry.urgent ? 'text-amber-400' : 'text-slate-400',
+            )}
+          >
             Access
           </div>
           <div className={cn('text-[11px] font-semibold mt-0.5', expiry.urgent ? 'text-amber-300' : 'text-slate-300')}>
@@ -169,7 +175,8 @@ function EmptyState() {
       <div>
         <div className="text-lg font-semibold text-slate-200">No datasets yet</div>
         <div className="text-sm text-slate-400 mt-1 max-w-xs">
-          Datasets are generated after an administrator approves your dataset request. Submit a dataset request from a project.
+          Datasets are generated after an administrator approves your dataset request. Submit a dataset request from a
+          project.
         </div>
       </div>
       <Link
@@ -212,7 +219,7 @@ export function DatasetsPage() {
             } catch {
               versionMap[d.id] = undefined;
             }
-          })
+          }),
         );
         if (!cancelled) setVersions(versionMap);
       })
@@ -222,7 +229,9 @@ export function DatasetsPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -255,7 +264,12 @@ export function DatasetsPage() {
           {[
             { label: 'Total Datasets', value: datasets.length },
             { label: 'Active', value: datasets.filter((d) => d.status === 'ACTIVE').length },
-            { label: 'Total Records', value: Object.values(versions).reduce((sum, v) => sum + (v?.recordCount ?? 0), 0).toLocaleString() },
+            {
+              label: 'Total Records',
+              value: Object.values(versions)
+                .reduce((sum, v) => sum + (v?.recordCount ?? 0), 0)
+                .toLocaleString(),
+            },
           ].map((stat) => (
             <div key={stat.label} className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 text-center">
               <div className="text-2xl font-bold text-slate-100">{stat.value}</div>
@@ -273,19 +287,13 @@ export function DatasetsPage() {
           ))}
         </div>
       ) : error ? (
-        <div className="p-6 rounded-xl border border-rose-800/40 bg-rose-950/20 text-rose-300 text-sm">
-          {error}
-        </div>
+        <div className="p-6 rounded-xl border border-rose-800/40 bg-rose-950/20 text-rose-300 text-sm">{error}</div>
       ) : datasets.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="space-y-4">
           {datasets.map((dataset) => (
-            <DatasetCard
-              key={dataset.id}
-              dataset={dataset}
-              latestVersion={versions[dataset.id]}
-            />
+            <DatasetCard key={dataset.id} dataset={dataset} latestVersion={versions[dataset.id]} />
           ))}
         </div>
       )}

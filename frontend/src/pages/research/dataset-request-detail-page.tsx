@@ -286,9 +286,7 @@ export function DatasetRequestDetailPage() {
               </span>
             </div>
             <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-100">{request.name}</h1>
-            <p className="mt-1 text-xs text-slate-400">
-              Created {new Date(request.createdAt).toLocaleDateString()}
-            </p>
+            <p className="mt-1 text-xs text-slate-400">Created {new Date(request.createdAt).toLocaleDateString()}</p>
           </div>
         </div>
 
@@ -384,10 +382,13 @@ export function DatasetRequestDetailPage() {
             </span>
           </div>
           <p className="text-slate-300">
-            Applying 5-year age bands, generating project-scoped pseudonyms via HMAC-SHA256, generalizing observation dates to Year-Quarter, and enforcing minimum cohort size protection (&ge; 5). Your dataset version will appear below once complete.
+            Applying 5-year age bands, generating project-scoped pseudonyms via HMAC-SHA256, generalizing observation
+            dates to Year-Quarter, and enforcing minimum cohort size protection (&ge; 5). Your dataset version will
+            appear below once complete.
           </p>
           <div className="text-[11px] text-cyan-400/80 font-mono">
-            Job ID: {latestJob.id} &bull; Started: {new Date(latestJob.startedAt || latestJob.createdAt).toLocaleTimeString()}
+            Job ID: {latestJob.id} &bull; Started:{' '}
+            {new Date(latestJob.startedAt || latestJob.createdAt).toLocaleTimeString()}
           </div>
         </div>
       ) : null}
@@ -433,11 +434,12 @@ export function DatasetRequestDetailPage() {
                 ) : null}
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Immutable, project-scoped data snapshots verified through the privacy-preserving de-identification pipeline.
+                Immutable, project-scoped data snapshots verified through the privacy-preserving de-identification
+                pipeline.
               </p>
             </div>
 
-            {(!latestJob || latestJob.status === 'SUCCEEDED' || latestJob.status === 'FAILED') ? (
+            {!latestJob || latestJob.status === 'SUCCEEDED' || latestJob.status === 'FAILED' ? (
               <Button
                 onClick={handleGenerate}
                 disabled={generating}
@@ -463,12 +465,15 @@ export function DatasetRequestDetailPage() {
             ) : null}
           </div>
 
-          {versions.length === 0 && (!latestJob || (latestJob.status !== 'PENDING' && latestJob.status !== 'PROCESSING')) ? (
+          {versions.length === 0 &&
+          (!latestJob || (latestJob.status !== 'PENDING' && latestJob.status !== 'PROCESSING')) ? (
             <div className="py-8 text-center space-y-3">
               <Layers className="w-8 h-8 mx-auto text-slate-500" />
               <div className="text-xs text-slate-300 font-medium">No Dataset Versions Generated Yet</div>
               <p className="text-[11px] text-slate-400 max-w-md mx-auto">
-                Click &ldquo;Generate Dataset Snapshot&rdquo; to initiate the pipeline. Direct identifiers will be removed, high-risk quasi-identifiers will be generalized, and project-scoped pseudonyms will be assigned.
+                Click &ldquo;Generate Dataset Snapshot&rdquo; to initiate the pipeline. Direct identifiers will be
+                removed, high-risk quasi-identifiers will be generalized, and project-scoped pseudonyms will be
+                assigned.
               </p>
             </div>
           ) : null}
@@ -486,9 +491,7 @@ export function DatasetRequestDetailPage() {
                   >
                     <div className="space-y-2">
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="font-mono text-sm font-bold text-slate-100">
-                          Version {v.versionNumber}
-                        </span>
+                        <span className="font-mono text-sm font-bold text-slate-100">Version {v.versionNumber}</span>
                         {v.immutable ? (
                           <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
                             <Lock className="w-3 h-3" />
@@ -505,10 +508,14 @@ export function DatasetRequestDetailPage() {
 
                       <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
                         <span>
-                          <strong className="text-slate-200 font-mono">{v.recordCount.toLocaleString()}</strong> eligible observations
+                          <strong className="text-slate-200 font-mono">{v.recordCount.toLocaleString()}</strong>{' '}
+                          eligible observations
                         </span>
                         <span>&bull;</span>
-                        <span>Generated {new Date(v.generatedAt).toLocaleDateString()} at {new Date(v.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>
+                          Generated {new Date(v.generatedAt).toLocaleDateString()} at{' '}
+                          {new Date(v.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2 pt-1 text-[11px] font-mono text-slate-400">
@@ -566,9 +573,7 @@ export function DatasetRequestDetailPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Purpose &amp; Scientific Justification
             </h2>
-            <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
-              {request.purpose}
-            </p>
+            <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{request.purpose}</p>
           </div>
 
           {/* Requested Variables */}
@@ -577,9 +582,7 @@ export function DatasetRequestDetailPage() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Requested Clinical Observation Variables
               </h2>
-              <span className="text-xs text-cyan-400 font-mono">
-                {parsedVariables.length} variables
-              </span>
+              <span className="text-xs text-cyan-400 font-mono">{parsedVariables.length} variables</span>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               {parsedVariables.map((v) => (
@@ -613,9 +616,7 @@ export function DatasetRequestDetailPage() {
               </div>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
                 <div className="text-slate-400 text-[11px]">Requested Format</div>
-                <div className="mt-1 font-mono text-indigo-300 font-semibold">
-                  {request.requestedFormat}
-                </div>
+                <div className="mt-1 font-mono text-indigo-300 font-semibold">{request.requestedFormat}</div>
               </div>
             </div>
           </div>
@@ -624,30 +625,22 @@ export function DatasetRequestDetailPage() {
         {/* Right Col: Timeline & Privacy Guarantees */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-xs space-y-4">
-            <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">
-              Governance Timestamps
-            </h3>
+            <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">Governance Timestamps</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Created:</span>
-                <span className="font-mono text-slate-200">
-                  {new Date(request.createdAt).toLocaleDateString()}
-                </span>
+                <span className="font-mono text-slate-200">{new Date(request.createdAt).toLocaleDateString()}</span>
               </div>
               {request.submittedAt ? (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Submitted:</span>
-                  <span className="font-mono text-slate-200">
-                    {new Date(request.submittedAt).toLocaleDateString()}
-                  </span>
+                  <span className="font-mono text-slate-200">{new Date(request.submittedAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
               {request.reviewedAt ? (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Reviewed:</span>
-                  <span className="font-mono text-slate-200">
-                    {new Date(request.reviewedAt).toLocaleDateString()}
-                  </span>
+                  <span className="font-mono text-slate-200">{new Date(request.reviewedAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
               {request.approvedAt ? (
@@ -661,9 +654,7 @@ export function DatasetRequestDetailPage() {
               {request.expiresAt ? (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Expires:</span>
-                  <span className="font-mono text-amber-400">
-                    {new Date(request.expiresAt).toLocaleDateString()}
-                  </span>
+                  <span className="font-mono text-amber-400">{new Date(request.expiresAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
             </div>
@@ -678,23 +669,38 @@ export function DatasetRequestDetailPage() {
             <ul className="space-y-2 text-slate-300 text-[11px] leading-relaxed">
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">&check;</span>
-                <span><strong>Direct Identifiers Removed:</strong> Names, phones, emails, national IDs, and exact birthdates are permanently excluded.</span>
+                <span>
+                  <strong>Direct Identifiers Removed:</strong> Names, phones, emails, national IDs, and exact birthdates
+                  are permanently excluded.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">&check;</span>
-                <span><strong>Quasi-Identifiers Generalized:</strong> 5-year age bands (top-coded at 85+) and Year-Quarter observation dates.</span>
+                <span>
+                  <strong>Quasi-Identifiers Generalized:</strong> 5-year age bands (top-coded at 85+) and Year-Quarter
+                  observation dates.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">&check;</span>
-                <span><strong>Project-Scoped HMAC:</strong> Pseudonyms prevent longitudinal cross-project correlation attacks.</span>
+                <span>
+                  <strong>Project-Scoped HMAC:</strong> Pseudonyms prevent longitudinal cross-project correlation
+                  attacks.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">&check;</span>
-                <span><strong>Privacy Checks:</strong> Strict minimum cohort size validation (&ge; 5 subjects) before release.</span>
+                <span>
+                  <strong>Privacy Checks:</strong> Strict minimum cohort size validation (&ge; 5 subjects) before
+                  release.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">&check;</span>
-                <span><strong>Private Storage:</strong> Stored in private MinIO buckets with short-lived, audited signed downloads.</span>
+                <span>
+                  <strong>Private Storage:</strong> Stored in private MinIO buckets with short-lived, audited signed
+                  downloads.
+                </span>
               </li>
             </ul>
           </div>

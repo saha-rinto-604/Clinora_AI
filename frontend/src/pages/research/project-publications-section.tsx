@@ -1,15 +1,4 @@
-import {
-  AlertCircle,
-  BookOpen,
-  Check,
-  Copy,
-  ExternalLink,
-  LoaderCircle,
-  Plus,
-  Quote,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { AlertCircle, BookOpen, Check, Copy, ExternalLink, LoaderCircle, Plus, Quote, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
@@ -25,10 +14,7 @@ interface ProjectPublicationsSectionProps {
   isOwnerOrCollaborator: boolean;
 }
 
-export function ProjectPublicationsSection({
-  projectId,
-  isOwnerOrCollaborator,
-}: ProjectPublicationsSectionProps) {
+export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }: ProjectPublicationsSectionProps) {
   const [publications, setPublications] = useState<ResearchPublication[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -140,7 +126,8 @@ export function ProjectPublicationsSection({
             </h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Track published peer-reviewed papers, conference proceedings, preprints, and generate APA, IEEE, and BibTeX citations.
+            Track published peer-reviewed papers, conference proceedings, preprints, and generate APA, IEEE, and BibTeX
+            citations.
           </p>
         </div>
 
@@ -180,10 +167,7 @@ export function ProjectPublicationsSection({
       ) : (
         <div className="divide-y divide-slate-800/60">
           {publications.map((pub) => (
-            <div
-              key={pub.id}
-              className="py-4 flex flex-col md:flex-row md:items-start justify-between gap-4"
-            >
+            <div key={pub.id} className="py-4 flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="space-y-1.5 max-w-2xl">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-slate-800 text-emerald-300 border border-slate-700">
@@ -204,15 +188,11 @@ export function ProjectPublicationsSection({
                 </h3>
 
                 {(pub.journal || pub.conference) && (
-                  <div className="text-xs text-slate-400 italic">
-                    {pub.journal || pub.conference}
-                  </div>
+                  <div className="text-xs text-slate-400 italic">{pub.journal || pub.conference}</div>
                 )}
 
                 {pub.abstractText && (
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                    {pub.abstractText}
-                  </p>
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{pub.abstractText}</p>
                 )}
 
                 {pub.doi && (
@@ -380,12 +360,7 @@ export function ProjectPublicationsSection({
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="text-xs"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsAddModalOpen(false)} className="text-xs">
                   Cancel
                 </Button>
                 <Button
@@ -436,7 +411,11 @@ export function ProjectPublicationsSection({
                     onClick={() => copyToClipboard(citationModalPub.citations.apa, 'APA')}
                     className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                   >
-                    {copiedFormat === 'APA' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    {copiedFormat === 'APA' ? (
+                      <Check className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
                     {copiedFormat === 'APA' ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
@@ -448,14 +427,16 @@ export function ProjectPublicationsSection({
               {/* IEEE */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">
-                    IEEE
-                  </span>
+                  <span className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">IEEE</span>
                   <button
                     onClick={() => copyToClipboard(citationModalPub.citations.ieee, 'IEEE')}
                     className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                   >
-                    {copiedFormat === 'IEEE' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    {copiedFormat === 'IEEE' ? (
+                      <Check className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
                     {copiedFormat === 'IEEE' ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
@@ -467,14 +448,16 @@ export function ProjectPublicationsSection({
               {/* BibTeX */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">
-                    BibTeX
-                  </span>
+                  <span className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">BibTeX</span>
                   <button
                     onClick={() => copyToClipboard(citationModalPub.citations.bibtex, 'BibTeX')}
                     className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                   >
-                    {copiedFormat === 'BibTeX' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    {copiedFormat === 'BibTeX' ? (
+                      <Check className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
                     {copiedFormat === 'BibTeX' ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
@@ -485,11 +468,7 @@ export function ProjectPublicationsSection({
             </div>
 
             <div className="pt-2 flex justify-end">
-              <Button
-                variant="secondary"
-                onClick={() => setCitationModalPub(null)}
-                className="text-xs"
-              >
+              <Button variant="secondary" onClick={() => setCitationModalPub(null)} className="text-xs">
                 Close
               </Button>
             </div>

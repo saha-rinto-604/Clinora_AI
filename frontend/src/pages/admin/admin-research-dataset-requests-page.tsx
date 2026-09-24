@@ -190,7 +190,8 @@ export function AdminResearchDatasetRequestsPage() {
             Dataset Request Reviews
           </h1>
           <p className="mt-1 text-xs text-slate-400">
-            Evaluate cohort extraction filters, requested clinical variables, validity expiration, and privacy-preserving de-identification compliance.
+            Evaluate cohort extraction filters, requested clinical variables, validity expiration, and
+            privacy-preserving de-identification compliance.
           </p>
         </div>
 
@@ -386,9 +387,7 @@ export function AdminResearchDatasetRequestsPage() {
               <div className="py-20 text-center px-4">
                 <Database className="w-8 h-8 text-slate-600 mx-auto mb-2" />
                 <p className="text-xs font-medium text-slate-300">No dataset requests found</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Try adjusting the search query or status filter.
-                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Try adjusting the search query or status filter.</p>
               </div>
             ) : (
               filteredRequests.map((item) => {
@@ -410,9 +409,7 @@ export function AdminResearchDatasetRequestsPage() {
                       <ResearchStatusBadge status={item.status} />
                     </div>
 
-                    <h3 className="mt-2 text-sm font-semibold text-slate-100 line-clamp-1 leading-snug">
-                      {item.name}
-                    </h3>
+                    <h3 className="mt-2 text-sm font-semibold text-slate-100 line-clamp-1 leading-snug">{item.name}</h3>
 
                     <div className="mt-1.5 text-xs text-slate-400 truncate">
                       Study: <span className="text-slate-300 font-medium">{item.projectTitle}</span>
@@ -443,7 +440,8 @@ export function AdminResearchDatasetRequestsPage() {
               <Database className="w-12 h-12 text-slate-700 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-slate-300">No Dataset Request Selected</h3>
               <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-                Select a dataset request from the left queue to evaluate cohort filtering rules, requested medical variables, and record approval decisions.
+                Select a dataset request from the left queue to evaluate cohort filtering rules, requested medical
+                variables, and record approval decisions.
               </p>
             </div>
           ) : (
@@ -633,8 +631,8 @@ export function AdminResearchDatasetRequestsPage() {
                   {modalType === 'MORE_INFO'
                     ? 'Request Information on Dataset Cohort'
                     : modalType === 'APPROVE'
-                    ? 'Approve Dataset Extraction Request'
-                    : 'Reject Dataset Extraction Request'}
+                      ? 'Approve Dataset Extraction Request'
+                      : 'Reject Dataset Extraction Request'}
                 </h3>
               </div>
               <button
@@ -650,8 +648,8 @@ export function AdminResearchDatasetRequestsPage() {
               {modalType === 'MORE_INFO'
                 ? 'State what variables, population filters, or compliance safeguards need clarification from the researcher.'
                 : modalType === 'APPROVE'
-                ? 'Authorizes the generation/export of this dataset. You may set an optional expiration date for dataset access.'
-                : 'State the formal regulatory or security reason why this dataset extraction request is rejected.'}
+                  ? 'Authorizes the generation/export of this dataset. You may set an optional expiration date for dataset access.'
+                  : 'State the formal regulatory or security reason why this dataset extraction request is rejected.'}
             </p>
 
             <textarea
@@ -702,8 +700,8 @@ export function AdminResearchDatasetRequestsPage() {
                   modalType === 'APPROVE'
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                     : modalType === 'REJECT'
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                    : 'bg-amber-600 hover:bg-amber-500 text-white'
+                      ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                      : 'bg-amber-600 hover:bg-amber-500 text-white'
                 }`}
               >
                 {actionLoading ? (

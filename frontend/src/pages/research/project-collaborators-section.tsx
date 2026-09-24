@@ -141,9 +141,7 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
         <div>
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-base font-semibold text-slate-100">
-              Project Collaboration Team (Phase R14)
-            </h2>
+            <h2 className="text-base font-semibold text-slate-100">Project Collaboration Team (Phase R14)</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Project-scoped permission roles governing protocol modifications, dataset requests, and benchmarks.
@@ -168,8 +166,12 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
       <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40 text-xs text-slate-400 flex items-start gap-2.5">
         <Shield className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
-          <span className="text-slate-200 font-medium">Project Permissions Scope:</span>{' '}
-          All users remain globally <code className="text-cyan-300">ROLE_RESEARCHER</code>. Inside this project, members have granular permissions: <strong className="text-slate-300">OWNER</strong> (full administrative rights), <strong className="text-slate-300">CO_RESEARCHER</strong> (cohorts &amp; AI evals), <strong className="text-slate-300">SUPERVISOR</strong> (supervisory read/review), or <strong className="text-slate-300">VIEWER</strong> (read-only audit).
+          <span className="text-slate-200 font-medium">Project Permissions Scope:</span> All users remain globally{' '}
+          <code className="text-cyan-300">ROLE_RESEARCHER</code>. Inside this project, members have granular
+          permissions: <strong className="text-slate-300">OWNER</strong> (full administrative rights),{' '}
+          <strong className="text-slate-300">CO_RESEARCHER</strong> (cohorts &amp; AI evals),{' '}
+          <strong className="text-slate-300">SUPERVISOR</strong> (supervisory read/review), or{' '}
+          <strong className="text-slate-300">VIEWER</strong> (read-only audit).
         </div>
       </div>
 
@@ -185,24 +187,17 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
           <span>{error}</span>
         </div>
       ) : members.length === 0 ? (
-        <div className="py-8 text-center text-slate-400 text-xs">
-          No additional collaborators registered.
-        </div>
+        <div className="py-8 text-center text-slate-400 text-xs">No additional collaborators registered.</div>
       ) : (
         <div className="divide-y divide-slate-800/60">
           {members.map((member) => (
-            <div
-              key={member.id}
-              className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            >
+            <div key={member.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
                   <span>{member.userDisplayName}</span>
                   {getRoleBadge(member.role)}
                 </div>
-                <div className="text-xs text-slate-400 font-mono">
-                  {member.userEmail}
-                </div>
+                <div className="text-xs text-slate-400 font-mono">{member.userEmail}</div>
               </div>
 
               {/* Actions */}
@@ -259,9 +254,7 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
               )}
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  User UUID *
-                </label>
+                <label className="block text-slate-300 font-semibold mb-1">User UUID *</label>
                 <input
                   type="text"
                   required
@@ -270,15 +263,11 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
                   onChange={(e) => setUserIdInput(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Enter the researcher user account UUID.
-                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Enter the researcher user account UUID.</span>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Project Role *
-                </label>
+                <label className="block text-slate-300 font-semibold mb-1">Project Role *</label>
                 <select
                   value={roleInput}
                   onChange={(e) => setRoleInput(e.target.value as ProjectMemberRole)}
@@ -291,12 +280,7 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="text-xs"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsAddModalOpen(false)} className="text-xs">
                   Cancel
                 </Button>
                 <Button

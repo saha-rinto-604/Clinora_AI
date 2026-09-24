@@ -1,9 +1,4 @@
-import {
-  AlertCircle,
-  ArrowLeft,
-  LoaderCircle,
-  Save,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, LoaderCircle, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';

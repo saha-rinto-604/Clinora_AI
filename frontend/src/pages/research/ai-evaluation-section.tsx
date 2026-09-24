@@ -1,12 +1,4 @@
-import {
-  AlertCircle,
-  BrainCircuit,
-  Grid,
-  LoaderCircle,
-  Play,
-  ShieldAlert,
-  X,
-} from 'lucide-react';
+import { AlertCircle, BrainCircuit, Grid, LoaderCircle, Play, ShieldAlert, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
@@ -101,9 +93,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
         <div>
           <div className="flex items-center gap-2">
             <BrainCircuit className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-semibold text-slate-100">
-              AI Model Evaluation Framework (Phase R13)
-            </h2>
+            <h2 className="text-base font-semibold text-slate-100">AI Model Evaluation Framework (Phase R13)</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Reproducible benchmark runs evaluating model versions against gold-standard dataset versions.
@@ -131,7 +121,9 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
           <span>Strict Model Governance Boundary (SRS Rule)</span>
         </div>
         <p className="text-[11px] text-amber-200/80 leading-relaxed pl-6">
-          Research evaluation runs are strictly non-interfering experiment artifacts. Even when evaluation succeeds with 100% metrics, research runs can <strong>never automatically promote or overwrite production models</strong>. Production model deployment requires independent clinical board clearance.
+          Research evaluation runs are strictly non-interfering experiment artifacts. Even when evaluation succeeds with
+          100% metrics, research runs can <strong>never automatically promote or overwrite production models</strong>.
+          Production model deployment requires independent clinical board clearance.
         </p>
       </div>
 
@@ -151,7 +143,8 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
           <BrainCircuit className="w-8 h-8 mx-auto text-slate-600 mb-2" />
           <div className="text-xs font-medium text-slate-300">No evaluation runs yet</div>
           <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-            Benchmark MedGemma or custom extraction models against your approved de-identified dataset versions to compute Accuracy, Precision, Recall, F1, and ROC-AUC.
+            Benchmark MedGemma or custom extraction models against your approved de-identified dataset versions to
+            compute Accuracy, Precision, Recall, F1, and ROC-AUC.
           </p>
         </div>
       ) : (
@@ -177,15 +170,17 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                       run.status === 'COMPLETED'
                         ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                         : run.status === 'RUNNING'
-                        ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
                     }`}
                   >
                     {run.status}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-400 flex items-center gap-3">
-                  <span>Ground truth: <strong className="text-slate-300">{run.groundTruthDefinition}</strong></span>
+                  <span>
+                    Ground truth: <strong className="text-slate-300">{run.groundTruthDefinition}</strong>
+                  </span>
                   <span>•</span>
                   <span>{new Date(run.createdAt).toLocaleString()}</span>
                 </div>
@@ -203,9 +198,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     </div>
                     <div className="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-center">
                       <div className="text-[9px] text-slate-400 uppercase font-semibold">F1</div>
-                      <div className="text-xs font-mono font-bold text-cyan-400">
-                        {run.metrics.f1.toFixed(3)}
-                      </div>
+                      <div className="text-xs font-mono font-bold text-cyan-400">{run.metrics.f1.toFixed(3)}</div>
                     </div>
                     <div className="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-center">
                       <div className="text-[9px] text-slate-400 uppercase font-semibold">Bal. Acc.</div>
@@ -254,9 +247,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
               )}
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Dataset Version UUID *
-                </label>
+                <label className="block text-slate-300 font-semibold mb-1">Dataset Version UUID *</label>
                 <input
                   type="text"
                   required
@@ -331,12 +322,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-xs"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} className="text-xs">
                   Cancel
                 </Button>
                 <Button
@@ -431,13 +417,17 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                       <div className="text-[9px] text-slate-500 mt-0.5">(Sensitivity + Specificity) / 2</div>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">False Positive Rate (FPR)</div>
+                      <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                        False Positive Rate (FPR)
+                      </div>
                       <div className="text-base font-mono font-bold text-rose-400 mt-1">
                         {(selectedRun.metrics.falsePositiveRate * 100).toFixed(2)}%
                       </div>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">False Negative Rate (FNR)</div>
+                      <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                        False Negative Rate (FNR)
+                      </div>
                       <div className="text-base font-mono font-bold text-rose-400 mt-1">
                         {(selectedRun.metrics.falseNegativeRate * 100).toFixed(2)}%
                       </div>
@@ -460,9 +450,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         <div className="text-2xl font-mono font-bold text-emerald-300 mt-1">
                           {selectedRun.metrics.confusionMatrix.truePositives}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Model (+), Ground Truth (+)
-                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1">Model (+), Ground Truth (+)</div>
                       </div>
 
                       <div className="p-4 rounded-lg bg-rose-950/40 border border-rose-800/60">
@@ -472,9 +460,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         <div className="text-2xl font-mono font-bold text-rose-300 mt-1">
                           {selectedRun.metrics.confusionMatrix.falsePositives}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Model (+), Ground Truth (-)
-                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1">Model (+), Ground Truth (-)</div>
                       </div>
 
                       <div className="p-4 rounded-lg bg-rose-950/40 border border-rose-800/60">
@@ -484,9 +470,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         <div className="text-2xl font-mono font-bold text-rose-300 mt-1">
                           {selectedRun.metrics.confusionMatrix.falseNegatives}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Model (-), Ground Truth (+)
-                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1">Model (-), Ground Truth (+)</div>
                       </div>
 
                       <div className="p-4 rounded-lg bg-emerald-950/40 border border-emerald-800/60">
@@ -496,9 +480,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         <div className="text-2xl font-mono font-bold text-emerald-300 mt-1">
                           {selectedRun.metrics.confusionMatrix.trueNegatives}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Model (-), Ground Truth (-)
-                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1">Model (-), Ground Truth (-)</div>
                       </div>
                     </div>
                   </div>
@@ -510,10 +492,22 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     Audit &amp; Experiment Provenance
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-slate-300 text-[11px]">
-                    <div>Run ID: <span className="text-slate-400">{selectedRun.id}</span></div>
-                    <div>Dataset Version: <span className="text-slate-400">{selectedRun.datasetVersionId}</span></div>
-                    <div>Created At: <span className="text-slate-400">{new Date(selectedRun.createdAt).toLocaleString()}</span></div>
-                    <div>Completed At: <span className="text-slate-400">{selectedRun.completedAt ? new Date(selectedRun.completedAt).toLocaleString() : 'N/A'}</span></div>
+                    <div>
+                      Run ID: <span className="text-slate-400">{selectedRun.id}</span>
+                    </div>
+                    <div>
+                      Dataset Version: <span className="text-slate-400">{selectedRun.datasetVersionId}</span>
+                    </div>
+                    <div>
+                      Created At:{' '}
+                      <span className="text-slate-400">{new Date(selectedRun.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      Completed At:{' '}
+                      <span className="text-slate-400">
+                        {selectedRun.completedAt ? new Date(selectedRun.completedAt).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
                   </div>
                   <div className="pt-2 text-[10px] text-slate-500 font-sans">
                     Config: <code className="text-indigo-300">{selectedRun.configuration}</code>
@@ -528,7 +522,9 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     <span>Run is currently executing...</span>
                   </div>
                 ) : (
-                  <div>Run ended with status {selectedRun.status}. {selectedRun.failureReason}</div>
+                  <div>
+                    Run ended with status {selectedRun.status}. {selectedRun.failureReason}
+                  </div>
                 )}
               </div>
             )}

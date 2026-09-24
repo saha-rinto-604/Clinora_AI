@@ -60,7 +60,13 @@ function formatDate(iso?: string) {
 
 function formatDateTime(iso?: string) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function missingPct(v: VariableSummary) {
@@ -93,7 +99,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
             'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150',
             active === t.id
               ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.1)]'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60',
           )}
         >
           {t.icon}
@@ -108,18 +114,26 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 // Stat Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, unit, accent = false }: { label: string; value: string; unit?: string; accent?: boolean }) {
+function StatCard({
+  label,
+  value,
+  unit,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  accent?: boolean;
+}) {
   return (
-    <div className={cn(
-      'rounded-xl border p-4 text-center',
-      accent
-        ? 'bg-cyan-500/10 border-cyan-500/20'
-        : 'bg-slate-800/50 border-slate-700/40'
-    )}>
+    <div
+      className={cn(
+        'rounded-xl border p-4 text-center',
+        accent ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-slate-800/50 border-slate-700/40',
+      )}
+    >
       <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
-      <div className={cn('text-xl font-bold mt-1', accent ? 'text-cyan-300' : 'text-slate-100')}>
-        {value}
-      </div>
+      <div className={cn('text-xl font-bold mt-1', accent ? 'text-cyan-300' : 'text-slate-100')}>{value}</div>
       {unit && <div className="text-[10px] text-slate-500 mt-0.5">{unit}</div>}
     </div>
   );
@@ -141,7 +155,10 @@ function DistributionChart({ variable }: { variable: VariableSummary }) {
     return (
       <div className="flex items-center justify-center py-8 gap-3 text-slate-300 text-sm">
         <FlaskConical className="w-4 h-4 text-cyan-400" />
-        Single observed value: <span className="font-bold text-cyan-300">{fmt(bins[0].lowerBound)} {variable.unit}</span>
+        Single observed value:{' '}
+        <span className="font-bold text-cyan-300">
+          {fmt(bins[0].lowerBound)} {variable.unit}
+        </span>
         <span className="text-slate-500">({bins[0].count} records)</span>
       </div>
     );
@@ -190,7 +207,9 @@ function TrendChart({ points, variableCode, unit }: { points: TrendPoint[]; vari
         <div className="text-center p-5 rounded-xl bg-slate-800/60 border border-slate-700/40">
           <div className="text-xs text-slate-400">{points[0].period}</div>
           <div className="text-2xl font-bold text-cyan-300 mt-1">{fmt(points[0].mean)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{unit ?? ''} · {points[0].count} records</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            {unit ?? ''} · {points[0].count} records
+          </div>
         </div>
       </div>
     );
@@ -211,7 +230,8 @@ function TrendChart({ points, variableCode, unit }: { points: TrendPoint[]; vari
             {i === 1 && (
               <div className={cn('flex items-center justify-center gap-1 mt-2 text-xs font-semibold', color)}>
                 <Icon className="w-3 h-3" />
-                {diff > 0 ? '+' : ''}{fmt(diff)}
+                {diff > 0 ? '+' : ''}
+                {fmt(diff)}
               </div>
             )}
           </div>
@@ -231,7 +251,10 @@ function TrendChart({ points, variableCode, unit }: { points: TrendPoint[]; vari
           contentStyle={{ background: '#0f172a', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }}
           labelStyle={{ color: '#94a3b8' }}
           itemStyle={{ color: '#67e8f9' }}
-          formatter={(v: unknown) => [fmt(typeof v === 'number' ? v : undefined), `Mean ${variableCode} ${unit ? `(${unit})` : ''}`]}
+          formatter={(v: unknown) => [
+            fmt(typeof v === 'number' ? v : undefined),
+            `Mean ${variableCode} ${unit ? `(${unit})` : ''}`,
+          ]}
         />
         <Line
           type="linear"
@@ -267,7 +290,9 @@ function GroupComparisonChart({
         <div className="text-center p-5 rounded-xl bg-slate-800/60 border border-slate-700/40">
           <div className="text-xs text-slate-400">{r.group}</div>
           <div className="text-2xl font-bold text-cyan-300 mt-1">{fmt(r.mean)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">n={r.count} · σ={fmt(r.stdDev)}</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            n={r.count} · σ={fmt(r.stdDev)}
+          </div>
         </div>
       </div>
     );
@@ -281,7 +306,9 @@ function GroupComparisonChart({
           <div key={r.group} className="text-center p-4 rounded-lg bg-slate-800/60 border border-slate-700/40">
             <div className="text-[10px] text-slate-400 uppercase">{r.group}</div>
             <div className="text-xl font-bold text-slate-100 mt-1">{fmt(r.mean)}</div>
-            <div className="text-[10px] text-slate-500">n={r.count} · σ={fmt(r.stdDev)}</div>
+            <div className="text-[10px] text-slate-500">
+              n={r.count} · σ={fmt(r.stdDev)}
+            </div>
           </div>
         ))}
       </div>
@@ -304,10 +331,18 @@ function GroupComparisonChart({
           formatter={(v: unknown, name: unknown) => {
             const val = typeof v === 'number' ? v : undefined;
             const n = String(name ?? '');
-            return [n === 'mean' ? `${fmt(val)} ${unit ?? ''}` : fmt(val), n === 'mean' ? `Mean ${variableCode}` : 'Std Dev'];
+            return [
+              n === 'mean' ? `${fmt(val)} ${unit ?? ''}` : fmt(val),
+              n === 'mean' ? `Mean ${variableCode}` : 'Std Dev',
+            ];
           }}
         />
-        <ReferenceLine y={grandMean} stroke="#334155" strokeDasharray="4 2" label={{ value: 'Overall', fill: '#475569', fontSize: 10 }} />
+        <ReferenceLine
+          y={grandMean}
+          stroke="#334155"
+          strokeDasharray="4 2"
+          label={{ value: 'Overall', fill: '#475569', fontSize: 10 }}
+        />
         <Bar dataKey="mean" fill="#0891b2" radius={[4, 4, 0, 0]} />
       </RechartsBarChart>
     </ResponsiveContainer>
@@ -346,7 +381,10 @@ function OverviewTab({
           <MetaRow label="Format" value={latest?.format ?? '—'} />
           <MetaRow label="Records" value={latest ? latest.recordCount.toLocaleString() : '—'} />
           <MetaRow label="Generated" value={formatDate(latest?.generatedAt)} />
-          <MetaRow label="Expires" value={formatDate(dataset.expiresAt) === '—' ? 'No expiry' : formatDate(dataset.expiresAt)} />
+          <MetaRow
+            label="Expires"
+            value={formatDate(dataset.expiresAt) === '—' ? 'No expiry' : formatDate(dataset.expiresAt)}
+          />
         </div>
 
         {latest && (
@@ -367,7 +405,10 @@ function OverviewTab({
           </div>
           <div className="flex flex-wrap gap-2">
             {stats.variables.map((v) => (
-              <span key={v.variableCode} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
+              <span
+                key={v.variableCode}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-300"
+              >
                 <FlaskConical className="w-3 h-3" />
                 {v.variableCode}
                 {v.unit && <span className="text-indigo-400/60">({v.unit})</span>}
@@ -387,10 +428,18 @@ function OverviewTab({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/40">
-                  <th className="text-left p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Variable</th>
-                  <th className="text-right p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Count</th>
-                  <th className="text-right p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Missing</th>
-                  <th className="text-right p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Missing %</th>
+                  <th className="text-left p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Variable
+                  </th>
+                  <th className="text-right p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Count
+                  </th>
+                  <th className="text-right p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Missing
+                  </th>
+                  <th className="text-right p-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Missing %
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -399,9 +448,12 @@ function OverviewTab({
                     <td className="p-3 font-mono text-xs text-slate-300">{v.variableCode}</td>
                     <td className="p-3 text-right text-slate-200">{v.count.toLocaleString()}</td>
                     <td className="p-3 text-right text-slate-400">{v.missingCount.toLocaleString()}</td>
-                    <td className={cn('p-3 text-right text-xs font-medium',
-                      parseFloat(missingPct(v)) > 20 ? 'text-amber-400' : 'text-slate-400'
-                    )}>
+                    <td
+                      className={cn(
+                        'p-3 text-right text-xs font-medium',
+                        parseFloat(missingPct(v)) > 20 ? 'text-amber-400' : 'text-slate-400',
+                      )}
+                    >
                       {missingPct(v)}
                     </td>
                   </tr>
@@ -438,9 +490,7 @@ function OverviewTab({
       {/* Download */}
       {latest && (
         <div className="flex flex-col items-end gap-2">
-          {downloadError && (
-            <div className="text-xs text-rose-400 font-medium">{downloadError}</div>
-          )}
+          {downloadError && <div className="text-xs text-rose-400 font-medium">{downloadError}</div>}
           <button
             id="dataset-download-btn"
             type="button"
@@ -492,7 +542,9 @@ function DescriptiveStatsTab({ stats }: { stats: DatasetStatsSummary | null; loa
     <div className="space-y-6">
       {/* Variable selector */}
       <div className="flex items-center gap-3">
-        <label htmlFor="var-select" className="text-sm text-slate-400 whitespace-nowrap">Variable:</label>
+        <label htmlFor="var-select" className="text-sm text-slate-400 whitespace-nowrap">
+          Variable:
+        </label>
         <select
           id="var-select"
           value={selectedVar}
@@ -512,8 +564,12 @@ function DescriptiveStatsTab({ stats }: { stats: DatasetStatsSummary | null; loa
           {/* Stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard label="Count" value={variable.count.toLocaleString()} />
-            <StatCard label="Missing" value={variable.missingCount.toLocaleString()}
-              unit={missingPct(variable)} accent={variable.missingCount > 0} />
+            <StatCard
+              label="Missing"
+              value={variable.missingCount.toLocaleString()}
+              unit={missingPct(variable)}
+              accent={variable.missingCount > 0}
+            />
             <StatCard label="Mean" value={fmt(variable.mean)} unit={variable.unit} accent />
             <StatCard label="Median" value={fmt(variable.median)} unit={variable.unit} />
           </div>
@@ -600,8 +656,12 @@ function AnalyticsTab({
     }
   }, [dataset.id, vn, compareVar, groupBy, latestVersion]);
 
-  useEffect(() => { loadTrend(); }, [loadTrend]);
-  useEffect(() => { loadComparison(); }, [loadComparison]);
+  useEffect(() => {
+    loadTrend();
+  }, [loadTrend]);
+  useEffect(() => {
+    loadComparison();
+  }, [loadComparison]);
 
   const trendVariable = variables.find((v) => v.variableCode === trendVar);
   const compareVariable = variables.find((v) => v.variableCode === compareVar);
@@ -648,8 +708,8 @@ function AnalyticsTab({
         )}
         {trendPoints.length >= 3 && (
           <div className="text-[11px] text-slate-500 text-right">
-            {trendPoints.length} real observation period{trendPoints.length !== 1 ? 's' : ''}
-            · X axis values are actual data periods
+            {trendPoints.length} real observation period{trendPoints.length !== 1 ? 's' : ''}· X axis values are actual
+            data periods
           </div>
         )}
       </div>
@@ -687,7 +747,7 @@ function AnalyticsTab({
                   'px-3 py-1 rounded-lg text-xs font-medium border transition-colors',
                   groupBy === g
                     ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300'
-                    : 'border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                    : 'border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-200',
                 )}
               >
                 {g === 'SEX' ? 'Sex' : 'Age Band'}
@@ -736,10 +796,7 @@ export function DatasetDetailPage() {
   useEffect(() => {
     if (!datasetId) return;
     setLoading(true);
-    Promise.all([
-      researchApi.getDataset(datasetId),
-      researchApi.listDatasetVersions(datasetId),
-    ])
+    Promise.all([researchApi.getDataset(datasetId), researchApi.listDatasetVersions(datasetId)])
       .then(([ds, vs]) => {
         setDataset(ds);
         setVersions(vs);
@@ -759,7 +816,9 @@ export function DatasetDetailPage() {
     researchApi
       .getDatasetStats(datasetId, versions[0].versionNumber)
       .then(setStats)
-      .catch(() => {/* stats optional — fail silently */})
+      .catch(() => {
+        /* stats optional — fail silently */
+      })
       .finally(() => setStatsLoading(false));
   }, [activeTab, datasetId, versions, stats]);
 
@@ -770,13 +829,16 @@ export function DatasetDetailPage() {
     try {
       const response = await researchApi.downloadDatasetVersion(datasetId, version.versionNumber);
       const blob = new Blob([response.data], {
-        type: version.format === 'JSON' ? 'application/json' : 'text/csv;charset=utf-8;'
+        type: version.format === 'JSON' ? 'application/json' : 'text/csv;charset=utf-8;',
       });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.setAttribute('download', `dataset-${(dataset?.name ?? 'data').replace(/[^a-zA-Z0-9_-]/g, '_')}-v${version.versionNumber}.${version.format?.toLowerCase() ?? 'csv'}`);
+      a.setAttribute(
+        'download',
+        `dataset-${(dataset?.name ?? 'data').replace(/[^a-zA-Z0-9_-]/g, '_')}-v${version.versionNumber}.${version.format?.toLowerCase() ?? 'csv'}`,
+      );
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => {
@@ -807,7 +869,10 @@ export function DatasetDetailPage() {
           <span className="font-semibold text-sm">Failed to load dataset</span>
         </div>
         <p className="text-rose-300/70 text-sm">{error ?? 'Dataset not found or access denied.'}</p>
-        <Link to="/research/datasets" className="inline-flex items-center gap-1.5 mt-4 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+        <Link
+          to="/research/datasets"
+          className="inline-flex items-center gap-1.5 mt-4 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+        >
           <ChevronLeft className="w-4 h-4" />
           Back to datasets
         </Link>
@@ -842,8 +907,7 @@ export function DatasetDetailPage() {
                 {latestVersion && (
                   <>
                     <span className="flex items-center gap-1">
-                      <Hash className="w-3 h-3" />
-                      v{latestVersion.versionNumber}
+                      <Hash className="w-3 h-3" />v{latestVersion.versionNumber}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
@@ -879,16 +943,18 @@ export function DatasetDetailPage() {
           downloadError={downloadError}
         />
       )}
-      {activeTab === 'descriptive' && (
-        statsLoading
-          ? <div className="h-48 bg-slate-800/40 rounded-xl animate-pulse" />
-          : <DescriptiveStatsTab stats={stats} loading={statsLoading} />
-      )}
-      {activeTab === 'analytics' && (
-        statsLoading
-          ? <div className="h-48 bg-slate-800/40 rounded-xl animate-pulse" />
-          : <AnalyticsTab dataset={dataset} stats={stats} latestVersion={latestVersion} />
-      )}
+      {activeTab === 'descriptive' &&
+        (statsLoading ? (
+          <div className="h-48 bg-slate-800/40 rounded-xl animate-pulse" />
+        ) : (
+          <DescriptiveStatsTab stats={stats} loading={statsLoading} />
+        ))}
+      {activeTab === 'analytics' &&
+        (statsLoading ? (
+          <div className="h-48 bg-slate-800/40 rounded-xl animate-pulse" />
+        ) : (
+          <AnalyticsTab dataset={dataset} stats={stats} latestVersion={latestVersion} />
+        ))}
     </div>
   );
 }

@@ -36,9 +36,6 @@ import type {
   UpdatePublicationPayload,
 } from './research-types';
 
-
-
-
 export interface ProjectListParams {
   status?: ResearchProjectStatus | '';
   page?: number;
@@ -97,7 +94,7 @@ export const researchApi = {
   async listDatasetRequests(projectId: string, params?: { page?: number; size?: number }) {
     const response = await apiClient.get<ApiEnvelope<DatasetRequestPageResponse>>(
       `/research/projects/${projectId}/dataset-requests`,
-      { params }
+      { params },
     );
     return response.data.data;
   },
@@ -110,7 +107,7 @@ export const researchApi = {
   async createDatasetRequest(projectId: string, input: CreateDatasetRequestInput) {
     const response = await apiClient.post<ApiEnvelope<DatasetRequest>>(
       `/research/projects/${projectId}/dataset-requests`,
-      input
+      input,
     );
     return response.data.data;
   },
@@ -118,21 +115,21 @@ export const researchApi = {
   async updateDatasetRequest(requestId: string, input: UpdateDatasetRequestInput) {
     const response = await apiClient.patch<ApiEnvelope<DatasetRequest>>(
       `/research/dataset-requests/${requestId}`,
-      input
+      input,
     );
     return response.data.data;
   },
 
   async submitDatasetRequest(requestId: string) {
     const response = await apiClient.post<ApiEnvelope<DatasetRequest>>(
-      `/research/dataset-requests/${requestId}/submit`
+      `/research/dataset-requests/${requestId}/submit`,
     );
     return response.data.data;
   },
 
   async cancelDatasetRequest(requestId: string) {
     const response = await apiClient.post<ApiEnvelope<DatasetRequest>>(
-      `/research/dataset-requests/${requestId}/cancel`
+      `/research/dataset-requests/${requestId}/cancel`,
     );
     return response.data.data;
   },
@@ -143,53 +140,45 @@ export const researchApi = {
   },
 
   async previewCohort(criteria: CohortFilterCriteria) {
-    const response = await apiClient.post<ApiEnvelope<CohortPreviewResponse>>(
-      '/research/cohort/preview',
-      criteria
-    );
+    const response = await apiClient.post<ApiEnvelope<CohortPreviewResponse>>('/research/cohort/preview', criteria);
     return response.data.data;
   },
 
   async triggerGeneration(requestId: string) {
     const response = await apiClient.post<ApiEnvelope<DatasetGenerationJob>>(
-      `/research/dataset-requests/${requestId}/generate`
+      `/research/dataset-requests/${requestId}/generate`,
     );
     return response.data.data;
   },
 
   async getLatestGenerationJob(requestId: string) {
     const response = await apiClient.get<ApiEnvelope<DatasetGenerationJob | null>>(
-      `/research/dataset-requests/${requestId}/generation-jobs/latest`
+      `/research/dataset-requests/${requestId}/generation-jobs/latest`,
     );
     return response.data.data;
   },
 
   async getDatasetByRequest(requestId: string) {
     const response = await apiClient.get<ApiEnvelope<ResearchDataset | null>>(
-      `/research/dataset-requests/${requestId}/dataset`
+      `/research/dataset-requests/${requestId}/dataset`,
     );
     return response.data.data;
   },
 
   async getDataset(datasetId: string) {
-    const response = await apiClient.get<ApiEnvelope<ResearchDataset>>(
-      `/research/datasets/${datasetId}`
-    );
+    const response = await apiClient.get<ApiEnvelope<ResearchDataset>>(`/research/datasets/${datasetId}`);
     return response.data.data;
   },
 
   async listDatasetVersions(datasetId: string) {
-    const response = await apiClient.get<ApiEnvelope<DatasetVersion[]>>(
-      `/research/datasets/${datasetId}/versions`
-    );
+    const response = await apiClient.get<ApiEnvelope<DatasetVersion[]>>(`/research/datasets/${datasetId}/versions`);
     return response.data.data;
   },
 
   async downloadDatasetVersion(datasetId: string, versionNumber: number) {
-    const response = await apiClient.get(
-      `/research/datasets/${datasetId}/versions/${versionNumber}/download`,
-      { responseType: 'blob' }
-    );
+    const response = await apiClient.get(`/research/datasets/${datasetId}/versions/${versionNumber}/download`, {
+      responseType: 'blob',
+    });
     return response;
   },
 
@@ -206,15 +195,19 @@ export const researchApi = {
   /** Full descriptive statistics summary for all variables in a dataset version. */
   async getDatasetStats(datasetId: string, versionNumber: number): Promise<DatasetStatsSummary> {
     const response = await apiClient.get<ApiEnvelope<DatasetStatsSummary>>(
-      `/research/datasets/${datasetId}/versions/${versionNumber}/stats`
+      `/research/datasets/${datasetId}/versions/${versionNumber}/stats`,
     );
     return response.data.data;
   },
 
   /** Frequency histogram bins for a single variable. Only real data bins. */
-  async getVariableDistribution(datasetId: string, versionNumber: number, variableCode: string): Promise<FrequencyBin[]> {
+  async getVariableDistribution(
+    datasetId: string,
+    versionNumber: number,
+    variableCode: string,
+  ): Promise<FrequencyBin[]> {
     const response = await apiClient.get<ApiEnvelope<FrequencyBin[]>>(
-      `/research/datasets/${datasetId}/versions/${versionNumber}/stats/${variableCode}/distribution`
+      `/research/datasets/${datasetId}/versions/${versionNumber}/stats/${variableCode}/distribution`,
     );
     return response.data.data;
   },
@@ -222,7 +215,7 @@ export const researchApi = {
   /** Time trend: mean per real observation period. Never interpolated. */
   async getVariableTrend(datasetId: string, versionNumber: number, variableCode: string): Promise<TrendPoint[]> {
     const response = await apiClient.get<ApiEnvelope<TrendPoint[]>>(
-      `/research/datasets/${datasetId}/versions/${versionNumber}/stats/${variableCode}/trend`
+      `/research/datasets/${datasetId}/versions/${versionNumber}/stats/${variableCode}/trend`,
     );
     return response.data.data;
   },
@@ -232,11 +225,11 @@ export const researchApi = {
     datasetId: string,
     versionNumber: number,
     variableCode: string,
-    groupBy: 'SEX' | 'AGE_BAND'
+    groupBy: 'SEX' | 'AGE_BAND',
   ): Promise<GroupComparisonRow[]> {
     const response = await apiClient.get<ApiEnvelope<GroupComparisonRow[]>>(
       `/research/datasets/${datasetId}/versions/${versionNumber}/stats/compare`,
-      { params: { variable: variableCode, groupBy } }
+      { params: { variable: variableCode, groupBy } },
     );
     return response.data.data;
   },
@@ -247,23 +240,21 @@ export const researchApi = {
   async createEvaluationRun(projectId: string, payload: CreateEvaluationRunPayload): Promise<AIEvaluationRun> {
     const response = await apiClient.post<ApiEnvelope<AIEvaluationRun>>(
       `/research/projects/${projectId}/evaluations`,
-      payload
+      payload,
     );
     return response.data.data;
   },
 
   /** List all AI model evaluation runs for a project. */
   async listEvaluationRuns(projectId: string): Promise<AIEvaluationRun[]> {
-    const response = await apiClient.get<ApiEnvelope<AIEvaluationRun[]>>(
-      `/research/projects/${projectId}/evaluations`
-    );
+    const response = await apiClient.get<ApiEnvelope<AIEvaluationRun[]>>(`/research/projects/${projectId}/evaluations`);
     return response.data.data;
   },
 
   /** Get detail and computed diagnostic metrics for an evaluation run. */
   async getEvaluationRun(projectId: string, runId: string): Promise<AIEvaluationRun> {
     const response = await apiClient.get<ApiEnvelope<AIEvaluationRun>>(
-      `/research/projects/${projectId}/evaluations/${runId}`
+      `/research/projects/${projectId}/evaluations/${runId}`,
     );
     return response.data.data;
   },
@@ -271,7 +262,7 @@ export const researchApi = {
   /** Cancel an in-progress or queued evaluation run. */
   async cancelEvaluationRun(projectId: string, runId: string): Promise<AIEvaluationRun> {
     const response = await apiClient.post<ApiEnvelope<AIEvaluationRun>>(
-      `/research/projects/${projectId}/evaluations/${runId}/cancel`
+      `/research/projects/${projectId}/evaluations/${runId}/cancel`,
     );
     return response.data.data;
   },
@@ -281,7 +272,7 @@ export const researchApi = {
   /** List project team members. */
   async listProjectMembers(projectId: string): Promise<ResearchProjectMember[]> {
     const response = await apiClient.get<ApiEnvelope<ResearchProjectMember[]>>(
-      `/research/projects/${projectId}/members`
+      `/research/projects/${projectId}/members`,
     );
     return response.data.data;
   },
@@ -290,16 +281,20 @@ export const researchApi = {
   async addProjectMember(projectId: string, payload: AddMemberPayload): Promise<ResearchProjectMember> {
     const response = await apiClient.post<ApiEnvelope<ResearchProjectMember>>(
       `/research/projects/${projectId}/members`,
-      payload
+      payload,
     );
     return response.data.data;
   },
 
   /** Update a collaborator's project-level role. */
-  async updateProjectMemberRole(projectId: string, memberId: string, payload: UpdateMemberRolePayload): Promise<ResearchProjectMember> {
+  async updateProjectMemberRole(
+    projectId: string,
+    memberId: string,
+    payload: UpdateMemberRolePayload,
+  ): Promise<ResearchProjectMember> {
     const response = await apiClient.put<ApiEnvelope<ResearchProjectMember>>(
       `/research/projects/${projectId}/members/${memberId}`,
-      payload
+      payload,
     );
     return response.data.data;
   },
@@ -314,7 +309,7 @@ export const researchApi = {
   /** List publications for a project. */
   async listPublications(projectId: string): Promise<ResearchPublication[]> {
     const response = await apiClient.get<ApiEnvelope<ResearchPublication[]>>(
-      `/research/projects/${projectId}/publications`
+      `/research/projects/${projectId}/publications`,
     );
     return response.data.data;
   },
@@ -323,16 +318,20 @@ export const researchApi = {
   async createPublication(projectId: string, payload: CreatePublicationPayload): Promise<ResearchPublication> {
     const response = await apiClient.post<ApiEnvelope<ResearchPublication>>(
       `/research/projects/${projectId}/publications`,
-      payload
+      payload,
     );
     return response.data.data;
   },
 
   /** Update publication details. */
-  async updatePublication(projectId: string, pubId: string, payload: UpdatePublicationPayload): Promise<ResearchPublication> {
+  async updatePublication(
+    projectId: string,
+    pubId: string,
+    payload: UpdatePublicationPayload,
+  ): Promise<ResearchPublication> {
     const response = await apiClient.put<ApiEnvelope<ResearchPublication>>(
       `/research/projects/${projectId}/publications/${pubId}`,
-      payload
+      payload,
     );
     return response.data.data;
   },
@@ -347,14 +346,11 @@ export const researchApi = {
   /** Retrieve sanitized project audit history. */
   async getProjectAuditTrail(projectId: string): Promise<ResearchAuditLogEntry[]> {
     const response = await apiClient.get<ApiEnvelope<ResearchAuditLogEntry[]>>(
-      `/research/projects/${projectId}/audit-events`
+      `/research/projects/${projectId}/audit-events`,
     );
     return response.data.data;
   },
 };
-
-
-
 
 export const adminResearchApi = {
   async listProjects(params?: { status?: ResearchProjectStatus | ''; page?: number; size?: number; sort?: string }) {
@@ -371,14 +367,14 @@ export const adminResearchApi = {
 
   async getProjectDetail(projectId: string) {
     const response = await apiClient.get<ApiEnvelope<AdminProjectDetailResponse>>(
-      `/admin/research/projects/${projectId}`
+      `/admin/research/projects/${projectId}`,
     );
     return response.data.data;
   },
 
   async startReview(projectId: string) {
     const response = await apiClient.post<ApiEnvelope<AdminProjectDetailResponse>>(
-      `/admin/research/projects/${projectId}/start-review`
+      `/admin/research/projects/${projectId}/start-review`,
     );
     return response.data.data;
   },
@@ -386,7 +382,7 @@ export const adminResearchApi = {
   async requestInfo(projectId: string, comment: string) {
     const response = await apiClient.post<ApiEnvelope<AdminProjectDetailResponse>>(
       `/admin/research/projects/${projectId}/request-info`,
-      { comment }
+      { comment },
     );
     return response.data.data;
   },
@@ -394,7 +390,7 @@ export const adminResearchApi = {
   async approve(projectId: string, comment?: string) {
     const response = await apiClient.post<ApiEnvelope<AdminProjectDetailResponse>>(
       `/admin/research/projects/${projectId}/approve`,
-      { comment }
+      { comment },
     );
     return response.data.data;
   },
@@ -402,7 +398,7 @@ export const adminResearchApi = {
   async reject(projectId: string, comment?: string) {
     const response = await apiClient.post<ApiEnvelope<AdminProjectDetailResponse>>(
       `/admin/research/projects/${projectId}/reject`,
-      { comment }
+      { comment },
     );
     return response.data.data;
   },
@@ -416,21 +412,21 @@ export const adminResearchApi = {
           page: params?.page ?? 1,
           size: params?.size ?? 20,
         },
-      }
+      },
     );
     return response.data.data;
   },
 
   async getDatasetRequestDetail(requestId: string) {
     const response = await apiClient.get<ApiEnvelope<AdminDatasetRequestDetailResponse>>(
-      `/admin/research/dataset-requests/${requestId}`
+      `/admin/research/dataset-requests/${requestId}`,
     );
     return response.data.data;
   },
 
   async startDatasetReview(requestId: string) {
     const response = await apiClient.post<ApiEnvelope<AdminDatasetRequestDetailResponse>>(
-      `/admin/research/dataset-requests/${requestId}/start-review`
+      `/admin/research/dataset-requests/${requestId}/start-review`,
     );
     return response.data.data;
   },
@@ -438,7 +434,7 @@ export const adminResearchApi = {
   async requestDatasetInfo(requestId: string, reviewNotes: string) {
     const response = await apiClient.post<ApiEnvelope<AdminDatasetRequestDetailResponse>>(
       `/admin/research/dataset-requests/${requestId}/request-info`,
-      { reviewNotes }
+      { reviewNotes },
     );
     return response.data.data;
   },
@@ -446,7 +442,7 @@ export const adminResearchApi = {
   async approveDataset(requestId: string, reviewNotes?: string, expiresAt?: string) {
     const response = await apiClient.post<ApiEnvelope<AdminDatasetRequestDetailResponse>>(
       `/admin/research/dataset-requests/${requestId}/approve`,
-      { reviewNotes, expiresAt }
+      { reviewNotes, expiresAt },
     );
     return response.data.data;
   },
@@ -454,7 +450,7 @@ export const adminResearchApi = {
   async rejectDataset(requestId: string, reviewNotes?: string) {
     const response = await apiClient.post<ApiEnvelope<AdminDatasetRequestDetailResponse>>(
       `/admin/research/dataset-requests/${requestId}/reject`,
-      { reviewNotes }
+      { reviewNotes },
     );
     return response.data.data;
   },

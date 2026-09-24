@@ -385,9 +385,7 @@ export function AdminResearchProjectsPage() {
               <div className="py-20 text-center px-4">
                 <FolderGit2 className="w-8 h-8 text-slate-600 mx-auto mb-2" />
                 <p className="text-xs font-medium text-slate-300">No matching protocols found</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Try adjusting the search query or status filter.
-                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Try adjusting the search query or status filter.</p>
               </div>
             ) : (
               filteredQueue.map((item) => {
@@ -445,7 +443,8 @@ export function AdminResearchProjectsPage() {
               <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-slate-300">No Protocol Selected</h3>
               <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-                Select a project protocol from the left governance queue to inspect its clinical objective, methodology, ethics references, and render administrative decisions.
+                Select a project protocol from the left governance queue to inspect its clinical objective, methodology,
+                ethics references, and render administrative decisions.
               </p>
             </div>
           ) : (
@@ -540,7 +539,8 @@ export function AdminResearchProjectsPage() {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>
-                        This study protocol has been approved. The researcher may now submit dataset extraction requests against this protocol.
+                        This study protocol has been approved. The researcher may now submit dataset extraction requests
+                        against this protocol.
                       </span>
                     </div>
                     <Link
@@ -556,7 +556,8 @@ export function AdminResearchProjectsPage() {
                   <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-950/20 text-xs text-amber-300 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>
-                      Awaiting administrative initiation. Click <strong>Start Review</strong> to place this protocol under active institutional evaluation.
+                      Awaiting administrative initiation. Click <strong>Start Review</strong> to place this protocol
+                      under active institutional evaluation.
                     </span>
                   </div>
                 )}
@@ -635,10 +636,10 @@ export function AdminResearchProjectsPage() {
                               isApproved
                                 ? 'border-emerald-800/60'
                                 : isRejected
-                                ? 'border-rose-800/60'
-                                : isInfo
-                                ? 'border-amber-800/60'
-                                : 'border-slate-800'
+                                  ? 'border-rose-800/60'
+                                  : isInfo
+                                    ? 'border-amber-800/60'
+                                    : 'border-slate-800'
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -647,10 +648,10 @@ export function AdminResearchProjectsPage() {
                                   isApproved
                                     ? 'text-emerald-400'
                                     : isRejected
-                                    ? 'text-rose-400'
-                                    : isInfo
-                                    ? 'text-amber-400'
-                                    : 'text-cyan-400'
+                                      ? 'text-rose-400'
+                                      : isInfo
+                                        ? 'text-amber-400'
+                                        : 'text-cyan-400'
                                 }`}
                               >
                                 {rev.action.replace('_', ' ')}
@@ -689,8 +690,8 @@ export function AdminResearchProjectsPage() {
                   {modalType === 'MORE_INFO'
                     ? 'Request Additional Protocol Information'
                     : modalType === 'APPROVE'
-                    ? 'Grant Governance Protocol Approval'
-                    : 'Reject Research Study Protocol'}
+                      ? 'Grant Governance Protocol Approval'
+                      : 'Reject Research Study Protocol'}
                 </h3>
               </div>
               <button
@@ -706,8 +707,8 @@ export function AdminResearchProjectsPage() {
               {modalType === 'MORE_INFO'
                 ? 'Specify what clarifications, ethical documentation, or methodological revisions are needed from the principal investigator.'
                 : modalType === 'APPROVE'
-                ? 'Confirming approval authorizes this research study on Clinora. You may provide optional administrative notes or conditions.'
-                : 'State the formal regulatory, methodological, or governance reason why this protocol cannot be approved.'}
+                  ? 'Confirming approval authorizes this research study on Clinora. You may provide optional administrative notes or conditions.'
+                  : 'State the formal regulatory, methodological, or governance reason why this protocol cannot be approved.'}
             </p>
 
             <textarea
@@ -740,8 +741,8 @@ export function AdminResearchProjectsPage() {
                   modalType === 'APPROVE'
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                     : modalType === 'REJECT'
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                    : 'bg-amber-600 hover:bg-amber-500 text-white'
+                      ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                      : 'bg-amber-600 hover:bg-amber-500 text-white'
                 }`}
               >
                 {actionLoading ? (

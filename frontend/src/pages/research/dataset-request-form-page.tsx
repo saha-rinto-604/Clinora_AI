@@ -43,11 +43,7 @@ export function DatasetRequestFormPage() {
   // Form Fields
   const [name, setName] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [selectedVariables, setSelectedVariables] = useState<string[]>([
-    'AGE_BAND',
-    'HBA1C',
-    'FASTING_GLUCOSE',
-  ]);
+  const [selectedVariables, setSelectedVariables] = useState<string[]>(['AGE_BAND', 'HBA1C', 'FASTING_GLUCOSE']);
   const [minAge, setMinAge] = useState<number>(40);
   const [maxAge, setMaxAge] = useState<number>(65);
   const [selectedSexes, setSelectedSexes] = useState<string[]>(['MALE', 'FEMALE']);
@@ -66,16 +62,13 @@ export function DatasetRequestFormPage() {
       setLoading(true);
       setError('');
       try {
-        const [proj, catalog] = await Promise.all([
-          researchApi.getProject(projectId),
-          researchApi.getCatalog(),
-        ]);
+        const [proj, catalog] = await Promise.all([researchApi.getProject(projectId), researchApi.getCatalog()]);
         setProject(proj);
         setCatalogCategories(catalog.categories || []);
 
         if (proj.status !== 'APPROVED' && proj.status !== 'ACTIVE') {
           setError(
-            `Dataset requests can only be initiated for APPROVED or ACTIVE research projects. Current status: ${proj.status}`
+            `Dataset requests can only be initiated for APPROVED or ACTIVE research projects. Current status: ${proj.status}`,
           );
         }
       } catch (err: unknown) {
@@ -114,7 +107,11 @@ export function DatasetRequestFormPage() {
     setConditions(conditions.filter((_, i) => i !== index));
   };
 
-  const updateCondition = (index: number, field: keyof ObservationCondition, val: ObservationCondition[keyof ObservationCondition]) => {
+  const updateCondition = (
+    index: number,
+    field: keyof ObservationCondition,
+    val: ObservationCondition[keyof ObservationCondition],
+  ) => {
     const updated = [...conditions];
     updated[index] = { ...updated[index], [field]: val };
     setConditions(updated);
@@ -254,8 +251,8 @@ export function DatasetRequestFormPage() {
             Governance Prerequisite Enforced
           </div>
           <p className="text-xs text-amber-200/90 leading-relaxed">
-            Clinora AI requires that research project protocols be vetted and approved by a System
-            Administrator before clinical observation datasets can be requested.
+            Clinora AI requires that research project protocols be vetted and approved by a System Administrator before
+            clinical observation datasets can be requested.
           </p>
           <Link to={`/research/projects/${projectId}`}>
             <Button variant="secondary" className="text-xs mt-2 border-amber-700 text-amber-200">
@@ -312,7 +309,9 @@ export function DatasetRequestFormPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <label htmlFor="minAge" className="text-[11px] text-slate-400">Min Age (Years)</label>
+                  <label htmlFor="minAge" className="text-[11px] text-slate-400">
+                    Min Age (Years)
+                  </label>
                   <input
                     id="minAge"
                     type="number"
@@ -325,7 +324,9 @@ export function DatasetRequestFormPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="maxAge" className="text-[11px] text-slate-400">Max Age (Years)</label>
+                  <label htmlFor="maxAge" className="text-[11px] text-slate-400">
+                    Max Age (Years)
+                  </label>
                   <input
                     id="maxAge"
                     type="number"
@@ -338,7 +339,9 @@ export function DatasetRequestFormPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="dateFrom" className="text-[11px] text-slate-400">Date From</label>
+                  <label htmlFor="dateFrom" className="text-[11px] text-slate-400">
+                    Date From
+                  </label>
                   <input
                     id="dateFrom"
                     type="date"
@@ -349,7 +352,9 @@ export function DatasetRequestFormPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="dateTo" className="text-[11px] text-slate-400">Date To</label>
+                  <label htmlFor="dateTo" className="text-[11px] text-slate-400">
+                    Date To
+                  </label>
                   <input
                     id="dateTo"
                     type="date"
@@ -406,7 +411,8 @@ export function DatasetRequestFormPage() {
 
               {conditions.length === 0 ? (
                 <div className="p-3 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-500">
-                  No laboratory threshold conditions configured. All verified observations in the date range will qualify.
+                  No laboratory threshold conditions configured. All verified observations in the date range will
+                  qualify.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -490,7 +496,9 @@ export function DatasetRequestFormPage() {
                           type="number"
                           step="0.01"
                           value={cond.value ?? ''}
-                          onChange={(e) => updateCondition(idx, 'value', e.target.value === '' ? undefined : Number(e.target.value))}
+                          onChange={(e) =>
+                            updateCondition(idx, 'value', e.target.value === '' ? undefined : Number(e.target.value))
+                          }
                           placeholder="e.g. 6.5"
                           className="w-24 px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
                         />
@@ -504,7 +512,13 @@ export function DatasetRequestFormPage() {
                             type="number"
                             step="0.01"
                             value={cond.maxValue ?? ''}
-                            onChange={(e) => updateCondition(idx, 'maxValue', e.target.value === '' ? undefined : Number(e.target.value))}
+                            onChange={(e) =>
+                              updateCondition(
+                                idx,
+                                'maxValue',
+                                e.target.value === '' ? undefined : Number(e.target.value),
+                              )
+                            }
                             placeholder="e.g. 10.0"
                             className="w-24 px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
                           />
@@ -590,9 +604,7 @@ export function DatasetRequestFormPage() {
 
             {/* Section 4: Desired Export Snapshot Format */}
             <div className="space-y-2 pt-4 border-t border-slate-800/80">
-              <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                4. Snapshot Data Format
-              </h2>
+              <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">4. Snapshot Data Format</h2>
               <div className="flex items-center gap-3">
                 {(['CSV', 'JSON', 'PARQUET'] as DatasetFormat[]).map((fmt) => (
                   <button
@@ -657,9 +669,7 @@ export function DatasetRequestFormPage() {
 
                     <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
                       <div className="text-[10px] text-slate-500 uppercase tracking-wider">Filters Applied</div>
-                      <div className="text-lg font-bold font-mono text-slate-200">
-                        {previewResult.filtersApplied}
-                      </div>
+                      <div className="text-lg font-bold font-mono text-slate-200">{previewResult.filtersApplied}</div>
                     </div>
 
                     <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
@@ -690,7 +700,8 @@ export function DatasetRequestFormPage() {
               <div className="p-2.5 rounded-xl border border-cyan-900/30 bg-cyan-950/10 text-[11px] text-cyan-300/80 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
                 <span>
-                  <strong>Zero PII Guarantee:</strong> Preview returns strictly aggregated counts. No patient names, emails, user IDs, or report identifiers are returned or exposed.
+                  <strong>Zero PII Guarantee:</strong> Preview returns strictly aggregated counts. No patient names,
+                  emails, user IDs, or report identifiers are returned or exposed.
                 </span>
               </div>
             </div>

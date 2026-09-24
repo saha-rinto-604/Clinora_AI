@@ -49,20 +49,14 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
   },
   {
     label: 'Governance & Account',
-    items: [
-      { to: '/account', label: 'Security & account', shortLabel: 'Account', icon: LockKeyhole },
-    ],
+    items: [{ to: '/account', label: 'Security & account', shortLabel: 'Account', icon: LockKeyhole }],
   },
 ];
 
 const allNavigation = navigation.flatMap((section) => section.items);
 
 export function ResearchLayout({ children }: { children?: ReactNode } = {}) {
-  return (
-    <ResearchShell>
-      {children ? children : <Outlet />}
-    </ResearchShell>
-  );
+  return <ResearchShell>{children ? children : <Outlet />}</ResearchShell>;
 }
 
 export function ResearchShell({ children }: { children: ReactNode }) {
@@ -123,9 +117,7 @@ export function ResearchShell({ children }: { children: ReactNode }) {
     }
   };
 
-  const displayName = user?.firstName
-    ? `${user.firstName} ${user.lastName ?? ''}`.trim()
-    : 'Researcher';
+  const displayName = user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Researcher';
   const displayEmail = user?.email ?? 'researcher@clinora.local';
 
   return (
@@ -133,7 +125,10 @@ export function ResearchShell({ children }: { children: ReactNode }) {
       {/* Fixed 244px Sidebar Matching Patient & Doctor Workspaces */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[244px] flex-col border-r border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-4 py-6 lg:flex">
         {/* Brand Header */}
-        <NavLink to="/research" className="flex min-h-11 items-center gap-3 rounded-2xl px-3 transition-opacity hover:opacity-90">
+        <NavLink
+          to="/research"
+          className="flex min-h-11 items-center gap-3 rounded-2xl px-3 transition-opacity hover:opacity-90"
+        >
           <ClinoraBrandMark />
           <span>
             <span className="block font-semibold tracking-[-0.02em]">Clinora AI</span>
@@ -146,7 +141,10 @@ export function ResearchShell({ children }: { children: ReactNode }) {
         {/* Navigation Sections */}
         <nav aria-label="Research navigation" className="mt-7 grid gap-5">
           {navigation.map((section) => (
-            <section key={section.label} aria-labelledby={`research-nav-${section.label.toLowerCase().replace(/\s+/g, '-')}`}>
+            <section
+              key={section.label}
+              aria-labelledby={`research-nav-${section.label.toLowerCase().replace(/\s+/g, '-')}`}
+            >
               <h2
                 id={`research-nav-${section.label.toLowerCase().replace(/\s+/g, '-')}`}
                 className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600"
@@ -196,19 +194,10 @@ export function ResearchShell({ children }: { children: ReactNode }) {
                 className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-2.5 text-left hover:bg-white/[0.06] transition-colors"
                 aria-label="Open Researcher account menu"
               >
-                <ProfileAvatar
-                  source={{ kind: 'self' }}
-                  name={displayName}
-                  size="sm"
-                  className="rounded-xl"
-                />
+                <ProfileAvatar source={{ kind: 'self' }} name={displayName} size="sm" className="rounded-xl" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-white">
-                    {displayName}
-                  </span>
-                  <span className="block truncate text-[11px] text-slate-500 font-mono">
-                    Researcher
-                  </span>
+                  <span className="block truncate text-sm font-semibold text-white">{displayName}</span>
+                  <span className="block truncate text-[11px] text-slate-500 font-mono">Researcher</span>
                 </span>
                 <ChevronDown size={15} className="text-slate-500" aria-hidden="true" />
               </button>
@@ -273,7 +262,7 @@ export function ResearchShell({ children }: { children: ReactNode }) {
                         'flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-colors',
                         isActive
                           ? 'bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]'
-                          : 'text-slate-400 hover:bg-white/[0.045] hover:text-white'
+                          : 'text-slate-400 hover:bg-white/[0.045] hover:text-white',
                       )
                     }
                   >
@@ -301,7 +290,10 @@ export function ResearchShell({ children }: { children: ReactNode }) {
         <div className="hidden lg:flex min-h-[64px] items-center justify-between gap-6 border-b border-[rgba(125,211,252,0.07)] px-8 py-3 bg-[var(--clinora-bg-canvas)]/80 backdrop-blur-md sticky top-0 z-20">
           {/* Quick Jump / Search */}
           <div className="relative w-full max-w-[480px]">
-            <form onSubmit={handleSearchSubmit} className="relative flex min-h-10 items-center gap-2.5 rounded-xl border border-[rgba(125,211,252,0.14)] bg-[rgba(6,24,37,0.88)] px-3 text-sm text-slate-300 transition-all focus-within:border-cyan-400/60 focus-within:ring-1 focus-within:ring-cyan-400/30">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="relative flex min-h-10 items-center gap-2.5 rounded-xl border border-[rgba(125,211,252,0.14)] bg-[rgba(6,24,37,0.88)] px-3 text-sm text-slate-300 transition-all focus-within:border-cyan-400/60 focus-within:ring-1 focus-within:ring-cyan-400/30"
+            >
               <Search size={16} className="text-slate-400 shrink-0" aria-hidden="true" />
               <input
                 ref={searchInputRef}
