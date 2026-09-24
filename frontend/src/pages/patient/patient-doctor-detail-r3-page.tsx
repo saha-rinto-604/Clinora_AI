@@ -24,6 +24,7 @@ import {
   type ConsultationMode,
   type DoctorDetail,
 } from '../../features/appointments/appointment-api';
+import { consultationApi, type PatientDoctorCareRelationship } from '../../features/consultations/consultation-api';
 import { patientFacingDoctorProfile, type PatientFacingDoctorProfile } from '../../features/doctor/doctor-profile-api';
 import { PatientReportPicker } from '../../features/patient-reports/patient-report-picker-r3';
 import { patientReportApi } from '../../features/patient-reports/patient-report-api';
@@ -36,6 +37,7 @@ export function PatientDoctorDetailPage() {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<DoctorDetail | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<PatientFacingDoctorProfile | null>(null);
+  const [careRelationship, setCareRelationship] = useState<PatientDoctorCareRelationship | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [consultationMode, setConsultationMode] = useState<ConsultationMode | null>(null);
   const [selectedDateKey, setSelectedDateKey] = useState('');
@@ -49,11 +51,16 @@ export function PatientDoctorDetailPage() {
   useEffect(() => {
     let active = true;
     if (!doctorId) return;
-    Promise.all([appointmentApi.doctor(doctorId), patientFacingDoctorProfile(doctorId).catch(() => null)])
-      .then(([doctor, profile]) => {
+    Promise.all([
+      appointmentApi.doctor(doctorId),
+      patientFacingDoctorProfile(doctorId).catch(() => null),
+      consultationApi.patientDoctorRelationship(doctorId).catch(() => null),
+    ])
+      .then(([doctor, profile, relationship]) => {
         if (!active) return;
         setDetail(doctor);
         setProfessionalProfile(profile);
+        setCareRelationship(relationship);
       })
       .catch((requestError) => active && setError(appointmentError(requestError, 'We could not load this Doctor.')));
     return () => {
@@ -70,10 +77,7 @@ export function PatientDoctorDetailPage() {
     [detail],
   );
   const validAvailability = useMemo(
-    () =>
-      consultationMode
-        ? allValidAvailability.filter((slot) => slotSupportsMode(slot, consultationMode))
-        : [],
+    () => (consultationMode ? allValidAvailability.filter((slot) => slotSupportsMode(slot, consultationMode)) : []),
     [allValidAvailability, consultationMode],
   );
   const hasOnlineAvailability = allValidAvailability.some((slot) => slotSupportsMode(slot, 'ONLINE'));
@@ -236,6 +240,15 @@ export function PatientDoctorDetailPage() {
                   ? ` · ${doctor.yearsExperience} years experience`
                   : ''}
             </p>
+            {careRelationship?.returningPatient ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-teal-200">
+                <Check size={13} aria-hidden="true" />
+                Previously consulted
+                {careRelationship.lastConsultationAt
+                  ? ` · Last consultation ${new Date(careRelationship.lastConsultationAt).toLocaleDateString()}`
+                  : ''}
+              </p>
+            ) : null}
             {professionalProfile?.currentOrganization || doctor.currentOrganization ? (
               <p className="mt-2 flex items-center gap-2 text-xs text-slate-600">
                 <BriefcaseBusiness size={13} aria-hidden="true" />

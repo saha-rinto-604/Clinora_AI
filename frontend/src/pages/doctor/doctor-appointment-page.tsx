@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   CalendarClock,
+  ClipboardList,
   FileText,
   HeartPulse,
   Pill,
@@ -40,7 +41,6 @@ export function DoctorAppointmentPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState('');
-  const [meetingUrl, setMeetingUrl] = useState('');
   const [leftReport, setLeftReport] = useState('');
   const [rightReport, setRightReport] = useState('');
 
@@ -51,7 +51,6 @@ export function DoctorAppointmentPage() {
     try {
       const appointment = await doctorApi.appointment(appointmentId);
       setData(appointment);
-      setMeetingUrl(appointment.meetingUrl || '');
       if (appointment.sharedReports.length >= 2) {
         setLeftReport((current) => current || appointment.sharedReports[0].reportId);
         setRightReport((current) => current || appointment.sharedReports[1].reportId);
@@ -84,19 +83,6 @@ export function DoctorAppointmentPage() {
       );
     } catch (requestError) {
       setActionError(doctorError(requestError, 'We could not load your available times.'));
-    }
-  };
-
-  const saveMeetingLink = async () => {
-    if (!data || !meetingUrl.trim()) return;
-    setBusy(true);
-    setActionError('');
-    try {
-      setData(await doctorApi.updateMeetingLink(data.id, meetingUrl.trim()));
-    } catch (requestError) {
-      setActionError(doctorError(requestError, 'We could not save this meeting link.'));
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -191,6 +177,15 @@ export function DoctorAppointmentPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={doctorStatusTone(data.status)}>{doctorStatusLabel(data.status)}</StatusPill>
+          {data.status !== 'CANCELLED' ? (
+            <Link
+              to={`/doctor/appointments/${data.id}/consultation`}
+              className={buttonVariants({ variant: 'appPrimary' })}
+            >
+              <ClipboardList size={15} aria-hidden="true" />
+              {data.status === 'COMPLETED' ? 'Open consultation record' : 'Consultation workspace'}
+            </Link>
+          ) : null}
           {data.canModify ? (
             <>
               <Button variant="appSecondary" onClick={() => void openReschedule()}>
@@ -338,30 +333,15 @@ export function DoctorAppointmentPage() {
             </p>
             {data.consultationMode === 'ONLINE' ? (
               <div className="mt-5 border-t border-[var(--clinora-border-subtle)] pt-5">
-                <label className="block text-sm font-semibold text-white">
-                  Meeting URL
-                  <input
-                    type="url"
-                    inputMode="url"
-                    value={meetingUrl}
-                    onChange={(event) => setMeetingUrl(event.target.value)}
-                    placeholder="https://meet.example.com/consultation"
-                    disabled={!data.canModify || busy}
-                    className="mt-2 min-h-11 w-full rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] px-3 text-sm font-normal text-white outline-none focus:border-[var(--clinora-border-interactive)]"
-                  />
-                </label>
-                <p className="mt-2 text-xs text-[var(--clinora-text-faint)]">A secure HTTPS URL is required.</p>
-                {actionError ? <p role="alert" className="mt-2 text-xs text-rose-200">{actionError}</p> : null}
-                {data.canModify ? (
-                  <Button
-                    variant="appSecondary"
-                    className="mt-3"
-                    disabled={busy || !meetingUrl.trim() || meetingUrl.trim() === (data.meetingUrl || '')}
-                    onClick={() => void saveMeetingLink()}
-                  >
-                    {busy ? 'Saving…' : data.meetingUrl ? 'Update meeting link' : 'Add meeting link'}
-                  </Button>
-                ) : null}
+                <p className="text-sm font-semibold text-white">
+                  {data.meetingUrl ? 'Online meeting room assigned' : 'Online meeting room not configured'}
+                </p>
+                <p className="mt-2 text-xs text-[var(--clinora-text-faint)]">
+                  Your reusable room is assigned automatically to online bookings. Manage it in Availability.
+                </p>
+                <Link to="/doctor/availability" className="mt-3 inline-flex text-sm text-cyan-300">
+                  Manage online consultation room
+                </Link>
               </div>
             ) : null}
           </AppSurface>

@@ -12,10 +12,14 @@ const mocks = vi.hoisted(() => ({
   availability: vi.fn(),
   profile: vi.fn(),
   reports: vi.fn(),
+  joinStatus: vi.fn(),
+  join: vi.fn(),
 }));
 
 vi.mock('../../features/appointments/appointment-api', () => ({
   appointmentApi: {
+    joinStatus: mocks.joinStatus,
+    join: mocks.join,
     doctor: mocks.doctor,
     book: mocks.book,
     detail: mocks.detail,
@@ -89,6 +93,7 @@ describe('appointment consultation modes', () => {
     mocks.reports.mockResolvedValue({ items: [] });
     mocks.shares.mockResolvedValue([]);
     mocks.availability.mockResolvedValue([]);
+    mocks.joinStatus.mockResolvedValue({ roomReady: true, canJoin: false, state: 'TOO_EARLY', opensAt: null });
   });
 
   it('requires a Patient choice for a BOTH slot and preserves it after a booking error', async () => {
@@ -96,7 +101,9 @@ describe('appointment consultation modes', () => {
     mocks.book.mockRejectedValue(new Error('Booking failed safely'));
     render(
       <MemoryRouter initialEntries={[`/patient/doctors/${doctor.id}`]}>
-        <Routes><Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} /></Routes>
+        <Routes>
+          <Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
 
@@ -113,14 +120,19 @@ describe('appointment consultation modes', () => {
     expect(screen.getByRole('button', { name: /Online consultation/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByPlaceholderText(/recurring headaches/i)).toHaveValue('Keep this note');
     expect(screen.getByText('Report picker remains available')).toBeInTheDocument();
-    expect(mocks.book).toHaveBeenCalledWith(expect.objectContaining({ consultationMode: 'ONLINE' }), expect.any(String));
+    expect(mocks.book).toHaveBeenCalledWith(
+      expect.objectContaining({ consultationMode: 'ONLINE' }),
+      expect.any(String),
+    );
   });
 
   it('disables incompatible modes and shows only compatible availability after explicit mode selection', async () => {
     mocks.doctor.mockResolvedValue({ doctor, availability: [{ ...slot, consultationMode: 'IN_PERSON' }] });
     render(
       <MemoryRouter initialEntries={[`/patient/doctors/${doctor.id}`]}>
-        <Routes><Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} /></Routes>
+        <Routes>
+          <Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
 
@@ -145,7 +157,9 @@ describe('appointment consultation modes', () => {
     mocks.doctor.mockResolvedValue({ doctor, availability: [onlineSlot, bothSlot, inPersonSlot] });
     render(
       <MemoryRouter initialEntries={[`/patient/doctors/${doctor.id}`]}>
-        <Routes><Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} /></Routes>
+        <Routes>
+          <Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
 
@@ -162,29 +176,37 @@ describe('appointment consultation modes', () => {
   it('shows pending and active online states, but never a Join action for in-person care', async () => {
     mocks.detail.mockResolvedValueOnce(appointment);
     const first = renderDetail();
-    expect(await screen.findByText('Meeting link will be provided by the Doctor.')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Join consultation/i })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Join will be available shortly/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Join consultation' })).toBeDisabled();
     first.unmount();
 
     mocks.detail.mockResolvedValueOnce({ ...appointment, meetingUrl: 'https://meet.example.test/room' });
+    mocks.joinStatus.mockResolvedValueOnce({ roomReady: true, canJoin: true, state: 'READY', opensAt: null });
+    mocks.join.mockResolvedValue({ meetingUrl: 'https://meet.example.test/room' });
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
     const second = renderDetail();
-    expect(await screen.findByRole('link', { name: /Join consultation/i })).toHaveAttribute(
-      'href',
-      'https://meet.example.test/room',
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Join consultation' })).toBeEnabled());
+    expect(screen.queryByText('https://meet.example.test/room')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Join consultation' }));
+    await waitFor(() => expect(mocks.join).toHaveBeenCalledWith(appointment.id));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('https://meet.example.test/room'));
+    vi.unstubAllGlobals();
     second.unmount();
 
     mocks.detail.mockResolvedValueOnce({ ...appointment, consultationMode: 'IN_PERSON', meetingUrl: null });
     renderDetail();
     expect(await screen.findByText('In-person consultation')).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole('link', { name: /Join consultation/i })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Join consultation/i })).not.toBeInTheDocument());
   });
 });
 
 function renderDetail() {
   return render(
     <MemoryRouter initialEntries={[`/patient/appointments/${appointment.id}`]}>
-      <Routes><Route path="/patient/appointments/:appointmentId" element={<PatientAppointmentDetailPage />} /></Routes>
+      <Routes>
+        <Route path="/patient/appointments/:appointmentId" element={<PatientAppointmentDetailPage />} />
+      </Routes>
     </MemoryRouter>,
   );
 }

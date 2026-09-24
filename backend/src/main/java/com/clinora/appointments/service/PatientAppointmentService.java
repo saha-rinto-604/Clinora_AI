@@ -2,6 +2,7 @@ package com.clinora.appointments.service;
 
 import com.clinora.notifications.service.PatientNotificationService;
 import com.clinora.notifications.service.PatientNotificationService.NotificationCategory;
+import com.clinora.notifications.service.DoctorNotificationService;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.service.PatientReportDisplayName;
 import com.clinora.patients.service.PatientTimelineService;
@@ -28,17 +29,20 @@ public class PatientAppointmentService {
     private final JdbcTemplate jdbc;
     private final PatientTimelineService timeline;
     private final PatientNotificationService notifications;
+    private final DoctorNotificationService doctorNotifications;
     private final Clock clock;
 
     public PatientAppointmentService(
         JdbcTemplate jdbc,
         PatientTimelineService timeline,
         PatientNotificationService notifications,
+        DoctorNotificationService doctorNotifications,
         Clock clock
     ) {
         this.jdbc = jdbc;
         this.timeline = timeline;
         this.notifications = notifications;
+        this.doctorNotifications = doctorNotifications;
         this.clock = clock;
     }
 
@@ -188,6 +192,13 @@ public class PatientAppointmentService {
         return List.copyOf(created);
     }
 
+    @Transactional
+    public void prepareDoctorBookingProfile(UUID doctorUserId) {
+        requireActiveUser(doctorUserId, "DOCTOR");
+        refreshDoctorBookingProjection(doctorUserId);
+        requireBookableDoctor(doctorUserId);
+    }
+
     @Transactional(readOnly = true)
     public List<AvailabilitySlotView> doctorAvailability(UUID doctorUserId) {
         requireActiveUser(doctorUserId, "DOCTOR");
@@ -207,6 +218,26 @@ public class PatientAppointmentService {
             ),
             doctorUserId
         );
+    }
+
+    /** Complete, bounded calendar inventory; keep the legacy list contract for existing callers. */
+    public List<AvailabilitySlotView> doctorAvailability(UUID doctorUserId, Instant from, Instant until) {
+        requireActiveUser(doctorUserId, "DOCTOR");
+        if (from == null || until == null || !until.isAfter(from)
+            || Duration.between(from, until).compareTo(Duration.ofDays(16)) > 0) {
+            throw badRequest("AVAILABILITY_RANGE_INVALID", "Choose an availability preview of up to 16 days.");
+        }
+        return jdbc.query("""
+            SELECT id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode
+            FROM doctor_availability_slots
+            WHERE doctor_user_id = ? AND starts_at > CURRENT_TIMESTAMP
+              AND starts_at >= ? AND starts_at < ? AND status IN ('AVAILABLE', 'BOOKED')
+            ORDER BY starts_at, id
+            """, (rs, rowNum) -> new AvailabilitySlotView(
+                rs.getObject("id", UUID.class), rs.getObject("doctor_user_id", UUID.class),
+                rs.getTimestamp("starts_at").toInstant(), rs.getTimestamp("ends_at").toInstant(),
+                rs.getString("timezone"), rs.getString("status"), rs.getString("consultation_mode")
+            ), doctorUserId, Timestamp.from(from), Timestamp.from(until));
     }
 
     @Transactional
@@ -238,6 +269,7 @@ public class PatientAppointmentService {
         List<AppointmentView> existing = appointmentByIdempotency(patientUserId, key);
         if (!existing.isEmpty()) return existing.getFirst();
         requireTimezone(timezone);
+        lockBookingDoctor(slotId);
         SlotLock slot = lockSlot(slotId);
         if (!"AVAILABLE".equals(slot.status()) || !slot.startsAt().isAfter(clock.instant())) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_SLOT_UNAVAILABLE", "That appointment time is no longer available.");
@@ -246,6 +278,7 @@ public class PatientAppointmentService {
         String mode = requireAppointmentMode(consultationMode);
         requireSlotSupportsMode(slot.consultationMode(), mode);
         String visitLocation = requirePracticeLocation(mode, slot.practiceLocation());
+        String meetingUrl = meetingRoom(slot.doctorUserId(), mode);
         String reason = text(reasonForVisit, 500);
         Instant now = clock.instant();
         UUID appointmentId = UUID.randomUUID();
@@ -261,11 +294,12 @@ public class PatientAppointmentService {
             INSERT INTO appointments (
                 id, patient_user_id, doctor_user_id, slot_id, status, reason_for_visit,
                 scheduled_start, scheduled_end, booking_timezone, idempotency_key,
-                consultation_mode, visit_location, booked_at, created_at, updated_at, version
-            ) VALUES (?, ?, ?, ?, 'BOOKED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                consultation_mode, visit_location, meeting_url, meeting_link_updated_at, booked_at, created_at, updated_at, version
+            ) VALUES (?, ?, ?, ?, 'BOOKED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """,
             appointmentId, patientUserId, slot.doctorUserId(), slotId, reason,
             Timestamp.from(slot.startsAt()), Timestamp.from(slot.endsAt()), timezone, key, mode, visitLocation,
+            meetingUrl, meetingUrl == null ? null : Timestamp.from(now),
             Timestamp.from(now), Timestamp.from(now), Timestamp.from(now)
         );
         for (UUID reportId : distinct(reportIds)) addShareInternal(patientUserId, appointmentId, reportId, now);
@@ -278,6 +312,11 @@ public class PatientAppointmentService {
             "Appointment confirmed", "Your appointment with " + slot.doctorName() + " is confirmed.",
             "APPOINTMENT", appointmentId, "appointment-booked:" + appointmentId
         );
+        doctorNotifications.create(
+            slot.doctorUserId(), "DOCTOR_APPOINTMENT_BOOKED", NotificationCategory.APPOINTMENTS,
+            "New appointment booked", "A Patient booked an appointment in your schedule.",
+            "APPOINTMENT", appointmentId, "doctor-appointment-booked:" + appointmentId
+        );
         return appointment(patientUserId, appointmentId);
     }
 
@@ -286,8 +325,10 @@ public class PatientAppointmentService {
         requireActiveUser(patientUserId, "PATIENT");
         String direction = collection == AppointmentCollection.UPCOMING ? "ASC" : "DESC";
         String condition = collection == AppointmentCollection.UPCOMING
-            ? " a.status = 'BOOKED' AND a.scheduled_start >= CURRENT_TIMESTAMP"
-            : " (a.status <> 'BOOKED' OR a.scheduled_start < CURRENT_TIMESTAMP)";
+            ? " a.status = 'BOOKED' AND (a.scheduled_start >= CURRENT_TIMESTAMP OR EXISTS (" +
+                "SELECT 1 FROM doctor_consultations c WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'))"
+            : " (a.status <> 'BOOKED' OR (a.scheduled_start < CURRENT_TIMESTAMP AND NOT EXISTS (" +
+                "SELECT 1 FROM doctor_consultations c WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS')))";
         return jdbc.query(
             """
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
@@ -323,10 +364,18 @@ public class PatientAppointmentService {
     @Transactional
     public AppointmentView cancel(UUID patientUserId, UUID appointmentId, String cancellationReason) {
         requireActiveUser(patientUserId, "PATIENT");
+        lockAppointmentDoctor(patientUserId, appointmentId);
         LockedAppointment appointment = lockAppointment(patientUserId, appointmentId);
         if ("CANCELLED".equals(appointment.status())) return appointment(patientUserId, appointmentId);
         if (!"BOOKED".equals(appointment.status())) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_NOT_CANCELLABLE", "This appointment cannot be cancelled.");
+        }
+        if (consultationInProgress(appointmentId)) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "APPOINTMENT_CONSULTATION_IN_PROGRESS",
+                "This appointment cannot be cancelled after the Doctor has started the consultation."
+            );
         }
         Instant now = clock.instant();
         if (!appointment.scheduledStart().isAfter(now)) {
@@ -336,10 +385,7 @@ public class PatientAppointmentService {
             "UPDATE appointments SET status = 'CANCELLED', cancelled_at = ?, cancellation_reason = ?, updated_at = ?, version = version + 1 WHERE id = ?",
             Timestamp.from(now), text(cancellationReason, 240), Timestamp.from(now), appointmentId
         );
-        jdbc.update(
-            "UPDATE doctor_availability_slots SET status = 'AVAILABLE', updated_at = ?, version = version + 1 WHERE id = ? AND status = 'BOOKED'",
-            Timestamp.from(now), appointment.slotId()
-        );
+        releaseSlot(appointment.slotId(), now);
         jdbc.update(
             "UPDATE appointment_report_shares SET revoked_at = ? WHERE appointment_id = ? AND revoked_at IS NULL",
             Timestamp.from(now), appointmentId
@@ -353,6 +399,11 @@ public class PatientAppointmentService {
             "Appointment cancelled", "Your appointment with " + appointment.doctorName() + " has been cancelled.",
             "APPOINTMENT", appointmentId, "appointment-cancelled:" + appointmentId
         );
+        doctorNotifications.create(
+            appointment.doctorUserId(), "DOCTOR_APPOINTMENT_CANCELLED", NotificationCategory.APPOINTMENTS,
+            "Appointment cancelled", "A Patient cancelled an appointment in your schedule.",
+            "APPOINTMENT", appointmentId, "doctor-appointment-cancelled:" + appointmentId
+        );
         return appointment(patientUserId, appointmentId);
     }
 
@@ -360,9 +411,17 @@ public class PatientAppointmentService {
     public AppointmentView reschedule(UUID patientUserId, UUID appointmentId, UUID nextSlotId, String timezone, String consultationMode) {
         requireActiveUser(patientUserId, "PATIENT");
         requireTimezone(timezone);
+        lockAppointmentDoctor(patientUserId, appointmentId);
         LockedAppointment appointment = lockAppointment(patientUserId, appointmentId);
         if (!"BOOKED".equals(appointment.status())) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_NOT_RESCHEDULABLE", "This appointment cannot be rescheduled.");
+        }
+        if (consultationInProgress(appointmentId)) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "APPOINTMENT_CONSULTATION_IN_PROGRESS",
+                "This appointment cannot be rescheduled after the Doctor has started the consultation."
+            );
         }
         if (appointment.slotId().equals(nextSlotId)) {
             return appointment(patientUserId, appointmentId);
@@ -385,6 +444,9 @@ public class PatientAppointmentService {
             throw badRequest("CONSULTATION_MODE_REQUIRED", "Choose Online or In-person for the new appointment time.");
         }
         requireSlotSupportsMode(next.consultationMode(), mode);
+        requireBookableDoctor(next.doctorUserId());
+        String meetingUrl = meetingRoom(next.doctorUserId(), mode);
+        String visitLocation = requirePracticeLocation(mode, next.practiceLocation());
         int nextReserved = jdbc.update(
             "UPDATE doctor_availability_slots SET status = 'BOOKED', updated_at = ?, version = version + 1 WHERE id = ? AND status = 'AVAILABLE'",
             Timestamp.from(now), nextSlotId
@@ -392,20 +454,15 @@ public class PatientAppointmentService {
         if (nextReserved != 1) {
             throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_SLOT_UNAVAILABLE", "That appointment time is no longer available.");
         }
-        jdbc.update(
-            "UPDATE doctor_availability_slots SET status = 'AVAILABLE', updated_at = ?, version = version + 1 WHERE id = ? AND status = 'BOOKED'",
-            Timestamp.from(now), appointment.slotId()
-        );
+        releaseSlot(appointment.slotId(), now);
         jdbc.update(
             """
             UPDATE appointments SET slot_id = ?, scheduled_start = ?, scheduled_end = ?, booking_timezone = ?, consultation_mode = ?,
-                meeting_url = CASE WHEN ? = 'ONLINE' THEN meeting_url ELSE NULL END,
-                meeting_link_updated_at = CASE WHEN ? = 'ONLINE' THEN meeting_link_updated_at ELSE NULL END,
-                visit_location = CASE WHEN ? = 'IN_PERSON' THEN visit_location ELSE NULL END,
+                meeting_url = ?, meeting_link_updated_at = ?, visit_location = ?,
                 updated_at = ?, version = version + 1 WHERE id = ?
             """,
             nextSlotId, Timestamp.from(next.startsAt()), Timestamp.from(next.endsAt()), timezone, mode,
-            mode, mode, mode, Timestamp.from(now), appointmentId
+            meetingUrl, meetingUrl == null ? null : Timestamp.from(now), visitLocation, Timestamp.from(now), appointmentId
         );
         timeline.append(
             patientUserId, "APPOINTMENT_RESCHEDULED", TimelineCategory.APPOINTMENTS, "APPOINTMENT", appointmentId,
@@ -415,6 +472,11 @@ public class PatientAppointmentService {
             patientUserId, "APPOINTMENT_RESCHEDULED", NotificationCategory.APPOINTMENTS,
             "Appointment rescheduled", "Your appointment with " + next.doctorName() + " has a new time.",
             "APPOINTMENT", appointmentId, "appointment-rescheduled:" + appointmentId + ":" + next.startsAt().toEpochMilli()
+        );
+        doctorNotifications.create(
+            next.doctorUserId(), "DOCTOR_APPOINTMENT_RESCHEDULED", NotificationCategory.APPOINTMENTS,
+            "Appointment rescheduled", "A Patient moved an appointment to a new time in your schedule.",
+            "APPOINTMENT", appointmentId, "doctor-appointment-rescheduled:" + appointmentId + ":" + next.startsAt().toEpochMilli()
         );
         return appointment(patientUserId, appointmentId);
     }
@@ -497,10 +559,15 @@ public class PatientAppointmentService {
     public ReportShareView shareReport(UUID patientUserId, UUID appointmentId, UUID reportId) {
         requireActiveUser(patientUserId, "PATIENT");
         LockedAppointment appointment = lockAppointment(patientUserId, appointmentId);
-        if (!"BOOKED".equals(appointment.status()) || !appointment.scheduledStart().isAfter(clock.instant())) {
-            throw new PatientApiException(HttpStatus.CONFLICT, "APPOINTMENT_NOT_ACTIVE", "Reports can only be shared for an upcoming appointment.");
-        }
         Instant now = clock.instant();
+        boolean beforeStart = appointment.scheduledStart().isAfter(now);
+        if (!"BOOKED".equals(appointment.status()) || (!beforeStart && !consultationInProgress(appointmentId))) {
+            throw new PatientApiException(
+                HttpStatus.CONFLICT,
+                "APPOINTMENT_NOT_ACTIVE",
+                "Reports can only be shared before or during an active consultation."
+            );
+        }
         addShareInternal(patientUserId, appointmentId, reportId, now);
         return shares(patientUserId, appointmentId).stream()
             .filter(item -> item.reportId().equals(reportId))
@@ -517,6 +584,15 @@ public class PatientAppointmentService {
             Timestamp.from(clock.instant()), appointmentId, patientUserId, reportId
         );
         if (changed == 0) throw notFound("REPORT_SHARE_NOT_FOUND", "That active report share could not be found.");
+    }
+
+    private boolean consultationInProgress(UUID appointmentId) {
+        Boolean inProgress = jdbc.queryForObject(
+            "SELECT EXISTS (SELECT 1 FROM doctor_consultations WHERE appointment_id = ? AND status = 'IN_PROGRESS')",
+            Boolean.class,
+            appointmentId
+        );
+        return Boolean.TRUE.equals(inProgress);
     }
 
     private void addShareInternal(UUID patientUserId, UUID appointmentId, UUID reportId, Instant now) {
@@ -548,7 +624,11 @@ public class PatientAppointmentService {
             FROM appointment_report_shares s
             JOIN appointments a ON a.id = s.appointment_id
             WHERE s.patient_user_id = ? AND s.revoked_at IS NULL
-              AND a.status = 'BOOKED' AND a.scheduled_end >= CURRENT_TIMESTAMP
+              AND a.status = 'BOOKED'
+              AND (a.scheduled_end >= CURRENT_TIMESTAMP OR EXISTS (
+                  SELECT 1 FROM doctor_consultations c
+                   WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+              ))
             """,
             Long.class, patientUserId
         );
@@ -558,7 +638,11 @@ public class PatientAppointmentService {
             FROM appointment_report_shares s
             JOIN appointments a ON a.id = s.appointment_id
             WHERE s.patient_user_id = ? AND s.revoked_at IS NULL
-              AND a.status = 'BOOKED' AND a.scheduled_end >= CURRENT_TIMESTAMP
+              AND a.status = 'BOOKED'
+              AND (a.scheduled_end >= CURRENT_TIMESTAMP OR EXISTS (
+                  SELECT 1 FROM doctor_consultations c
+                   WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+              ))
             """,
             Long.class, patientUserId
         );
@@ -612,6 +696,37 @@ public class PatientAppointmentService {
             """,
             now, now, doctorUserId
         );
+    }
+
+    private void lockBookingDoctor(UUID slotId) {
+        List<UUID> doctors = jdbc.query("SELECT doctor_user_id FROM doctor_availability_slots WHERE id = ?",
+            (rs, i) -> rs.getObject(1, UUID.class), slotId);
+        if (doctors.isEmpty()) throw notFound("APPOINTMENT_SLOT_NOT_FOUND", "That appointment time could not be found.");
+        jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", UUID.class, doctors.getFirst());
+    }
+
+    private void lockAppointmentDoctor(UUID patient, UUID appointment) {
+        List<UUID> doctors = jdbc.query("SELECT doctor_user_id FROM appointments WHERE id = ? AND patient_user_id = ?",
+            (rs, i) -> rs.getObject(1, UUID.class), appointment, patient);
+        if (doctors.isEmpty()) throw notFound("APPOINTMENT_NOT_FOUND", "That appointment could not be found.");
+        jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", UUID.class, doctors.getFirst());
+    }
+
+    private String meetingRoom(UUID doctor, String mode) {
+        if (!"ONLINE".equals(mode)) return null;
+        String room = jdbc.queryForObject("SELECT default_meeting_url FROM doctor_booking_profiles WHERE doctor_user_id = ?", String.class, doctor);
+        if (room == null || room.isBlank()) throw new PatientApiException(HttpStatus.CONFLICT,
+            "ONLINE_ROOM_REQUIRED", "This Doctor has not configured an online consultation room. Choose an in-person time or try later.");
+        return requireSafeMeetingUrl(room);
+    }
+
+    private void releaseSlot(UUID slot, Instant now) {
+        jdbc.update("""
+            UPDATE doctor_availability_slots s SET status = CASE
+                WHEN weekly_rule_id IS NULL OR EXISTS (SELECT 1 FROM doctor_weekly_availability_rules r
+                    WHERE r.id = s.weekly_rule_id AND r.enabled = TRUE) THEN 'AVAILABLE' ELSE 'BLOCKED' END,
+                updated_at = ?, version = version + 1 WHERE id = ? AND status = 'BOOKED'
+            """, Timestamp.from(now), slot);
     }
 
     private SlotLock lockSlot(UUID slotId) {
@@ -759,7 +874,7 @@ public class PatientAppointmentService {
         return location;
     }
 
-    static String requireSafeMeetingUrl(String value) {
+    public static String requireSafeMeetingUrl(String value) {
         String result = requiredText(value, 2048, "MEETING_URL_REQUIRED", "Enter a secure meeting URL.");
         try {
             URI uri = new URI(result);
@@ -793,7 +908,7 @@ public class PatientAppointmentService {
         rs.getObject("id", UUID.class), rs.getString("status"), rs.getString("reason_for_visit"),
         rs.getTimestamp("scheduled_start").toInstant(), rs.getTimestamp("scheduled_end").toInstant(), rs.getString("booking_timezone"),
         rs.getTimestamp("booked_at").toInstant(), rs.getTimestamp("cancelled_at") == null ? null : rs.getTimestamp("cancelled_at").toInstant(),
-        rs.getString("consultation_mode"), rs.getString("meeting_url"),
+        rs.getString("consultation_mode"), null, // Only the time-gated Join action releases a Patient's meeting URL.
         rs.getTimestamp("meeting_link_updated_at") == null ? null : rs.getTimestamp("meeting_link_updated_at").toInstant(),
         rs.getString("visit_location"), rs.getObject("doctor_user_id", UUID.class), rs.getString("display_name"),
         rs.getString("specialization"), rs.getLong("shared_report_count")

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.clinora.appointments.service.PatientAppointmentService.AppointmentCollection;
 import com.clinora.notifications.service.PatientNotificationService;
+import com.clinora.notifications.service.DoctorNotificationService;
 import com.clinora.patients.api.PatientApiException;
 import com.clinora.patients.service.PatientTimelineService;
 import java.sql.ResultSet;
@@ -37,6 +38,7 @@ class PatientAppointmentServiceTest {
             jdbc,
             mock(PatientTimelineService.class),
             mock(PatientNotificationService.class),
+            mock(DoctorNotificationService.class),
             Clock.systemUTC()
         );
 
@@ -108,7 +110,13 @@ class PatientAppointmentServiceTest {
     }
 
     private static PatientAppointmentService service(JdbcTemplate jdbc, PatientNotificationService notifications) {
-        return new PatientAppointmentService(jdbc, mock(PatientTimelineService.class), notifications, Clock.systemUTC());
+        return new PatientAppointmentService(
+            jdbc,
+            mock(PatientTimelineService.class),
+            notifications,
+            mock(DoctorNotificationService.class),
+            Clock.systemUTC()
+        );
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

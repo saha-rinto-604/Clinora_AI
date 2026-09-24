@@ -1,4 +1,15 @@
-import { CalendarClock, CalendarDays, ChevronDown, Home, LockKeyhole, LogOut, Menu, UserRound } from 'lucide-react';
+import {
+  CalendarClock,
+  CalendarDays,
+  ChevronDown,
+  Home,
+  Inbox,
+  LockKeyhole,
+  LogOut,
+  Menu,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -13,6 +24,7 @@ import { ClinoraBrandMark } from '../../components/ui/clinora-brand-mark';
 import { cn } from '../../lib/cn';
 import { authApi } from '../auth/auth-api';
 import { useAuthStore } from '../auth/auth-store';
+import { DoctorNotificationBell } from '../notifications/doctor-notification-bell';
 import { ProfileAvatar } from '../profile/profile-image';
 
 type NavigationItem = {
@@ -29,6 +41,8 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
     items: [
       { to: '/doctor', label: 'Today', shortLabel: 'Today', icon: Home, end: true },
       { to: '/doctor/schedule', label: 'Schedule', shortLabel: 'Schedule', icon: CalendarDays },
+      { to: '/doctor/patients', label: 'Patients', shortLabel: 'Patients', icon: UsersRound },
+      { to: '/doctor/inbox', label: 'Clinical Inbox', shortLabel: 'Inbox', icon: Inbox },
     ],
   },
   {
@@ -46,7 +60,7 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
 
 const allNavigation = navigation.flatMap((section) => section.items);
 const mobileNavigation = allNavigation.filter((item) =>
-  ['/doctor', '/doctor/schedule', '/doctor/availability', '/doctor/profile'].includes(item.to),
+  ['/doctor', '/doctor/schedule', '/doctor/patients', '/doctor/inbox'].includes(item.to),
 );
 
 export function DoctorLayout() {
@@ -66,7 +80,10 @@ export function DoctorShell({ children }: { children: ReactNode }) {
   const wideWorkspace =
     location.pathname.includes('/reports/') ||
     location.pathname.includes('/availability') ||
-    location.pathname.includes('/schedule');
+    location.pathname.includes('/schedule') ||
+    location.pathname.includes('/consultation') ||
+    location.pathname.includes('/patients') ||
+    location.pathname.includes('/inbox');
 
   const signOut = async () => {
     setSigningOut(true);
@@ -150,41 +167,46 @@ export function DoctorShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-white/[0.055] pt-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="group flex min-h-14 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition hover:bg-white/[0.035]"
-                aria-label="Open Doctor account menu"
-              >
-                <ProfileAvatar
-                  source={{ kind: 'self' }}
-                  name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Doctor'}
-                  size="sm"
-                  className="rounded-[10px] ring-1 ring-white/[0.08]"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-semibold text-slate-100">
-                    {user?.firstName} {user?.lastName}
+        <div className="mt-auto">
+          <div className="mb-3 flex justify-end px-1">
+            <DoctorNotificationBell />
+          </div>
+          <div className="border-t border-white/[0.055] pt-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="group flex min-h-14 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition hover:bg-white/[0.035]"
+                  aria-label="Open Doctor account menu"
+                >
+                  <ProfileAvatar
+                    source={{ kind: 'self' }}
+                    name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Doctor'}
+                    size="sm"
+                    className="rounded-[10px] ring-1 ring-white/[0.08]"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold text-slate-100">
+                      {user?.firstName} {user?.lastName}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10px] text-slate-600">Verified Doctor account</span>
                   </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-slate-600">Verified Doctor account</span>
-                </span>
-                <ChevronDown size={14} className="text-slate-600 group-hover:text-slate-400" aria-hidden="true" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onSelect={() => navigate('/doctor/profile')}>
-                <UserRound size={15} aria-hidden="true" /> Professional profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate('/account')}>
-                <LockKeyhole size={15} aria-hidden="true" /> Security & account
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void signOut()} disabled={signingOut}>
-                <LogOut size={15} aria-hidden="true" /> {signingOut ? 'Signing out…' : 'Sign out'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <ChevronDown size={14} className="text-slate-600 group-hover:text-slate-400" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => navigate('/doctor/profile')}>
+                  <UserRound size={15} aria-hidden="true" /> Professional profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate('/account')}>
+                  <LockKeyhole size={15} aria-hidden="true" /> Security & account
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void signOut()} disabled={signingOut}>
+                  <LogOut size={15} aria-hidden="true" /> {signingOut ? 'Signing out…' : 'Sign out'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </aside>
 
@@ -196,6 +218,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
               <span className="tracking-[-0.02em]">Clinora Doctor</span>
             </NavLink>
             <div className="flex items-center gap-2">
+              <DoctorNotificationBell />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

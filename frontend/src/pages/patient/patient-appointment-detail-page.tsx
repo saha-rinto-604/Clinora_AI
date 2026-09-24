@@ -1,7 +1,23 @@
-import { ArrowLeft, CalendarClock, ExternalLink, FileText, RefreshCcw, ShieldCheck, Stethoscope, XCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  FileText,
+  RefreshCcw,
+  ShieldCheck,
+  Stethoscope,
+  XCircle,
+  Clock3,
+  UserRound,
+  Video,
+  MapPin,
+  HeartPulse,
+  type LucideIcon,
+} from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
+import { PatientConsultationSummary } from '../../components/patient/patient-consultation-summary';
+import { PatientConsultationJoin } from '../../features/appointments/patient-consultation-join';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/feedback';
@@ -16,6 +32,7 @@ import {
 import { patientReportApi } from '../../features/patient-reports/patient-report-api';
 import type { PatientReport } from '../../features/patient-reports/patient-report-types';
 import { cn } from '../../lib/cn';
+import '../../styles/patient-care.css';
 
 export function PatientAppointmentDetailPage() {
   const { appointmentId } = useParams();
@@ -24,6 +41,7 @@ export function PatientAppointmentDetailPage() {
   const [reports, setReports] = useState<PatientReport[]>([]);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
   const [rescheduleMode, setRescheduleMode] = useState<ConsultationMode | null>(null);
   const [selectedReport, setSelectedReport] = useState('');
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -41,7 +59,7 @@ export function PatientAppointmentDetailPage() {
     setAppointment(detail);
     setShares(currentShares);
     setReports(reportPage.items);
-    if (detail.status === 'BOOKED') setAvailability(await appointmentApi.availability(detail.doctorId));
+    setAvailability(detail.status === 'BOOKED' ? await appointmentApi.availability(detail.doctorId) : []);
   };
 
   useEffect(() => {
@@ -76,7 +94,20 @@ export function PatientAppointmentDetailPage() {
     () => reports.filter((report) => !activeShares.some((share) => share.reportId === report.id)),
     [activeShares, reports],
   );
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || appointment?.bookingTimezone || 'UTC';
+  const timezone = appointment?.bookingTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const slotDays = useMemo(() => {
+    const days = new Map<string, AvailabilitySlot[]>();
+    [...availability]
+      .filter((slot) => slot.status === 'AVAILABLE')
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .forEach((slot) => {
+        const day = new Date(slot.startsAt).toLocaleDateString('en-CA', { timeZone: timezone });
+        days.set(day, [...(days.get(day) ?? []), slot]);
+      });
+    return days;
+  }, [availability, timezone]);
+  const activeDate = slotDays.has(selectedDate) ? selectedDate : ([...slotDays.keys()][0] ?? '');
+  const visibleSlots = slotDays.get(activeDate) ?? [];
 
   if (!appointment && !error)
     return (
@@ -156,7 +187,7 @@ export function PatientAppointmentDetailPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1040px] pb-8">
+    <div className="patient-care">
       <Link
         to="/patient/appointments"
         className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--clinora-text-muted)] hover:text-white"
@@ -164,15 +195,15 @@ export function PatientAppointmentDetailPage() {
         <ArrowLeft size={15} aria-hidden="true" />
         Back to appointments
       </Link>
-      <AppSurface as="section" variant="hero" className="mt-5">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex gap-4">
+      <AppSurface as="section" variant="hero" padding="compact" className="patient-care-art mt-4">
+        <div className="patient-care-identity">
+          <div className="flex min-w-0 items-center gap-3">
             <IconWell tone="info">
               <Stethoscope size={19} aria-hidden="true" />
             </IconWell>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold text-white sm:text-3xl">{appointment.doctorName}</h1>
+                <h1 className="text-xl font-semibold text-white">{appointment.doctorName}</h1>
                 <StatusPill
                   tone={
                     appointment.status === 'BOOKED'
@@ -190,7 +221,40 @@ export function PatientAppointmentDetailPage() {
               </p>
             </div>
           </div>
-          <p className="text-sm font-semibold text-white">{formatDateTime(appointment.scheduledStart)}</p>
+          <div className="patient-care-identity-meta">
+            <CalendarClock size={21} className="shrink-0 text-[var(--clinora-info-foreground)]" aria-hidden="true" />
+            <div>
+              <p className="text-xs text-[var(--clinora-text-muted)]">Appointment date</p>
+              <p className="mt-1 text-sm font-semibold">
+                {new Date(appointment.scheduledStart).toLocaleDateString(undefined, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  timeZone: timezone,
+                })}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--clinora-text-muted)]">
+                {new Date(appointment.scheduledStart).toLocaleTimeString(undefined, {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZone: timezone,
+                  timeZoneName: 'short',
+                })}
+              </p>
+            </div>
+          </div>
+          <div className="patient-care-identity-meta">
+            {appointment.consultationMode === 'ONLINE' ? (
+              <Video size={21} className="shrink-0 text-[var(--clinora-info-foreground)]" aria-hidden="true" />
+            ) : (
+              <MapPin size={21} className="shrink-0 text-[var(--clinora-info-foreground)]" aria-hidden="true" />
+            )}
+            <div>
+              <p className="text-xs text-[var(--clinora-text-muted)]">Consultation type</p>
+              <p className="mt-1 text-sm font-semibold">{modeLabel(appointment.consultationMode)}</p>
+            </div>
+          </div>
         </div>
       </AppSurface>
 
@@ -203,69 +267,86 @@ export function PatientAppointmentDetailPage() {
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-7">
-          <AppSurface as="section" aria-labelledby="appointment-information-title">
-            <AppSectionHeader title="Appointment details" titleId="appointment-information-title" />
-            <dl className="mt-5 divide-y divide-[var(--clinora-border-subtle)] border-y border-[var(--clinora-border-subtle)]">
-              <Datum label="Doctor" value={appointment.doctorName} />
-              <Datum label="Specialty" value={appointment.specialization} />
-              <Datum label="Date & time" value={formatDateTime(appointment.scheduledStart)} />
-              <Datum label="Timezone" value={appointment.bookingTimezone} />
-              <Datum label="Consultation type" value={modeLabel(appointment.consultationMode)} />
-              <Datum label="Reason for visit" value={appointment.reasonForVisit || 'No reason provided'} />
-            </dl>
-            {appointment.consultationMode === 'ONLINE' ? (
-              <div className="mt-5 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4">
-                <p className="text-sm font-semibold text-white">Online consultation</p>
-                {appointment.status === 'BOOKED' && safeMeetingUrl(appointment.meetingUrl) ? (
-                  <a
-                    href={safeMeetingUrl(appointment.meetingUrl) ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-300 px-4 text-sm font-semibold text-slate-950"
-                  >
-                    Join consultation <ExternalLink size={14} aria-hidden="true" />
-                  </a>
-                ) : appointment.status === 'BOOKED' ? (
-                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-                    Meeting link will be provided by the Doctor.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
-                    This appointment is no longer active.
-                  </p>
-                )}
-              </div>
-            ) : appointment.consultationMode === 'IN_PERSON' ? (
-              <div className="mt-5 rounded-xl bg-[var(--clinora-surface-nested)] p-4">
-                <p className="text-sm font-semibold text-white">In-person consultation</p>
-                {appointment.visitLocation ? (
-                  <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">{appointment.visitLocation}</p>
-                ) : null}
-              </div>
-            ) : null}
-          </AppSurface>
-
-          <AppSurface as="section" aria-labelledby="appointment-sharing-title">
+      <div className="patient-care-details">
+        <div className="min-w-0 space-y-4">
+          <AppSurface as="section" padding="compact" aria-labelledby="appointment-information-title">
             <AppSectionHeader
-              eyebrow="Patient controlled"
+              className="patient-care-section-heading"
+              title="Appointment details"
+              titleId="appointment-information-title"
+            />
+            <dl className="mt-3 divide-y divide-[var(--clinora-border-subtle)] border-t border-[var(--clinora-border-subtle)]">
+              <Datum icon={UserRound} label="Doctor" value={appointment.doctorName} />
+              <Datum icon={HeartPulse} label="Specialty" value={appointment.specialization} />
+              <Datum
+                icon={CalendarClock}
+                label="Date & time"
+                value={formatDateTime(appointment.scheduledStart, timezone)}
+              />
+              <Datum icon={Clock3} label="Timezone" value={timezone} />
+              <Datum icon={Video} label="Consultation type" value={modeLabel(appointment.consultationMode)} />
+              <Datum
+                icon={FileText}
+                label="Reason for visit"
+                value={appointment.reasonForVisit || 'No reason provided'}
+              />
+              <Datum
+                icon={FileText}
+                label="Reports shared"
+                value={
+                  <a
+                    href="#appointment-sharing-title"
+                    className="text-[var(--clinora-info-foreground)] hover:underline"
+                  >
+                    {activeShares.length} report{activeShares.length === 1 ? '' : 's'} shared
+                  </a>
+                }
+              />
+            </dl>
+          </AppSurface>
+          {appointment.consultationMode === 'ONLINE' ? (
+            <AppSurface as="section" variant="hero" padding="compact">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Video size={18} className="text-[var(--clinora-success-foreground)]" aria-hidden="true" />
+                Online consultation
+              </h2>
+              {appointment.status === 'BOOKED' ? (
+                <PatientConsultationJoin key={appointment.scheduledStart} appointmentId={appointment.id} />
+              ) : (
+                <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">This appointment is no longer active.</p>
+              )}
+            </AppSurface>
+          ) : appointment.consultationMode === 'IN_PERSON' ? (
+            <AppSurface as="section" padding="compact">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+                <MapPin size={18} aria-hidden="true" />
+                In-person consultation
+              </h2>
+              {appointment.visitLocation ? (
+                <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">{appointment.visitLocation}</p>
+              ) : null}
+            </AppSurface>
+          ) : null}
+
+          <AppSurface as="section" padding="compact" aria-labelledby="appointment-sharing-title">
+            <AppSectionHeader
+              className="patient-care-section-heading"
               title="Shared medical reports"
               titleId="appointment-sharing-title"
               copy="Only the reports listed as shared are authorized for this appointment. Cancelling the appointment revokes active appointment-scoped access."
             />
             {activeShares.length ? (
-              <ul className="mt-5 divide-y divide-[var(--clinora-border-subtle)] border-y border-[var(--clinora-border-subtle)]">
+              <ul className="mt-3 divide-y divide-[var(--clinora-border-subtle)] border-y border-[var(--clinora-border-subtle)]">
                 {activeShares.map((share) => (
                   <li
                     key={share.reportId}
-                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex gap-3">
+                    <div className="flex min-w-0 flex-1 gap-3">
                       <IconWell tone="neutral">
                         <FileText size={16} aria-hidden="true" />
                       </IconWell>
-                      <div>
+                      <div className="min-w-0 break-words">
                         <Link
                           to={`/patient/reports/${share.reportId}`}
                           className="text-sm font-semibold text-white hover:text-[var(--clinora-info-foreground)]"
@@ -325,46 +406,76 @@ export function PatientAppointmentDetailPage() {
               </div>
             ) : null}
           </AppSurface>
+          <PatientConsultationSummary appointmentId={appointment.id} />
         </div>
 
-        <div className="space-y-6 lg:col-span-5">
-          <AppSurface as="section" variant="elevated" aria-labelledby="manage-appointment-title">
-            <AppSectionHeader title="Manage appointment" titleId="manage-appointment-title" />
+        <div className="min-w-0 space-y-4">
+          <AppSurface as="section" padding="compact" aria-labelledby="manage-appointment-title">
+            <AppSectionHeader
+              className="patient-care-section-heading"
+              title="Manage appointment"
+              titleId="manage-appointment-title"
+            />
             {appointment.status === 'BOOKED' ? (
               <>
-                <div className="mt-5">
-                  <p className="text-sm font-semibold text-white">Choose another time with this Doctor</p>
-                  {availability.length ? (
-                    <div className="mt-3 flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-1">
-                      {availability.map((slot) => (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          aria-pressed={selectedSlot === slot.id}
-                          onClick={() => {
-                            setSelectedSlot(slot.id);
-                            setRescheduleMode(
-                              appointment.consultationMode && slotSupportsMode(slot, appointment.consultationMode)
-                                ? appointment.consultationMode
-                                : null,
-                            );
+                <div className="mt-3">
+                  <p className="text-sm text-[var(--clinora-text-muted)]">Choose another time with this Doctor</p>
+                  {slotDays.size ? (
+                    <>
+                      <label className="mt-3 block text-xs text-[var(--clinora-text-muted)]">
+                        Appointment date <span>({timezone})</span>
+                        <select
+                          className="patient-care-control mt-2 w-full"
+                          value={activeDate}
+                          onChange={(event) => {
+                            setSelectedDate(event.target.value);
+                            setSelectedSlot('');
+                            setRescheduleMode(null);
                           }}
-                          className={cn(
-                            'min-h-10 rounded-xl border px-3 text-xs font-semibold transition',
-                            selectedSlot === slot.id
-                              ? 'border-[var(--clinora-border-interactive)] bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]'
-                              : 'border-[var(--clinora-border-subtle)] text-slate-300 hover:text-white',
-                          )}
                         >
-                          {new Date(slot.startsAt).toLocaleString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}
-                        </button>
-                      ))}
-                    </div>
+                          {[...slotDays.entries()].map(([day, slots]) => (
+                            <option key={day} value={day}>
+                              {new Date(slots[0].startsAt).toLocaleDateString(undefined, {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                timeZone: timezone,
+                              })}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="mt-3 grid grid-cols-3 gap-2" role="group" aria-label="Available times">
+                        {visibleSlots.map((slot) => (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            aria-pressed={selectedSlot === slot.id}
+                            onClick={() => {
+                              setSelectedSlot(slot.id);
+                              setRescheduleMode(
+                                appointment.consultationMode && slotSupportsMode(slot, appointment.consultationMode)
+                                  ? appointment.consultationMode
+                                  : null,
+                              );
+                            }}
+                            className={cn(
+                              'min-h-10 rounded-xl border px-1.5 text-xs font-semibold transition',
+                              selectedSlot === slot.id
+                                ? 'border-[var(--clinora-border-interactive)] bg-[var(--clinora-info-soft)] text-[var(--clinora-info-foreground)]'
+                                : 'border-[var(--clinora-border-subtle)] text-slate-300 hover:text-white',
+                            )}
+                          >
+                            {new Date(slot.startsAt).toLocaleTimeString(undefined, {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              timeZone: timezone,
+                            })}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   ) : (
                     <p className="mt-2 text-sm text-[var(--clinora-text-muted)]">
                       No alternative times are currently published.
@@ -398,15 +509,15 @@ export function PatientAppointmentDetailPage() {
                   ) : null}
                 </div>
                 <Button
-                  variant="appSecondary"
+                  variant="appPrimary"
                   className="mt-4 w-full"
                   disabled={!selectedSlot || !rescheduleMode || busy === 'reschedule'}
                   onClick={() => void reschedule()}
                 >
                   <RefreshCcw size={15} aria-hidden="true" />
-                  {busy === 'reschedule' ? 'Rescheduling…' : 'Reschedule'}
+                  {busy === 'reschedule' ? 'Rescheduling…' : 'Reschedule appointment'}
                 </Button>
-                <div className="mt-5 border-t border-[var(--clinora-border-subtle)] pt-5">
+                <div className="mt-4 border-t border-[var(--clinora-border-subtle)] pt-3">
                   <Button
                     variant="ghost"
                     className="w-full justify-center text-rose-200"
@@ -433,8 +544,14 @@ export function PatientAppointmentDetailPage() {
               <div>
                 <h2 className="text-sm font-semibold text-white">Booking record</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">
-                  Booked {formatShortDate(appointment.bookedAt)}. Appointment changes remain in your Health Timeline.
+                  Booked {formatDateTime(appointment.bookedAt, timezone)}.
                 </p>
+                <Link
+                  to="/patient/history"
+                  className="mt-1 inline-block text-xs text-[var(--clinora-info-foreground)] hover:underline"
+                >
+                  View your Health Record
+                </Link>
               </div>
             </div>
           </AppSurface>
@@ -475,18 +592,21 @@ export function PatientAppointmentDetailPage() {
   );
 }
 
-function Datum({ label, value }: { label: string; value: string }) {
+function Datum({ label, value, icon: Icon }: { label: string; value: ReactNode; icon: LucideIcon }) {
   return (
-    <div className="py-3.5">
-      <dt className="text-xs text-[var(--clinora-text-faint)]">{label}</dt>
-      <dd className="mt-1 text-sm font-semibold leading-6 text-white">{value}</dd>
+    <div className="patient-care-datum">
+      <dt className="flex items-center gap-2 text-xs text-[var(--clinora-text-muted)]">
+        <Icon size={17} className="shrink-0" aria-hidden="true" />
+        {label}
+      </dt>
+      <dd className="text-sm leading-5 text-white">{value}</dd>
     </div>
   );
 }
 function sentenceCase(value: string) {
   return value.charAt(0) + value.slice(1).toLowerCase();
 }
-function formatDateTime(value: string) {
+function formatDateTime(value: string, timeZone: string) {
   return new Date(value).toLocaleString(undefined, {
     weekday: 'long',
     day: 'numeric',
@@ -494,6 +614,7 @@ function formatDateTime(value: string) {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone,
   });
 }
 function formatShortDate(value: string) {
@@ -513,14 +634,4 @@ function slotSupportsMode(slot: AvailabilitySlot, mode: ConsultationMode) {
 function availableModes(slot?: AvailabilitySlot): ConsultationMode[] {
   if (!slot || slot.consultationMode === 'BOTH') return ['ONLINE', 'IN_PERSON'];
   return slot.consultationMode ? [slot.consultationMode] : ['ONLINE', 'IN_PERSON'];
-}
-
-function safeMeetingUrl(value?: string | null) {
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:' ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
 }

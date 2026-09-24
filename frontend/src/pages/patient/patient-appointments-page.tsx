@@ -1,7 +1,8 @@
-import { ArrowRight, CalendarDays, Clock3, FileText } from 'lucide-react';
+import { ArrowRight, CalendarDays, Clock3, FileText, Stethoscope, Video, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { AppSurface, EmptyState, StatusPill } from '../../components/app/app-ui';
+import { AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
+import { PatientCareHeader } from '../../components/patient/patient-care-header';
 import { Button } from '../../components/ui/button';
 import { buttonVariants } from '../../components/ui/button-variants';
 import { Skeleton } from '../../components/ui/feedback';
@@ -16,6 +17,8 @@ export function PatientAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [requestVersion, setRequestVersion] = useState(0);
+  const [counts, setCounts] = useState<Partial<Record<Collection, number>>>({});
+  const [sort, setSort] = useState<'soonest' | 'latest'>('soonest');
 
   useEffect(() => {
     let active = true;
@@ -23,7 +26,11 @@ export function PatientAppointmentsPage() {
     setError('');
     appointmentApi
       .list(collection)
-      .then((result) => active && setItems(result))
+      .then((result) => {
+        if (!active) return;
+        setItems(result);
+        setCounts((current) => ({ ...current, [collection]: result.length }));
+      })
       .catch(
         (requestError) => active && setError(appointmentError(requestError, 'We could not load your appointments.')),
       )
@@ -33,45 +40,116 @@ export function PatientAppointmentsPage() {
     };
   }, [collection, requestVersion]);
 
+  const changeCollection = (value: Collection) => {
+    setCollection(value);
+    setSort(value === 'UPCOMING' ? 'soonest' : 'latest');
+  };
+  const sortedItems = [...items].sort(
+    (a, b) =>
+      (new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()) * (sort === 'soonest' ? 1 : -1),
+  );
+
   return (
-    <div className="mx-auto w-full max-w-[1080px] pb-8">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--clinora-info-foreground)]">
-            Your care
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Appointments</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-            See upcoming care, review past bookings, and manage the reports you chose to share.
-          </p>
-        </div>
-        <Link to="/patient/doctors" className={buttonVariants({ variant: 'appPrimary' })}>
-          Find a Doctor <ArrowRight size={15} aria-hidden="true" />
-        </Link>
-      </header>
+    <div className="patient-care">
+      <PatientCareHeader
+        eyebrow="Your care"
+        title="Appointments"
+        description="See upcoming care, review past bookings, and manage the reports you chose to share."
+        action={
+          <Link to="/patient/doctors" className={buttonVariants({ variant: 'appPrimary' })}>
+            Find a Doctor <ArrowRight size={15} aria-hidden="true" />
+          </Link>
+        }
+      />
 
-      <nav
-        aria-label="Appointment views"
-        className="mt-7 flex w-fit rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-1"
-      >
+      <section className="patient-care-summary" aria-label="Appointment summary">
         {(['UPCOMING', 'PAST'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setCollection(value)}
-            aria-pressed={collection === value}
-            className={tabClass(collection === value)}
-          >
-            {value === 'UPCOMING' ? 'Upcoming' : 'Past'}
-          </button>
+          <AppSurface key={value} padding="none" variant={collection === value ? 'hero' : 'interactive'}>
+            <button
+              type="button"
+              className="patient-care-summary-item"
+              onClick={() => changeCollection(value)}
+              aria-label={`Show ${value.toLowerCase()} appointments`}
+            >
+              <IconWell tone={value === 'UPCOMING' ? 'info' : 'neutral'}>
+                {value === 'UPCOMING' ? (
+                  <CalendarDays size={19} aria-hidden="true" />
+                ) : (
+                  <Clock3 size={19} aria-hidden="true" />
+                )}
+              </IconWell>
+              <span className="min-w-0">
+                <strong className="block text-xl font-semibold">{counts[value] ?? 'View'}</strong>
+                <span className="block text-xs text-[var(--clinora-text-muted)]">
+                  {value === 'UPCOMING' ? 'Upcoming appointments' : 'Past appointments'}
+                </span>
+              </span>
+            </button>
+          </AppSurface>
         ))}
-      </nav>
+        <AppSurface padding="none">
+          <div className="patient-care-summary-item">
+            <IconWell>
+              <FileText size={19} aria-hidden="true" />
+            </IconWell>
+            <div>
+              <strong className="block text-xl font-semibold">
+                {loading || error ? '—' : items.reduce((sum, item) => sum + item.sharedReportCount, 0)}
+              </strong>
+              <span className="block text-xs text-[var(--clinora-text-muted)]">Reports shared</span>
+              <span className="block text-[11px] text-[var(--clinora-text-faint)]">In this view</span>
+            </div>
+          </div>
+        </AppSurface>
+        <AppSurface padding="none" variant="interactive">
+          <Link to="/patient/doctors" className="patient-care-summary-item">
+            <IconWell tone="success">
+              <Stethoscope size={19} aria-hidden="true" />
+            </IconWell>
+            <span>
+              <strong className="block text-sm font-semibold">Find a Doctor</strong>
+              <span className="block text-xs text-[var(--clinora-text-muted)]">Book a consultation</span>
+            </span>
+          </Link>
+        </AppSurface>
+      </section>
 
-      <section className="mt-6" aria-live="polite">
+      <div className="patient-care-toolbar">
+        <nav
+          aria-label="Appointment views"
+          className="flex w-fit rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] p-1"
+        >
+          {(['UPCOMING', 'PAST'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => changeCollection(value)}
+              aria-pressed={collection === value}
+              className={tabClass(collection === value)}
+            >
+              {value === 'UPCOMING' ? 'Upcoming' : 'Past'}
+              {counts[value] !== undefined ? ` (${counts[value]})` : ''}
+            </button>
+          ))}
+        </nav>
+        <label className="flex items-center gap-2 text-xs text-[var(--clinora-text-muted)]">
+          Sort by
+          <select
+            className="patient-care-control"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as typeof sort)}
+          >
+            <option value="soonest">Date (Soonest)</option>
+            <option value="latest">Date (Latest)</option>
+          </select>
+        </label>
+      </div>
+
+      <section aria-live="polite" aria-busy={loading}>
         {loading ? (
           <div className="space-y-3">
-            <Skeleton className="h-40 rounded-2xl" />
-            <Skeleton className="h-40 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
           </div>
         ) : null}
         {!loading && error ? (
@@ -109,7 +187,7 @@ export function PatientAppointmentsPage() {
         ) : null}
         {!loading && !error && items.length ? (
           <div className="space-y-3">
-            {items.map((appointment) => (
+            {sortedItems.map((appointment) => (
               <AppointmentRow key={appointment.id} appointment={appointment} />
             ))}
           </div>
@@ -123,30 +201,40 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
   const scheduled = new Date(appointment.scheduledStart);
   const tone = appointment.status === 'BOOKED' ? 'success' : appointment.status === 'CANCELLED' ? 'warning' : 'neutral';
   return (
-    <AppSurface as="article" variant="interactive" padding="compact">
-      <div className="grid gap-5 sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:items-center">
-        <div className="rounded-2xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] px-3 py-3 text-center">
+    <AppSurface as="article" variant="interactive" padding="compact" className="sm:p-4">
+      <div className="patient-care-appointment-row">
+        <div className="rounded-xl border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)] px-2 py-2 text-center">
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--clinora-info-foreground)]">
-            {scheduled.toLocaleDateString(undefined, { month: 'short' })}
+            {scheduled.toLocaleDateString(undefined, { month: 'short', timeZone: appointment.bookingTimezone })}
           </p>
-          <p className="mt-1 text-2xl font-semibold text-white">{scheduled.getDate()}</p>
+          <p className="text-2xl font-semibold text-white">
+            {scheduled.toLocaleDateString(undefined, { day: 'numeric', timeZone: appointment.bookingTimezone })}
+          </p>
+          <p className="text-[10px] uppercase text-[var(--clinora-text-muted)]">
+            {scheduled.toLocaleDateString(undefined, { weekday: 'short', timeZone: appointment.bookingTimezone })}
+          </p>
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-lg font-semibold text-white">{appointment.doctorName}</h2>
+            <h2 className="text-base font-semibold text-white">{appointment.doctorName}</h2>
             <StatusPill tone={tone}>
               {appointment.status === 'BOOKED' ? 'Confirmed' : sentenceCase(appointment.status)}
             </StatusPill>
           </div>
           <p className="mt-1 text-sm font-medium text-[var(--clinora-info-foreground)]">{appointment.specialization}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-300">
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--clinora-text-muted)]">
+            {appointment.consultationMode === 'ONLINE' ? (
+              <Video size={14} aria-hidden="true" />
+            ) : (
+              <MapPin size={14} aria-hidden="true" />
+            )}
             {appointment.consultationMode === 'ONLINE'
-              ? 'Online'
+              ? 'Online consultation'
               : appointment.consultationMode === 'IN_PERSON'
-                ? 'In-person'
+                ? 'In-person consultation'
                 : 'Consultation type not recorded'}
           </p>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--clinora-text-muted)]">
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--clinora-text-muted)]">
             <span className="inline-flex items-center gap-1.5">
               <Clock3 size={14} aria-hidden="true" />
               {scheduled.toLocaleString(undefined, {
@@ -155,6 +243,8 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
                 month: 'short',
                 hour: 'numeric',
                 minute: '2-digit',
+                timeZone: appointment.bookingTimezone,
+                timeZoneName: 'short',
               })}
             </span>
             <span className="inline-flex items-center gap-1.5">

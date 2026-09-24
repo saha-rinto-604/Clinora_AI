@@ -294,7 +294,9 @@ describe('Phase 5A Patient experience', () => {
     expect(screen.getAllByRole('link', { name: /find a doctor/i })).toEqual(
       expect.arrayContaining([expect.objectContaining({ pathname: '/patient/doctors' })]),
     );
-    expect(screen.queryByText(/hemoglobin|glucose|blood pressure|cholesterol|prescription/i)).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('main')).queryByText(/hemoglobin|glucose|blood pressure|cholesterol|prescription/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Complete your health profile' })).not.toBeInTheDocument();
     expect(screen.getAllByText(/shared only through authorized clinora workflows/i)).toHaveLength(1);
     expect(screen.queryByText(/private by design/i)).not.toBeInTheDocument();

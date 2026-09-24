@@ -8,6 +8,8 @@ import com.clinora.notifications.service.NotificationOutboxPublisher.Notificatio
 import com.clinora.notifications.service.PatientNotificationService.NotificationCategory;
 import com.clinora.notifications.service.PatientNotificationService.NotificationDeliveryView;
 import com.clinora.notifications.service.PatientNotificationService.NotificationView;
+import com.clinora.config.EmailProperties;
+import org.springframework.web.util.HtmlUtils;
 import java.util.UUID;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,17 +22,20 @@ public class NotificationDeliveryConsumer {
     private final PatientNotificationService notifications;
     private final SimpMessagingTemplate messaging;
     private final EmailDeliveryPort emailDelivery;
+    private final EmailProperties emailProperties;
 
     public NotificationDeliveryConsumer(
         JdbcTemplate jdbc,
         PatientNotificationService notifications,
         SimpMessagingTemplate messaging,
-        EmailDeliveryPort emailDelivery
+        EmailDeliveryPort emailDelivery,
+        EmailProperties emailProperties
     ) {
         this.jdbc = jdbc;
         this.notifications = notifications;
         this.messaging = messaging;
         this.emailDelivery = emailDelivery;
+        this.emailProperties = emailProperties;
     }
 
     @RabbitListener(queues = PatientNotificationMessagingConfig.QUEUE)
@@ -39,11 +44,11 @@ public class NotificationDeliveryConsumer {
             message.notificationId(),
             message.userId()
         );
-        if (delivery == null || !activePatient(message.userId())) return;
+        if (delivery == null || !activeNotificationRecipient(message.userId())) return;
         NotificationView notification = delivery.notification();
         if (delivery.deliverEmail()) {
             try {
-                sendPrivacyPreservingEmail(message.userId(), notification.category());
+                sendPrivacyPreservingEmail(message.userId(), notification);
             } catch (EmailDeliveryNotConfiguredException ignored) {
                 // Development deployments may intentionally omit an external email provider.
             }
@@ -57,19 +62,19 @@ public class NotificationDeliveryConsumer {
         }
     }
 
-    private boolean activePatient(UUID userId) {
+    private boolean activeNotificationRecipient(UUID userId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'DOCTOR') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
             Integer.class,
             userId
         );
         return count != null && count == 1;
     }
 
-    private void sendPrivacyPreservingEmail(UUID userId, NotificationCategory category) {
+    private void sendPrivacyPreservingEmail(UUID userId, NotificationView notification) {
         String to = jdbc.queryForObject("SELECT email FROM users WHERE id = ?", String.class, userId);
         if (to == null || to.isBlank()) return;
-        String subject = switch (category) {
+        String subject = switch (notification.category()) {
             case APPOINTMENTS -> "Your Clinora appointment has an update";
             case REPORTS -> "You have a new Clinora report update";
             case SECURITY -> "Important Clinora account security update";
@@ -77,6 +82,21 @@ public class NotificationDeliveryConsumer {
         };
         String text = "You have a new Clinora update. Sign in to Clinora to review the details securely.";
         String html = "<p>You have a new Clinora update.</p><p>Sign in to Clinora to review the details securely.</p>";
+        String base = emailProperties.getFrontendUrl().replaceAll("/+$", "");
+        String role = jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, userId);
+        String path;
+        if ("DOCTOR".equals(role)) {
+            path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
+                ? "/doctor/appointments/" + notification.targetId()
+                : "/doctor/notifications";
+        } else {
+            path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
+                ? "/patient/appointments/" + notification.targetId()
+                : "/patient/notifications";
+        }
+        String link = base + path;
+        text += "\n\nView securely: " + link;
+        html += "<p><a href=\"" + HtmlUtils.htmlEscape(link) + "\">View securely in Clinora</a></p>";
         emailDelivery.send(new TransactionalEmail(to, subject, text, html));
     }
 }
