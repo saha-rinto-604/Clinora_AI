@@ -1,0 +1,99 @@
+.doctor-workspace-header {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-width: 0;
+  min-height: 160px;
+  overflow: hidden;
+  padding: 24px 30px;
+  border: 1px solid var(--clinora-border-subtle);
+  border-radius: 18px;
+  background: var(--clinora-surface-1, #061521);
+}
+
+/* Patients already supplies the surrounding card border and top corners. */
+.doctor-workspace-header[data-integrated] {
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+
+.doctor-workspace-header__art,
+.doctor-workspace-header::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.doctor-workspace-header__art {
+  background-repeat: no-repeat;
+  background-position: right center;
+  /* Retain the calendar, clock and ECG rather than cropping a wide cover image. */
+  background-size: auto 100%;
+}
+
+.doctor-workspace-header[data-background='patients'] .doctor-workspace-header__art {
+  background-size: auto 210%;
+  background-position: right 30%;
+}
+
+.doctor-workspace-header::after {
+  content: '';
+  background: linear-gradient(90deg, #041521 0%, #041521f5 35%, #04152199 62%, #04152126 100%);
+}
+
+.doctor-workspace-header__copy {
+  min-width: 0;
+  max-width: 560px;
+}
+
+.doctor-workspace-header__eyebrow {
+  color: var(--clinora-info-foreground);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.doctor-workspace-header h1 {
+  margin-top: 6px;
+  color: var(--clinora-text-primary);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.doctor-workspace-header__description {
+  margin-top: 6px;
+  color: var(--clinora-text-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.doctor-workspace-header__actions {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .doctor-workspace-header {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .doctor-workspace-header::after {
+    background: linear-gradient(90deg, #041521fa 0%, #041521e6 50%, #04152199 100%);
+  }
+
+  .doctor-workspace-header h1 {
+    font-size: 27px;
+  }
+}

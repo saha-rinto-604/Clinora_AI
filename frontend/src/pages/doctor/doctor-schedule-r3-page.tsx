@@ -1,3 +1,4 @@
+import { DoctorWorkspaceHeader } from '../../components/doctor/doctor-workspace-header';
 import { CalendarDays, ChevronRight, FileText, History, Stethoscope } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -69,41 +70,37 @@ export function DoctorSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-5 border-b border-white/[0.06] pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="clinora-r3-kicker">Care schedule</p>
-          <h1 className="mt-1.5 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-[2.15rem]">
-            Appointments
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Booked Patient care, organized around time. Open an appointment for the Patient context and the reports they
-            explicitly shared.
-          </p>
-        </div>
-        <div
-          className="inline-flex max-w-full gap-1 overflow-x-auto rounded-[12px] border border-white/[0.07] bg-white/[0.025] p-1"
-          role="tablist"
-          aria-label="Appointment collection"
-        >
-          {scopes.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={scope === item.value}
-              onClick={() => setParams({ scope: item.value })}
-              className={cn(
-                'min-h-9 whitespace-nowrap rounded-[9px] px-4 text-xs font-semibold transition-colors',
-                scope === item.value
-                  ? 'bg-white/[0.08] text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-white/[0.035] hover:text-slate-200',
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </header>
+      <DoctorWorkspaceHeader
+        eyebrow="Care schedule"
+        title="Appointments"
+        description="Booked Patient care, organized around time. Open an appointment for the Patient context and the reports they explicitly shared."
+        background="schedule"
+        actions={
+          <div
+            className="inline-flex max-w-full gap-1 overflow-x-auto rounded-[12px] border border-white/[0.07] bg-white/[0.025] p-1"
+            role="tablist"
+            aria-label="Appointment collection"
+          >
+            {scopes.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                role="tab"
+                aria-selected={scope === item.value}
+                onClick={() => setParams({ scope: item.value })}
+                className={cn(
+                  'min-h-9 whitespace-nowrap rounded-[9px] px-4 text-xs font-semibold transition-colors',
+                  scope === item.value
+                    ? 'bg-white/[0.08] text-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/[0.035] hover:text-slate-200',
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {error ? (
         <section className="rounded-[14px] border border-amber-300/[0.12] bg-amber-300/[0.045] px-4 py-3">

@@ -1,3 +1,4 @@
+import { DoctorWorkspaceHeader } from '../../components/doctor/doctor-workspace-header';
 import { ArrowRight, CalendarDays, FileText, FlaskConical, Search, UsersRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -56,27 +57,13 @@ export function DoctorPatientsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] overflow-hidden rounded-[18px] border border-cyan-300/[0.1] bg-[#03101a]/72 shadow-[0_28px_90px_rgba(0,0,0,.2)]">
-      <header className="relative isolate min-h-[142px] overflow-hidden border-b border-cyan-300/[0.08] px-5 py-6 sm:px-7">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-20 bg-[linear-gradient(100deg,#042033_0%,#052139_48%,#03121f_100%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-y-0 right-0 -z-10 w-[58%] opacity-65 [background:radial-gradient(ellipse_at_55%_20%,rgba(34,211,238,.2),transparent_48%),linear-gradient(125deg,transparent_20%,rgba(6,182,212,.12)_20.5%,transparent_21.5%,transparent_43%,rgba(45,212,191,.09)_43.5%,transparent_45%)]"
-        />
-        <div className="flex min-h-[94px] items-center">
-          <div className="max-w-2xl">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--clinora-info-foreground)]">
-              Continuing care
-            </p>
-            <h1 className="mt-2 text-[1.7rem] font-semibold tracking-[-0.04em] text-white sm:text-[2rem]">Patients</h1>
-            <p className="mt-2 max-w-xl text-xs leading-5 text-slate-300 sm:text-[13px]">
-              Your ongoing clinical relationships, latest completed care, follow-up context and upcoming appointments.
-            </p>
-          </div>
-        </div>
-      </header>
+      <DoctorWorkspaceHeader
+        eyebrow="Continuing care"
+        title="Patients"
+        description="Your ongoing clinical relationships, latest completed care, follow-up context and upcoming appointments."
+        background="patients"
+        integrated
+      />
 
       <div className="flex flex-col gap-2 border-b border-cyan-300/[0.08] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex min-w-0 gap-1 overflow-x-auto" role="tablist" aria-label="Filter Patients by care state">

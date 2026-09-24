@@ -1,7 +1,8 @@
+import { DoctorWorkspaceHeader } from '../../components/doctor/doctor-workspace-header';
 import { ArrowRight, FileCheck2, Inbox, Stethoscope, TimerReset } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
+import { AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/feedback';
 import {
@@ -46,16 +47,17 @@ export function DoctorClinicalInboxPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-[var(--clinora-border-subtle)] pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <AppSectionHeader
-          eyebrow="Action queue"
-          title="Clinical Inbox"
-          copy="Clinical work requiring your attention - unfinished consultations, reviewable shared evidence and follow-up."
-        />
-        <Button variant="appSecondary" onClick={() => void load()}>
-          Refresh
-        </Button>
-      </header>
+      <DoctorWorkspaceHeader
+        eyebrow="Action queue"
+        title="Clinical Inbox"
+        description="Clinical work requiring your attention - unfinished consultations, reviewable shared evidence and follow-up."
+        background="inbox"
+        actions={
+          <Button variant="appSecondary" onClick={() => void load()}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error ? (
         <AppSurface variant="attention">

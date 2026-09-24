@@ -1,3 +1,4 @@
+import { DoctorWorkspaceHeader } from '../../components/doctor/doctor-workspace-header';
 import { DoctorMeetingRoom } from '../../features/appointments/doctor-meeting-room';
 import { useState } from 'react';
 import '../../styles/doctor-availability.css';
@@ -10,11 +11,12 @@ export function DoctorAvailabilityWorkspacePage() {
   const [roomBusy, setRoomBusy] = useState(false);
   return (
     <div className="doctor-availability">
-      <header className="availability-page-heading">
-        <p className="clinora-r3-kicker">Practice schedule</p>
-        <h1>Weekly availability</h1>
-        <p>Set your regular weekly schedule. It repeats every week until you change it.</p>
-      </header>
+      <DoctorWorkspaceHeader
+        eyebrow="Practice schedule"
+        title="Weekly availability"
+        description="Set your regular weekly schedule. It repeats every week until you change it."
+        background="availability"
+      />
       {workspace.routine && workspace.persisted ? (
         <>
           <DoctorMeetingRoom
