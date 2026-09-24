@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   reports: vi.fn(),
   joinStatus: vi.fn(),
   join: vi.fn(),
+  relationship: vi.fn(),
+  summary: vi.fn(),
 }));
 
 vi.mock('../../features/appointments/appointment-api', () => ({
@@ -31,6 +33,10 @@ vi.mock('../../features/appointments/appointment-api', () => ({
 }));
 
 vi.mock('../../features/doctor/doctor-profile-api', () => ({ patientFacingDoctorProfile: mocks.profile }));
+vi.mock('../../features/consultations/consultation-api', () => ({
+  consultationApi: { patientDoctorRelationship: mocks.relationship, patientSummary: mocks.summary },
+  consultationError: (_error: unknown, fallback: string) => fallback,
+}));
 vi.mock('../../features/patient-reports/patient-report-api', () => ({
   patientReportApi: { list: mocks.reports, detail: vi.fn() },
 }));
@@ -90,6 +96,8 @@ describe('appointment consultation modes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.profile.mockResolvedValue(null);
+    mocks.relationship.mockResolvedValue({ returningPatient: false, lastConsultationAt: null, followUpDate: null });
+    mocks.summary.mockResolvedValue(null);
     mocks.reports.mockResolvedValue({ items: [] });
     mocks.shares.mockResolvedValue([]);
     mocks.availability.mockResolvedValue([]);
