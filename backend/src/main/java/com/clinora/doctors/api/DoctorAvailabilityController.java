@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -61,8 +62,11 @@ public class DoctorAvailabilityController {
     }
 
     @GetMapping
-    public ApiResponse<List<AvailabilitySlotView>> list(@AuthenticationPrincipal Jwt jwt) {
-        return ApiResponse.success("Doctor availability loaded.", appointments.doctorAvailability(userId(jwt)));
+    public ApiResponse<List<AvailabilitySlotView>> list(@AuthenticationPrincipal Jwt jwt,
+        @RequestParam(required = false) Instant from, @RequestParam(required = false) Instant until) {
+        return ApiResponse.success("Doctor availability loaded.", from == null && until == null
+            ? appointments.doctorAvailability(userId(jwt))
+            : appointments.doctorAvailability(userId(jwt), from, until));
     }
 
     @PostMapping

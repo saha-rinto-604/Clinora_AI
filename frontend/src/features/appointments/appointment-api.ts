@@ -168,8 +168,8 @@ export const doctorAvailabilityApi = {
     const response = await apiClient.put<ApiEnvelope<WeeklyRoutine>>('/doctor/availability/weekly', input);
     return response.data.data;
   },
-  async list() {
-    const response = await apiClient.get<ApiEnvelope<AvailabilitySlot[]>>('/doctor/availability');
+  async list(params?: { from: string; until: string }) {
+    const response = await apiClient.get<ApiEnvelope<AvailabilitySlot[]>>('/doctor/availability', { params });
     return response.data.data;
   },
   async create(input: {

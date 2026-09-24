@@ -73,6 +73,25 @@ class WeeklyCareIntegrationTest {
     UUID slotAt(LocalDate date, int hour) {
         return jdbc.queryForObject("SELECT id FROM doctor_availability_slots WHERE doctor_user_id=? AND starts_at=? AND status='AVAILABLE'",UUID.class,doctor,Timestamp.from(date.atTime(hour,0).toInstant(ZoneOffset.UTC)));
     }
+    @Test void boundedCalendarReturnsAllPublishedSlotsAndBookingsBeyondLegacyLimit() {
+        var blocks = java.util.stream.IntStream.rangeClosed(1, 7)
+            .mapToObj(day -> new WeeklyAvailabilityService.Block(day,LocalTime.of(8,0),LocalTime.of(18,0),"IN_PERSON",true)).toList();
+        tx.execute(s -> weekly.save(doctor,new WeeklyAvailabilityService.RoutineRequest(0,30,"UTC",blocks)));
+        LocalDate day = LocalDate.now(clock).plusDays(10);
+        UUID bookedSlot = slotAt(day,9);
+        tx.execute(s -> appointments.book(patient,UUID.randomUUID().toString(),bookedSlot,null,"UTC","IN_PERSON",List.of()));
+        UUID blockedSlot = slotAt(day,10);
+        tx.executeWithoutResult(s -> appointments.removeAvailability(doctor,blockedSlot));
+        Instant from = LocalDate.now(clock).plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant until = from.plus(Duration.ofDays(14));
+        var inventory = appointments.doctorAvailability(doctor,from,until);
+        assertEquals(279,inventory.size());
+        assertTrue(inventory.stream().anyMatch(slot -> slot.id().equals(bookedSlot) && slot.status().equals("BOOKED")));
+        assertFalse(inventory.stream().anyMatch(slot -> slot.id().equals(blockedSlot)));
+        assertTrue(inventory.stream().allMatch(slot -> slot.doctorId().equals(doctor) && !slot.startsAt().isBefore(from) && slot.startsAt().isBefore(until)));
+        assertEquals(120,appointments.doctorAvailability(doctor).size());
+    }
+
     @Test void routinePersistsRepeatsAndTopUpDoesNotDuplicateConcreteSlots() {
         LocalDate day = LocalDate.now(clock).plusDays(1);
         var saved = save(0,day.getDayOfWeek().getValue(),9,12,"IN_PERSON");

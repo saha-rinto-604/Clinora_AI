@@ -216,6 +216,26 @@ public class PatientAppointmentService {
         );
     }
 
+    /** Complete, bounded calendar inventory; keep the legacy list contract for existing callers. */
+    public List<AvailabilitySlotView> doctorAvailability(UUID doctorUserId, Instant from, Instant until) {
+        requireActiveUser(doctorUserId, "DOCTOR");
+        if (from == null || until == null || !until.isAfter(from)
+            || Duration.between(from, until).compareTo(Duration.ofDays(16)) > 0) {
+            throw badRequest("AVAILABILITY_RANGE_INVALID", "Choose an availability preview of up to 16 days.");
+        }
+        return jdbc.query("""
+            SELECT id, doctor_user_id, starts_at, ends_at, timezone, status, consultation_mode
+            FROM doctor_availability_slots
+            WHERE doctor_user_id = ? AND starts_at > CURRENT_TIMESTAMP
+              AND starts_at >= ? AND starts_at < ? AND status IN ('AVAILABLE', 'BOOKED')
+            ORDER BY starts_at, id
+            """, (rs, rowNum) -> new AvailabilitySlotView(
+                rs.getObject("id", UUID.class), rs.getObject("doctor_user_id", UUID.class),
+                rs.getTimestamp("starts_at").toInstant(), rs.getTimestamp("ends_at").toInstant(),
+                rs.getString("timezone"), rs.getString("status"), rs.getString("consultation_mode")
+            ), doctorUserId, Timestamp.from(from), Timestamp.from(until));
+    }
+
     @Transactional
     public void removeAvailability(UUID doctorUserId, UUID slotId) {
         requireActiveUser(doctorUserId, "DOCTOR");
