@@ -24,7 +24,7 @@ function ApplicationSignIn() {
     setMessageTone('info');
     try {
       await applicationApi.requestAccessLink(email);
-      setMessage('If an eligible professional application exists for this email, we’ve sent a secure sign-in link.');
+      setMessage('If an eligible professional application exists for this email, we’ve sent a verification or secure sign-in link.');
     } catch (error) {
       setMessageTone('error');
       setMessage(applicationErrorMessage(error, 'We could not send a secure sign-in link. Please try again.'));
@@ -43,8 +43,8 @@ function ApplicationSignIn() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Applicant portal</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">Sign in to your application</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Enter the email you verified when you started your Doctor or Researcher application. We’ll send a single-use
-            secure sign-in link.
+            Enter the email you used to start your Doctor or Researcher application. We’ll send a verification link if
+            your email is still unverified, or a single-use secure sign-in link otherwise.
           </p>
         </header>
         <form onSubmit={sendLink} className="grid gap-4">

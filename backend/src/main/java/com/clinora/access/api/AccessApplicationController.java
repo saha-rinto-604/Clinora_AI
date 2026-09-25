@@ -102,7 +102,7 @@ public class AccessApplicationController {
         rateLimits.accessLink(ip(request), body.email().trim().toLowerCase(java.util.Locale.ROOT));
         applications.requestAccessLink(body.email(), ip(request), userAgent(request));
         return ApiResponse.success(
-            "If an eligible application exists for that email, a secure resume link has been sent.",
+            "If an eligible application exists for that email, a verification or secure sign-in link has been sent.",
             null
         );
     }

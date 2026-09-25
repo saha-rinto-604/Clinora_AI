@@ -1,5 +1,5 @@
 import { DoctorWorkspaceHeader } from '../../components/doctor/doctor-workspace-header';
-import { ArrowRight, FileCheck2, Inbox, Stethoscope, TimerReset } from 'lucide-react';
+import { ArrowRight, CalendarClock, FileCheck2, Inbox, Stethoscope, TimerReset } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
@@ -72,8 +72,9 @@ export function DoctorClinicalInboxPage() {
         </AppSurface>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Clinical Inbox summary">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="Clinical Inbox summary">
         <InboxMetric icon={<Inbox size={16} />} label="Needs attention" value={data?.needsAttentionCount ?? 0} />
+        <InboxMetric icon={<CalendarClock size={16} />} label="Ready now" value={data?.readyNowCount ?? 0} />
         <InboxMetric icon={<Stethoscope size={16} />} label="In progress" value={data?.inProgressCount ?? 0} />
         <InboxMetric icon={<FileCheck2 size={16} />} label="Evidence ready" value={data?.evidenceReadyCount ?? 0} />
         <InboxMetric icon={<TimerReset size={16} />} label="Follow-up" value={data?.followUpCount ?? 0} />
@@ -162,6 +163,8 @@ function InboxMetric({ icon, label, value }: { icon: ReactNode; label: string; v
 
 function groupItems(items: ClinicalInboxItem[]) {
   const definitions = [
+    { type: 'NEEDS_ACTION', title: 'Needs action', copy: 'Scheduled appointments that passed their time window without being completed.' },
+    { type: 'READY_NOW', title: 'Ready now', copy: 'Appointments whose scheduled care window is currently open.' },
     { type: 'IN_PROGRESS', title: 'In progress', copy: 'Encounter documentation that still needs completion.' },
     { type: 'EVIDENCE_READY', title: 'Needs review', copy: 'Patient-shared evidence available before upcoming care.' },
     { type: 'FOLLOW_UP', title: 'Follow-up', copy: 'Doctor-recommended follow-up without a future booking.' },
@@ -172,12 +175,16 @@ function groupItems(items: ClinicalInboxItem[]) {
 }
 
 function itemLabel(type: ClinicalInboxItem['type']) {
+  if (type === 'NEEDS_ACTION') return 'Needs action';
+  if (type === 'READY_NOW') return 'Ready now';
   if (type === 'IN_PROGRESS') return 'In progress';
   if (type === 'EVIDENCE_READY') return 'Evidence ready';
   return 'Follow-up';
 }
 
 function actionLabel(type: ClinicalInboxItem['type']) {
+  if (type === 'NEEDS_ACTION') return 'Open care';
+  if (type === 'READY_NOW') return 'Open care';
   if (type === 'IN_PROGRESS') return 'Resume';
   if (type === 'EVIDENCE_READY') return 'Review';
   return 'Open Patient';

@@ -425,7 +425,8 @@ class ReportAnalysisServiceTests(unittest.TestCase):
 
         self.assertEqual(result.modelName, "google/medgemma-1.5-4b-it")
         self.assertEqual(result.clinicalPatterns[0].supportingObservationIds, [observation_id])
-        self.assertEqual(runtime.allowed_observation_ids, (str(observation_id),))
+        self.assertEqual(runtime.allowed_observation_ids, ("v1",))
+        self.assertEqual(str(runtime.allowed_observation_ids.facts["v1"].observationId), str(observation_id))
         self.assertIn("Hemoglobin (lower than expected)", result.clinicalPatterns[0].reasoning)
         self.assertIn("limited iron availability", result.clinicalPatterns[0].reasoning)
         self.assertIn("diagnosis", " ".join(result.limitations).lower())

@@ -325,16 +325,20 @@ public class PatientAppointmentService {
         requireActiveUser(patientUserId, "PATIENT");
         String direction = collection == AppointmentCollection.UPCOMING ? "ASC" : "DESC";
         String condition = collection == AppointmentCollection.UPCOMING
-            ? " a.status = 'BOOKED' AND (a.scheduled_start >= CURRENT_TIMESTAMP OR EXISTS (" +
+            ? " a.status = 'BOOKED' AND (a.scheduled_end >= CURRENT_TIMESTAMP - INTERVAL '30 days' OR EXISTS (" +
                 "SELECT 1 FROM doctor_consultations c WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'))"
-            : " (a.status <> 'BOOKED' OR (a.scheduled_start < CURRENT_TIMESTAMP AND NOT EXISTS (" +
+            : " (a.status <> 'BOOKED' OR (a.scheduled_end < CURRENT_TIMESTAMP - INTERVAL '30 days' AND NOT EXISTS (" +
                 "SELECT 1 FROM doctor_consultations c WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS')))";
         return jdbc.query(
             """
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
                    a.booked_at, a.cancelled_at, a.consultation_mode, a.meeting_url, a.meeting_link_updated_at,
                    a.visit_location, p.doctor_user_id, p.display_name, p.specialization,
-                   (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count
+                   (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count,
+                   EXISTS (
+                       SELECT 1 FROM doctor_consultations c
+                        WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+                   ) AS consultation_in_progress
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.patient_user_id = ? AND """ + condition + " ORDER BY a.scheduled_start " + direction + " LIMIT 100",
             APPOINTMENT_MAPPER,
@@ -350,7 +354,11 @@ public class PatientAppointmentService {
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
                    a.booked_at, a.cancelled_at, a.consultation_mode, a.meeting_url, a.meeting_link_updated_at,
                    a.visit_location, p.doctor_user_id, p.display_name, p.specialization,
-                   (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count
+                   (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count,
+                   EXISTS (
+                       SELECT 1 FROM doctor_consultations c
+                        WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+                   ) AS consultation_in_progress
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.id = ? AND a.patient_user_id = ?
             """,
@@ -776,7 +784,11 @@ public class PatientAppointmentService {
             SELECT a.id, a.status, a.reason_for_visit, a.scheduled_start, a.scheduled_end, a.booking_timezone,
                    a.booked_at, a.cancelled_at, a.consultation_mode, a.meeting_url, a.meeting_link_updated_at,
                    a.visit_location, p.doctor_user_id, p.display_name, p.specialization,
-                   (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count
+                   (SELECT COUNT(*) FROM appointment_report_shares s WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_report_count,
+                   EXISTS (
+                       SELECT 1 FROM doctor_consultations c
+                        WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+                   ) AS consultation_in_progress
             FROM appointments a JOIN doctor_booking_profiles p ON p.doctor_user_id = a.doctor_user_id
             WHERE a.patient_user_id = ? AND a.idempotency_key = ?
             """,
@@ -911,7 +923,8 @@ public class PatientAppointmentService {
         rs.getString("consultation_mode"), null, // Only the time-gated Join action releases a Patient's meeting URL.
         rs.getTimestamp("meeting_link_updated_at") == null ? null : rs.getTimestamp("meeting_link_updated_at").toInstant(),
         rs.getString("visit_location"), rs.getObject("doctor_user_id", UUID.class), rs.getString("display_name"),
-        rs.getString("specialization"), rs.getLong("shared_report_count")
+        rs.getString("specialization"), rs.getLong("shared_report_count"),
+        rs.getBoolean("consultation_in_progress")
     );
 
     private record SlotLock(UUID id, UUID doctorUserId, Instant startsAt, Instant endsAt, String status, String consultationMode, String doctorName, String practiceLocation) {}
@@ -931,7 +944,8 @@ public class PatientAppointmentService {
     public record AppointmentView(
         UUID id, String status, String reasonForVisit, Instant scheduledStart, Instant scheduledEnd, String bookingTimezone,
         Instant bookedAt, Instant cancelledAt, String consultationMode, String meetingUrl, Instant meetingLinkUpdatedAt,
-        String visitLocation, UUID doctorId, String doctorName, String specialization, long sharedReportCount
+        String visitLocation, UUID doctorId, String doctorName, String specialization, long sharedReportCount,
+        boolean consultationInProgress
     ) {}
     public record ReportShareView(UUID reportId, String reportName, String reportType, java.time.LocalDate reportDate, Instant sharedAt, Instant revokedAt) {}
     public record PortalCareSummary(AppointmentView nextAppointment, long activeReportShareCount, long doctorCount) {}

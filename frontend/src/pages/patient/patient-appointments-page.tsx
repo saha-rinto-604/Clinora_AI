@@ -54,7 +54,7 @@ export function PatientAppointmentsPage() {
       <PatientCareHeader
         eyebrow="Your care"
         title="Appointments"
-        description="See upcoming care, review past bookings, and manage the reports you chose to share."
+        description="See active and upcoming care, review past bookings, and manage the reports you chose to share."
         action={
           <Link to="/patient/doctors" className={buttonVariants({ variant: 'appPrimary' })}>
             Find a Doctor <ArrowRight size={15} aria-hidden="true" />
@@ -81,7 +81,7 @@ export function PatientAppointmentsPage() {
               <span className="min-w-0">
                 <strong className="block text-xl font-semibold">{counts[value] ?? 'View'}</strong>
                 <span className="block text-xs text-[var(--clinora-text-muted)]">
-                  {value === 'UPCOMING' ? 'Upcoming appointments' : 'Past appointments'}
+                  {value === 'UPCOMING' ? 'Active & upcoming' : 'Past appointments'}
                 </span>
               </span>
             </button>
@@ -127,7 +127,7 @@ export function PatientAppointmentsPage() {
               aria-pressed={collection === value}
               className={tabClass(collection === value)}
             >
-              {value === 'UPCOMING' ? 'Upcoming' : 'Past'}
+              {value === 'UPCOMING' ? 'Active & upcoming' : 'Past'}
               {counts[value] !== undefined ? ` (${counts[value]})` : ''}
             </button>
           ))}
@@ -169,10 +169,10 @@ export function PatientAppointmentsPage() {
           <AppSurface>
             <EmptyState
               icon={<CalendarDays size={18} aria-hidden="true" />}
-              title={collection === 'UPCOMING' ? 'No upcoming appointments' : 'No past appointments yet'}
+              title={collection === 'UPCOMING' ? 'No active or upcoming appointments' : 'No past appointments yet'}
               copy={
                 collection === 'UPCOMING'
-                  ? 'Find an approved Clinora Doctor and choose an available time when you need care.'
+                  ? 'Current unresolved care and future bookings will appear here.'
                   : 'Completed and cancelled appointments will appear here.'
               }
               action={
@@ -199,7 +199,34 @@ export function PatientAppointmentsPage() {
 
 function AppointmentRow({ appointment }: { appointment: Appointment }) {
   const scheduled = new Date(appointment.scheduledStart);
-  const tone = appointment.status === 'BOOKED' ? 'success' : appointment.status === 'CANCELLED' ? 'warning' : 'neutral';
+  const now = Date.now();
+  const scheduledEnd = new Date(appointment.scheduledEnd).getTime();
+  const readyNow =
+    appointment.status === 'BOOKED' &&
+    scheduled.getTime() <= now &&
+    scheduledEnd >= now;
+  const awaitingCompletion =
+    appointment.status === 'BOOKED' && !appointment.consultationInProgress && scheduledEnd < now;
+  const tone: 'info' | 'success' | 'warning' | 'neutral' = appointment.consultationInProgress
+    ? 'warning'
+    : awaitingCompletion
+      ? 'warning'
+    : readyNow
+      ? 'info'
+      : appointment.status === 'BOOKED'
+        ? 'success'
+        : appointment.status === 'CANCELLED'
+          ? 'warning'
+          : 'neutral';
+  const statusLabel = appointment.consultationInProgress
+    ? 'Consultation in progress'
+    : awaitingCompletion
+      ? 'Awaiting completion'
+    : readyNow
+      ? 'Ready now'
+      : appointment.status === 'BOOKED'
+        ? 'Confirmed'
+        : sentenceCase(appointment.status);
   return (
     <AppSurface as="article" variant="interactive" padding="compact" className="sm:p-4">
       <div className="patient-care-appointment-row">
@@ -217,9 +244,7 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-white">{appointment.doctorName}</h2>
-            <StatusPill tone={tone}>
-              {appointment.status === 'BOOKED' ? 'Confirmed' : sentenceCase(appointment.status)}
-            </StatusPill>
+            <StatusPill tone={tone}>{statusLabel}</StatusPill>
           </div>
           <p className="mt-1 text-sm font-medium text-[var(--clinora-info-foreground)]">{appointment.specialization}</p>
           <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--clinora-text-muted)]">

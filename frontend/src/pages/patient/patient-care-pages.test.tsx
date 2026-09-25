@@ -109,7 +109,7 @@ describe('Patient care overview and discovery', () => {
         <PatientAppointmentsPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByRole('button', { name: 'Upcoming (2)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Active & upcoming (2)' })).toBeInTheDocument();
     expect(api.list).toHaveBeenCalledTimes(1);
     expect(api.list).toHaveBeenCalledWith('UPCOMING');
     expect(screen.getAllByRole('article')[0]).toHaveTextContent('Dr. Test One');

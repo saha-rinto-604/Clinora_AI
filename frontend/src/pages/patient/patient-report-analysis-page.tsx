@@ -38,6 +38,7 @@ import type {
 } from '../../features/patient-reports/patient-report-extraction-types';
 import { patientReportApi, patientReportErrorMessage } from '../../features/patient-reports/patient-report-api';
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
+import { ReportProcessingNotice } from '../../features/patient-reports/report-processing-notice';
 import {
   patientReportDisplayName,
   patientReportSubjectLabel,
@@ -521,7 +522,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
         <StartExtractionPanel busy={action === 'start'} onStart={() => void startExtraction()} />
       ) : null}
 
-      {['QUEUED', 'PROCESSING'].includes(extraction.status) ? <ProcessingPanel status={extraction.status} /> : null}
+      {['QUEUED', 'PROCESSING'].includes(extraction.status) ? <ProcessingPanel extraction={extraction} /> : null}
 
       {extraction.displayedPreviousResult && ['QUEUED', 'PROCESSING'].includes(extraction.status) ? (
         <div
@@ -779,8 +780,8 @@ function StartExtractionPanel({ busy, onStart }: { busy: boolean; onStart: () =>
   );
 }
 
-function ProcessingPanel({ status }: { status: PatientReportExtraction['status'] }) {
-  const queued = status === 'QUEUED';
+function ProcessingPanel({ extraction }: { extraction: PatientReportExtraction }) {
+  const queued = extraction.status === 'QUEUED';
   return (
     <section
       className="clinora-ocr-processing overflow-hidden rounded-[28px] border border-cyan-300/15 bg-[var(--clinora-surface-raised)]"
@@ -839,6 +840,8 @@ function ProcessingPanel({ status }: { status: PatientReportExtraction['status']
               ? 'Clinora has your report and will begin extraction automatically when the private document worker is available.'
               : 'Clinora is locating laboratory-style text and values so you can compare the transcription with the original before any AI insight is requested.'}
           </p>
+
+          <ReportProcessingNotice requestedAt={extraction.requestedAt} stage="extraction" queued={queued} />
 
           <div className="mt-7 space-y-3">
             <ExtractionStatusRow

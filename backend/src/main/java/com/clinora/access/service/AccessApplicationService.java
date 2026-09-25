@@ -96,7 +96,7 @@ public class AccessApplicationService {
         String normalized;
         try{normalized=emailNormalizer.normalize(email);}catch(RuntimeException ex){return;}
         var app=applications.findFirstByNormalizedEmailAndStatusNotIn(normalized,TERMINAL).orElse(null);
-        if(app!=null && app.getEmailVerifiedAt()!=null) sendAccessLink(app,ip,userAgent);
+        if(app!=null) sendResumeOrVerification(app,ip,userAgent);
     }
 
     @Transactional

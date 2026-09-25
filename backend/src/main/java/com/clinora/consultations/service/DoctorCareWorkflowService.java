@@ -39,6 +39,7 @@ public class DoctorCareWorkflowService {
         access.requireActiveDoctor(doctorId);
         Instant now = clock.instant();
         Instant upcomingCutoff = now.plusSeconds(48 * 60 * 60L);
+        Instant unresolvedCutoff = now.minusSeconds(30L * 24 * 60 * 60);
         LocalDate today = LocalDate.now(clock);
         List<ClinicalInboxItem> items = new ArrayList<>();
 
@@ -73,6 +74,101 @@ public class DoctorCareWorkflowService {
         items.addAll(jdbc.query(
             """
             SELECT a.id AS appointment_id, a.patient_user_id, u.first_name, u.last_name,
+                   a.scheduled_start, a.scheduled_end,
+                   (SELECT COUNT(*)::int
+                      FROM appointment_report_shares s
+                     WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_count
+              FROM appointments a
+              JOIN users u ON u.id = a.patient_user_id
+             WHERE a.doctor_user_id = ?
+               AND a.status = 'BOOKED'
+               AND a.scheduled_start <= ?
+               AND a.scheduled_end >= ?
+               AND NOT EXISTS (
+                   SELECT 1 FROM doctor_consultations c
+                    WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+               )
+             ORDER BY a.scheduled_end ASC
+             LIMIT 20
+            """,
+            (rs, rowNum) -> {
+                int shared = rs.getInt("shared_count");
+                UUID appointmentId = rs.getObject("appointment_id", UUID.class);
+                String detail = shared > 0
+                    ? shared + " currently authorized report" + (shared == 1 ? " is" : "s are")
+                        + " available. Open the appointment to review evidence or start the consultation."
+                    : "The appointment window is open. Open the appointment to review Patient context or start the consultation.";
+                return new ClinicalInboxItem(
+                    "ready:" + appointmentId,
+                    "READY_NOW",
+                    "HIGH",
+                    rs.getObject("patient_user_id", UUID.class),
+                    displayName(rs.getString("first_name"), rs.getString("last_name")),
+                    appointmentId,
+                    null,
+                    "Appointment ready now",
+                    detail,
+                    instant(rs.getTimestamp("scheduled_end")),
+                    null,
+                    "/doctor/appointments/" + appointmentId
+                );
+            },
+            doctorId,
+            Timestamp.from(now),
+            Timestamp.from(now)
+        ));
+
+        items.addAll(jdbc.query(
+            """
+            SELECT a.id AS appointment_id, a.patient_user_id, u.first_name, u.last_name,
+                   a.scheduled_start, a.scheduled_end,
+                   (SELECT COUNT(*)::int
+                      FROM appointment_report_shares s
+                     WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_count
+              FROM appointments a
+              JOIN users u ON u.id = a.patient_user_id
+             WHERE a.doctor_user_id = ?
+               AND a.status = 'BOOKED'
+               AND a.scheduled_end < ?
+               AND a.scheduled_end >= ?
+               AND NOT EXISTS (
+                   SELECT 1 FROM doctor_consultations c
+                    WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
+               )
+             ORDER BY a.scheduled_end DESC
+             LIMIT 20
+            """,
+            (rs, rowNum) -> {
+                int shared = rs.getInt("shared_count");
+                UUID appointmentId = rs.getObject("appointment_id", UUID.class);
+                String detail = shared > 0
+                    ? "The scheduled time has passed, but this booked consultation is still unresolved. "
+                        + shared + " currently authorized report" + (shared == 1 ? " is" : "s are")
+                        + " still available for this appointment."
+                    : "The scheduled time has passed, but this booked consultation is still unresolved. Open the appointment to review Patient context and continue care.";
+                return new ClinicalInboxItem(
+                    "needs-action:" + appointmentId,
+                    "NEEDS_ACTION",
+                    "HIGH",
+                    rs.getObject("patient_user_id", UUID.class),
+                    displayName(rs.getString("first_name"), rs.getString("last_name")),
+                    appointmentId,
+                    null,
+                    "Scheduled consultation needs action",
+                    detail,
+                    instant(rs.getTimestamp("scheduled_end")),
+                    null,
+                    "/doctor/appointments/" + appointmentId + "/consultation"
+                );
+            },
+            doctorId,
+            Timestamp.from(now),
+            Timestamp.from(unresolvedCutoff)
+        ));
+
+        items.addAll(jdbc.query(
+            """
+            SELECT a.id AS appointment_id, a.patient_user_id, u.first_name, u.last_name,
                    a.scheduled_start,
                    (SELECT COUNT(*)::int
                       FROM appointment_report_shares s
@@ -81,7 +177,7 @@ public class DoctorCareWorkflowService {
               JOIN users u ON u.id = a.patient_user_id
              WHERE a.doctor_user_id = ?
                AND a.status = 'BOOKED'
-               AND a.scheduled_start >= ?
+               AND a.scheduled_start > ?
                AND a.scheduled_start <= ?
                AND EXISTS (
                    SELECT 1 FROM appointment_report_shares s
@@ -137,7 +233,7 @@ public class DoctorCareWorkflowService {
                         WHERE next_a.doctor_user_id = c.doctor_user_id
                           AND next_a.patient_user_id = c.patient_user_id
                           AND next_a.status = 'BOOKED'
-                          AND next_a.scheduled_start >= CURRENT_TIMESTAMP
+                          AND next_a.scheduled_end >= CURRENT_TIMESTAMP - INTERVAL '30 days'
                    )
             )
             SELECT consultation_id, appointment_id, patient_user_id,
@@ -177,10 +273,11 @@ public class DoctorCareWorkflowService {
             .thenComparing(item -> item.dueAt() == null ? Instant.MAX : item.dueAt())
             .thenComparing(item -> item.dueDate() == null ? LocalDate.MAX : item.dueDate()));
 
+        int readyNow = countType(items, "READY_NOW");
         int inProgress = countType(items, "IN_PROGRESS");
         int evidenceReady = countType(items, "EVIDENCE_READY");
         int followUp = countType(items, "FOLLOW_UP");
-        return new ClinicalInboxView(inProgress, evidenceReady, followUp, items.size(), List.copyOf(items));
+        return new ClinicalInboxView(readyNow, inProgress, evidenceReady, followUp, items.size(), List.copyOf(items));
     }
 
     @Transactional(readOnly = true)
@@ -206,7 +303,7 @@ public class DoctorCareWorkflowService {
                        a.booking_timezone, a.consultation_mode, a.reason_for_visit
                   FROM appointments a
                  WHERE a.doctor_user_id = ? AND a.status = 'BOOKED'
-                   AND a.scheduled_start >= CURRENT_TIMESTAMP
+                   AND a.scheduled_end >= CURRENT_TIMESTAMP - INTERVAL '30 days'
                  ORDER BY a.patient_user_id, a.scheduled_start ASC, a.id ASC
             )
             SELECT u.id AS patient_id, u.first_name, u.last_name,
@@ -304,7 +401,7 @@ public class DoctorCareWorkflowService {
                      WHERE s.appointment_id = a.id AND s.revoked_at IS NULL) AS shared_count
               FROM appointments a
              WHERE a.doctor_user_id = ? AND a.patient_user_id = ?
-               AND a.status = 'BOOKED' AND a.scheduled_end >= CURRENT_TIMESTAMP
+               AND a.status = 'BOOKED' AND a.scheduled_end >= CURRENT_TIMESTAMP - INTERVAL '30 days'
              ORDER BY a.scheduled_start ASC
              LIMIT 20
             """,

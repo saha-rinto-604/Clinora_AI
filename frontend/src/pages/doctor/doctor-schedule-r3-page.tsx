@@ -18,7 +18,7 @@ import { cn } from '../../lib/cn';
 const PAGE_SIZE = 20;
 const scopes: Array<{ value: AppointmentScope; label: string }> = [
   { value: 'today', label: 'Today' },
-  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'upcoming', label: 'Active & upcoming' },
   { value: 'history', label: 'History' },
 ];
 
@@ -199,6 +199,8 @@ export function DoctorSchedulePage() {
 }
 
 function ScheduleRow({ appointment, historical }: { appointment: DoctorAppointmentSummary; historical: boolean }) {
+  const needsAction = appointment.status === 'BOOKED' && new Date(appointment.scheduledEnd).getTime() < Date.now();
+
   return (
     <li>
       <Link
@@ -235,7 +237,9 @@ function ScheduleRow({ appointment, historical }: { appointment: DoctorAppointme
               : 'No report shared'}
         </span>
         <span className="flex items-center gap-3 md:justify-end">
-          <StatusPill tone={doctorStatusTone(appointment.status)}>{doctorStatusLabel(appointment.status)}</StatusPill>
+          <StatusPill tone={needsAction ? 'warning' : doctorStatusTone(appointment.status)}>
+            {needsAction ? 'Needs action' : doctorStatusLabel(appointment.status)}
+          </StatusPill>
           <ChevronRight
             size={15}
             className="text-slate-700 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-400"
@@ -310,19 +314,19 @@ function durationMinutes(appointment: Pick<DoctorAppointmentSummary, 'scheduledS
 function scopeTitle(scope: AppointmentScope) {
   if (scope === 'today') return 'Today’s care';
   if (scope === 'history') return 'Care history';
-  return 'Upcoming care';
+  return 'Active & upcoming care';
 }
 
 function scopeCopy(scope: AppointmentScope) {
-  if (scope === 'history') return 'Completed, elapsed and cancelled bookings';
+  if (scope === 'history') return 'Completed, cancelled and older unresolved bookings';
   if (scope === 'today') return 'Your booked Patient care for today';
-  return 'Future confirmed Patient bookings';
+  return 'Future bookings plus recently elapsed care that still needs Doctor action';
 }
 
 function emptyTitle(scope: AppointmentScope) {
   if (scope === 'today') return 'No appointments today';
   if (scope === 'history') return 'No care history yet';
-  return 'No upcoming appointments';
+  return 'No active or upcoming appointments';
 }
 
 function emptyCopy(scope: AppointmentScope) {

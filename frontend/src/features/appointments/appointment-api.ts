@@ -62,6 +62,7 @@ export interface Appointment {
   doctorName: string;
   specialization: string;
   sharedReportCount: number;
+  consultationInProgress: boolean;
 }
 export interface ReportShare {
   reportId: string;

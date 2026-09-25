@@ -51,6 +51,19 @@ afterEach(() => {
 });
 
 describe('Phase 4C professional application routes', () => {
+  it('allows an unverified applicant to request another email using a plus alias', async () => {
+    vi.spyOn(applicationApi, 'me').mockRejectedValue(new Error('no session'));
+    const requestLink = vi.spyOn(applicationApi, 'requestAccessLink').mockResolvedValue({} as never);
+    renderRoute('/application/status');
+
+    await userEvent.type(await screen.findByLabelText(/application email/i), 'clionorausers+Redwan@gmail.com');
+    expect(screen.getByText(/verification link if your email is still unverified/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /email secure sign-in link/i }));
+
+    expect(requestLink).toHaveBeenCalledWith('clionorausers+Redwan@gmail.com');
+    expect(await screen.findByText(/sent a verification or secure sign-in link/i)).toBeInTheDocument();
+  });
+
   it('renders the Doctor application as a professional approval flow', () => {
     renderRoute('/apply/doctor');
 

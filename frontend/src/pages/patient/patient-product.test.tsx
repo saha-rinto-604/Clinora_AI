@@ -362,7 +362,7 @@ describe('Phase 5 Patient appointment states', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'No upcoming appointments' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No active or upcoming appointments' })).toBeInTheDocument();
     mocks.appointments.mockRejectedValueOnce(new Error('Appointment refresh failed.'));
     await user.click(screen.getByRole('button', { name: 'Past' }));
     expect(await screen.findByText(/Appointment refresh failed/)).toBeInTheDocument();

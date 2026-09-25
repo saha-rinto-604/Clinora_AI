@@ -326,40 +326,72 @@ function PatientClinicalBrief({ response, loading, message }: { response: Doctor
 
 function ExecutionResults({ response }: { response: DoctorSupportExecutionResponse }) {
   const heading = executionHeading(response);
+  const resultsAvailable = response.taskResults.every(hasClinicalResult);
   return <section aria-live="polite" className="space-y-4">
-    <div className="flex items-center gap-2 text-sm font-semibold text-white">{response.status === 'SUCCEEDED' ? <CheckCircle2 size={16} className="text-emerald-300" /> : <AlertTriangle size={16} className="text-amber-300" />}{heading}</div>
+    <div className="flex items-center gap-2 text-sm font-semibold text-white">{resultsAvailable ? <CheckCircle2 size={16} className="text-emerald-300" /> : <AlertTriangle size={16} className="text-amber-300" />}{heading}</div>
     <p className="text-xs text-slate-400">Based on {response.evidence.length} verified observations from {response.reports.length} currently shared reports.</p>
     {response.taskResults.map((item) => <article key={item.taskId} className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
       <h3 className="text-sm font-semibold text-cyan-100">{taskLabels[item.taskId]}</h3>
       {(item.status === 'SUCCEEDED' || item.status === 'DEGRADED') && item.result
-        ? <>{item.status === 'DEGRADED' ? <DegradedNotice code={item.safeFailureCode} /> : null}<ClinicalResult result={item.result} evidence={response.evidence} /></>
+        ? <ClinicalResult result={item.status === 'DEGRADED' ? presentClinicalResult(item.result) : item.result} evidence={response.evidence} />
         : <TaskFailure item={item} />}
       {item.references.length ? <div className="mt-4 border-t border-white/10 pt-4"><h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-200"><BookOpen size={14} /> General clinical references</h4><ul className="mt-2 space-y-2">{item.references.map((reference) => <li key={reference.chunkId} className="rounded-lg bg-violet-300/5 p-2.5 text-xs text-slate-300"><strong className="text-white">{reference.title}</strong><span className="mt-0.5 block">{reference.publisher} · {reference.sectionPath}{reference.version ? ` · ${reference.version}` : ''}{reference.publicationDate ? ` · ${reference.publicationDate}` : ''}</span></li>)}</ul></div> : null}
     </article>)}
   </section>;
 }
 
-function DegradedNotice({ code }: { code: string | null }) {
-  return <section aria-label="Degraded clinical reasoning mode" className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[.06] p-3">
-    <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-100">Showing existing report analysis</h4>
-    <p role="status" className="mt-1 text-sm text-amber-50">{code === 'GEMINI_RATE_LIMITED' || code === 'MODEL_BUSY' ? 'Clinical reasoning is temporarily busy. Please try again shortly.' : 'Live clinical reasoning is temporarily unavailable.'}</p>
-    <p className="mt-1 text-xs text-slate-300">Patient facts are verified DB evidence. Clinical patterns and gaps are advisory content from already READY report analysis; no new MedGemma analysis was requested.</p>
-  </section>;
+// Translate only known service-authored fallback copy. Preserve clinical findings,
+// uncertainty, and the original response/provenance without filtering free text.
+const clinicalDisplayCopy: Record<string, string> = {
+  'Existing report analysis — live cross-report reasoning temporarily unavailable.': 'Clinical patterns from the available report evidence.',
+  'Showing gaps from existing READY report analysis; live cross-report reasoning is temporarily unavailable.': 'Missing information identified in the available report evidence.',
+  'Live cross-report hypothesis checking is unavailable; this is existing report-level analysis only.': 'Report-level evidence related to this hypothesis is shown below.',
+  'Live hypothesis checking is temporarily unavailable, and the existing report-level analysis does not explicitly evaluate this hypothesis.': 'The available report-level analysis does not explicitly evaluate this hypothesis.',
+  'This is advisory existing report-level analysis, not live cross-report reasoning.': 'This advisory analysis is limited to individual reports; relationships across reports have not been assessed.',
+  'Patient values, units, ranges, statuses, and dates shown here come only from current authorized database evidence.': 'Patient values, units, ranges, statuses, and dates reflect the currently shared evidence.',
+  'This concept appears in an existing READY report analysis and is linked to the verified evidence shown.': 'This report-level pattern is linked to the verified evidence shown.',
+  'The current READY report analyses do not explicitly identify missing information.': 'The available report analyses do not explicitly identify missing information.',
+  'The existing READY report analysis does not explicitly evaluate this hypothesis.': 'The available report-level analysis does not explicitly evaluate this hypothesis.',
+  'No live cross-report hypothesis conclusion was generated; concept matching is exact after basic wording normalization and is not fuzzy diagnostic inference.': 'This result matches the hypothesis wording to report-level findings; it does not establish a diagnostic conclusion across reports.',
+};
+
+function clinicalText(text: string) {
+  return clinicalDisplayCopy[text] ?? text;
+}
+
+function presentClinicalResult(result: DoctorSupportClinicalResult): DoctorSupportClinicalResult {
+  const display = { ...result, limitations: result.limitations.map(clinicalText) };
+  if ('summary' in display) display.summary = clinicalText(display.summary);
+  if (display.taskId === 'EXPLORE_EXPLANATIONS') {
+    display.explanations = display.explanations.map((item) => ({ ...item, whyItMayFit: clinicalText(item.whyItMayFit) }));
+  }
+  if (display.taskId === 'CROSS_CHECK_ASSESSMENT') {
+    display.missingInformation = display.missingInformation.map(clinicalText);
+  }
+  return display;
+}
+
+function hasClinicalResult(item: DoctorSupportExecutionResponse['taskResults'][number]) {
+  return (item.status === 'SUCCEEDED' || item.status === 'DEGRADED') && Boolean(item.result);
 }
 
 function TaskFailure({ item }: { item: DoctorSupportExecutionResponse['taskResults'][number] }) {
   const providerFailure = ['GEMINI_RATE_LIMITED', 'GEMINI_TIMEOUT', 'GEMINI_UNAVAILABLE', 'MODEL_BUSY', 'MODEL_TIMEOUT', 'MODEL_UNAVAILABLE'].includes(item.safeFailureCode ?? '');
   const preparation = ['CLINICAL_REASONING_PREPARING', 'CLINICAL_REASONING_STALE', 'CLINICAL_REASONING_UNAVAILABLE'].includes(item.safeFailureCode ?? '');
   const selection = ['EVIDENCE_SELECTION_REQUIRED', 'COMPARABLE_REPORTS_REQUIRED', 'RELIABLE_COMPARABLE_EVIDENCE_REQUIRED'].includes(item.safeFailureCode ?? '');
-  if (providerFailure || preparation || selection) {
+  if (providerFailure) {
+    return <p role="status" className="mt-3 text-sm text-amber-100">No result could be prepared for this request. Please try again.</p>;
+  }
+  if (preparation || selection) {
     return <p role="status" className="mt-3 text-sm text-amber-100">{safeFailure(item.safeFailureCode)}</p>;
   }
   return <p role="alert" className="mt-3 text-sm text-amber-100">Clinora stopped safely: {safeFailure(item.safeFailureCode)}</p>;
 }
 
 function executionHeading(response: DoctorSupportExecutionResponse) {
-  if (response.status === 'SUCCEEDED') return 'Clinora result';
-  if (response.status === 'DEGRADED' || response.taskResults.some((item) => ['GEMINI_RATE_LIMITED', 'GEMINI_TIMEOUT', 'GEMINI_UNAVAILABLE', 'MODEL_BUSY', 'MODEL_TIMEOUT', 'MODEL_UNAVAILABLE'].includes(item.safeFailureCode ?? ''))) return 'Live clinical reasoning temporarily unavailable';
+  if (response.taskResults.length && response.taskResults.every(hasClinicalResult)) return 'Clinora result';
+  if (response.taskResults.some(hasClinicalResult)) return 'Completed with limitations';
+  if (response.taskResults.some((item) => ['GEMINI_RATE_LIMITED', 'GEMINI_TIMEOUT', 'GEMINI_UNAVAILABLE', 'MODEL_BUSY', 'MODEL_TIMEOUT', 'MODEL_UNAVAILABLE'].includes(item.safeFailureCode ?? ''))) return 'No result available';
   if (response.taskResults.some((item) => ['CLINICAL_REASONING_PREPARING', 'CLINICAL_REASONING_STALE'].includes(item.safeFailureCode ?? ''))) return 'Existing report analysis is preparing';
   if (response.taskResults.some((item) => ['EVIDENCE_SELECTION_REQUIRED', 'COMPARABLE_REPORTS_REQUIRED', 'RELIABLE_COMPARABLE_EVIDENCE_REQUIRED'].includes(item.safeFailureCode ?? ''))) return 'More comparable report evidence is needed';
   return response.status === 'PARTIAL_SUCCESS' ? 'Completed with limitations' : 'Unable to complete safely';

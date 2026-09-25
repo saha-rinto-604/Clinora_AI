@@ -117,6 +117,7 @@ public final class ConsultationModels {
     ) {}
 
     public record ClinicalInboxView(
+        int readyNowCount,
         int inProgressCount,
         int evidenceReadyCount,
         int followUpCount,

@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import threading
+import time
 from collections.abc import Iterable
 from uuid import UUID
 
@@ -461,22 +462,46 @@ def _narrative_text(payload: ModelAnalysisPayload) -> Iterable[tuple[str, str]]:
             yield field, text
 
 
+def _expand_evidence_ids(value, original_ids: dict[str, str]):
+    """Expand only identity fields; never rewrite model prose or invent evidence."""
+    if isinstance(value, list):
+        return [_expand_evidence_ids(item, original_ids) for item in value]
+    if not isinstance(value, dict):
+        return value
+    expanded = {}
+    for key, item in value.items():
+        if key == "observationId" and isinstance(item, str):
+            expanded[key] = original_ids.get(item, item)
+        elif key in {"supportingObservationIds", "contradictoryObservationIds"} and isinstance(item, list):
+            expanded[key] = [original_ids.get(ref, ref) if isinstance(ref, str) else ref for ref in item]
+        else:
+            expanded[key] = _expand_evidence_ids(item, original_ids)
+    return expanded
+
+
 class ReportAnalysisService:
     def __init__(self, runtime: MedGemmaRuntime) -> None:
         self._runtime = runtime
         self._semaphore = threading.BoundedSemaphore(1)
 
     def analyze(self, request: ReportAnalysisRequest) -> ReportAnalysisResponse:
-        allowed_observation_ids = VerifiedObservationIds(request.observations)
-        messages = build_messages(request)
+        allowed_observation_ids = VerifiedObservationIds(request.observations, compact=True)
+        evidence_ids = {str(observation.observationId): key
+                        for key, observation in allowed_observation_ids.facts.items()}
+        original_ids = {key: original for original, key in evidence_ids.items()}
+        messages = build_messages(request, evidence_ids)
         repair_attempted = False
 
         while True:
             with self._semaphore:
+                started = time.monotonic()
                 generation = self._runtime.generate(
                     messages,
                     allowed_observation_ids=allowed_observation_ids,
                 )
+                LOGGER.info("Patient report generation: seconds=%.2f prompt_tokens=%s completion_tokens=%s repair=%s",
+                            time.monotonic() - started, getattr(generation, "prompt_tokens", None),
+                            getattr(generation, "completion_tokens", None), repair_attempted)
             raw, truncated, generation_diagnostics = self._generation_details(generation)
 
             try:
@@ -489,6 +514,7 @@ class ReportAnalysisService:
                 parsed_candidate = parse_candidate_output(raw)
                 if "clusters" in parsed_candidate:
                     parsed_candidate = parse_cluster_output(raw)
+                parsed_candidate = _expand_evidence_ids(parsed_candidate, original_ids)
                 # Apply Clinora's existing raw safety boundary before sanitizing or
                 # grounding candidate output. Unsafe model text is never silently hidden.
                 self._validate_raw_safety_boundary(parsed_candidate)
@@ -530,7 +556,7 @@ class ReportAnalysisService:
                     "Clinora AI candidate output failed compact-contract parsing; attempting one JSON repair: reason=%s",
                     exc,
                 )
-                messages = build_repair_messages(request, str(exc))
+                messages = build_repair_messages(request, str(exc), evidence_ids)
             except UnsafeModelOutputError as exc:
                 # Never ask the model to rewrite a response that crossed a patient-safety boundary.
                 self._log_rejection(exc)

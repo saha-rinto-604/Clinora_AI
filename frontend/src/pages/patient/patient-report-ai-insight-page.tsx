@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ReportProcessingNotice } from '../../features/patient-reports/report-processing-notice';
 import { Link, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
@@ -423,6 +424,8 @@ function InsightLab({
               : 'Clinora AI is evaluating cautious clinical possibilities, then checking every evidence link before anything is shown.'}
           </p>
         </div>
+
+        <ReportProcessingNotice requestedAt={analysis.requestedAt} stage="analysis" queued={queued} light />
 
         <div className="mt-6 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
           <div className={queued ? 'clinora-ai-queue-track h-2 w-full' : 'clinora-ai-activity-track h-2 w-full'} />

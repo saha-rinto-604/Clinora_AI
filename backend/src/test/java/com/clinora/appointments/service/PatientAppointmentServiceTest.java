@@ -1,6 +1,7 @@
 package com.clinora.appointments.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -46,7 +47,9 @@ class PatientAppointmentServiceTest {
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(jdbc).query(sql.capture(), any(org.springframework.jdbc.core.RowMapper.class), eq(patientId));
-        org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("? AND a.status"));
+        assertTrue(sql.getValue().contains("? AND a.status"));
+        assertTrue(sql.getValue().contains("a.scheduled_end >= CURRENT_TIMESTAMP"));
+        assertTrue(sql.getValue().contains("c.status = 'IN_PROGRESS'"));
     }
 
     @Test

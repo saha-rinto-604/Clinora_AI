@@ -62,10 +62,12 @@ class ModelGeneration:
 class VerifiedObservationIds(tuple):
     """Backward-compatible ID sequence carrying facts for generation constraints."""
 
-    def __new__(cls, observations):
-        facts = {str(item.observationId): item for item in observations}
+    def __new__(cls, observations, *, compact: bool = False):
+        facts = {(f"v{index}" if compact else str(item.observationId)): item
+                 for index, item in enumerate(observations, start=1)}
         instance = super().__new__(cls, facts)
         instance.facts = MappingProxyType(facts)
+        instance.compact = compact
         return instance
 
 
@@ -130,6 +132,12 @@ def _llama_response_schema(allowed_observation_ids: Iterable[str] | None = None)
             definitions["ReasoningPremise"]["properties"]["observationId"]["enum"] = allowed_ids
             for field in ("supportingObservationIds", "contradictoryObservationIds"):
                 candidate[field]["items"]["enum"] = allowed_ids
+            if getattr(allowed_observation_ids, "compact", False):
+                # Short request-scoped references are expanded before grounding.
+                evidence["observationId"].pop("format", None)
+                definitions["ReasoningPremise"]["properties"]["observationId"].pop("format", None)
+                for field in ("supportingObservationIds", "contradictoryObservationIds"):
+                    candidate[field]["items"].pop("format", None)
         facts = getattr(allowed_observation_ids, "facts", allowed_observation_ids)
         if isinstance(facts, Mapping):
             # Choose a verified label first; the grammar then supplies its exact

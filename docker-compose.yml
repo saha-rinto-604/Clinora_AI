@@ -199,6 +199,7 @@ services:
   ocr-service:
     build:
       context: ./ocr-service
+    restart: unless-stopped
     environment:
       OCR_INTERNAL_TOKEN: ${OCR_INTERNAL_TOKEN:-dev-only-clinora-ocr-token-change-me}
       OCR_ENGINE: ${OCR_ENGINE:-auto}

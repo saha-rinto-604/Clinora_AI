@@ -99,7 +99,7 @@ export interface PatientDoctorCareRelationship {
   followUpDate: string | null;
 }
 
-export type ClinicalInboxType = 'IN_PROGRESS' | 'EVIDENCE_READY' | 'FOLLOW_UP';
+export type ClinicalInboxType = 'NEEDS_ACTION' | 'READY_NOW' | 'IN_PROGRESS' | 'EVIDENCE_READY' | 'FOLLOW_UP';
 
 export interface ClinicalInboxItem {
   key: string;
@@ -117,6 +117,7 @@ export interface ClinicalInboxItem {
 }
 
 export interface ClinicalInboxView {
+  readyNowCount: number;
   inProgressCount: number;
   evidenceReadyCount: number;
   followUpCount: number;

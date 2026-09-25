@@ -188,7 +188,7 @@ describe('ClinoraClinicalSupportPanel', () => {
     expect(screen.queryByText(/did not pass Clinora safety validation/)).not.toBeInTheDocument();
   });
 
-  it('presents Gemini rate limiting as degraded mode with the backend READY-analysis result', async () => {
+  it.each(['GEMINI_RATE_LIMITED', 'GEMINI_TIMEOUT', 'GEMINI_UNAVAILABLE', 'MODEL_BUSY', 'MODEL_TIMEOUT', 'MODEL_UNAVAILABLE'])('shows the clinical result without provider messaging for %s', async (code) => {
     const user = userEvent.setup();
     renderPanel();
     await openAndWaitForBrief(user);
@@ -197,21 +197,25 @@ describe('ClinoraClinicalSupportPanel', () => {
       taskId: 'EXPLORE_EXPLANATIONS', status: 'DEGRADED', result: {
         taskId: 'EXPLORE_EXPLANATIONS',
         summary: 'Existing report analysis — live cross-report reasoning temporarily unavailable.',
-        explanations: [{ clinicalCluster: 'CBC · 2026-09-01', name: 'Red-cell pattern', whyItMayFit: 'Existing READY report analysis.', supportingEvidence: [{ observationId: 'o1', label: 'MCV' }], limitingEvidence: [], missingInformation: ['Iron status'], referenceChunkIds: [] }],
-        limitations: ['Existing analysis only.'], summaryReferenceChunkIds: [],
+        explanations: [{ clinicalCluster: 'CBC · 2026-09-01', name: 'Red-cell pattern', whyItMayFit: 'This concept appears in an existing READY report analysis and is linked to the verified evidence shown.', supportingEvidence: [{ observationId: 'o1', label: 'MCV' }], limitingEvidence: [], missingInformation: ['Iron status'], referenceChunkIds: [] }],
+        limitations: ['This is advisory existing report-level analysis, not live cross-report reasoning.', 'Not a diagnosis.'], summaryReferenceChunkIds: [],
       },
-      safeFailureCode: 'GEMINI_RATE_LIMITED',
+      safeFailureCode: code,
       provenance: { executionProvider: 'MEDGEMMA_SNAPSHOT_FALLBACK', reasoningSnapshots: [{ status: 'READY' }] },
     }), status: 'DEGRADED' });
 
     const dialog = screen.getByRole('dialog', { name: 'Clinora Clinical Support' });
     await user.click(within(dialog).getByRole('button', { name: 'Explore clinical patterns' }));
 
-    expect(await screen.findByText('Clinical reasoning is temporarily busy. Please try again shortly.')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Degraded clinical reasoning mode' })).toBeInTheDocument();
-    expect(screen.getByText('Showing existing report analysis')).toBeInTheDocument();
-    expect(screen.getByText('Existing report analysis — live cross-report reasoning temporarily unavailable.')).toBeInTheDocument();
-    expect(screen.getByText('Live clinical reasoning temporarily unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('Clinora result')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Degraded clinical reasoning mode' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Showing existing report analysis')).not.toBeInTheDocument();
+    expect(screen.queryByText(/temporarily unavailable|temporarily busy|Gemini|READY|DB evidence/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Clinical patterns from the available report evidence.')).toBeInTheDocument();
+    expect(screen.getByText('This report-level pattern is linked to the verified evidence shown.')).toBeInTheDocument();
+    expect(screen.getByText('This advisory analysis is limited to individual reports; relationships across reports have not been assessed.')).toBeInTheDocument();
+    expect(screen.getByText('Not a diagnosis.')).toBeInTheDocument();
+    expect(within(screen.getByRole('article')).getByText((_, node) => node?.tagName === 'SPAN' && node.textContent === 'MCV: 70 fL · LOW · ref 80-100')).toBeInTheDocument();
     expect(screen.queryByText(/Clinora stopped safely/)).not.toBeInTheDocument();
   });
 
@@ -225,7 +229,7 @@ describe('ClinoraClinicalSupportPanel', () => {
         taskId: 'CROSS_CHECK_ASSESSMENT', evidenceFit: 'MIXED_OR_LIMITED_EVIDENCE',
         summary: 'Live cross-report hypothesis checking is unavailable; this is existing report-level analysis only.',
         points: [{ statement: 'Existing report analysis lists iron deficiency.', relation: 'SUPPORTS', evidence: [{ observationId: 'o1', label: 'MCV' }], referenceChunkIds: [] }],
-        missingInformation: ['Iron status'], alternativeConsiderations: [], limitations: ['No live cross-report conclusion.'], summaryReferenceChunkIds: [],
+        missingInformation: ['Iron status'], alternativeConsiderations: [], limitations: ['No live cross-report hypothesis conclusion was generated; concept matching is exact after basic wording normalization and is not fuzzy diagnostic inference.'], summaryReferenceChunkIds: [],
       },
       safeFailureCode: 'GEMINI_RATE_LIMITED',
       provenance: { executionProvider: 'MEDGEMMA_SNAPSHOT_FALLBACK', reasoningSnapshots: [{ status: 'READY' }] },
@@ -236,9 +240,46 @@ describe('ClinoraClinicalSupportPanel', () => {
     await user.type(screen.getByRole('textbox', { name: 'Clinical hypothesis' }), 'Possible iron deficiency');
     await user.click(screen.getByRole('button', { name: 'Check hypothesis' }));
 
-    expect(await screen.findByText('Clinical reasoning is temporarily busy. Please try again shortly.')).toBeInTheDocument();
-    expect(screen.getByText('Live cross-report hypothesis checking is unavailable; this is existing report-level analysis only.')).toBeInTheDocument();
+    expect(await screen.findByText('Clinora result')).toBeInTheDocument();
+    expect(screen.getByText('Report-level evidence related to this hypothesis is shown below.')).toBeInTheDocument();
+    expect(screen.getByText('Mixed or limited evidence')).toBeInTheDocument();
+    expect(screen.getByText('This result matches the hypothesis wording to report-level findings; it does not establish a diagnostic conclusion across reports.')).toBeInTheDocument();
+    expect(screen.queryByText(/unavailable|temporarily busy|live cross-report/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Unable to complete safely/)).not.toBeInTheDocument();
+  });
+
+  it('shows missing information without the provider availability summary', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await openAndWaitForBrief(user);
+    execute.mockResolvedValue({ ...response({
+      taskId: 'FIND_GAPS', status: 'DEGRADED', safeFailureCode: 'GEMINI_UNAVAILABLE',
+      result: {
+        taskId: 'FIND_GAPS', summary: 'Showing gaps from existing READY report analysis; live cross-report reasoning is temporarily unavailable.',
+        gaps: [{ category: 'Ferritin', whyRelevant: 'Iron status is uncertain.', relatedEvidence: [{ observationId: 'o1', label: 'MCV' }] }],
+        limitations: ['Not a test order.'], summaryReferenceChunkIds: [],
+      },
+    }), status: 'DEGRADED' });
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'What information is missing?' }));
+
+    expect(await screen.findByText('Missing information identified in the available report evidence.')).toBeInTheDocument();
+    expect(screen.getByText('Ferritin')).toBeInTheDocument();
+    expect(screen.getByText('Not a test order.')).toBeInTheDocument();
+    expect(screen.queryByText(/unavailable|READY/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps a neutral retry message when there is no result to display', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await openAndWaitForBrief(user);
+    execute.mockResolvedValue({ ...response({
+      taskId: 'EXPLORE_EXPLANATIONS', status: 'FAILED_SAFE', result: null, safeFailureCode: 'GEMINI_UNAVAILABLE',
+    }), status: 'FAILED_SAFE' });
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Explore clinical patterns' }));
+
+    expect(await screen.findByText('No result could be prepared for this request. Please try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Clinora result')).not.toBeInTheDocument();
+    expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument();
   });
 
   it('renders report side-by-side evidence when no repeated observation is directly comparable', async () => {

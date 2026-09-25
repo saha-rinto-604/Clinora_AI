@@ -117,7 +117,7 @@ class AccessApplicationServiceTest {
     }
 
     @Test
-    void resumeLinkRequestDoesNotSendVerificationForUnverifiedApplication() throws Exception {
+    void resumeLinkRequestResendsVerificationForUnverifiedApplication() throws Exception {
         ServiceFixture fixture = new ServiceFixture();
         AccessApplication application = doctorApplication(UUID.randomUUID());
 
@@ -126,8 +126,44 @@ class AccessApplicationServiceTest {
 
         fixture.service.requestAccessLink("doctor@example.com", "127.0.0.1", "test-agent");
 
+        verify(fixture.mail).sendVerification(any(), any(), any());
+        verify(fixture.mail, never()).sendAccessLink(any(), any(), any());
+        verify(fixture.applicationTokens).deleteAllByApplicationIdAndTokenType(
+            application.getId(), ApplicationTokenType.EMAIL_VERIFICATION);
+        ArgumentCaptor<ApplicationToken> tokenCaptor = ArgumentCaptor.forClass(ApplicationToken.class);
+        verify(fixture.applicationTokens).save(tokenCaptor.capture());
+        assertEquals(ApplicationTokenType.EMAIL_VERIFICATION, tokenCaptor.getValue().getTokenType());
+        assertEquals(ApplicationStatus.EMAIL_PENDING, application.getStatus());
+        verify(fixture.sessions, never()).issue(any(), any(), any());
+    }
+
+    @Test
+    void resumeLinkRequestPreservesPlusAliasForVerifiedApplication() throws Exception {
+        ServiceFixture fixture = new ServiceFixture();
+        AccessApplication application = new AccessApplication(ApplicationType.DOCTOR, "Redwan", "Test",
+            "clionorausers+Redwan@gmail.com", "clionorausers+redwan@gmail.com", null, null, NOW);
+        setId(application, UUID.randomUUID());
+        application.markEmailVerified(NOW);
+        when(fixture.normalizer.normalize(application.getEmail())).thenReturn(application.getNormalizedEmail());
+        when(fixture.applications.findFirstByNormalizedEmailAndStatusNotIn(any(), any())).thenReturn(Optional.of(application));
+
+        fixture.service.requestAccessLink(application.getEmail(), "127.0.0.1", "test-agent");
+
+        verify(fixture.mail).sendAccessLink(org.mockito.ArgumentMatchers.eq(application.getEmail()), any(), any());
+        verify(fixture.mail, never()).sendVerification(any(), any(), any());
+    }
+
+    @Test
+    void resumeLinkRequestForUnknownEmailDoesNotSendMail() {
+        ServiceFixture fixture = new ServiceFixture();
+        when(fixture.normalizer.normalize("unknown@example.com")).thenReturn("unknown@example.com");
+        when(fixture.applications.findFirstByNormalizedEmailAndStatusNotIn(any(), any())).thenReturn(Optional.empty());
+
+        fixture.service.requestAccessLink("unknown@example.com", "127.0.0.1", "test-agent");
+
         verify(fixture.mail, never()).sendVerification(any(), any(), any());
         verify(fixture.mail, never()).sendAccessLink(any(), any(), any());
+        verify(fixture.applicationTokens, never()).save(any());
     }
 
     @Test

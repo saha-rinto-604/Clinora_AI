@@ -15,6 +15,8 @@ This remediation does not add:
 
 The professional application is accessed with the verified application email and a short-lived, single-use portal sign-in link. Successful link exchange creates an application-scoped, server-backed HttpOnly applicant session.
 
+The application access form also recovers a missing verification email: for an eligible unverified application it replaces the previous verification token and sends a fresh verification link. Verified applications receive a portal sign-in link. Both paths retain the same enumeration-resistant response and existing access-link rate limits; resending verification does not verify the email or establish a session.
+
 Defaults:
 
 - email verification link: 24 hours;

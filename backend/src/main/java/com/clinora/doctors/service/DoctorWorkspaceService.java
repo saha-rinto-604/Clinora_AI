@@ -419,7 +419,7 @@ public class DoctorWorkspaceService {
                 """;
             case "history" -> """
                  AND (a.status IN ('CANCELLED', 'COMPLETED') OR (
-                     a.scheduled_end < CURRENT_TIMESTAMP
+                     a.scheduled_end < CURRENT_TIMESTAMP - INTERVAL '30 days'
                      AND NOT EXISTS (
                          SELECT 1 FROM doctor_consultations c
                           WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
@@ -428,7 +428,7 @@ public class DoctorWorkspaceService {
                 """;
             default -> """
                  AND a.status = 'BOOKED'
-                 AND (a.scheduled_end >= CURRENT_TIMESTAMP OR EXISTS (
+                 AND (a.scheduled_end >= CURRENT_TIMESTAMP - INTERVAL '30 days' OR EXISTS (
                      SELECT 1 FROM doctor_consultations c
                       WHERE c.appointment_id = a.id AND c.status = 'IN_PROGRESS'
                  ))
