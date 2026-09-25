@@ -2,10 +2,8 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  Clock,
   Database,
   FolderGit2,
-  Info,
   LoaderCircle,
   Plus,
   ShieldCheck,
@@ -278,28 +276,32 @@ export function ResearchDashboardPage() {
 
         {/* Right Col: Production Roadmap & Governance Notice */}
         <div className="space-y-6">
-          {/* Research Access Notice Card (Explicit milestone roadmap empty state) */}
+          {/* Research Data Pipeline Status */}
           <div className="rounded-2xl border border-cyan-800/40 bg-gradient-to-b from-cyan-950/20 to-slate-900/60 p-5 sm:p-6 backdrop-blur-sm">
             <div className="flex items-center gap-2.5 text-cyan-400 mb-3">
-              <Info className="w-5 h-5 shrink-0" />
-              <h3 className="font-semibold text-slate-100 text-sm">Research Data Pipeline</h3>
+              <ShieldCheck className="w-5 h-5 shrink-0" />
+              <h3 className="font-semibold text-slate-100 text-sm">Research Data Pipeline Active</h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Clinical dataset generation is not yet available until eligible verified clinical observations are
-              configured in subsequent phases.
+              Approved projects can design cohorts and extract certified Safe Harbor de-identified datasets with
+              immutable audit provenance.
             </p>
             <div className="mt-4 pt-4 border-t border-cyan-900/30 space-y-2.5 text-xs">
               <div className="flex items-center gap-2 text-slate-300">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>R1–R3: Research Project Governance</span>
+                <span>Fail-Closed Patient Consent Validation</span>
               </div>
               <div className="flex items-center gap-2 text-slate-300">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>R4: Dataset Request Governance</span>
+                <span>18-Identifier Safe Harbor De-identification</span>
               </div>
-              <div className="flex items-center gap-2 text-cyan-300 font-medium">
-                <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>R6–R8: Verified Observations &amp; De-identification Pipeline</span>
+              <div className="flex items-center gap-2 text-slate-300">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Small-Cell Suppression Threshold (n ≥ 10)</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-300">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>AI Model Benchmark &amp; Evaluation Workbench</span>
               </div>
             </div>
           </div>

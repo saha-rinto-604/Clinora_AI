@@ -84,6 +84,18 @@ public final class CohortQueryModels {
             long matchingPatientCount,
             List<String> variables,
             int filtersApplied,
-            long queryExecutionMs
-    ) {}
+            long queryExecutionMs,
+            boolean underPrivacyThreshold,
+            String privacyNotice
+    ) {
+        public CohortPreviewResponse(
+                long eligibleRecordCount,
+                long matchingPatientCount,
+                List<String> variables,
+                int filtersApplied,
+                long queryExecutionMs
+        ) {
+            this(eligibleRecordCount, matchingPatientCount, variables, filtersApplied, queryExecutionMs, false, null);
+        }
+    }
 }

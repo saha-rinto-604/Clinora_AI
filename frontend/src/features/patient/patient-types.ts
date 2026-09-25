@@ -98,6 +98,17 @@ export const bloodGroupLabels: Record<BloodGroup, string> = {
   O_NEGATIVE: 'O−',
 };
 
+export type ResearchConsentStatus = 'CONSENTED' | 'WITHHELD' | 'REVOKED' | 'UNKNOWN';
+
+export interface PatientResearchConsent {
+  patientUserId: string;
+  consentStatus: ResearchConsentStatus;
+  isConsented: boolean;
+  policyVersion: string;
+  consentedAt: string | null;
+  revokedAt: string | null;
+}
+
 export const genderLabels: Record<PatientGender, string> = {
   FEMALE: 'Female',
   MALE: 'Male',

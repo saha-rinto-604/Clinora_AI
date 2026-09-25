@@ -54,6 +54,7 @@ const profileDescriptions: Record<ProfileSectionId, string> = {
   basic: 'Blood group and measurements',
   medical: 'Family history and lifestyle context',
   emergency: 'A trusted emergency contact',
+  privacy: 'Research informed consent preferences',
 };
 
 const profileLabels: Record<ProfileSectionId, string> = {
@@ -61,6 +62,7 @@ const profileLabels: Record<ProfileSectionId, string> = {
   basic: 'Basic health',
   medical: 'Medical background',
   emergency: 'Emergency contact',
+  privacy: 'Research & Privacy',
 };
 
 export function PatientHomeCanvas({ children }: { children: ReactNode }) {

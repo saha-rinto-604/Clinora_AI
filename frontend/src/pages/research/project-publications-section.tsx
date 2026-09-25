@@ -1,4 +1,17 @@
-import { AlertCircle, BookOpen, Check, Copy, ExternalLink, LoaderCircle, Plus, Quote, Trash2, X } from 'lucide-react';
+import {
+  AlertCircle,
+  BookOpen,
+  Check,
+  Copy,
+  Database,
+  ExternalLink,
+  FlaskConical,
+  LoaderCircle,
+  Plus,
+  Quote,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
@@ -18,6 +31,12 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
   const [publications, setPublications] = useState<ResearchPublication[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Reproducibility Artifacts
+  const [projectDatasets, setProjectDatasets] = useState<{ id: string; name: string }[]>([]);
+  const [projectRuns, setProjectRuns] = useState<{ id: string; modelId: string; modelVersion: string }[]>([]);
+  const [linkedDatasetId, setLinkedDatasetId] = useState('');
+  const [linkedRunId, setLinkedRunId] = useState('');
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -50,9 +69,28 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
     }
   }, [projectId]);
 
+  const loadArtifacts = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const [dPage, runs] = await Promise.all([
+        researchApi.listDatasetRequests(projectId, { size: 20 }),
+        researchApi.listEvaluationRuns(projectId),
+      ]);
+      if (dPage?.items) {
+        setProjectDatasets(dPage.items.map((it) => ({ id: it.id, name: it.name })));
+      }
+      if (runs) {
+        setProjectRuns(runs.map((r) => ({ id: r.id, modelId: r.modelId, modelVersion: r.modelVersion })));
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, [projectId]);
+
   useEffect(() => {
     loadPublications();
-  }, [loadPublications]);
+    loadArtifacts();
+  }, [loadPublications, loadArtifacts]);
 
   const handleRegisterPublication = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,9 +102,24 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
     setFormError('');
 
     try {
+      let finalAbstract = formAbstract.trim();
+      const prov: string[] = [];
+      if (linkedDatasetId) {
+        const ds = projectDatasets.find((d) => d.id === linkedDatasetId);
+        prov.push(`Dataset: ${ds?.name ?? linkedDatasetId}`);
+      }
+      if (linkedRunId) {
+        const run = projectRuns.find((r) => r.id === linkedRunId);
+        prov.push(`AI Model: ${run ? `${run.modelId} (${run.modelVersion})` : linkedRunId}`);
+      }
+      if (prov.length > 0) {
+        const provStr = `[Reproducibility Provenance: ${prov.join(' | ')}]`;
+        finalAbstract = finalAbstract ? `${finalAbstract}\n\n${provStr}` : provStr;
+      }
+
       const payload: CreatePublicationPayload = {
         title: formTitle.trim(),
-        abstractText: formAbstract.trim() || undefined,
+        abstractText: finalAbstract || undefined,
         publicationType: formType,
         doi: formDoi.trim() || undefined,
         journal: formJournal.trim() || undefined,
@@ -105,6 +158,8 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
     setFormConference('');
     setFormDate('');
     setFormExternalUrl('');
+    setLinkedDatasetId('');
+    setLinkedRunId('');
     setFormError('');
   };
 
@@ -121,9 +176,7 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
         <div>
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-base font-semibold text-slate-100">
-              Publications &amp; Scientific Outputs (Phase R15)
-            </h2>
+            <h2 className="text-base font-semibold text-slate-100">Publications &amp; Scientific Outputs</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Track published peer-reviewed papers, conference proceedings, preprints, and generate APA, IEEE, and BibTeX
@@ -193,6 +246,14 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
 
                 {pub.abstractText && (
                   <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{pub.abstractText}</p>
+                )}
+
+                {pub.abstractText?.includes('[Reproducibility Provenance:') && (
+                  <div className="flex items-center gap-1.5 p-2 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-[11px] text-indigo-300">
+                    <FlaskConical className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className="font-semibold text-indigo-200">Reproducibility Provenance:</span>
+                    <span>{pub.abstractText.split('[Reproducibility Provenance:')[1].replace(']', '').trim()}</span>
+                  </div>
                 )}
 
                 {pub.doi && (
@@ -345,6 +406,48 @@ export function ProjectPublicationsSection({ projectId, isOwnerOrCollaborator }:
                     onChange={(e) => setFormExternalUrl(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"
                   />
+                </div>
+              </div>
+
+              {/* Linked Reproducible Artifacts */}
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-indigo-400" />
+                  Study Artifact Provenance Linkages
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-medium text-[11px] mb-1">
+                      Underlying Dataset / Cohort
+                    </label>
+                    <select
+                      value={linkedDatasetId}
+                      onChange={(e) => setLinkedDatasetId(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs"
+                    >
+                      <option value="">-- No Linked Dataset --</option>
+                      {projectDatasets.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-medium text-[11px] mb-1">Model Benchmark Run</label>
+                    <select
+                      value={linkedRunId}
+                      onChange={(e) => setLinkedRunId(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs"
+                    >
+                      <option value="">-- No Linked AI Run --</option>
+                      {projectRuns.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.modelId} ({r.modelVersion})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 

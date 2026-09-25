@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Lock,
   Save,
@@ -652,18 +653,37 @@ export function DatasetRequestFormPage() {
 
               {previewResult && (
                 <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3 animate-in fade-in">
+                  {previewResult.underPrivacyThreshold && (
+                    <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-800/80 text-amber-200 text-xs flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block text-amber-300 font-semibold mb-0.5">
+                          Privacy Threshold Protection Active
+                        </strong>
+                        <span>
+                          {previewResult.privacyNotice ||
+                            'Cohort size is fewer than the minimum safe threshold (10 subjects). Exact counts are suppressed to protect patient confidentiality against differential inference.'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
                       <div className="text-[10px] text-slate-500 uppercase tracking-wider">Eligible Records</div>
                       <div className="text-lg font-bold font-mono text-cyan-400">
-                        {previewResult.eligibleRecordCount.toLocaleString()}
+                        {previewResult.underPrivacyThreshold
+                          ? '< 10'
+                          : previewResult.eligibleRecordCount.toLocaleString()}
                       </div>
                     </div>
 
                     <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
                       <div className="text-[10px] text-slate-500 uppercase tracking-wider">Matching Patients</div>
                       <div className="text-lg font-bold font-mono text-emerald-400">
-                        {previewResult.matchingPatientCount.toLocaleString()}
+                        {previewResult.underPrivacyThreshold
+                          ? '< 10'
+                          : previewResult.matchingPatientCount.toLocaleString()}
                       </div>
                     </div>
 

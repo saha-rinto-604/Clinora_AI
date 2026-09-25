@@ -227,6 +227,8 @@ export interface CohortPreviewResponse {
   variables: string[];
   filtersApplied: number;
   queryExecutionMs: number;
+  underPrivacyThreshold?: boolean;
+  privacyNotice?: string | null;
 }
 
 export interface ResearchDataset {

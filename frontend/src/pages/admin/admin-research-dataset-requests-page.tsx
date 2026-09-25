@@ -46,6 +46,9 @@ export function AdminResearchDatasetRequestsPage() {
   const [modalType, setModalType] = useState<'MORE_INFO' | 'APPROVE' | 'REJECT' | null>(null);
   const [notesText, setNotesText] = useState('');
   const [expiresAtInput, setExpiresAtInput] = useState('');
+  const [purposeAligned, setPurposeAligned] = useState(false);
+  const [showRawPopulation, setShowRawPopulation] = useState(false);
+  const [showRawVariables, setShowRawVariables] = useState(false);
 
   const loadQueue = async () => {
     setLoadingQueue(true);
@@ -569,42 +572,89 @@ export function AdminResearchDatasetRequestsPage() {
 
                 {/* Requested Population Filters */}
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Database className="w-3.5 h-3.5 text-cyan-400" />
-                    Population &amp; Cohort Inclusion Criteria (JSONB)
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5 text-cyan-400" />
+                      Population &amp; Cohort Inclusion Criteria
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRawPopulation(!showRawPopulation)}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium"
+                    >
+                      {showRawPopulation ? 'Hide Technical Schema' : 'View Technical Schema'}
+                    </button>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800/90 shadow-inner">
-                    <pre className="text-xs font-mono text-cyan-300 overflow-x-auto whitespace-pre-wrap">
-                      {(() => {
-                        try {
-                          const parsed = JSON.parse(detail.request.requestedPopulation);
-                          return JSON.stringify(parsed, null, 2);
-                        } catch {
-                          return detail.request.requestedPopulation;
-                        }
-                      })()}
-                    </pre>
-                  </div>
+                  {showRawPopulation && (
+                    <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800/90 shadow-inner">
+                      <pre className="text-xs font-mono text-cyan-300 overflow-x-auto whitespace-pre-wrap">
+                        {(() => {
+                          try {
+                            const parsed = JSON.parse(detail.request.requestedPopulation);
+                            return JSON.stringify(parsed, null, 2);
+                          } catch {
+                            return detail.request.requestedPopulation;
+                          }
+                        })()}
+                      </pre>
+                    </div>
+                  )}
                 </div>
 
                 {/* Requested Clinical Variables */}
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                    Requested Medical / Clinical Variables (JSONB)
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                      Requested Clinical Variables
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRawVariables(!showRawVariables)}
+                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium"
+                    >
+                      {showRawVariables ? 'Hide Technical Schema' : 'View Technical Schema'}
+                    </button>
                   </div>
-                  <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800/90 shadow-inner">
-                    <pre className="text-xs font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap">
-                      {(() => {
-                        try {
-                          const parsed = JSON.parse(detail.request.requestedVariables);
-                          return JSON.stringify(parsed, null, 2);
-                        } catch {
-                          return detail.request.requestedVariables;
-                        }
-                      })()}
-                    </pre>
-                  </div>
+
+                  {/* Render friendly badge list */}
+                  {(() => {
+                    try {
+                      const parsed = JSON.parse(detail.request.requestedVariables);
+                      if (Array.isArray(parsed)) {
+                        return (
+                          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-wrap gap-2">
+                            {parsed.map((item, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono bg-emerald-950/40 text-emerald-300 border border-emerald-800/50"
+                              >
+                                {typeof item === 'string' ? item : JSON.stringify(item)}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      }
+                    } catch {
+                      // Fallback
+                    }
+                    return null;
+                  })()}
+
+                  {showRawVariables && (
+                    <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800/90 shadow-inner">
+                      <pre className="text-xs font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap">
+                        {(() => {
+                          try {
+                            const parsed = JSON.parse(detail.request.requestedVariables);
+                            return JSON.stringify(parsed, null, 2);
+                          } catch {
+                            return detail.request.requestedVariables;
+                          }
+                        })()}
+                      </pre>
+                    </div>
+                  )}
                 </div>
 
                 {/* Review Notes / Decision Feedback */}
@@ -670,21 +720,42 @@ export function AdminResearchDatasetRequestsPage() {
             />
 
             {modalType === 'APPROVE' && (
-              <div className="space-y-1.5 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-                  Optional Access Expiration Date
+              <>
+                <div className="space-y-1.5 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                  <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                    Optional Access Expiration Date
+                  </label>
+                  <input
+                    type="date"
+                    value={expiresAtInput}
+                    onChange={(e) => setExpiresAtInput(e.target.value)}
+                    className="w-full p-2 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-cyan-500/60"
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    Leave blank for permanent authorization or specify when dataset access expires.
+                  </p>
+                </div>
+
+                <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950 border border-cyan-800/60 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={purposeAligned}
+                    onChange={(e) => setPurposeAligned(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-700 text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <div className="text-xs text-slate-200 space-y-0.5">
+                    <span className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                      Verified Purpose Alignment (Governance Rule)
+                    </span>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      I have verified that the requested population filters and clinical variables are directly required
+                      by and proportionate to the approved research study objective.
+                    </p>
+                  </div>
                 </label>
-                <input
-                  type="date"
-                  value={expiresAtInput}
-                  onChange={(e) => setExpiresAtInput(e.target.value)}
-                  className="w-full p-2 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-cyan-500/60"
-                />
-                <p className="text-[10px] text-slate-500">
-                  Leave blank for permanent authorization or specify when dataset access expires.
-                </p>
-              </div>
+              </>
             )}
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800/80">
@@ -698,7 +769,11 @@ export function AdminResearchDatasetRequestsPage() {
               </Button>
               <Button
                 type="button"
-                disabled={actionLoading || (modalType !== 'APPROVE' && !notesText.trim())}
+                disabled={
+                  actionLoading ||
+                  (modalType === 'APPROVE' && !purposeAligned) ||
+                  (modalType !== 'APPROVE' && !notesText.trim())
+                }
                 onClick={handleExecuteModal}
                 className={`text-xs font-semibold px-4 py-2 ${
                   modalType === 'APPROVE'

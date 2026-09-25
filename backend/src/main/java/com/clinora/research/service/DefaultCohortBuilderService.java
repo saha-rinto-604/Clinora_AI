@@ -52,21 +52,22 @@ public class DefaultCohortBuilderService implements CohortBuilderService {
         StringBuilder whereClause = new StringBuilder();
         int filtersApplied = 0;
 
-        // Eligibility baseline rules
+        // Eligibility baseline rules with fail-closed patient research consent
         whereClause.append("rep.subject_type = 'SELF' ")
                 .append("AND rep.archived_at IS NULL ")
                 .append("AND obs.verification_status IN ('DOCTOR_VERIFIED', 'PATIENT_CONFIRMED', 'PATIENT_CORRECTED') ")
                 .append("AND obs.review_required = false ")
-                .append("AND obs.effective_numeric_value IS NOT NULL ");
+                .append("AND obs.effective_numeric_value IS NOT NULL ")
+                .append("AND EXISTS (SELECT 1 FROM patient_research_consents prc WHERE prc.patient_user_id = rep.patient_user_id AND prc.consent_status = 'CONSENTED' AND prc.revoked_at IS NULL) ");
 
-        // Age bounds
+        // Age bounds relative to observation/report date
         if (criteria.ageMin() != null) {
-            whereClause.append("AND EXTRACT(YEAR FROM age(CURRENT_DATE, p.date_of_birth)) >= :minAge ");
+            whereClause.append("AND EXTRACT(YEAR FROM age(rep.report_date, p.date_of_birth)) >= :minAge ");
             params.addValue("minAge", criteria.ageMin());
             filtersApplied++;
         }
         if (criteria.ageMax() != null) {
-            whereClause.append("AND EXTRACT(YEAR FROM age(CURRENT_DATE, p.date_of_birth)) <= :maxAge ");
+            whereClause.append("AND EXTRACT(YEAR FROM age(rep.report_date, p.date_of_birth)) <= :maxAge ");
             params.addValue("maxAge", criteria.ageMax());
             if (criteria.ageMin() == null) filtersApplied++;
         }
@@ -179,14 +180,23 @@ public class DefaultCohortBuilderService implements CohortBuilderService {
         }
 
         long executionMs = System.currentTimeMillis() - startTime;
+        final int minSafeCohortSize = 10;
+        boolean underThreshold = matchingPatients > 0 && matchingPatients < minSafeCohortSize;
+        long reportedPatients = underThreshold ? 0 : matchingPatients;
+        long reportedRecords = underThreshold ? 0 : eligibleRecords;
+        String privacyNotice = underThreshold
+                ? "Matching cohort is fewer than the minimum safe privacy threshold (" + minSafeCohortSize + " subjects). Exact counts are suppressed to protect patient privacy."
+                : null;
 
         // Return privacy-preserving aggregate metadata with strictly zero PII
         return new CohortPreviewResponse(
-                eligibleRecords,
-                matchingPatients,
+                reportedRecords,
+                reportedPatients,
                 criteria.requestedVariables(),
                 filtersApplied,
-                executionMs
+                executionMs,
+                underThreshold,
+                privacyNotice
         );
     }
 

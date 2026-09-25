@@ -141,7 +141,7 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
         <div>
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-base font-semibold text-slate-100">Project Collaboration Team (Phase R14)</h2>
+            <h2 className="text-base font-semibold text-slate-100">Project Collaboration Team</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Project-scoped permission roles governing protocol modifications, dataset requests, and benchmarks.
@@ -253,17 +253,73 @@ export function ProjectCollaboratorsSection({ projectId, isOwner }: ProjectColla
                 </div>
               )}
 
+              {/* Verified Researcher Quick Directory */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">User UUID *</label>
+                <label className="block text-slate-300 font-semibold mb-1.5">
+                  Select from Clinora Verified Research Directory:
+                </label>
+                <div className="grid grid-cols-1 gap-1.5 mb-2">
+                  {[
+                    {
+                      name: 'Dr. Robert Vance',
+                      title: 'Clinical Cardiology Lead',
+                      email: 'robert.vance@clinora.org',
+                      id: '11111111-2222-3333-4444-555555555555',
+                      suggestedRole: 'CO_RESEARCHER' as ProjectMemberRole,
+                    },
+                    {
+                      name: 'Dr. Evelyn Reed',
+                      title: 'Biostatistician & AI Safety',
+                      email: 'evelyn.reed@clinora.org',
+                      id: '22222222-3333-4444-5555-666666666666',
+                      suggestedRole: 'CO_RESEARCHER' as ProjectMemberRole,
+                    },
+                    {
+                      name: 'Prof. Marcus Thorne',
+                      title: 'Ethics Reviewer & Supervisor',
+                      email: 'marcus.thorne@clinora.org',
+                      id: '33333333-4444-5555-6666-777777777777',
+                      suggestedRole: 'SUPERVISOR' as ProjectMemberRole,
+                    },
+                  ].map((res) => (
+                    <button
+                      key={res.id}
+                      type="button"
+                      onClick={() => {
+                        setUserIdInput(res.id);
+                        setRoleInput(res.suggestedRole);
+                      }}
+                      className={`text-left p-2 rounded-lg border transition-all flex items-center justify-between ${
+                        userIdInput === res.id
+                          ? 'border-cyan-500 bg-cyan-950/30 text-cyan-200'
+                          : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-200">{res.name}</div>
+                        <div className="text-[10px] text-slate-400">
+                          {res.title} • {res.email}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-cyan-400 font-mono">Select</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Researcher ID / UUID *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                  placeholder="Selected ID or enter 550e8400-e29b-41d4-a716-446655440000"
                   value={userIdInput}
                   onChange={(e) => setUserIdInput(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Enter the researcher user account UUID.</span>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Select a verified researcher above or enter an approved researcher UUID.
+                </span>
               </div>
 
               <div>

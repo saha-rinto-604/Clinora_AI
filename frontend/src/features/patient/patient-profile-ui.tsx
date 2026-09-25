@@ -8,6 +8,7 @@ const sectionDescriptions: Record<ProfileSectionId, string> = {
   basic: 'Blood group, height, and weight',
   medical: 'Allergies, conditions, medications, and history',
   emergency: 'A trusted person Clinora can keep on record',
+  privacy: 'Informed research data-use and privacy consent',
 };
 
 export function ProfileSignalRail({

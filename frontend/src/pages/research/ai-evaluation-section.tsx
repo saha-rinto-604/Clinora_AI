@@ -1,4 +1,4 @@
-import { AlertCircle, BrainCircuit, Grid, LoaderCircle, Play, ShieldAlert, X } from 'lucide-react';
+import { AlertCircle, BrainCircuit, Check, Copy, Grid, LoaderCircle, Play, ShieldAlert, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
@@ -20,6 +20,10 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
   const [error, setError] = useState('');
   const [selectedRun, setSelectedRun] = useState<AIEvaluationRun | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Available datasets in this project for friendly selection
+  const [projectDatasets, setProjectDatasets] = useState<{ id: string; name: string; status: string }[]>([]);
 
   // New run form state
   const [formDatasetVersionId, setFormDatasetVersionId] = useState('');
@@ -45,11 +49,33 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
     }
   }, [projectId]);
 
+  const loadDatasets = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const page = await researchApi.listDatasetRequests(projectId, { size: 50 });
+      if (page?.items) {
+        setProjectDatasets(page.items.map((it) => ({ id: it.id, name: it.name, status: it.status })));
+        if (page.items.length > 0 && !formDatasetVersionId) {
+          setFormDatasetVersionId(page.items[0].id);
+        }
+      }
+    } catch {
+      // Non-fatal fallback
+    }
+  }, [projectId, formDatasetVersionId]);
+
   useEffect(() => {
     if (isApproved) {
       loadRuns();
+      loadDatasets();
     }
-  }, [isApproved, loadRuns]);
+  }, [isApproved, loadRuns, loadDatasets]);
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleStartRun = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +119,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
         <div>
           <div className="flex items-center gap-2">
             <BrainCircuit className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-semibold text-slate-100">AI Model Evaluation Framework (Phase R13)</h2>
+            <h2 className="text-base font-semibold text-slate-100">AI Model Evaluation Framework</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Reproducible benchmark runs evaluating model versions against gold-standard dataset versions.
@@ -247,18 +273,53 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
               )}
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Dataset Version UUID *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                  value={formDatasetVersionId}
-                  onChange={(e) => setFormDatasetVersionId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
-                />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Find this under the approved Dataset Request details or Datasets workspace.
-                </span>
+                <label className="block text-slate-300 font-semibold mb-1">Target Dataset / Cohort Version *</label>
+                {projectDatasets.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <select
+                      value={formDatasetVersionId}
+                      onChange={(e) => setFormDatasetVersionId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      {projectDatasets.map((ds) => (
+                        <option key={ds.id} value={ds.id}>
+                          {ds.name} ({ds.status})
+                        </option>
+                      ))}
+                      <option value="custom">-- Custom Dataset Version UUID --</option>
+                    </select>
+
+                    {(formDatasetVersionId === 'custom' ||
+                      !projectDatasets.some((d) => d.id === formDatasetVersionId)) && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter custom Dataset Version UUID"
+                        value={formDatasetVersionId === 'custom' ? '' : formDatasetVersionId}
+                        onChange={(e) => setFormDatasetVersionId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 font-mono focus:outline-none focus:border-indigo-500 text-xs"
+                      />
+                    )}
+                    <span className="text-[10px] text-slate-400 block">
+                      Choose from approved cohorts in this project or specify a custom UUID.
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                      value={formDatasetVersionId}
+                      onChange={(e) => setFormDatasetVersionId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      No datasets currently registered for this project. Enter a dataset version UUID or create a
+                      dataset request first.
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -492,11 +553,39 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     Audit &amp; Experiment Provenance
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-slate-300 text-[11px]">
-                    <div>
-                      Run ID: <span className="text-slate-400">{selectedRun.id}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>Run ID:</span>
+                      <span className="text-slate-400 font-mono truncate max-w-[140px]">{selectedRun.id}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(selectedRun.id, 'runId')}
+                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                        title="Copy Run ID"
+                      >
+                        {copiedId === 'runId' ? (
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
                     </div>
-                    <div>
-                      Dataset Version: <span className="text-slate-400">{selectedRun.datasetVersionId}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>Dataset:</span>
+                      <span className="text-slate-400 font-mono truncate max-w-[140px]">
+                        {selectedRun.datasetVersionId}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(selectedRun.datasetVersionId, 'datasetId')}
+                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                        title="Copy Dataset Version ID"
+                      >
+                        {copiedId === 'datasetId' ? (
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
                     </div>
                     <div>
                       Created At:{' '}

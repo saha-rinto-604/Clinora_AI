@@ -271,7 +271,7 @@ export function ResearchProjectDetailPage() {
         </div>
       ) : null}
 
-      {/* Navigation Tabs (Phases R13, R14, R15, R16) */}
+      {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-800/80 pb-px overflow-x-auto text-xs font-medium">
         <button
           onClick={() => setActiveTab('overview')}
@@ -294,7 +294,7 @@ export function ResearchProjectDetailPage() {
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          Team &amp; Collaboration (R14)
+          Team &amp; Collaboration
         </button>
 
         <button
@@ -306,7 +306,7 @@ export function ResearchProjectDetailPage() {
           }`}
         >
           <BrainCircuit className="w-3.5 h-3.5" />
-          AI Model Evaluation (R13)
+          AI Model Evaluation
         </button>
 
         <button
@@ -318,7 +318,7 @@ export function ResearchProjectDetailPage() {
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          Publications (R15)
+          Publications
         </button>
 
         <button
@@ -330,7 +330,7 @@ export function ResearchProjectDetailPage() {
           }`}
         >
           <History className="w-3.5 h-3.5" />
-          Audit Trail (R16)
+          Audit Trail
         </button>
       </div>
 

@@ -19,6 +19,10 @@ import {
   ArrowDown,
   Minus,
   LoaderCircle,
+  Copy,
+  Check,
+  FileSpreadsheet,
+  X,
 } from 'lucide-react';
 import { apiErrorMessage } from '../../features/auth/auth-api';
 import {
@@ -79,11 +83,12 @@ function missingPct(v: VariableSummary) {
 // Tab component
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'descriptive' | 'analytics';
+type Tab = 'overview' | 'dictionary' | 'descriptive' | 'analytics';
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string; icon: ReactElement }[] = [
     { id: 'overview', label: 'Overview', icon: <Database className="w-4 h-4" /> },
+    { id: 'dictionary', label: 'Data Dictionary', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: 'descriptive', label: 'Descriptive Stats', icon: <BarChart className="w-4 h-4" /> },
     { id: 'analytics', label: 'Analytics', icon: <LineChartIcon className="w-4 h-4" /> },
   ];
@@ -357,16 +362,20 @@ function OverviewTab({
   dataset,
   versions,
   stats,
-  onDownload,
+  onRequestDownload,
   downloading,
   downloadError,
+  onCopyChecksum,
+  copiedChecksum,
 }: {
   dataset: ResearchDataset;
   versions: DatasetVersion[];
   stats: DatasetStatsSummary | null;
-  onDownload: (v: DatasetVersion) => void;
+  onRequestDownload: (v: DatasetVersion) => void;
   downloading?: boolean;
   downloadError?: string | null;
+  onCopyChecksum: (checksum: string) => void;
+  copiedChecksum: boolean;
 }) {
   const latest = versions[0];
 
@@ -388,11 +397,22 @@ function OverviewTab({
         </div>
 
         {latest && (
-          <div className="pt-3 border-t border-slate-800/60">
-            <div className="text-[11px] text-slate-500 mb-1">SHA-256 Checksum</div>
-            <div className="font-mono text-[11px] text-slate-300 bg-slate-800/60 rounded-lg p-2 break-all select-all">
-              {latest.checksum}
+          <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between gap-3">
+            <div className="space-y-1 flex-1 min-w-0">
+              <div className="text-[11px] text-slate-500 font-medium">Cryptographic SHA-256 Checksum</div>
+              <div className="font-mono text-[11px] text-slate-300 bg-slate-800/60 rounded-lg p-2 break-all select-all">
+                {latest.checksum}
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => onCopyChecksum(latest.checksum)}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 flex items-center gap-1.5 text-xs transition-colors self-end"
+              title="Copy SHA-256 Checksum"
+            >
+              {copiedChecksum ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedChecksum ? 'Copied' : 'Copy'}</span>
+            </button>
           </div>
         )}
       </div>
@@ -476,7 +496,8 @@ function OverviewTab({
             'Exact birth dates generalised to 5-year age bands (Clinora research age generalization / 85+ top-coding)',
             'Observation dates generalised to Year-Quarter (e.g. 2026-Q1)',
             'Project-scoped HMAC-SHA256 pseudonyms — unlinkable across projects',
-            'Minimum cohort size protection enforced (≥ 5 distinct subjects required)',
+            'Minimum cohort size protection enforced (≥ 10 distinct subjects required; small-cell suppression active)',
+            'Fail-closed patient consent enforcement (only active consented records included)',
             'Immutable version with SHA-256 checksum stored in private bucket',
           ].map((g) => (
             <li key={g} className="flex items-start gap-2">
@@ -495,7 +516,7 @@ function OverviewTab({
             id="dataset-download-btn"
             type="button"
             disabled={downloading}
-            onClick={() => onDownload(latest)}
+            onClick={() => onRequestDownload(latest)}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/25 transition-colors disabled:opacity-50"
           >
             {downloading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
@@ -503,6 +524,214 @@ function OverviewTab({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data Dictionary Tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VARIABLE_DICTIONARY: Record<string, { description: string; type: string; safeHarborProfile: string }> = {
+  AGE_BAND: {
+    description: 'Patient age generalized to 5-year intervals with top-coding at 85+',
+    type: 'Categorical (Banded)',
+    safeHarborProfile: 'HIPAA 5-Year Age Interval & 85+ Cap',
+  },
+  SEX: {
+    description: 'Biological sex of patient recorded at specimen collection',
+    type: 'Categorical',
+    safeHarborProfile: 'Retained as general demographic attribute',
+  },
+  OBSERVATION_PERIOD: {
+    description: 'Quarter and year when specimen was collected',
+    type: 'Temporal (Quarter)',
+    safeHarborProfile: 'Year-Quarter generalization (no exact dates)',
+  },
+  HBA1C: {
+    description: 'Glycated hemoglobin percentage reflecting 2-3 month glycemic control',
+    type: 'Continuous (Numeric %)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  FASTING_GLUCOSE: {
+    description: 'Blood plasma glucose level obtained after minimum 8-hour fast',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  RANDOM_GLUCOSE: {
+    description: 'Random blood glucose level drawn without fasting requirement',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  HEMOGLOBIN: {
+    description: 'Total hemoglobin concentration in whole blood',
+    type: 'Continuous (Numeric g/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  WBC: {
+    description: 'Total white blood cell count (leukocytes)',
+    type: 'Continuous (Numeric 10^9/L)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  PLATELETS: {
+    description: 'Thrombocyte count indicating clotting capacity',
+    type: 'Continuous (Numeric 10^9/L)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  RBC: {
+    description: 'Total red blood cell count (erythrocytes)',
+    type: 'Continuous (Numeric 10^12/L)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  CREATININE: {
+    description: 'Serum creatinine level representing kidney filtration',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  EGFR: {
+    description: 'Estimated glomerular filtration rate based on CKD-EPI formula',
+    type: 'Continuous (Numeric mL/min/1.73m²)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  BUN: {
+    description: 'Blood urea nitrogen reflecting protein metabolic byproduct',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  URIC_ACID: {
+    description: 'Serum uric acid level indicating purine metabolism',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  ALT: {
+    description: 'Alanine aminotransferase (SGPT) enzyme marker for hepatic injury',
+    type: 'Continuous (Numeric U/L)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  AST: {
+    description: 'Aspartate aminotransferase (SGOT) enzyme marker for tissue/liver injury',
+    type: 'Continuous (Numeric U/L)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  BILIRUBIN_TOTAL: {
+    description: 'Total bilirubin concentration reflecting hepatic clearance and hemolysis',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  CHOLESTEROL_TOTAL: {
+    description: 'Serum total cholesterol concentration',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  HDL: {
+    description: 'High-density lipoprotein cholesterol (anti-atherogenic fraction)',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  LDL: {
+    description: 'Low-density lipoprotein cholesterol (atherogenic fraction)',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  TRIGLYCERIDES: {
+    description: 'Serum triacylglycerol lipid concentration',
+    type: 'Continuous (Numeric mg/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  TSH: {
+    description: 'Thyroid stimulating hormone regulating endocrine function',
+    type: 'Continuous (Numeric mIU/L)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+  FREE_T4: {
+    description: 'Unbound thyroxine fraction indicating thyroid hormone activity',
+    type: 'Continuous (Numeric ng/dL)',
+    safeHarborProfile: 'Clinical observation retained with verified units',
+  },
+};
+
+function DataDictionaryTab({ stats, loading }: { stats: DatasetStatsSummary | null; loading: boolean }) {
+  if (loading) {
+    return <div className="h-48 bg-slate-800/40 rounded-xl animate-pulse" />;
+  }
+
+  if (!stats || stats.variables.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-slate-500 text-sm">
+        <FileSpreadsheet className="w-8 h-8" />
+        Data dictionary will be populated once dataset variables are generated.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-5 space-y-2">
+        <div className="flex items-center gap-2 text-cyan-300 font-semibold text-sm">
+          <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+          <span>Research Data Dictionary &amp; Clinical Schema Standards</span>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Standardized variable definitions, measurement units, data types, and Safe Harbor de-identification rules for
+          reproducible scientific analysis and external validation.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 overflow-hidden shadow-xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-800/80 bg-slate-950/60">
+                <th className="text-left p-3.5 font-semibold text-slate-300 uppercase tracking-wider">Variable Code</th>
+                <th className="text-left p-3.5 font-semibold text-slate-300 uppercase tracking-wider">
+                  Clinical Description
+                </th>
+                <th className="text-left p-3.5 font-semibold text-slate-300 uppercase tracking-wider">Type</th>
+                <th className="text-left p-3.5 font-semibold text-slate-300 uppercase tracking-wider">Unit</th>
+                <th className="text-right p-3.5 font-semibold text-slate-300 uppercase tracking-wider">
+                  Observed Range
+                </th>
+                <th className="text-right p-3.5 font-semibold text-slate-300 uppercase tracking-wider">Missingness</th>
+                <th className="text-left p-3.5 font-semibold text-slate-300 uppercase tracking-wider">
+                  De-identification Profile
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/40">
+              {stats.variables.map((v) => {
+                const meta = VARIABLE_DICTIONARY[v.variableCode] ?? {
+                  description: 'Observation extracted from physician verified clinical laboratory report',
+                  type: 'Continuous (Numeric)',
+                  safeHarborProfile: 'Standard HIPAA Safe Harbor general profile',
+                };
+                return (
+                  <tr key={v.variableCode} className="hover:bg-slate-800/20 transition-colors">
+                    <td className="p-3.5 font-mono text-cyan-300 font-semibold">{v.variableCode}</td>
+                    <td className="p-3.5 text-slate-300 max-w-xs">{meta.description}</td>
+                    <td className="p-3.5 text-slate-400">{meta.type}</td>
+                    <td className="p-3.5 text-slate-300 font-mono">{v.unit || '—'}</td>
+                    <td className="p-3.5 text-right text-slate-300 font-mono">
+                      {fmt(v.min)} – {fmt(v.max)}
+                    </td>
+                    <td
+                      className={cn(
+                        'p-3.5 text-right font-mono font-medium',
+                        parseFloat(missingPct(v)) > 20 ? 'text-amber-400' : 'text-slate-400',
+                      )}
+                    >
+                      {missingPct(v)}
+                    </td>
+                    <td className="p-3.5 text-emerald-400/90 text-[11px] font-medium flex items-center gap-1.5 mt-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                      {meta.safeHarborProfile}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -807,10 +1036,16 @@ export function DatasetDetailPage() {
       .finally(() => setLoading(false));
   }, [datasetId]);
 
-  // Load stats when tab changes to descriptive or analytics
+  // DUA and Checksum State
+  const [duaModalOpen, setDuaModalOpen] = useState(false);
+  const [pendingDownloadVersion, setPendingDownloadVersion] = useState<DatasetVersion | null>(null);
+  const [duaAgreed, setDuaAgreed] = useState(false);
+  const [copiedChecksum, setCopiedChecksum] = useState(false);
+
+  // Load stats when tab changes to descriptive, analytics, or dictionary
   useEffect(() => {
     if (!datasetId || !versions[0]) return;
-    if (activeTab !== 'descriptive' && activeTab !== 'analytics') return;
+    if (activeTab !== 'descriptive' && activeTab !== 'analytics' && activeTab !== 'dictionary') return;
     if (stats) return; // already loaded
     setStatsLoading(true);
     researchApi
@@ -821,6 +1056,18 @@ export function DatasetDetailPage() {
       })
       .finally(() => setStatsLoading(false));
   }, [activeTab, datasetId, versions, stats]);
+
+  const handleCopyChecksum = (checksum: string) => {
+    navigator.clipboard.writeText(checksum);
+    setCopiedChecksum(true);
+    setTimeout(() => setCopiedChecksum(false), 2000);
+  };
+
+  const handleRequestDownload = (version: DatasetVersion) => {
+    setPendingDownloadVersion(version);
+    setDuaAgreed(false);
+    setDuaModalOpen(true);
+  };
 
   const handleDownload = async (version: DatasetVersion) => {
     if (!datasetId) return;
@@ -938,11 +1185,14 @@ export function DatasetDetailPage() {
           dataset={dataset}
           versions={versions}
           stats={statsLoading ? null : stats}
-          onDownload={handleDownload}
+          onRequestDownload={handleRequestDownload}
           downloading={downloading}
           downloadError={downloadError}
+          onCopyChecksum={handleCopyChecksum}
+          copiedChecksum={copiedChecksum}
         />
       )}
+      {activeTab === 'dictionary' && <DataDictionaryTab stats={stats} loading={statsLoading} />}
       {activeTab === 'descriptive' &&
         (statsLoading ? (
           <div className="h-48 bg-slate-800/40 rounded-xl animate-pulse" />
@@ -955,6 +1205,137 @@ export function DatasetDetailPage() {
         ) : (
           <AnalyticsTab dataset={dataset} stats={stats} latestVersion={latestVersion} />
         ))}
+
+      {/* Controlled Data Use Agreement (DUA) Modal */}
+      {duaModalOpen && pendingDownloadVersion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-800">
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Clinora Data Governance Agreement (DUA)
+                </div>
+                <h3 className="text-base font-bold text-white">Mandatory Research Data Use Terms</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDuaModalOpen(false);
+                  setPendingDownloadVersion(null);
+                  setDuaAgreed(false);
+                }}
+                className="text-slate-400 hover:text-slate-200 text-xs"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-amber-800/60 bg-amber-950/20 text-xs text-amber-200/90 space-y-1">
+              <div className="font-semibold text-amber-300">Regulatory Compliance (HIPAA / GDPR Safe Harbor):</div>
+              <p className="text-[11px] leading-relaxed">
+                You are accessing version{' '}
+                <strong className="text-white">v{pendingDownloadVersion.versionNumber}</strong> of de-identified
+                research dataset <strong className="text-white">{dataset.name}</strong>.
+              </p>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-slate-300">
+              <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-100">1. Strict Prohibition on Re-identification:</strong>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    I agree never to use any algorithm, pseudonym correlation, or external reference to attempt to
+                    identify any patient, subject, or clinician.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-100">2. Prohibition on External Dataset Linkage:</strong>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    I agree not to merge or link this dataset with any external identifiable registry, voter file, or
+                    commercial demographic database.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-100">3. Secure Encrypted Custody:</strong>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    The data will be stored exclusively in password-protected or encrypted environments, and never
+                    redistributed to unauthorized parties.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-100">4. Citation &amp; Dissemination Attribution:</strong>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    I agree to cite the Clinora Research Dataset ID and version checksum in any peer-reviewed paper or
+                    scientific presentation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950 border border-cyan-800/60 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={duaAgreed}
+                onChange={(e) => setDuaAgreed(e.target.checked)}
+                className="mt-0.5 rounded border-slate-700 text-cyan-500 focus:ring-cyan-500"
+              />
+              <span className="text-xs text-slate-200">
+                I have read, understood, and solemnly agree to comply with the{' '}
+                <strong className="text-cyan-300">Clinora Data Use Agreement (DUA)</strong> for this download.
+              </span>
+            </label>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => {
+                  setDuaModalOpen(false);
+                  setPendingDownloadVersion(null);
+                  setDuaAgreed(false);
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!duaAgreed || downloading}
+                onClick={async () => {
+                  const targetVersion = pendingDownloadVersion;
+                  setDuaModalOpen(false);
+                  if (targetVersion) {
+                    await handleDownload(targetVersion);
+                  }
+                  setPendingDownloadVersion(null);
+                  setDuaAgreed(false);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-colors disabled:opacity-50"
+              >
+                {downloading ? (
+                  <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                <span>Accept &amp; Download</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
