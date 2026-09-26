@@ -36,9 +36,7 @@ public class ResearchProjectInvitation {
     private ProjectMemberRole proposedRole;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16,
-            columnDefinition = "invitation_status")
-    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+    @Column(nullable = false, length = 32)
     private InvitationStatus status;
 
     @Column(columnDefinition = "TEXT")
