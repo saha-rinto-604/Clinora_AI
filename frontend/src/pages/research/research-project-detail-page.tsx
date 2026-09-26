@@ -30,11 +30,9 @@ import { AIEvaluationSection } from './ai-evaluation-section';
 import { ProjectCollaboratorsSection } from './project-collaborators-section';
 import { ProjectPublicationsSection } from './project-publications-section';
 import { ProjectAuditTrailSection } from './project-audit-trail-section';
-import { useAuthStore } from '../../features/auth/auth-store';
 
 export function ResearchProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const user = useAuthStore((state) => state.user);
   const user = useAuthStore((state) => state.user);
 
   const [project, setProject] = useState<ResearchProject | null>(null);
