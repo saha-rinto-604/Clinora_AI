@@ -1,4 +1,4 @@
-﻿package com.clinora.research.domain;
+package com.clinora.research.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;

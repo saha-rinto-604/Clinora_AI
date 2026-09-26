@@ -1,4 +1,4 @@
-﻿package com.clinora.research.service;
+package com.clinora.research.service;
 
 import com.clinora.audit.AuthAuditAction;
 import com.clinora.audit.AuthAuditOutcome;

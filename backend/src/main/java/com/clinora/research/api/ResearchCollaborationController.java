@@ -1,4 +1,4 @@
-﻿package com.clinora.research.api;
+package com.clinora.research.api;
 
 import com.clinora.common.api.ApiResponse;
 import com.clinora.research.api.ResearchCollaborationModels.*;

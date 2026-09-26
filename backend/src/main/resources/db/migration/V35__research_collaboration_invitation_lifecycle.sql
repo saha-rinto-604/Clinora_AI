@@ -1,4 +1,4 @@
-﻿-- V35: Research Collaboration Invitation Lifecycle (C2)
+-- V35: Research Collaboration Invitation Lifecycle (C2)
 -- Adds invitation state machine, soft-delete for membership, and researcher directory search.
 
 -- 1. Add soft-delete / removal tracking columns to existing membership table

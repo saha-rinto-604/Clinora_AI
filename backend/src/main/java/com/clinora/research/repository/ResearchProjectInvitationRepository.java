@@ -1,4 +1,4 @@
-﻿package com.clinora.research.repository;
+package com.clinora.research.repository;
 
 import com.clinora.research.domain.InvitationStatus;
 import com.clinora.research.domain.ResearchProjectInvitation;

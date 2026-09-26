@@ -3,10 +3,14 @@ package com.clinora.research;
 import com.clinora.audit.AuthAuditAction;
 import com.clinora.audit.AuthAuditOutcome;
 import com.clinora.research.api.ResearchCollaborationModels.*;
+import com.clinora.research.domain.InvitationStatus;
 import com.clinora.research.domain.ProjectMemberRole;
 import com.clinora.research.domain.ResearchProject;
+import com.clinora.research.domain.ResearchProjectInvitation;
 import com.clinora.research.domain.ResearchProjectMember;
 import com.clinora.research.exception.ResearchApiException;
+import com.clinora.research.repository.DatasetAccessGrantRepository;
+import com.clinora.research.repository.ResearchProjectInvitationRepository;
 import com.clinora.research.repository.ResearchProjectMemberRepository;
 import com.clinora.research.repository.ResearchProjectRepository;
 import com.clinora.research.service.ResearchAuditService;
@@ -18,7 +22,6 @@ import com.clinora.users.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -32,7 +35,9 @@ class ResearchCollaborationServiceTest {
 
     private ResearchProjectMemberRepository memberRepository;
     private ResearchProjectRepository projectRepository;
+    private ResearchProjectInvitationRepository invitationRepository;
     private UserAccountRepository userRepository;
+    private DatasetAccessGrantRepository grantRepository;
     private ResearchAuditService auditService;
     private ResearchCollaborationService service;
 
@@ -46,13 +51,17 @@ class ResearchCollaborationServiceTest {
     void setUp() throws Exception {
         memberRepository = mock(ResearchProjectMemberRepository.class);
         projectRepository = mock(ResearchProjectRepository.class);
+        invitationRepository = mock(ResearchProjectInvitationRepository.class);
         userRepository = mock(UserAccountRepository.class);
+        grantRepository = mock(DatasetAccessGrantRepository.class);
         auditService = mock(ResearchAuditService.class);
 
         service = new ResearchCollaborationService(
                 memberRepository,
                 projectRepository,
+                invitationRepository,
                 userRepository,
+                grantRepository,
                 auditService
         );
 
@@ -91,22 +100,25 @@ class ResearchCollaborationServiceTest {
     }
 
     @Test
-    @DisplayName("Phase R14: Project owner can successfully add a collaborator with CO_RESEARCHER role")
-    void ownerCanAddCollaborator() {
-        when(memberRepository.existsByProjectIdAndUserId(projectId, collaboratorId)).thenReturn(false);
-        when(memberRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    @DisplayName("C2: Project owner can successfully send a collaboration invitation with CO_RESEARCHER role")
+    void ownerCanSendInvitation() {
+        when(memberRepository.existsActiveByProjectIdAndUserId(projectId, collaboratorId)).thenReturn(false);
+        when(invitationRepository.findByProjectIdAndInviteeUserIdAndStatus(projectId, collaboratorId, InvitationStatus.PENDING))
+                .thenReturn(Optional.empty());
+        when(invitationRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        AddMemberRequest request = new AddMemberRequest(collaboratorId, ProjectMemberRole.CO_RESEARCHER);
-        ProjectMemberResponse response = service.addMember(projectId, ownerId, request, "127.0.0.1", "TestAgent");
+        SendInvitationRequest request = new SendInvitationRequest(
+                collaboratorId, ProjectMemberRole.CO_RESEARCHER, "Welcome to the study");
+        InvitationResponse response = service.sendInvitation(projectId, ownerId, request, "127.0.0.1", "TestAgent");
 
         assertNotNull(response);
-        assertEquals(collaboratorId, response.userId());
-        assertEquals(ProjectMemberRole.CO_RESEARCHER, response.role());
-        assertEquals("jane.doe@clinora.local", response.userEmail());
+        assertEquals(collaboratorId, response.inviteeUserId());
+        assertEquals(ProjectMemberRole.CO_RESEARCHER, response.proposedRole());
+        assertEquals(InvitationStatus.PENDING, response.status());
 
         verify(auditService).recordEvent(
                 eq(ownerId),
-                eq(AuthAuditAction.COLLABORATOR_ADDED),
+                eq(AuthAuditAction.COLLABORATOR_INVITED),
                 eq(AuthAuditOutcome.SUCCESS),
                 eq(projectId.toString()),
                 any(),
@@ -116,32 +128,37 @@ class ResearchCollaborationServiceTest {
     }
 
     @Test
-    @DisplayName("Phase R14: Duplicate collaborator addition is rejected with CONFLICT")
-    void cannotAddDuplicateCollaborator() {
-        when(memberRepository.existsByProjectIdAndUserId(projectId, collaboratorId)).thenReturn(true);
+    @DisplayName("C2: Duplicate pending invitation is rejected with CONFLICT")
+    void cannotSendDuplicateInvitation() {
+        when(memberRepository.existsActiveByProjectIdAndUserId(projectId, collaboratorId)).thenReturn(false);
+        ResearchProjectInvitation existingInv = mock(ResearchProjectInvitation.class);
+        when(invitationRepository.findByProjectIdAndInviteeUserIdAndStatus(projectId, collaboratorId, InvitationStatus.PENDING))
+                .thenReturn(Optional.of(existingInv));
 
-        AddMemberRequest request = new AddMemberRequest(collaboratorId, ProjectMemberRole.VIEWER);
+        SendInvitationRequest request = new SendInvitationRequest(
+                collaboratorId, ProjectMemberRole.VIEWER, "Follow up");
 
         assertThrows(ResearchApiException.class, () ->
-                service.addMember(projectId, ownerId, request, "127.0.0.1", "TestAgent")
+                service.sendInvitation(projectId, ownerId, request, "127.0.0.1", "TestAgent")
         );
     }
 
     @Test
-    @DisplayName("Phase R14: Non-owner cannot add members or manage team permissions")
-    void nonOwnerCannotAddCollaborator() {
+    @DisplayName("C2: Non-owner cannot send collaboration invitations")
+    void nonOwnerCannotSendInvitation() {
         UUID strangerId = UUID.randomUUID();
         when(memberRepository.findByProjectIdAndUserId(projectId, strangerId)).thenReturn(Optional.empty());
 
-        AddMemberRequest request = new AddMemberRequest(collaboratorId, ProjectMemberRole.CO_RESEARCHER);
+        SendInvitationRequest request = new SendInvitationRequest(
+                collaboratorId, ProjectMemberRole.CO_RESEARCHER, null);
 
         assertThrows(ResearchApiException.class, () ->
-                service.addMember(projectId, strangerId, request, "127.0.0.1", "TestAgent")
+                service.sendInvitation(projectId, strangerId, request, "127.0.0.1", "TestAgent")
         );
     }
 
     @Test
-    @DisplayName("Phase R14: Primary project owner cannot be removed from project")
+    @DisplayName("C3: Primary project owner cannot be removed from project")
     void cannotRemovePrimaryOwner() {
         UUID ownerMemberId = UUID.randomUUID();
         ResearchProjectMember ownerMember = new ResearchProjectMember(

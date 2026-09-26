@@ -1,4 +1,4 @@
-﻿package com.clinora.research.domain;
+package com.clinora.research.domain;
 
 public enum InvitationStatus {
     PENDING,
