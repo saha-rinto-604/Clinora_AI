@@ -343,23 +343,6 @@ export function ProjectCollaboratorsSection({
         </div>
       )}
 
-      {/* Security Scope Banner */}
-      <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40 text-xs text-slate-400 flex items-start gap-2.5">
-        <Shield className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p>
-            <span className="text-slate-200 font-medium">Project membership ≠ dataset access. </span>
-            Accepting an invitation grants project-level access only. Clinical dataset downloads require a
-            separate authorization.
-          </p>
-          <p className="text-slate-500 text-[11px]">
-            <strong className="text-slate-400">OWNER</strong> — manages project, team &amp; governance submissions &nbsp;|&nbsp;
-            <strong className="text-slate-400">CO_RESEARCHER</strong> — contributes to work, cohorts &amp; analyses &nbsp;|&nbsp;
-            <strong className="text-slate-400">SUPERVISOR</strong> — reviews methodology &amp; outputs &nbsp;|&nbsp;
-            <strong className="text-slate-400">VIEWER</strong> — read-only access
-          </p>
-        </div>
-      </div>
 
       {/* Loading / Error */}
       {loading ? (
