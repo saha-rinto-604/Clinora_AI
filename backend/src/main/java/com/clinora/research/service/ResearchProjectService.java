@@ -101,8 +101,8 @@ public class ResearchProjectService {
         PageRequest pageRequest = PageRequest.of(safePage, safeSize, sort);
 
         Page<ResearchProject> projectPage = (status != null)
-                ? repository.findByOwnerUserIdAndStatus(researcherUserId, status, pageRequest)
-                : repository.findByOwnerUserId(researcherUserId, pageRequest);
+                ? repository.findAccessibleByUserIdAndStatus(researcherUserId, status, pageRequest)
+                : repository.findAccessibleByUserId(researcherUserId, pageRequest);
 
         List<ProjectResponse> items = projectPage.getContent().stream()
                 .map(ProjectResponse::from)
@@ -121,7 +121,7 @@ public class ResearchProjectService {
 
     @Transactional(readOnly = true)
     public ProjectResponse getProject(UUID researcherUserId, UUID projectId) {
-        ResearchProject project = findOwnedProject(researcherUserId, projectId);
+        ResearchProject project = findAccessibleProject(researcherUserId, projectId);
         return ProjectResponse.from(project);
     }
 
@@ -248,6 +248,18 @@ public class ResearchProjectService {
         );
 
         return ProjectResponse.from(saved);
+    }
+
+    private ResearchProject findAccessibleProject(UUID researcherUserId, UUID projectId) {
+        Objects.requireNonNull(researcherUserId, "Researcher user ID cannot be null");
+        Objects.requireNonNull(projectId, "Project ID cannot be null");
+
+        return repository.findAccessibleByIdAndUserId(projectId, researcherUserId)
+                .orElseThrow(() -> new ResearchApiException(
+                        HttpStatus.NOT_FOUND,
+                        ResearchErrorCode.PROJECT_NOT_FOUND,
+                        "Research project not found."
+                ));
     }
 
     private ResearchProject findOwnedProject(UUID researcherUserId, UUID projectId) {

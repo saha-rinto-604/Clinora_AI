@@ -131,7 +131,7 @@ class ResearchProjectServiceTest {
                 fixedInstant
         );
 
-        when(repository.findByOwnerUserId(eq(researcherId), any(PageRequest.class)))
+        when(repository.findAccessibleByUserId(eq(researcherId), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(project), PageRequest.of(0, 20), 1));
 
         ProjectPageResponse response = service.listProjects(researcherId, null, 1, 20, "createdAt,desc");
@@ -159,7 +159,7 @@ class ResearchProjectServiceTest {
                 fixedInstant
         );
 
-        when(repository.findByIdAndOwnerUserId(projectId, researcherId)).thenReturn(Optional.of(project));
+        when(repository.findAccessibleByIdAndUserId(projectId, researcherId)).thenReturn(Optional.of(project));
 
         ProjectResponse response = service.getProject(researcherId, projectId);
         assertThat(response.id()).isEqualTo(projectId);
@@ -167,10 +167,10 @@ class ResearchProjectServiceTest {
     }
 
     @Test
-    @DisplayName("Get project not owned by researcher throws 404")
+    @DisplayName("Get project not accessible by researcher throws 404")
     void getProjectNotOwnedThrows404() {
         UUID projectId = UUID.randomUUID();
-        when(repository.findByIdAndOwnerUserId(projectId, researcherId)).thenReturn(Optional.empty());
+        when(repository.findAccessibleByIdAndUserId(projectId, researcherId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getProject(researcherId, projectId))
                 .isInstanceOf(ResearchApiException.class)
