@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import com.clinora.research.exception.ResearchApiException;
+import com.clinora.research.exception.ResearchErrorCode;
+import org.springframework.http.HttpStatus;
 
 @Entity
 @Table(
@@ -27,6 +30,12 @@ public class ResearchProjectMember {
 
     @Column(name = "added_by", nullable = false)
     private UUID addedBy;
+
+    @Column(name = "removed_at")
+    private Instant removedAt;
+
+    @Column(name = "removed_by")
+    private UUID removedBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -58,11 +67,34 @@ public class ResearchProjectMember {
         this.updatedAt = Instant.now();
     }
 
+    /**
+     * Soft-remove this member. Preserves audit history for research provenance.
+     * Does NOT revoke DatasetAccessGrants — that must be done by the caller atomically.
+     */
+    public void remove(UUID removedByUserId) {
+        if (this.removedAt != null) {
+            throw new ResearchApiException(
+                    HttpStatus.CONFLICT,
+                    ResearchErrorCode.PROJECT_ACCESS_DENIED,
+                    "Member is already removed"
+            );
+        }
+        this.removedAt = Instant.now();
+        this.removedBy = Objects.requireNonNull(removedByUserId, "RemovedBy required");
+        this.updatedAt = this.removedAt;
+    }
+
+    public boolean isActive() {
+        return removedAt == null;
+    }
+
     public UUID getId() { return id; }
     public UUID getProjectId() { return projectId; }
     public UUID getUserId() { return userId; }
     public ProjectMemberRole getRole() { return role; }
     public UUID getAddedBy() { return addedBy; }
+    public Instant getRemovedAt() { return removedAt; }
+    public UUID getRemovedBy() { return removedBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

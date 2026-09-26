@@ -383,16 +383,47 @@ export interface CreateEvaluationRunPayload {
 
 export type ProjectMemberRole = 'OWNER' | 'CO_RESEARCHER' | 'SUPERVISOR' | 'VIEWER';
 
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'REVOKED' | 'EXPIRED';
+
+/** Safe professional profile returned by the researcher search endpoint. No login email exposed. */
+export interface ResearcherDirectoryEntry {
+  userId: string;
+  displayName: string;
+  initials: string;
+}
+
 export interface ResearchProjectMember {
   id: string;
   projectId: string;
   userId: string;
-  userEmail: string;
   userDisplayName: string;
   role: ProjectMemberRole;
   addedBy: string;
-  createdAt: string;
+  joinedAt: string;
   updatedAt: string;
+}
+
+/** A collaboration invitation in the system. */
+export interface ResearchProjectInvitation {
+  id: string;
+  projectId: string;
+  projectTitle?: string;
+  inviteeUserId: string;
+  inviteeDisplayName: string;
+  invitedBy: string;
+  invitedByDisplayName: string;
+  proposedRole: ProjectMemberRole;
+  status: InvitationStatus;
+  message?: string;
+  invitedAt: string;
+  expiresAt: string;
+  respondedAt?: string;
+}
+
+export interface SendInvitationPayload {
+  inviteeUserId: string;
+  proposedRole: ProjectMemberRole;
+  message?: string;
 }
 
 export interface AddMemberPayload {

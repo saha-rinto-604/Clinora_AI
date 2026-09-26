@@ -6,7 +6,6 @@ import type {
   AdminProjectDetailResponse,
   AdminProjectPageResponse,
   AIEvaluationRun,
-  AddMemberPayload,
   CatalogResponse,
   CohortFilterCriteria,
   CohortPreviewResponse,
@@ -26,9 +25,12 @@ import type {
   ResearchAuditLogEntry,
   ResearchDataset,
   ResearchProject,
+  ResearchProjectInvitation,
   ResearchProjectMember,
   ResearchProjectStatus,
   ResearchPublication,
+  ResearcherDirectoryEntry,
+  SendInvitationPayload,
   TrendPoint,
   UpdateDatasetRequestInput,
   UpdateMemberRolePayload,
@@ -267,21 +269,74 @@ export const researchApi = {
     return response.data.data;
   },
 
+
   // ─── Phase R14: Collaboration ────────────────────────────────────────────
 
-  /** List project team members. */
-  async listProjectMembers(projectId: string): Promise<ResearchProjectMember[]> {
-    const response = await apiClient.get<ApiEnvelope<ResearchProjectMember[]>>(
-      `/research/projects/${projectId}/members`,
+  /** Search verified researchers by name for invitation. Min 2 chars. Returns safe profiles (no email). */
+  async searchResearchers(q: string, projectId?: string): Promise<ResearcherDirectoryEntry[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearcherDirectoryEntry[]>>(
+      '/research/researchers/search',
+      { params: { q, projectId } },
     );
     return response.data.data;
   },
 
-  /** Add a collaborator with a project-level role. */
-  async addProjectMember(projectId: string, payload: AddMemberPayload): Promise<ResearchProjectMember> {
-    const response = await apiClient.post<ApiEnvelope<ResearchProjectMember>>(
-      `/research/projects/${projectId}/members`,
+  // ─── Invitations (project-scoped) ────────────────────────────────────────
+
+  /** Send an invitation to a verified researcher. Returns pending invitation. */
+  async sendInvitation(projectId: string, payload: SendInvitationPayload): Promise<ResearchProjectInvitation> {
+    const response = await apiClient.post<ApiEnvelope<ResearchProjectInvitation>>(
+      `/research/projects/${projectId}/invitations`,
       payload,
+    );
+    return response.data.data;
+  },
+
+  /** List all invitations for this project (owner view). */
+  async listProjectInvitations(projectId: string): Promise<ResearchProjectInvitation[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchProjectInvitation[]>>(
+      `/research/projects/${projectId}/invitations`,
+    );
+    return response.data.data;
+  },
+
+  /** Revoke a pending invitation (owner action). */
+  async revokeInvitation(projectId: string, invitationId: string): Promise<void> {
+    await apiClient.delete(`/research/projects/${projectId}/invitations/${invitationId}`);
+  },
+
+  // ─── Invitations (invitee-scoped) ─────────────────────────────────────────
+
+  /** List all invitations received by the current researcher (their inbox). */
+  async listMyInvitations(): Promise<ResearchProjectInvitation[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchProjectInvitation[]>>(
+      '/research/invitations',
+    );
+    return response.data.data;
+  },
+
+  /** Accept a pending invitation. Grants project membership (NOT dataset access). */
+  async acceptInvitation(invitationId: string): Promise<ResearchProjectInvitation> {
+    const response = await apiClient.post<ApiEnvelope<ResearchProjectInvitation>>(
+      `/research/invitations/${invitationId}/accept`,
+    );
+    return response.data.data;
+  },
+
+  /** Decline a pending invitation. */
+  async declineInvitation(invitationId: string): Promise<ResearchProjectInvitation> {
+    const response = await apiClient.post<ApiEnvelope<ResearchProjectInvitation>>(
+      `/research/invitations/${invitationId}/decline`,
+    );
+    return response.data.data;
+  },
+
+  // ─── Members ──────────────────────────────────────────────────────────────
+
+  /** List active project team members. */
+  async listProjectMembers(projectId: string): Promise<ResearchProjectMember[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchProjectMember[]>>(
+      `/research/projects/${projectId}/members`,
     );
     return response.data.data;
   },
@@ -299,10 +354,11 @@ export const researchApi = {
     return response.data.data;
   },
 
-  /** Remove a collaborator from a project. */
+  /** Remove a collaborator from a project. Active dataset grants are revoked server-side. */
   async removeProjectMember(projectId: string, memberId: string): Promise<void> {
     await apiClient.delete(`/research/projects/${projectId}/members/${memberId}`);
   },
+
 
   // ─── Phase R15: Publications ─────────────────────────────────────────────
 

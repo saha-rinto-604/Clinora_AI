@@ -30,9 +30,11 @@ import { AIEvaluationSection } from './ai-evaluation-section';
 import { ProjectCollaboratorsSection } from './project-collaborators-section';
 import { ProjectPublicationsSection } from './project-publications-section';
 import { ProjectAuditTrailSection } from './project-audit-trail-section';
+import { useAuthStore } from '../../features/auth/auth-store';
 
 export function ResearchProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const user = useAuthStore((state) => state.user);
   const user = useAuthStore((state) => state.user);
 
   const [project, setProject] = useState<ResearchProject | null>(null);
@@ -146,6 +148,10 @@ export function ResearchProjectDetailPage() {
   }
 
   const isApprovedOrActive = project.status === 'APPROVED' || project.status === 'ACTIVE';
+  const isOwner = user?.id === project.ownerUserId;
+  const ownerDisplayName = isOwner && user
+    ? `${user.firstName} ${user.lastName}`.trim()
+    : 'Project Owner';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -434,7 +440,13 @@ export function ResearchProjectDetailPage() {
           )}
 
           {activeTab === 'collaborators' && (
-            <ProjectCollaboratorsSection projectId={project.id} isOwner={user?.id === project.ownerUserId} />
+            <ProjectCollaboratorsSection
+              projectId={project.id}
+              projectStatus={project.status}
+              isOwner={isOwner}
+              ownerUserId={project.ownerUserId}
+              ownerDisplayName={ownerDisplayName}
+            />
           )}
 
           {activeTab === 'evaluations' && (

@@ -14,12 +14,14 @@ import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
 import { researchApi } from '../../features/research/research-api';
 import { ResearchStatusBadge } from '../../features/research/research-status-badge';
-import type { DatasetRequest, ResearchProject } from '../../features/research/research-types';
+import type { DatasetRequest, ResearchProject, ResearchProjectInvitation } from '../../features/research/research-types';
 import { CinematicBackground } from '../../components/app/cinematic-background';
+import { MailCheck, Bell } from 'lucide-react';
 
 export function ResearchDashboardPage() {
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [datasetRequests, setDatasetRequests] = useState<DatasetRequest[]>([]);
+  const [invitations, setInvitations] = useState<ResearchProjectInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -44,6 +46,14 @@ export function ResearchDashboardPage() {
           }
         }
         setDatasetRequests(allRequests);
+
+        // Load collaboration invitations inbox
+        try {
+          const invs = await researchApi.listMyInvitations();
+          setInvitations(invs.filter((i) => i.status === 'PENDING'));
+        } catch {
+          // non-critical — dashboard still loads
+        }
       } catch (err: unknown) {
         setError(apiErrorMessage(err, 'Failed to load research workspace data.'));
       } finally {
@@ -97,6 +107,76 @@ export function ResearchDashboardPage() {
           <span>{error}</span>
         </div>
       ) : null}
+
+      {/* Collaboration Invitations Inbox */}
+      {invitations.length > 0 && (
+        <div className="rounded-2xl border border-cyan-800/40 bg-cyan-950/10 p-5 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <Bell className="w-4 h-4 text-cyan-400" />
+            <h2 className="text-sm font-semibold text-slate-100">
+              Pending Collaboration Invitations
+              <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-bold">
+                {invitations.length}
+              </span>
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {invitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-800 bg-slate-900/60"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-xs font-medium text-slate-200">
+                    <span className="text-cyan-300">{inv.invitedByDisplayName}</span> invited you to join{' '}
+                    <span className="font-semibold text-slate-100">{inv.projectTitle ?? 'a research project'}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Role: <span className="text-slate-400">{inv.proposedRole.replace('_', ' ')}</span> · Expires{' '}
+                    {new Date(inv.expiresAt).toLocaleDateString()}
+                  </p>
+                  {inv.message && (
+                    <p className="text-[11px] text-slate-500 italic mt-0.5">"{inv.message}"</p>
+                  )}
+                  <p className="text-[10px] text-amber-500/80 mt-0.5">
+                    ⚠ Accepting grants project access only — not clinical dataset access.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="secondary"
+                    className="text-xs h-7 px-3"
+                    onClick={async () => {
+                      try {
+                        await researchApi.declineInvitation(inv.id);
+                        setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+                      } catch (err: unknown) {
+                        alert(apiErrorMessage(err, 'Failed to decline invitation.'));
+                      }
+                    }}
+                  >
+                    Decline
+                  </Button>
+                  <Button
+                    className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs h-7 px-3"
+                    onClick={async () => {
+                      try {
+                        await researchApi.acceptInvitation(inv.id);
+                        setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+                      } catch (err: unknown) {
+                        alert(apiErrorMessage(err, 'Failed to accept invitation.'));
+                      }
+                    }}
+                  >
+                    <MailCheck className="w-3.5 h-3.5 mr-1.5" />
+                    Accept
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Real Metric KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
