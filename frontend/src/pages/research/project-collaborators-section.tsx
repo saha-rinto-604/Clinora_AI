@@ -1,4 +1,4 @@
-﻿import {
+import {
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -142,9 +142,11 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
   const color = colors[name.charCodeAt(0) % colors.length];
   const sz = size === 'sm' ? 'w-7 h-7 text-[10px]' : 'w-9 h-9 text-xs';
   return (
-    <div className={{sz} {color} rounded-full flex items-center justify-center font-bold shrink-0}
-      style={{ width: size === 'sm' ? 28 : 36, height: size === 'sm' ? 28 : 36, fontSize: size === 'sm' ? 10 : 12 }}>
-      <div className={ounded-full flex items-center justify-center font-bold w-full h-full }>
+    <div
+      className={`${sz} ${color} rounded-full flex items-center justify-center font-bold shrink-0`}
+      style={{ width: size === 'sm' ? 28 : 36, height: size === 'sm' ? 28 : 36, fontSize: size === 'sm' ? 10 : 12 }}
+    >
+      <div className="rounded-full flex items-center justify-center font-bold w-full h-full">
         {getInitials(name)}
       </div>
     </div>
@@ -268,7 +270,11 @@ export function ProjectCollaboratorsSection({
   };
 
   const handleRemoveMember = async (memberId: string, displayName: string) => {
-    if (!window.confirm(Remove  from this research project?\n\nThis will also revoke any active dataset access grants for this researcher.))
+    if (
+      !window.confirm(
+        `Remove ${displayName} from this research project?\n\nThis will also revoke any active dataset access grants for this researcher.`,
+      )
+    )
       return;
     try {
       await researchApi.removeProjectMember(projectId, memberId);
@@ -590,7 +596,7 @@ export function ProjectCollaboratorsSection({
                           setSearchResults([]);
                         }}
                         className="w-full text-left px-3 py-2.5 bg-slate-950/60 hover:bg-slate-800/60 transition-colors flex items-center gap-3"
-                        id={esearcher-result-}
+                        id={`researcher-result-${r.userId}`}
                       >
                         <div className="w-7 h-7 rounded-full bg-cyan-900 text-cyan-300 flex items-center justify-center text-[10px] font-bold shrink-0">
                           {r.initials}
