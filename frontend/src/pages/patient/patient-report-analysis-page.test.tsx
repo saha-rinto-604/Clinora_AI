@@ -194,6 +194,20 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
+  it('retries a failed preview without restarting extraction or losing observations', async () => {
+    mocks.content.mockRejectedValueOnce(new Error('private storage detail'));
+    renderWorkspace();
+    const message = await screen.findByText('The original report preview could not be loaded.');
+    expect(message.closest('section')).toHaveTextContent('Original report');
+    expect(screen.queryByText('private storage detail')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('img', { name: 'Original report: CBC report' })).toBeInTheDocument();
+    expect(mocks.content).toHaveBeenCalledTimes(2);
+    expect(mocks.startExtraction).not.toHaveBeenCalled();
+    expect(mocks.reExtract).not.toHaveBeenCalled();
+    expect(screen.getAllByText('MCHC').length).toBeGreaterThan(0);
+  });
+
   it('offers one compact start surface with working upload and existing-report actions', async () => {
     const user = userEvent.setup();
     renderStart();

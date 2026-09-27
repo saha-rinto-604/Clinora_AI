@@ -111,10 +111,7 @@ function AnalysisStart() {
             <ScanText size={14} aria-hidden="true" /> Clinora AI analysis
           </div>
           <h1>Analyze a medical report</h1>
-          <p>
-            Upload your laboratory report, verify the values, and get clear, patient-friendly insights powered by
-            Clinora AI.
-          </p>
+          <p>Upload a report, verify its values, then request AI insight.</p>
         </div>
         <div className="clinora-report-start-reference__art" aria-hidden="true" />
       </header>
@@ -126,10 +123,7 @@ function AnalysisStart() {
           </span>
           <div className="min-w-0">
             <h2 id="analysis-start-title">Start with your report</h2>
-            <p>
-              Upload a PDF, JPG or PNG, or choose a report already saved in Medical Reports. The original remains
-              unchanged while you review Clinora&apos;s analysis.
-            </p>
+            <p>Upload a PDF, JPG or PNG, or choose a saved report.</p>
           </div>
           <div className="clinora-report-start-reference__launch-actions">
             <Button variant="appPrimary" onClick={() => setUploadOpen(true)}>
@@ -339,6 +333,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   const [report, setReport] = useState<PatientReport | null>(null);
   const [extraction, setExtraction] = useState<PatientReportExtraction | null>(null);
   const [sourceUrl, setSourceUrl] = useState('');
+  const [sourceError, setSourceError] = useState(false);
+  const [sourceRetry, setSourceRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState('');
   const [error, setError] = useState('');
@@ -370,6 +366,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   useEffect(() => {
     let active = true;
     let nextUrl = '';
+    setSourceUrl('');
+    setSourceError(false);
     void patientReportApi
       .content(reportId)
       .then((blob) => {
@@ -377,12 +375,14 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
         nextUrl = URL.createObjectURL(blob);
         setSourceUrl(nextUrl);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) setSourceError(true);
+      });
     return () => {
       active = false;
       if (nextUrl) URL.revokeObjectURL(nextUrl);
     };
-  }, [reportId]);
+  }, [reportId, sourceRetry]);
 
   const extractionStatus = extraction?.status;
 
@@ -498,8 +498,6 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
             <span>{patientReportTypeLabels[report.reportType]}</span>
           </div>
           <p>
-            {patientReportTypeLabels[report.reportType]}
-            <span aria-hidden="true"> · </span>
             Uploaded {formatUploadedDate(report.createdAt)}
             {report.providerLaboratory ? (
               <>
@@ -555,6 +553,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
             <ReportSourceViewer
               report={report}
               sourceUrl={sourceUrl}
+              sourceError={sourceError}
+              onRetry={() => setSourceRetry((value) => value + 1)}
               selected={selectedObservation}
               pageCount={extraction.pageCount ?? 1}
             />
@@ -567,10 +567,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 <div>
                   <p className="clinora-reference-section-label">Extracted results</p>
                   <h2 id="review-what-clinora-read-title">Review what Clinora read</h2>
-                  <p>
-                    Compare important values with the original report. Corrections change Clinora&apos;s transcription,
-                    not your original document.
-                  </p>
+                  <p>Check values against the original. Edits change extracted values, not the original.</p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {extraction.status === 'SUCCEEDED' ? (
@@ -935,7 +932,10 @@ function FailurePanel({
               needs attention.
             </p>
             {failureCode ? (
-              <p className="mt-2 text-[11px] text-[var(--clinora-text-faint)]">Reference: {failureCode}</p>
+              <details className="mt-2 text-xs text-[var(--clinora-text-muted)]">
+                <summary className="cursor-pointer">Support details</summary>
+                <p>Reference: {failureCode}</p>
+              </details>
             ) : null}
           </div>
         </div>
@@ -950,11 +950,15 @@ function FailurePanel({
 function ReportSourceViewer({
   report,
   sourceUrl,
+  sourceError,
+  onRetry,
   selected,
   pageCount,
 }: {
   report: PatientReport;
   sourceUrl: string;
+  sourceError: boolean;
+  onRetry: () => void;
   selected: PatientReportObservation | null;
   pageCount: number;
 }) {
@@ -997,7 +1001,14 @@ function ReportSourceViewer({
       </div>
 
       <div className="clinora-report-review-reference__document-stage">
-        {!sourceUrl ? (
+        {sourceError ? (
+          <div className="clinora-report-review-reference__document-loading" role="alert">
+            <p>The original report preview could not be loaded.</p>
+            <Button variant="appSecondary" size="sm" onClick={onRetry}>
+              Try again
+            </Button>
+          </div>
+        ) : !sourceUrl ? (
           <div className="clinora-report-review-reference__document-loading">Loading original report…</div>
         ) : report.mimeType === 'application/pdf' ? (
           <iframe
