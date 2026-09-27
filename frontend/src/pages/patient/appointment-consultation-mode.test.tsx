@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { PatientReport } from '../../features/patient-reports/patient-report-types';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatientAppointmentDetailPage } from './patient-appointment-detail-page';
@@ -41,7 +42,9 @@ vi.mock('../../features/patient-reports/patient-report-api', () => ({
   patientReportApi: { list: mocks.reports, detail: vi.fn() },
 }));
 vi.mock('../../features/patient-reports/patient-report-picker-r3', () => ({
-  PatientReportPicker: () => <div>Report picker remains available</div>,
+  PatientReportPicker: ({ onChange }: { onChange: (reports: PatientReport[]) => void }) => (
+    <button onClick={() => onChange(selectedReportFixtures)}>Report picker remains available</button>
+  ),
 }));
 vi.mock('../../features/profile/profile-image', () => ({
   ProfileAvatar: ({ name }: { name: string }) => <div aria-label={`${name} profile photo`} />,
@@ -92,6 +95,23 @@ const appointment = {
   sharedReportCount: 0,
 };
 
+const selectedReportFixtures: PatientReport[] = ['Blood count', 'Thyroid panel', 'Renal function follow-up'].map(
+  (name, index) => ({
+    id: `report-${index}`,
+    reportName: name,
+    reportType: 'LAB_RESULTS',
+    reportDate: '2026-09-20',
+    providerLaboratory: 'Test laboratory',
+    originalFilename: `${name}.pdf`,
+    mimeType: 'application/pdf',
+    sizeBytes: 100,
+    archived: false,
+    archivedAt: null,
+    createdAt: '2026-09-20T00:00:00Z',
+    updatedAt: '2026-09-20T00:00:00Z',
+  }),
+);
+
 describe('appointment consultation modes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -102,6 +122,26 @@ describe('appointment consultation modes', () => {
     mocks.shares.mockResolvedValue([]);
     mocks.availability.mockResolvedValue([]);
     mocks.joinStatus.mockResolvedValue({ roomReady: true, canJoin: false, state: 'TOO_EARLY', opensAt: null });
+  });
+
+  it('lets the Patient review every selected report without submitting a booking', async () => {
+    mocks.doctor.mockResolvedValue({ doctor, availability: [slot] });
+    render(
+      <MemoryRouter initialEntries={[`/patient/doctors/${doctor.id}`]}>
+        <Routes>
+          <Route path="/patient/doctors/:doctorId" element={<PatientDoctorDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByRole('heading', { name: doctor.displayName });
+    fireEvent.click(screen.getByRole('button', { name: 'Report picker remains available' }));
+    const summary = screen.getByText('View all selected reports (3)');
+    fireEvent.click(summary);
+    expect(summary.closest('details')).toHaveAttribute('open');
+    const reports = screen.getByRole('list', { name: 'Reports selected for this appointment' });
+    expect(within(reports).getAllByRole('listitem')).toHaveLength(3);
+    for (const report of selectedReportFixtures) expect(within(reports).getByText(report.reportName)).toBeVisible();
+    expect(mocks.book).not.toHaveBeenCalled();
   });
 
   it('requires a Patient choice for a BOTH slot and preserves it after a booking error', async () => {
