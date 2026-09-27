@@ -93,7 +93,7 @@ export function DashboardHeader({
               ref={input}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search reports, doctors, appointments…"
+              placeholder="Go to reports, doctors, appointments…"
               aria-label="Jump to reports, doctors, appointments or health record"
               aria-describedby={searchMessage ? 'patient-search-message' : undefined}
             />
@@ -164,9 +164,7 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
           <ScanText size={25} aria-hidden="true" />
         </span>
         <div>
-          <span className="patient-home__eyebrow">AI Report Analysis</span>
-          <h2>Turn a report into insights</h2>
-          <p>Review your reports and explore AI-assisted explanations in one place.</p>
+          <h2>AI Report Analysis</h2>
           <Link className="patient-home__button patient-home__button--primary" to="/patient/analyze">
             <ScanText size={14} aria-hidden="true" />
             Analyze a report
@@ -179,9 +177,8 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
           <Droplets size={25} aria-hidden="true" />
         </span>
         <div>
-          <span className="patient-home__eyebrow">Blood Network</span>
-          <h2>Nearby help, organized</h2>
-          <p>Find compatible donors, request help, or support others in your community.</p>
+          <h2>Blood Network</h2>
+          <p>Request blood or respond to nearby requests.</p>
           <Link className="patient-home__button" to="/patient/blood-network">
             <Droplets size={14} aria-hidden="true" />
             Explore Blood Network
@@ -194,9 +191,7 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
           <FileText size={25} aria-hidden="true" />
         </span>
         <div>
-          <span className="patient-home__eyebrow">Medical Reports</span>
-          <h2>Your health records in one place</h2>
-          <p>Your test results, scans and documents stay secure and organized.</p>
+          <h2>Medical Reports</h2>
           <button type="button" className="patient-home__button" onClick={onUpload}>
             <UploadCloud size={14} aria-hidden="true" />
             Upload a report
