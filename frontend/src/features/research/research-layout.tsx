@@ -3,6 +3,7 @@ import {
   Award,
   BarChart2,
   Bell,
+  BookOpen,
   ChevronDown,
   Clock3,
   FolderGit2,
@@ -51,6 +52,7 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
       { to: '/research/projects', label: 'My Projects', shortLabel: 'Projects', icon: FolderGit2 },
       { to: '/research/projects/new', label: 'New Project', shortLabel: 'New', icon: PlusCircle },
       { to: '/research/datasets', label: 'My Datasets', shortLabel: 'Datasets', icon: BarChart2 },
+      { to: '/research/library', label: 'Clinora Library', shortLabel: 'Library', icon: BookOpen },
     ],
   },
   {

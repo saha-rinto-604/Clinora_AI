@@ -44,6 +44,13 @@ import type {
   UpdateNotePayload,
   UpdateProjectInput,
   UpdatePublicationPayload,
+  LibraryPublicationSummary,
+  LibraryPublicationsPageResponse,
+  LibraryPublicationDetail,
+  MyResearchOutputSummary,
+  RegisterResearchOutputPayload,
+  UpdateResearchOutputPayload,
+  ProjectSelectOption,
 } from './research-types';
 
 export interface ProjectListParams {
@@ -529,6 +536,82 @@ export const researchApi = {
   /** Delete a publication record. */
   async deletePublication(projectId: string, pubId: string): Promise<void> {
     await apiClient.delete(`/research/projects/${projectId}/publications/${pubId}`);
+  },
+
+  // ─── Clinora Library & Scientific Discovery ─────────────────────────────
+
+  /** Search published research outputs across Clinora studies (safe discovery). */
+  async searchLibraryPublications(params?: {
+    search?: string;
+    publicationType?: string;
+    researchField?: string;
+    year?: number;
+    page?: number;
+    size?: number;
+  }): Promise<LibraryPublicationsPageResponse> {
+    const response = await apiClient.get<ApiEnvelope<LibraryPublicationsPageResponse>>(
+      '/research/library/publications',
+      { params },
+    );
+    return response.data.data;
+  },
+
+  /** Get detailed publication metadata, methodology, and safe provenance. */
+  async getLibraryPublicationDetail(publicationId: string): Promise<LibraryPublicationDetail> {
+    const response = await apiClient.get<ApiEnvelope<LibraryPublicationDetail>>(
+      `/research/library/publications/${publicationId}`,
+    );
+    return response.data.data;
+  },
+
+  /** List research outputs authored or contributed to by the current researcher. */
+  async listMyResearchOutputs(): Promise<MyResearchOutputSummary[]> {
+    const response = await apiClient.get<ApiEnvelope<MyResearchOutputSummary[]>>(
+      '/research/library/my-outputs',
+    );
+    return response.data.data;
+  },
+
+  /** Get a specific researcher output detail for editing. */
+  async getMyResearchOutputDetail(publicationId: string): Promise<LibraryPublicationDetail> {
+    const response = await apiClient.get<ApiEnvelope<LibraryPublicationDetail>>(
+      `/research/library/my-outputs/${publicationId}`,
+    );
+    return response.data.data;
+  },
+
+  /** Register a new research output linked to an approved study. */
+  async registerResearchOutput(payload: RegisterResearchOutputPayload): Promise<LibraryPublicationDetail> {
+    const response = await apiClient.post<ApiEnvelope<LibraryPublicationDetail>>(
+      '/research/library/my-outputs',
+      payload,
+    );
+    return response.data.data;
+  },
+
+  /** Update an existing research output. */
+  async updateResearchOutput(
+    publicationId: string,
+    payload: UpdateResearchOutputPayload,
+  ): Promise<LibraryPublicationDetail> {
+    const response = await apiClient.put<ApiEnvelope<LibraryPublicationDetail>>(
+      `/research/library/my-outputs/${publicationId}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  /** Delete a research output. */
+  async deleteResearchOutput(publicationId: string): Promise<void> {
+    await apiClient.delete(`/research/library/my-outputs/${publicationId}`);
+  },
+
+  /** Get projects authorized for linking during output registration. */
+  async getAuthorizedProjectsForLibrary(): Promise<ProjectSelectOption[]> {
+    const response = await apiClient.get<ApiEnvelope<ProjectSelectOption[]>>(
+      '/research/library/authorized-projects',
+    );
+    return response.data.data;
   },
 
   // ─── Phase R16: Audit Trail ──────────────────────────────────────────────

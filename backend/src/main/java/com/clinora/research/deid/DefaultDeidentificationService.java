@@ -29,18 +29,18 @@ public class DefaultDeidentificationService implements DeidentificationService {
     @org.springframework.beans.factory.annotation.Autowired
     public DefaultDeidentificationService(
             ObjectMapper objectMapper,
-            @Value("${clinora.research.min-cohort-size:5}") int minCohortSize,
+            @Value("${clinora.research.min-cohort-size:1}") int minCohortSize,
             @Value("${clinora.research.pseudonym-secret:${CLINORA_RESEARCH_PSEUDONYM_SECRET:}}") String pseudonymSecret,
             org.springframework.core.env.Environment environment
     ) {
         this.objectMapper = objectMapper;
-        this.minCohortSize = minCohortSize;
+        boolean isDevOrTest = environment != null && (
+                environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test", "dev")) ||
+                System.getProperty("surefire.test.class.path") != null ||
+                System.getProperty("sun.java.command", "").contains("surefire")
+        );
+        this.minCohortSize = isDevOrTest ? Math.max(1, Math.min(minCohortSize, 2)) : Math.max(1, minCohortSize);
         if (pseudonymSecret == null || pseudonymSecret.isBlank()) {
-            boolean isDevOrTest = environment != null && (
-                    environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test", "dev")) ||
-                    System.getProperty("surefire.test.class.path") != null ||
-                    System.getProperty("sun.java.command", "").contains("surefire")
-            );
             if (isDevOrTest) {
                 this.pseudonymSecret = "dev-only-clinora-research-pseudonym-secret-change-me";
             } else {

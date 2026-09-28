@@ -29,7 +29,6 @@ import { ResearchStatusBadge } from '../../features/research/research-status-bad
 import type { DatasetRequest, ResearchProject } from '../../features/research/research-types';
 import { AIEvaluationSection } from './ai-evaluation-section';
 import { ProjectCollaboratorsSection } from './project-collaborators-section';
-import { ProjectPublicationsSection } from './project-publications-section';
 import { ProjectAuditTrailSection } from './project-audit-trail-section';
 
 export function ResearchProjectDetailPage() {
@@ -42,7 +41,7 @@ export function ResearchProjectDetailPage() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'collaborators' | 'evaluations' | 'publications' | 'audit'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'collaborators' | 'evaluations' | 'audit'>(
     'overview',
   );
 
@@ -315,18 +314,6 @@ export function ResearchProjectDetailPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab('publications')}
-          className={`px-4 py-2.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'publications'
-              ? 'border-cyan-400 text-cyan-300 font-semibold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          Publications
-        </button>
-
-        <button
           onClick={() => setActiveTab('audit')}
           className={`px-4 py-2.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
             activeTab === 'audit'
@@ -452,10 +439,6 @@ export function ResearchProjectDetailPage() {
 
           {activeTab === 'evaluations' && (
             <AIEvaluationSection projectId={project.id} isApproved={isApprovedOrActive} />
-          )}
-
-          {activeTab === 'publications' && (
-            <ProjectPublicationsSection projectId={project.id} isOwnerOrCollaborator={true} />
           )}
 
           {activeTab === 'audit' && <ProjectAuditTrailSection projectId={project.id} />}

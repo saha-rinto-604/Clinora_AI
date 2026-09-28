@@ -483,10 +483,170 @@ export interface UpdateMemberRolePayload {
 export type PublicationType =
   'JOURNAL_ARTICLE' | 'CONFERENCE_PAPER' | 'PREPRINT' | 'BOOK_CHAPTER' | 'REPORT' | 'THESIS';
 
+export type PublicationStatus = 'DRAFT' | 'SUBMITTED' | 'ACCEPTED' | 'PUBLISHED';
+
+export type LibraryVisibility = 'PROJECT_ONLY' | 'CLINORA_RESEARCHERS';
+
 export interface CitationFormats {
   apa: string;
   ieee: string;
   bibtex: string;
+}
+
+export interface LibraryDatasetProvenance {
+  datasetVersionId: string;
+  datasetDisplayName: string;
+  versionNumber: number;
+  generatedAt: string;
+}
+
+export interface LibraryEvaluationProvenance {
+  evaluationRunId: string;
+  modelName: string;
+  modelVersion: string;
+  taskType: string;
+  status: string;
+}
+
+export interface LibraryPublicationSummary {
+  id: string;
+  title: string;
+  authors: string;
+  venue: string;
+  publicationYear?: number;
+  publicationDate?: string;
+  publicationType: PublicationType;
+  researchField?: string;
+  keywords?: string;
+  methodologySummary?: string;
+  doi?: string;
+  publishedUrl?: string;
+  projectId: string;
+  projectTitle: string;
+  datasetProvenance: LibraryDatasetProvenance[];
+  evaluationProvenance: LibraryEvaluationProvenance[];
+}
+
+export interface LibraryPublicationsPageResponse {
+  items: LibraryPublicationSummary[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+export interface LibraryPublicationDetail {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  title: string;
+  abstractText?: string;
+  methodologySummary?: string;
+  studyDesign?: string;
+  analysisSummary?: string;
+  authors: string;
+  publicationType: PublicationType;
+  status: PublicationStatus;
+  libraryVisibility: LibraryVisibility;
+  researchField?: string;
+  keywords?: string;
+  journal?: string;
+  conference?: string;
+  venue: string;
+  publicationDate?: string;
+  publicationYear?: number;
+  doi?: string;
+  publishedUrl?: string;
+  citations: CitationFormats;
+  datasetProvenance: LibraryDatasetProvenance[];
+  evaluationProvenance: LibraryEvaluationProvenance[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MyResearchOutputSummary {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  title: string;
+  publicationType: PublicationType;
+  status: PublicationStatus;
+  libraryVisibility: LibraryVisibility;
+  authors: string;
+  venue: string;
+  publicationDate?: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface RegisterResearchOutputPayload {
+  projectId: string;
+  title: string;
+  abstractText?: string;
+  publicationType: PublicationType;
+  status: PublicationStatus;
+  libraryVisibility?: LibraryVisibility;
+  methodologySummary: string;
+  studyDesign?: string;
+  analysisSummary?: string;
+  keywords?: string;
+  authors: string;
+  researchField?: string;
+  doi?: string;
+  journal?: string;
+  conference?: string;
+  publicationDate?: string;
+  publishedUrl?: string;
+  linkedDatasetVersionIds?: string[];
+  linkedEvaluationRunIds?: string[];
+  citationMetadata?: Record<string, unknown>;
+}
+
+export interface UpdateResearchOutputPayload {
+  title: string;
+  abstractText?: string;
+  publicationType: PublicationType;
+  status: PublicationStatus;
+  libraryVisibility?: LibraryVisibility;
+  methodologySummary: string;
+  studyDesign?: string;
+  analysisSummary?: string;
+  keywords?: string;
+  authors: string;
+  researchField?: string;
+  doi?: string;
+  journal?: string;
+  conference?: string;
+  publicationDate?: string;
+  publishedUrl?: string;
+  linkedDatasetVersionIds?: string[];
+  linkedEvaluationRunIds?: string[];
+  citationMetadata?: Record<string, unknown>;
+}
+
+export interface DatasetVersionSelectOption {
+  id: string;
+  datasetName: string;
+  versionNumber: number;
+  generatedAt: string;
+}
+
+export interface EvaluationRunSelectOption {
+  id: string;
+  modelId: string;
+  modelVersion: string;
+  taskType: string;
+}
+
+export interface ProjectSelectOption {
+  id: string;
+  title: string;
+  status: string;
+  datasetVersions: DatasetVersionSelectOption[];
+  evaluationRuns: EvaluationRunSelectOption[];
 }
 
 export interface ResearchPublication {

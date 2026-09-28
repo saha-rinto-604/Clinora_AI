@@ -69,6 +69,7 @@ import { DatasetRequestFormPage } from './pages/research/dataset-request-form-pa
 import { DatasetRequestDetailPage } from './pages/research/dataset-request-detail-page';
 import { DatasetsPage } from './pages/research/datasets-page';
 import { DatasetDetailPage } from './pages/research/dataset-detail-page';
+import { ResearchLibraryPage } from './pages/research/research-library-page';
 import { AdminResearchProjectsPage } from './pages/admin/admin-research-projects-page';
 import { AdminResearchDatasetRequestsPage } from './pages/admin/admin-research-dataset-requests-page';
 import { AdminLayout, AdminShell } from './features/admin/admin-layout';
@@ -159,6 +160,7 @@ export function AppRoutes() {
           <Route path="research/dataset-requests/:requestId" element={<DatasetRequestDetailPage />} />
           <Route path="research/datasets" element={<DatasetsPage />} />
           <Route path="research/datasets/:datasetId" element={<DatasetDetailPage />} />
+          <Route path="research/library" element={<ResearchLibraryPage />} />
           <Route path="research/notifications" element={<PatientNotificationsPage />} />
         </Route>
       </Route>

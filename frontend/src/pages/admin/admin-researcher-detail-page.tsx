@@ -236,7 +236,7 @@ export function AdminResearcherDetailPage() {
       setVerifyModal(null);
       setRejectionReasonInput('');
       setAdminNotesInput('');
-      await loadDetail();
+      await Promise.all([loadDetail(), loadCredentials()]);
     } catch (err: any) {
       setActionError(err?.message || 'Failed to update credentials.');
     } finally {
@@ -752,18 +752,20 @@ export function AdminResearcherDetailPage() {
 
                 {/* Governance Buttons */}
                 <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setActionError(null);
-                      setAdminNotesInput('');
-                      setVerifyModal('APPROVE');
-                    }}
-                    className="bg-teal-500/15 text-teal-300 border-teal-500/30 hover:bg-teal-500/25 text-xs h-8"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Approve & Verify
-                  </Button>
+                  {credentials?.verificationStatus !== 'VERIFIED' && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setActionError(null);
+                        setAdminNotesInput('');
+                        setVerifyModal('APPROVE');
+                      }}
+                      className="bg-teal-500/15 text-teal-300 border-teal-500/30 hover:bg-teal-500/25 text-xs h-8"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Approve & Verify
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     size="sm"

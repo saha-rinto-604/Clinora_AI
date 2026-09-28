@@ -5,10 +5,7 @@ import com.clinora.audit.AuthAuditOutcome;
 import com.clinora.research.api.ResearchPublicationModels.*;
 import com.clinora.research.domain.PublicationType;
 import com.clinora.research.domain.ResearchProject;
-import com.clinora.research.domain.ResearchPublication;
-import com.clinora.research.repository.ResearchProjectMemberRepository;
-import com.clinora.research.repository.ResearchProjectRepository;
-import com.clinora.research.repository.ResearchPublicationRepository;
+import com.clinora.research.repository.*;
 import com.clinora.research.service.ResearchAuditService;
 import com.clinora.research.service.ResearchPublicationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +28,9 @@ class ResearchPublicationServiceTest {
     private ResearchPublicationRepository publicationRepository;
     private ResearchProjectRepository projectRepository;
     private ResearchProjectMemberRepository memberRepository;
+    private DatasetVersionRepository datasetVersionRepository;
+    private ResearchDatasetRepository researchDatasetRepository;
+    private AIEvaluationRunRepository evaluationRunRepository;
     private ResearchAuditService auditService;
     private ResearchPublicationService service;
 
@@ -43,6 +43,9 @@ class ResearchPublicationServiceTest {
         publicationRepository = mock(ResearchPublicationRepository.class);
         projectRepository = mock(ResearchProjectRepository.class);
         memberRepository = mock(ResearchProjectMemberRepository.class);
+        datasetVersionRepository = mock(DatasetVersionRepository.class);
+        researchDatasetRepository = mock(ResearchDatasetRepository.class);
+        evaluationRunRepository = mock(AIEvaluationRunRepository.class);
         auditService = mock(ResearchAuditService.class);
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -50,6 +53,9 @@ class ResearchPublicationServiceTest {
                 publicationRepository,
                 projectRepository,
                 memberRepository,
+                datasetVersionRepository,
+                researchDatasetRepository,
+                evaluationRunRepository,
                 auditService,
                 objectMapper
         );

@@ -29,6 +29,32 @@ public class ResearchPublication {
     @Column(name = "publication_type", nullable = false, length = 50)
     private PublicationType publicationType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private PublicationStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "library_visibility", nullable = false, length = 50)
+    private LibraryVisibility libraryVisibility;
+
+    @Column(name = "methodology_summary", columnDefinition = "TEXT")
+    private String methodologySummary;
+
+    @Column(name = "study_design", length = 255)
+    private String studyDesign;
+
+    @Column(name = "analysis_summary", columnDefinition = "TEXT")
+    private String analysisSummary;
+
+    @Column(length = 500)
+    private String keywords;
+
+    @Column(nullable = false, length = 1000)
+    private String authors;
+
+    @Column(name = "research_field", length = 100)
+    private String researchField;
+
     @Column(length = 100)
     private String doi;
 
@@ -48,6 +74,14 @@ public class ResearchPublication {
     @Column(name = "citation_metadata", columnDefinition = "jsonb", nullable = false)
     private String citationMetadata;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "linked_dataset_version_ids", columnDefinition = "jsonb", nullable = false)
+    private String linkedDatasetVersionIds;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "linked_evaluation_run_ids", columnDefinition = "jsonb", nullable = false)
+    private String linkedEvaluationRunIds;
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -65,6 +99,60 @@ public class ResearchPublication {
             String title,
             String abstractText,
             PublicationType publicationType,
+            PublicationStatus status,
+            LibraryVisibility libraryVisibility,
+            String methodologySummary,
+            String studyDesign,
+            String analysisSummary,
+            String keywords,
+            String authors,
+            String researchField,
+            String doi,
+            String journal,
+            String conference,
+            LocalDate publicationDate,
+            String externalUrl,
+            String citationMetadata,
+            String linkedDatasetVersionIds,
+            String linkedEvaluationRunIds,
+            UUID createdBy
+    ) {
+        this.id = Objects.requireNonNull(id, "Publication ID required");
+        this.projectId = Objects.requireNonNull(projectId, "Project ID required");
+        this.title = Objects.requireNonNull(title, "Title required").trim();
+        this.abstractText = abstractText;
+        this.publicationType = Objects.requireNonNull(publicationType, "Publication type required");
+        this.status = status != null ? status : PublicationStatus.PUBLISHED;
+        this.libraryVisibility = libraryVisibility != null ? libraryVisibility : LibraryVisibility.CLINORA_RESEARCHERS;
+        this.methodologySummary = methodologySummary;
+        this.studyDesign = studyDesign;
+        this.analysisSummary = analysisSummary;
+        this.keywords = keywords;
+        this.authors = (authors != null && !authors.isBlank()) ? authors.trim() : "Clinora Research Consortium";
+        this.researchField = researchField;
+        this.doi = doi != null ? doi.trim() : null;
+        this.journal = journal != null ? journal.trim() : null;
+        this.conference = conference != null ? conference.trim() : null;
+        this.publicationDate = publicationDate;
+        this.externalUrl = externalUrl != null ? externalUrl.trim() : null;
+        this.citationMetadata = (citationMetadata == null || citationMetadata.isBlank()) ? "{}" : citationMetadata;
+        this.linkedDatasetVersionIds = (linkedDatasetVersionIds == null || linkedDatasetVersionIds.isBlank()) ? "[]" : linkedDatasetVersionIds;
+        this.linkedEvaluationRunIds = (linkedEvaluationRunIds == null || linkedEvaluationRunIds.isBlank()) ? "[]" : linkedEvaluationRunIds;
+        this.createdBy = Objects.requireNonNull(createdBy, "Created by required");
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    /**
+     * Backward-compatible constructor
+     */
+    public ResearchPublication(
+            UUID id,
+            UUID projectId,
+            String title,
+            String abstractText,
+            PublicationType publicationType,
             String doi,
             String journal,
             String conference,
@@ -73,21 +161,85 @@ public class ResearchPublication {
             String citationMetadata,
             UUID createdBy
     ) {
-        this.id = Objects.requireNonNull(id, "Publication ID required");
-        this.projectId = Objects.requireNonNull(projectId, "Project ID required");
+        this(
+                id,
+                projectId,
+                title,
+                abstractText,
+                publicationType,
+                PublicationStatus.PUBLISHED,
+                LibraryVisibility.CLINORA_RESEARCHERS,
+                null,
+                null,
+                null,
+                null,
+                "Clinora Research Consortium",
+                null,
+                doi,
+                journal,
+                conference,
+                publicationDate,
+                externalUrl,
+                citationMetadata,
+                "[]",
+                "[]",
+                createdBy
+        );
+    }
+
+    public void update(
+            String title,
+            String abstractText,
+            PublicationType publicationType,
+            PublicationStatus status,
+            LibraryVisibility libraryVisibility,
+            String methodologySummary,
+            String studyDesign,
+            String analysisSummary,
+            String keywords,
+            String authors,
+            String researchField,
+            String doi,
+            String journal,
+            String conference,
+            LocalDate publicationDate,
+            String externalUrl,
+            String citationMetadata,
+            String linkedDatasetVersionIds,
+            String linkedEvaluationRunIds
+    ) {
         this.title = Objects.requireNonNull(title, "Title required").trim();
         this.abstractText = abstractText;
         this.publicationType = Objects.requireNonNull(publicationType, "Publication type required");
+        if (status != null) {
+            this.status = status;
+        }
+        if (libraryVisibility != null) {
+            this.libraryVisibility = libraryVisibility;
+        }
+        this.methodologySummary = methodologySummary;
+        this.studyDesign = studyDesign;
+        this.analysisSummary = analysisSummary;
+        this.keywords = keywords;
+        if (authors != null && !authors.isBlank()) {
+            this.authors = authors.trim();
+        }
+        this.researchField = researchField;
         this.doi = doi != null ? doi.trim() : null;
         this.journal = journal != null ? journal.trim() : null;
         this.conference = conference != null ? conference.trim() : null;
         this.publicationDate = publicationDate;
         this.externalUrl = externalUrl != null ? externalUrl.trim() : null;
-        this.citationMetadata = (citationMetadata == null || citationMetadata.isBlank()) ? "{}" : citationMetadata;
-        this.createdBy = Objects.requireNonNull(createdBy, "Created by required");
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
+        if (citationMetadata != null && !citationMetadata.isBlank()) {
+            this.citationMetadata = citationMetadata;
+        }
+        if (linkedDatasetVersionIds != null && !linkedDatasetVersionIds.isBlank()) {
+            this.linkedDatasetVersionIds = linkedDatasetVersionIds;
+        }
+        if (linkedEvaluationRunIds != null && !linkedEvaluationRunIds.isBlank()) {
+            this.linkedEvaluationRunIds = linkedEvaluationRunIds;
+        }
+        this.updatedAt = Instant.now();
     }
 
     public void update(
@@ -101,18 +253,27 @@ public class ResearchPublication {
             String externalUrl,
             String citationMetadata
     ) {
-        this.title = Objects.requireNonNull(title, "Title required").trim();
-        this.abstractText = abstractText;
-        this.publicationType = Objects.requireNonNull(publicationType, "Publication type required");
-        this.doi = doi != null ? doi.trim() : null;
-        this.journal = journal != null ? journal.trim() : null;
-        this.conference = conference != null ? conference.trim() : null;
-        this.publicationDate = publicationDate;
-        this.externalUrl = externalUrl != null ? externalUrl.trim() : null;
-        if (citationMetadata != null && !citationMetadata.isBlank()) {
-            this.citationMetadata = citationMetadata;
-        }
-        this.updatedAt = Instant.now();
+        update(
+                title,
+                abstractText,
+                publicationType,
+                this.status,
+                this.libraryVisibility,
+                this.methodologySummary,
+                this.studyDesign,
+                this.analysisSummary,
+                this.keywords,
+                this.authors,
+                this.researchField,
+                doi,
+                journal,
+                conference,
+                publicationDate,
+                externalUrl,
+                citationMetadata,
+                this.linkedDatasetVersionIds,
+                this.linkedEvaluationRunIds
+        );
     }
 
     public UUID getId() { return id; }
@@ -120,12 +281,22 @@ public class ResearchPublication {
     public String getTitle() { return title; }
     public String getAbstractText() { return abstractText; }
     public PublicationType getPublicationType() { return publicationType; }
+    public PublicationStatus getStatus() { return status; }
+    public LibraryVisibility getLibraryVisibility() { return libraryVisibility; }
+    public String getMethodologySummary() { return methodologySummary; }
+    public String getStudyDesign() { return studyDesign; }
+    public String getAnalysisSummary() { return analysisSummary; }
+    public String getKeywords() { return keywords; }
+    public String getAuthors() { return authors; }
+    public String getResearchField() { return researchField; }
     public String getDoi() { return doi; }
     public String getJournal() { return journal; }
     public String getConference() { return conference; }
     public LocalDate getPublicationDate() { return publicationDate; }
     public String getExternalUrl() { return externalUrl; }
     public String getCitationMetadata() { return citationMetadata; }
+    public String getLinkedDatasetVersionIds() { return linkedDatasetVersionIds; }
+    public String getLinkedEvaluationRunIds() { return linkedEvaluationRunIds; }
     public UUID getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
