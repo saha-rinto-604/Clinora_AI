@@ -16,7 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/patient/privacy/research-consent")
-@PreAuthorize("hasRole('PATIENT')")
+@PreAuthorize("hasAnyRole('PATIENT', 'RESEARCHER')")
 public class PatientResearchConsentController {
 
     private final PatientResearchConsentService consentService;

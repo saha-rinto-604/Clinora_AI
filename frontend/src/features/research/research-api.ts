@@ -5,12 +5,14 @@ import type {
   AdminDatasetRequestQueueItem,
   AdminProjectDetailResponse,
   AdminProjectPageResponse,
+  AIEvaluationOptions,
   AIEvaluationRun,
   CatalogResponse,
   CohortFilterCriteria,
   CohortPreviewResponse,
   CreateDatasetRequestInput,
   CreateEvaluationRunPayload,
+  CreateNotePayload,
   CreateProjectInput,
   CreatePublicationPayload,
   DatasetGenerationJob,
@@ -21,10 +23,15 @@ import type {
   DatasetVersion,
   FrequencyBin,
   GroupComparisonRow,
+  ProjectActivityItem,
   ProjectPageResponse,
   ResearchAuditLogEntry,
   ResearchDataset,
+  ResearchNote,
+  ResearchNoteComment,
   ResearchProject,
+  ResearchProjectFile,
+  ResearchProjectFileVersion,
   ResearchProjectInvitation,
   ResearchProjectMember,
   ResearchProjectStatus,
@@ -34,6 +41,7 @@ import type {
   TrendPoint,
   UpdateDatasetRequestInput,
   UpdateMemberRolePayload,
+  UpdateNotePayload,
   UpdateProjectInput,
   UpdatePublicationPayload,
 } from './research-types';
@@ -247,6 +255,14 @@ export const researchApi = {
     return response.data.data;
   },
 
+  /** Get authorized dataset versions and approved evaluation options for this project. */
+  async getEvaluationOptions(projectId: string): Promise<AIEvaluationOptions> {
+    const response = await apiClient.get<ApiEnvelope<AIEvaluationOptions>>(
+      `/research/projects/${projectId}/evaluations/options`,
+    );
+    return response.data.data;
+  },
+
   /** List all AI model evaluation runs for a project. */
   async listEvaluationRuns(projectId: string): Promise<AIEvaluationRun[]> {
     const response = await apiClient.get<ApiEnvelope<AIEvaluationRun[]>>(`/research/projects/${projectId}/evaluations`);
@@ -358,6 +374,124 @@ export const researchApi = {
   async removeProjectMember(projectId: string, memberId: string): Promise<void> {
     await apiClient.delete(`/research/projects/${projectId}/members/${memberId}`);
   },
+
+  // ─── Workspace: Notes ────────────────────────────────────────────────────
+
+  async listNotes(projectId: string): Promise<ResearchNote[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchNote[]>>(`/research/projects/${projectId}/notes`);
+    return response.data.data;
+  },
+
+  async getNote(projectId: string, noteId: string): Promise<ResearchNote> {
+    const response = await apiClient.get<ApiEnvelope<ResearchNote>>(`/research/projects/${projectId}/notes/${noteId}`);
+    return response.data.data;
+  },
+
+  async createNote(projectId: string, payload: CreateNotePayload): Promise<ResearchNote> {
+    const response = await apiClient.post<ApiEnvelope<ResearchNote>>(`/research/projects/${projectId}/notes`, payload);
+    return response.data.data;
+  },
+
+  async updateNote(projectId: string, noteId: string, payload: UpdateNotePayload): Promise<ResearchNote> {
+    const response = await apiClient.put<ApiEnvelope<ResearchNote>>(
+      `/research/projects/${projectId}/notes/${noteId}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async archiveNote(projectId: string, noteId: string): Promise<void> {
+    await apiClient.delete(`/research/projects/${projectId}/notes/${noteId}`);
+  },
+
+  async togglePinNote(projectId: string, noteId: string): Promise<ResearchNote> {
+    const response = await apiClient.post<ApiEnvelope<ResearchNote>>(
+      `/research/projects/${projectId}/notes/${noteId}/pin`,
+    );
+    return response.data.data;
+  },
+
+  // ─── Workspace: Comments ─────────────────────────────────────────────────
+
+  async listNoteComments(projectId: string, noteId: string): Promise<ResearchNoteComment[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchNoteComment[]>>(
+      `/research/projects/${projectId}/notes/${noteId}/comments`,
+    );
+    return response.data.data;
+  },
+
+  async addNoteComment(projectId: string, noteId: string, content: string): Promise<ResearchNoteComment> {
+    const response = await apiClient.post<ApiEnvelope<ResearchNoteComment>>(
+      `/research/projects/${projectId}/notes/${noteId}/comments`,
+      { content },
+    );
+    return response.data.data;
+  },
+
+  async deleteNoteComment(projectId: string, noteId: string, commentId: string): Promise<void> {
+    await apiClient.delete(`/research/projects/${projectId}/notes/${noteId}/comments/${commentId}`);
+  },
+
+  // ─── Workspace: Files & Versions ─────────────────────────────────────────
+
+  async listProjectFiles(projectId: string): Promise<ResearchProjectFile[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchProjectFile[]>>(`/research/projects/${projectId}/files`);
+    return response.data.data;
+  },
+
+  async uploadProjectFile(projectId: string, file: File, displayName?: string): Promise<ResearchProjectFile> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (displayName) {
+      formData.append('displayName', displayName);
+    }
+    const response = await apiClient.post<ApiEnvelope<ResearchProjectFile>>(
+      `/research/projects/${projectId}/files`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return response.data.data;
+  },
+
+  async uploadFileVersion(projectId: string, fileId: string, file: File): Promise<ResearchProjectFileVersion> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<ApiEnvelope<ResearchProjectFileVersion>>(
+      `/research/projects/${projectId}/files/${fileId}/versions`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return response.data.data;
+  },
+
+  async listProjectFileVersions(projectId: string, fileId: string): Promise<ResearchProjectFileVersion[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchProjectFileVersion[]>>(
+      `/research/projects/${projectId}/files/${fileId}/versions`,
+    );
+    return response.data.data;
+  },
+
+  async downloadProjectFile(projectId: string, fileId: string, version?: number): Promise<Blob> {
+    const response = await apiClient.get(`/research/projects/${projectId}/files/${fileId}/download`, {
+      params: { version },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async archiveProjectFile(projectId: string, fileId: string): Promise<void> {
+    await apiClient.delete(`/research/projects/${projectId}/files/${fileId}`);
+  },
+
+  // ─── Workspace: Activity Feed ────────────────────────────────────────────
+
+  async getProjectActivity(projectId: string): Promise<ProjectActivityItem[]> {
+    const response = await apiClient.get<ApiEnvelope<ProjectActivityItem[]>>(
+      `/research/projects/${projectId}/activity`,
+    );
+    return response.data.data;
+  },
+
 
 
   // ─── Phase R15: Publications ─────────────────────────────────────────────

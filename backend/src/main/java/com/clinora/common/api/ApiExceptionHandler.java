@@ -62,6 +62,12 @@ public class ApiExceptionHandler {
             .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
     }
 
+    @ExceptionHandler(com.clinora.admin.researcher.AdminResearcherApiException.class)
+    public ResponseEntity<ApiError> handleAdminResearcher(com.clinora.admin.researcher.AdminResearcherApiException exception) {
+        return ResponseEntity.status(exception.getStatus())
+            .body(new ApiError(false, exception.getMessage(), exception.getErrorCode(), Map.of()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException exception) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();

@@ -11,6 +11,13 @@ export const profileSections = [
   { id: 'privacy' as const, label: 'Research & Privacy', icon: ShieldCheck },
 ];
 
+export function getProfileSections(role?: string) {
+  if (role === 'RESEARCHER') {
+    return profileSections.filter((s) => s.id !== 'medical');
+  }
+  return profileSections;
+}
+
 export function sectionCompletion(profile: PatientProfile) {
   return {
     personal: Boolean(profile.dateOfBirth && profile.gender && profile.phone && profile.address),
@@ -21,6 +28,8 @@ export function sectionCompletion(profile: PatientProfile) {
   } satisfies Record<ProfileSectionId, boolean>;
 }
 
-export function completedSectionCount(profile: PatientProfile) {
-  return Object.values(sectionCompletion(profile)).filter(Boolean).length;
+export function completedSectionCount(profile: PatientProfile, role?: string) {
+  const sections = getProfileSections(role);
+  const completion = sectionCompletion(profile);
+  return sections.filter((s) => completion[s.id]).length;
 }

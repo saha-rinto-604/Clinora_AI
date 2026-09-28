@@ -214,7 +214,7 @@ public class PatientNotificationService {
 
     private void requireActivePatient(UUID userId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'RESEARCHER') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
             Integer.class,
             userId
         );
@@ -222,7 +222,7 @@ public class PatientNotificationService {
             throw new PatientApiException(
                 HttpStatus.FORBIDDEN,
                 "ACTIVE_PATIENT_REQUIRED",
-                "An active Patient account is required."
+                "An active Patient or Researcher account is required."
             );
         }
     }

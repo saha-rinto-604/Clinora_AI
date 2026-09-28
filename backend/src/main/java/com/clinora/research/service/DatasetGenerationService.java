@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -54,7 +55,9 @@ public class DatasetGenerationService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final String queueName;
+    private final ResearchProjectMemberRepository memberRepository;
 
+    @Autowired
     public DatasetGenerationService(
             DatasetRequestRepository requestRepository,
             ResearchProjectRepository projectRepository,
@@ -70,7 +73,8 @@ public class DatasetGenerationService {
             AuthAuditService auditService,
             ObjectMapper objectMapper,
             Clock clock,
-            @Value("${clinora.research.dataset-generation-queue:" + ResearchMessagingConfig.DEFAULT_RESEARCH_DATASET_QUEUE + "}") String queueName
+            @Value("${clinora.research.dataset-generation-queue:" + ResearchMessagingConfig.DEFAULT_RESEARCH_DATASET_QUEUE + "}") String queueName,
+            @Autowired(required = false) ResearchProjectMemberRepository memberRepository
     ) {
         this.requestRepository = requestRepository;
         this.projectRepository = projectRepository;
@@ -87,6 +91,44 @@ public class DatasetGenerationService {
         this.objectMapper = objectMapper;
         this.clock = clock;
         this.queueName = queueName;
+        this.memberRepository = memberRepository;
+    }
+
+    public DatasetGenerationService(
+            DatasetRequestRepository requestRepository,
+            ResearchProjectRepository projectRepository,
+            ResearchDatasetRepository datasetRepository,
+            DatasetVersionRepository versionRepository,
+            DatasetAccessGrantRepository accessGrantRepository,
+            DatasetGenerationJobRepository jobRepository,
+            DeidentificationService deidentificationService,
+            ResearchDatasetStoragePort storagePort,
+            NamedParameterJdbcTemplate jdbcTemplate,
+            ResearchDataCatalog catalog,
+            RabbitTemplate rabbitTemplate,
+            AuthAuditService auditService,
+            ObjectMapper objectMapper,
+            Clock clock,
+            String queueName
+    ) {
+        this(
+                requestRepository,
+                projectRepository,
+                datasetRepository,
+                versionRepository,
+                accessGrantRepository,
+                jobRepository,
+                deidentificationService,
+                storagePort,
+                jdbcTemplate,
+                catalog,
+                rabbitTemplate,
+                auditService,
+                objectMapper,
+                clock,
+                queueName,
+                null
+        );
     }
 
     @Transactional
@@ -102,8 +144,21 @@ public class DatasetGenerationService {
         DatasetGenerationJob job = new DatasetGenerationJob(UUID.randomUUID(), datasetRequestId, clock.instant());
         job = jobRepository.save(job);
 
-        rabbitTemplate.convertAndSend(queueName, job.getId().toString());
-        LOGGER.info("Enqueued dataset generation job {} for dataset request {}", job.getId(), datasetRequestId);
+        UUID jobId = job.getId();
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            rabbitTemplate.convertAndSend(queueName, jobId.toString());
+                            LOGGER.info("Dispatched dataset generation job {} for dataset request {} after commit", jobId, datasetRequestId);
+                        }
+                    }
+            );
+        } else {
+            rabbitTemplate.convertAndSend(queueName, jobId.toString());
+            LOGGER.info("Enqueued dataset generation job {} for dataset request {}", jobId, datasetRequestId);
+        }
         return job;
     }
 
@@ -111,21 +166,33 @@ public class DatasetGenerationService {
     public void processJob(UUID jobId) {
         DatasetGenerationJob job = jobRepository.findById(jobId).orElse(null);
         if (job == null) {
-            LOGGER.warn("Dataset generation job {} not found; skipping", jobId);
+            for (int i = 0; i < 15 && job == null; i++) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                job = jobRepository.findById(jobId).orElse(null);
+            }
+        }
+        if (job == null) {
+            LOGGER.warn("Dataset generation job {} not found after retries; skipping", jobId);
             return;
         }
 
-        if (!"PENDING".equalsIgnoreCase(job.getStatus())) {
-            LOGGER.info("Dataset generation job {} is already {}; skipping", jobId, job.getStatus());
+        final DatasetGenerationJob targetJob = job;
+        if (!"PENDING".equalsIgnoreCase(targetJob.getStatus())) {
+            LOGGER.info("Dataset generation job {} is already {}; skipping", jobId, targetJob.getStatus());
             return;
         }
 
-        job.markProcessing(clock.instant());
-        jobRepository.save(job);
+        targetJob.markProcessing(clock.instant());
+        jobRepository.save(targetJob);
 
         try {
-            DatasetRequest request = requestRepository.findById(job.getDatasetRequestId())
-                    .orElseThrow(() -> new IllegalStateException("Dataset request not found: " + job.getDatasetRequestId()));
+            DatasetRequest request = requestRepository.findById(targetJob.getDatasetRequestId())
+                    .orElseThrow(() -> new IllegalStateException("Dataset request not found: " + targetJob.getDatasetRequestId()));
             ResearchProject project = projectRepository.findById(request.getProjectId())
                     .orElseThrow(() -> new IllegalStateException("Research project not found: " + request.getProjectId()));
 
@@ -181,21 +248,33 @@ public class DatasetGenerationService {
             );
             versionRepository.save(version);
 
-            // Automatically grant access to project owner
-            if (accessGrantRepository.findByDatasetIdAndResearcherUserId(dataset.getId(), project.getOwnerUserId()).isEmpty()) {
-                DatasetAccessGrant grant = new DatasetAccessGrant(
-                        UUID.randomUUID(),
-                        dataset.getId(),
-                        project.getOwnerUserId(),
-                        project.getOwnerUserId(),
-                        clock.instant(),
-                        dataset.getExpiresAt()
-                );
-                accessGrantRepository.save(grant);
+            // Automatically grant access to project owner and active project members
+            Set<UUID> recipientUserIds = new LinkedHashSet<>();
+            recipientUserIds.add(project.getOwnerUserId());
+            if (memberRepository != null) {
+                try {
+                    memberRepository.findActiveByProjectIdOrderByCreatedAtAsc(project.getId())
+                            .forEach(m -> recipientUserIds.add(m.getUserId()));
+                } catch (Exception ex) {
+                    LOGGER.warn("Could not load project members for dataset access grant: {}", ex.getMessage());
+                }
+            }
+            for (UUID recipientId : recipientUserIds) {
+                if (accessGrantRepository.findByDatasetIdAndResearcherUserId(dataset.getId(), recipientId).isEmpty()) {
+                    DatasetAccessGrant grant = new DatasetAccessGrant(
+                            UUID.randomUUID(),
+                            dataset.getId(),
+                            recipientId,
+                            project.getOwnerUserId(),
+                            clock.instant(),
+                            dataset.getExpiresAt()
+                    );
+                    accessGrantRepository.save(grant);
+                }
             }
 
-            job.markSucceeded(clock.instant());
-            jobRepository.save(job);
+            targetJob.markSucceeded(clock.instant());
+            jobRepository.save(targetJob);
 
             auditService.record(
                     project.getOwnerUserId(),
@@ -211,8 +290,8 @@ public class DatasetGenerationService {
                     jobId, dataset.getId(), nextVersion, deidResult.totalEligibleRecords());
         } catch (Exception e) {
             LOGGER.error("Dataset generation job {} FAILED: {}", jobId, e.getMessage(), e);
-            job.markFailed(e.getMessage(), clock.instant());
-            jobRepository.save(job);
+            targetJob.markFailed(e.getMessage(), clock.instant());
+            jobRepository.save(targetJob);
         }
     }
 
@@ -237,6 +316,20 @@ public class DatasetGenerationService {
         for (ResearchProject project : ownedProjects) {
             datasetRepository.findByProjectIdOrderByCreatedAtDesc(project.getId())
                     .forEach(d -> datasetIds.add(d.getId()));
+        }
+        // Collect dataset IDs from active project memberships
+        if (memberRepository != null) {
+            try {
+                List<ResearchProjectMember> memberships = memberRepository.findByUserId(requestingUserId);
+                for (ResearchProjectMember m : memberships) {
+                    if (m.getRemovedAt() == null) {
+                        datasetRepository.findByProjectIdOrderByCreatedAtDesc(m.getProjectId())
+                                .forEach(d -> datasetIds.add(d.getId()));
+                    }
+                }
+            } catch (Exception ex) {
+                LOGGER.warn("Could not load project memberships for datasets: {}", ex.getMessage());
+            }
         }
         // Collect dataset IDs from access grants
         List<DatasetAccessGrant> grants = accessGrantRepository.findByResearcherUserId(requestingUserId);
@@ -309,6 +402,9 @@ public class DatasetGenerationService {
         }
         Optional<DatasetAccessGrant> grant = accessGrantRepository.findByDatasetIdAndResearcherUserId(dataset.getId(), requestingUserId);
         if (grant.isPresent() && grant.get().isActive()) {
+            return;
+        }
+        if (memberRepository != null && memberRepository.existsActiveByProjectIdAndUserId(project.getId(), requestingUserId)) {
             return;
         }
         throw new ResearchApiException(HttpStatus.FORBIDDEN, ResearchErrorCode.PROJECT_ACCESS_DENIED, "You do not have access to this research dataset");

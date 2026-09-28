@@ -17,6 +17,9 @@ import { ApplicationActivationPage } from './pages/applications/application-acti
 import { ApplicationStatusPage } from './pages/applications/application-status-page';
 import { ProfessionalApplicationPage } from './pages/applications/professional-application-page';
 import { AccessReviewsPage } from './pages/admin/access-reviews-page';
+import { AdminResearchersPage } from './pages/admin/admin-researchers-page';
+import { AdminResearcherDetailPage } from './pages/admin/admin-researcher-detail-page';
+import { ResearchCredentialsPage } from './pages/research/research-credentials-page';
 import { AboutPage } from './pages/public/about-page';
 import { AiClinicalIntelligencePage } from './pages/public/ai-clinical-intelligence-page';
 import { ContactPage } from './pages/public/contact-page';
@@ -146,6 +149,8 @@ export function AppRoutes() {
       {/* Governed Research Workspace (Researcher) */}
       <Route element={<ProtectedRoute allowedRoles={['RESEARCHER']} />}>
         <Route element={<ResearchLayout />}>
+          <Route path="research/profile" element={<PatientProfilePage />} />
+          <Route path="research/credentials" element={<ResearchCredentialsPage />} />
           <Route path="research/projects" element={<ResearchProjectsPage />} />
           <Route path="research/projects/new" element={<ResearchProjectFormPage />} />
           <Route path="research/projects/:projectId" element={<ResearchProjectDetailPage />} />
@@ -154,14 +159,17 @@ export function AppRoutes() {
           <Route path="research/dataset-requests/:requestId" element={<DatasetRequestDetailPage />} />
           <Route path="research/datasets" element={<DatasetsPage />} />
           <Route path="research/datasets/:datasetId" element={<DatasetDetailPage />} />
+          <Route path="research/notifications" element={<PatientNotificationsPage />} />
         </Route>
       </Route>
 
       {/* Protected Administration */}
       <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
         <Route element={<AdminLayout />}>
-          <Route path="admin" element={<Navigate to="/admin/access-reviews" replace />} />
+          <Route path="admin" element={<Navigate to="/admin/research/projects" replace />} />
           <Route path="admin/access-reviews" element={<AccessReviewsPage />} />
+          <Route path="admin/researchers" element={<AdminResearchersPage />} />
+          <Route path="admin/researchers/:researcherUserId" element={<AdminResearcherDetailPage />} />
           <Route path="admin/research/projects" element={<AdminResearchProjectsPage />} />
           <Route path="admin/research/projects/:projectId" element={<AdminResearchProjectsPage />} />
           <Route path="admin/research/dataset-requests" element={<AdminResearchDatasetRequestsPage />} />

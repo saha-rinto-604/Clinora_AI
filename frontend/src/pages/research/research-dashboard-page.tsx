@@ -1,68 +1,169 @@
 import {
   AlertCircle,
   ArrowRight,
-  CheckCircle2,
+  Bell,
   Database,
   FolderGit2,
   LoaderCircle,
+  MailCheck,
   Plus,
-  ShieldCheck,
+  Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { researchApi } from '../../features/research/research-api';
 import { ResearchStatusBadge } from '../../features/research/research-status-badge';
-import type { DatasetRequest, ResearchProject, ResearchProjectInvitation } from '../../features/research/research-types';
+import type {
+  DatasetRequest,
+  ResearchProject,
+  ResearchProjectInvitation,
+  ResearchProjectStatus,
+} from '../../features/research/research-types';
 import { CinematicBackground } from '../../components/app/cinematic-background';
-import { MailCheck, Bell } from 'lucide-react';
+import { cn } from '../../lib/cn';
+
+type ProjectActionConfig = {
+  label: string;
+  dotClass: string;
+  badgeClass: string;
+  actionText: string;
+  getRoute: (project: ResearchProject) => string;
+};
+
+const PROJECT_STATUS_CONFIG: Record<ResearchProjectStatus, ProjectActionConfig> = {
+  DRAFT: {
+    label: 'Draft',
+    dotClass: 'bg-slate-400',
+    badgeClass: 'border-slate-700/70 bg-slate-800/40 text-slate-300',
+    actionText: 'Continue editing',
+    getRoute: (p) => (p.editable ? `/research/projects/${p.id}/edit` : `/research/projects/${p.id}`),
+  },
+  SUBMITTED: {
+    label: 'Submitted',
+    dotClass: 'bg-cyan-400',
+    badgeClass: 'border-cyan-800/50 bg-cyan-950/30 text-cyan-300',
+    actionText: 'Open project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  UNDER_REVIEW: {
+    label: 'Under review',
+    dotClass: 'bg-amber-400',
+    badgeClass: 'border-amber-800/50 bg-amber-950/30 text-amber-300',
+    actionText: 'Open project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  MORE_INFO_REQUIRED: {
+    label: 'Action required',
+    dotClass: 'bg-amber-400',
+    badgeClass: 'border-amber-800/60 bg-amber-950/40 text-amber-200',
+    actionText: 'Update project',
+    getRoute: (p) => (p.editable ? `/research/projects/${p.id}/edit` : `/research/projects/${p.id}`),
+  },
+  APPROVED: {
+    label: 'Approved',
+    dotClass: 'bg-emerald-400',
+    badgeClass: 'border-emerald-800/50 bg-emerald-950/30 text-emerald-300',
+    actionText: 'Open project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  ACTIVE: {
+    label: 'Active',
+    dotClass: 'bg-emerald-400',
+    badgeClass: 'border-emerald-800/50 bg-emerald-950/30 text-emerald-300',
+    actionText: 'Open project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  REJECTED: {
+    label: 'Rejected',
+    dotClass: 'bg-rose-400',
+    badgeClass: 'border-rose-800/50 bg-rose-950/30 text-rose-300',
+    actionText: 'View decision',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  COMPLETED: {
+    label: 'Completed',
+    dotClass: 'bg-teal-400',
+    badgeClass: 'border-teal-800/50 bg-teal-950/30 text-teal-300',
+    actionText: 'Open project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  ARCHIVED: {
+    label: 'Archived',
+    dotClass: 'bg-slate-500',
+    badgeClass: 'border-slate-800/60 bg-slate-900/40 text-slate-400',
+    actionText: 'View project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+  WITHDRAWN: {
+    label: 'Withdrawn',
+    dotClass: 'bg-slate-500',
+    badgeClass: 'border-slate-800/60 bg-slate-900/40 text-slate-400',
+    actionText: 'View project',
+    getRoute: (p) => `/research/projects/${p.id}`,
+  },
+};
+
+function getProjectConfig(status: ResearchProjectStatus): ProjectActionConfig {
+  return (
+    PROJECT_STATUS_CONFIG[status] ?? {
+      label: status,
+      dotClass: 'bg-slate-400',
+      badgeClass: 'border-slate-700/70 bg-slate-800/40 text-slate-300',
+      actionText: 'Open project',
+      getRoute: (p: ResearchProject) => `/research/projects/${p.id}`,
+    }
+  );
+}
 
 export function ResearchDashboardPage() {
+  const user = useAuthStore((state) => state.user);
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [datasetRequests, setDatasetRequests] = useState<DatasetRequest[]>([]);
   const [invitations, setInvitations] = useState<ResearchProjectInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      setLoading(true);
-      setError('');
-      try {
-        const projectsData = await researchApi.listProjects({ size: 50 });
-        setProjects(projectsData.items);
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const projectsData = await researchApi.listProjects({ size: 50 });
+      setProjects(projectsData.items);
 
-        // For approved projects, fetch their dataset requests
-        const approvedProjects = projectsData.items.filter((p) => p.status === 'APPROVED' || p.status === 'ACTIVE');
+      // For approved/active projects, fetch their dataset requests
+      const approvedProjects = projectsData.items.filter((p) => p.status === 'APPROVED' || p.status === 'ACTIVE');
 
-        const allRequests: DatasetRequest[] = [];
-        for (const p of approvedProjects) {
-          try {
-            const reqs = await researchApi.listDatasetRequests(p.id, { size: 20 });
-            allRequests.push(...reqs.items);
-          } catch {
-            // continue loading other project requests
-          }
-        }
-        setDatasetRequests(allRequests);
-
-        // Load collaboration invitations inbox
+      const allRequests: DatasetRequest[] = [];
+      for (const p of approvedProjects) {
         try {
-          const invs = await researchApi.listMyInvitations();
-          setInvitations(invs.filter((i) => i.status === 'PENDING'));
+          const reqs = await researchApi.listDatasetRequests(p.id, { size: 20 });
+          allRequests.push(...reqs.items);
         } catch {
-          // non-critical — dashboard still loads
+          // continue loading other project requests
         }
-      } catch (err: unknown) {
-        setError(apiErrorMessage(err, 'Failed to load research workspace data.'));
-      } finally {
-        setLoading(false);
       }
-    }
+      setDatasetRequests(allRequests);
 
-    loadDashboardData();
+      // Load collaboration invitations inbox
+      try {
+        const invs = await researchApi.listMyInvitations();
+        setInvitations(invs.filter((i) => i.status === 'PENDING'));
+      } catch {
+        // non-critical — dashboard still loads
+      }
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, 'Failed to load research workspace data.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   // Compute real metrics from API data (zero fake data!)
   const activeProjectsCount = projects.filter((p) => p.status === 'ACTIVE').length;
@@ -80,10 +181,6 @@ export function ResearchDashboardPage() {
         <CinematicBackground heightClass="h-full" className="rounded-2xl" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-800/60 bg-cyan-950/40 px-3 py-1 text-xs font-medium text-cyan-300 mb-3">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Governed Research Environment
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">Research Workspace</h1>
             <p className="mt-2 text-sm text-slate-400 max-w-2xl leading-relaxed">
               Governed access to privacy-preserving Clinora research resources. Create research protocols, submit
@@ -162,7 +259,10 @@ export function ResearchDashboardPage() {
                     onClick={async () => {
                       try {
                         await researchApi.acceptInvitation(inv.id);
+                        // Remove invitation from inbox then reload full dashboard
+                        // so the newly accessible project appears in My Projects
                         setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+                        await loadDashboardData();
                       } catch (err: unknown) {
                         alert(apiErrorMessage(err, 'Failed to accept invitation.'));
                       }
@@ -221,15 +321,13 @@ export function ResearchDashboardPage() {
         </div>
       </div>
 
-      {/* Main Workspace Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: My Projects */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 backdrop-blur-sm p-5 sm:p-6">
+      {/* Main Workspace Layout (Full Width) */}
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 backdrop-blur-sm p-5 sm:p-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800/60">
               <div className="flex items-center gap-2.5">
                 <FolderGit2 className="w-5 h-5 text-cyan-400" />
-                <h2 className="text-lg font-semibold text-slate-100">My Projects</h2>
+                <h2 className="text-lg font-semibold text-slate-100">My Projects &amp; Collaborations</h2>
               </div>
               <Link
                 to="/research/projects"
@@ -264,38 +362,57 @@ export function ResearchDashboardPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-800/60 mt-2">
-                {projects.slice(0, 5).map((project) => (
-                  <div
-                    key={project.id}
-                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        to={`/research/projects/${project.id}`}
-                        className="text-sm font-medium text-slate-200 group-hover:text-cyan-300 transition-colors flex items-center gap-2"
-                      >
-                        <span className="truncate">{project.title}</span>
-                      </Link>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-                        <span className="text-slate-400 font-mono">{project.researchField}</span>
-                        {project.institutionName ? (
-                          <>
-                            <span>•</span>
-                            <span className="truncate">{project.institutionName}</span>
-                          </>
-                        ) : null}
+                {projects.slice(0, 5).map((project) => {
+                  const config = getProjectConfig(project.status);
+                  return (
+                    <div
+                      key={project.id}
+                      className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/research/projects/${project.id}`}
+                          className="text-sm font-medium text-slate-200 group-hover:text-cyan-300 transition-colors flex items-center gap-2"
+                        >
+                          <span className="truncate">{project.title}</span>
+                          {project.ownerUserId !== user?.id && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-950/60 text-purple-300 border border-purple-800 shrink-0">
+                              <Users className="w-2.5 h-2.5" />
+                              Collaborator
+                            </span>
+                          )}
+                        </Link>
+                        <div className="mt-1 flex items-center gap-2.5 text-xs text-slate-400">
+                          <span className="text-slate-400 font-mono">{project.researchField}</span>
+                          {project.institutionName ? (
+                            <>
+                              <span className="text-slate-600">•</span>
+                              <span className="truncate">{project.institutionName}</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
+                        <span
+                          className={cn(
+                            'inline-flex h-7 items-center gap-1.5 px-2.5 rounded-full border text-xs font-medium tracking-tight shrink-0',
+                            config.badgeClass,
+                          )}
+                        >
+                          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', config.dotClass)} aria-hidden="true" />
+                          {config.label}
+                        </span>
+                        <Link
+                          to={config.getRoute(project)}
+                          className="inline-flex h-9 items-center gap-1.5 px-3 rounded-lg border border-slate-700/70 bg-slate-800/60 text-xs font-medium text-slate-200 hover:border-cyan-500/50 hover:bg-slate-800 hover:text-cyan-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 shrink-0"
+                        >
+                          <span>{config.actionText}</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                        </Link>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <ResearchStatusBadge status={project.status} />
-                      <Link to={`/research/projects/${project.id}`}>
-                        <Button variant="secondary" className="text-xs py-1 px-2.5 h-auto">
-                          View
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -330,7 +447,7 @@ export function ResearchDashboardPage() {
                     key={req.id}
                     className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <Link
                         to={`/research/dataset-requests/${req.id}`}
                         className="text-sm font-medium text-slate-200 group-hover:text-indigo-300 transition-colors truncate block"
@@ -339,12 +456,14 @@ export function ResearchDashboardPage() {
                       </Link>
                       <div className="mt-0.5 text-xs text-slate-400 font-mono">Format: {req.requestedFormat}</div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
                       <ResearchStatusBadge status={req.status} />
-                      <Link to={`/research/dataset-requests/${req.id}`}>
-                        <Button variant="secondary" className="text-xs py-1 px-2.5 h-auto">
-                          View
-                        </Button>
+                      <Link
+                        to={`/research/dataset-requests/${req.id}`}
+                        className="inline-flex h-9 items-center gap-1.5 px-3 rounded-lg border border-slate-700/70 bg-slate-800/60 text-xs font-medium text-slate-200 hover:border-cyan-500/50 hover:bg-slate-800 hover:text-cyan-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 shrink-0"
+                      >
+                        <span>{req.status === 'DRAFT' ? 'Continue request' : 'Open request'}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
@@ -353,59 +472,6 @@ export function ResearchDashboardPage() {
             )}
           </div>
         </div>
-
-        {/* Right Col: Production Roadmap & Governance Notice */}
-        <div className="space-y-6">
-          {/* Research Data Pipeline Status */}
-          <div className="rounded-2xl border border-cyan-800/40 bg-gradient-to-b from-cyan-950/20 to-slate-900/60 p-5 sm:p-6 backdrop-blur-sm">
-            <div className="flex items-center gap-2.5 text-cyan-400 mb-3">
-              <ShieldCheck className="w-5 h-5 shrink-0" />
-              <h3 className="font-semibold text-slate-100 text-sm">Research Data Pipeline Active</h3>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Approved projects can design cohorts and extract certified Safe Harbor de-identified datasets with
-              immutable audit provenance.
-            </p>
-            <div className="mt-4 pt-4 border-t border-cyan-900/30 space-y-2.5 text-xs">
-              <div className="flex items-center gap-2 text-slate-300">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Fail-Closed Patient Consent Validation</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>18-Identifier Safe Harbor De-identification</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Small-Cell Suppression Threshold (n ≥ 10)</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>AI Model Benchmark &amp; Evaluation Workbench</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Privacy & Governance Principles */}
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5 sm:p-6 backdrop-blur-sm text-xs space-y-3">
-            <h3 className="font-semibold text-slate-200 uppercase tracking-wider text-[11px]">Privacy Commitments</h3>
-            <ul className="space-y-2 text-slate-400">
-              <li className="flex items-start gap-2">
-                <span className="text-cyan-400">•</span>
-                <span>Zero patient-identifiable data in researcher workspace.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-cyan-400">•</span>
-                <span>All cohort requests use structured variables; raw SQL execution is barred.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-cyan-400">•</span>
-                <span>Every project and extraction decision is permanently auditable.</span>
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

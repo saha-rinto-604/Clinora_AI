@@ -4,6 +4,7 @@ import {
   Clock3,
   Database,
   FolderGit2,
+  GraduationCap,
   LockKeyhole,
   LogOut,
   Menu,
@@ -39,19 +40,6 @@ type NavigationItem = {
 
 const navigation: { label: string; items: NavigationItem[] }[] = [
   {
-    label: 'Governance',
-    items: [
-      {
-        to: '/admin/access-reviews',
-        label: 'Access Applications',
-        shortLabel: 'Applications',
-        description: 'Doctor & researcher credential reviews',
-        icon: UserCheck,
-        end: true,
-      },
-    ],
-  },
-  {
     label: 'Research Audit',
     items: [
       {
@@ -67,6 +55,25 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
         shortLabel: 'Datasets',
         description: 'Cohort extraction & data governance',
         icon: Database,
+      },
+    ],
+  },
+  {
+    label: 'Governance',
+    items: [
+      {
+        to: '/admin/access-reviews',
+        label: 'Access Applications',
+        shortLabel: 'Applications',
+        description: 'Doctor & researcher credential reviews',
+        icon: UserCheck,
+      },
+      {
+        to: '/admin/researchers',
+        label: 'Researcher Accounts',
+        shortLabel: 'Researchers',
+        description: 'Identity & ongoing account governance',
+        icon: GraduationCap,
       },
     ],
   },
@@ -163,7 +170,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[244px] flex-col border-r border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-chrome)] px-4 py-6 lg:flex">
         {/* Brand Header */}
         <NavLink
-          to="/admin/access-reviews"
+          to="/admin/research/projects"
           className="flex min-h-11 items-center gap-3 rounded-2xl px-3 transition-opacity hover:opacity-90"
         >
           <ClinoraBrandMark />
@@ -264,7 +271,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <div className="relative z-10 min-h-dvh text-white lg:pl-[244px]" style={{ colorScheme: 'dark' }}>
         {/* Mobile Header */}
         <header className="sticky top-0 z-30 flex min-h-12 items-center justify-between border-b border-[var(--clinora-border-subtle)] bg-[var(--clinora-bg-canvas)] px-4 py-2.5 lg:hidden">
-          <NavLink to="/admin/access-reviews" className="flex items-center gap-2.5 font-semibold text-white">
+          <NavLink to="/admin/research/projects" className="flex items-center gap-2.5 font-semibold text-white">
             <ClinoraBrandMark size="sm" />
             Clinora <span className="text-[var(--clinora-info-foreground)]">Admin</span>
           </NavLink>

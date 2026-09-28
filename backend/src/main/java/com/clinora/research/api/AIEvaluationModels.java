@@ -43,12 +43,55 @@ public final class AIEvaluationModels {
             ConfusionMatrix confusionMatrix,
             double falsePositiveRate,
             double falseNegativeRate,
-            long sampleCount
+            long sampleCount,
+            Double exactMatchRate,
+            Double meanAbsoluteError,
+            Double toleranceMatchRate
     ) {
         public double rocAuc() {
             return balancedAccuracy;
         }
     }
+
+    public record DatasetVersionOption(
+            UUID id,
+            UUID datasetId,
+            String datasetName,
+            int versionNumber,
+            long recordCount,
+            String format,
+            String checksum,
+            Instant generatedAt
+    ) {}
+
+    public record ModelOption(
+            String id,
+            String name,
+            String version,
+            String promptVersion,
+            String provider,
+            String description
+    ) {}
+
+    public record TaskTypeOption(
+            EvaluationTaskType taskType,
+            String label,
+            String description,
+            java.util.List<String> primaryMetrics
+    ) {}
+
+    public record GroundTruthOption(
+            String code,
+            String label,
+            String description
+    ) {}
+
+    public record AIEvaluationOptionsResponse(
+            java.util.List<DatasetVersionOption> datasetVersions,
+            java.util.List<ModelOption> models,
+            java.util.List<TaskTypeOption> taskTypes,
+            java.util.List<GroundTruthOption> groundTruthDefinitions
+    ) {}
 
     public record AIEvaluationRunResponse(
             UUID id,

@@ -348,6 +348,49 @@ export interface EvaluationMetrics {
   falsePositiveRate: number;
   falseNegativeRate: number;
   sampleCount: number;
+  exactMatchRate?: number;
+  meanAbsoluteError?: number;
+  toleranceMatchRate?: number;
+}
+
+export interface DatasetVersionOption {
+  id: string;
+  datasetId: string;
+  datasetName: string;
+  versionNumber: number;
+  recordCount: number;
+  format: string;
+  checksum: string;
+  generatedAt: string;
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  version: string;
+  promptVersion: string;
+  provider: string;
+  description: string;
+}
+
+export interface TaskTypeOption {
+  taskType: EvaluationTaskType;
+  label: string;
+  description: string;
+  primaryMetrics: string[];
+}
+
+export interface GroundTruthOption {
+  code: string;
+  label: string;
+  description: string;
+}
+
+export interface AIEvaluationOptions {
+  datasetVersions: DatasetVersionOption[];
+  models: ModelOption[];
+  taskTypes: TaskTypeOption[];
+  groundTruthDefinitions: GroundTruthOption[];
 }
 
 export interface AIEvaluationRun {
@@ -497,4 +540,83 @@ export interface ResearchAuditLogEntry {
   outcome: string;
   occurredAt: string;
   metadata?: string;
+}
+
+// ─── Workspace: Notes, Comments, Files, Versions, Activity ──────────────────
+
+export type ResearchNoteStatus = 'DRAFT' | 'REVIEWED' | 'ARCHIVED';
+
+export interface ResearchNote {
+  id: string;
+  projectId: string;
+  authorUserId: string;
+  authorDisplayName: string;
+  authorInitials: string;
+  title: string;
+  content: string;
+  status: ResearchNoteStatus;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastEditedBy?: string;
+  commentCount: number;
+}
+
+export interface CreateNotePayload {
+  title: string;
+  content: string;
+  pinned?: boolean;
+}
+
+export interface UpdateNotePayload {
+  title?: string;
+  content?: string;
+  status?: ResearchNoteStatus;
+  pinned?: boolean;
+}
+
+export interface ResearchNoteComment {
+  id: string;
+  noteId: string;
+  authorUserId: string;
+  authorDisplayName: string;
+  authorInitials: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResearchProjectFile {
+  id: string;
+  projectId: string;
+  displayName: string;
+  contentType: string;
+  uploadedByUserId: string;
+  uploaderDisplayName: string;
+  currentVersionNumber: number;
+  currentSizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+export interface ResearchProjectFileVersion {
+  id: string;
+  projectFileId: string;
+  versionNumber: number;
+  checksum: string;
+  sizeBytes: number;
+  uploadedByUserId: string;
+  uploaderDisplayName: string;
+  uploadedAt: string;
+}
+
+export interface ProjectActivityItem {
+  id: string;
+  actorUserId?: string;
+  actorDisplayName: string;
+  actorInitials: string;
+  action: string;
+  description: string;
+  timestamp: string;
 }

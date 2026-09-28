@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import {
   BarChart2,
   Database,
-  ShieldCheck,
   Clock,
   CheckCircle2,
   XCircle,
@@ -149,14 +148,6 @@ function DatasetCard({ dataset, latestVersion }: DatasetCardProps) {
           <BarChart2 className="w-3 h-3" />
           Analyze →
         </div>
-      </div>
-
-      {/* Privacy badge */}
-      <div className="absolute top-3 right-12 opacity-0 group-hover:opacity-100 transition-opacity">
-        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
-          <ShieldCheck className="w-3 h-3" />
-          De-identified
-        </span>
       </div>
     </Link>
   );

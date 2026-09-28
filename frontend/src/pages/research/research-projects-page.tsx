@@ -1,8 +1,9 @@
-import { AlertCircle, FolderGit2, Plus, Search, ShieldAlert } from 'lucide-react';
+import { AlertCircle, ArrowRight, FolderGit2, Plus, Search, ShieldAlert, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { researchApi } from '../../features/research/research-api';
 import { ResearchStatusBadge } from '../../features/research/research-status-badge';
 import type { ResearchProject, ResearchProjectStatus } from '../../features/research/research-types';
@@ -17,6 +18,7 @@ const statusTabs: { label: string; value: ResearchProjectStatus | '' }[] = [
 ];
 
 export function ResearchProjectsPage() {
+  const user = useAuthStore((state) => state.user);
   const [statusFilter, setStatusFilter] = useState<ResearchProjectStatus | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<ResearchProject[]>([]);
@@ -188,7 +190,15 @@ export function ResearchProjectsPage() {
                   <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-400/90 font-medium px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-800/40">
                     {project.researchField}
                   </span>
-                  <ResearchStatusBadge status={project.status} />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {project.ownerUserId !== user?.id && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-950/60 text-purple-300 border border-purple-800">
+                        <Users className="w-2.5 h-2.5" />
+                        Collaborator
+                      </span>
+                    )}
+                    <ResearchStatusBadge status={project.status} />
+                  </div>
                 </div>
                 <h2 className="text-base font-semibold text-slate-100 group-hover:text-cyan-300 transition-colors line-clamp-1">
                   {project.title}
@@ -203,13 +213,12 @@ export function ResearchProjectsPage() {
                     {project.institutionName || 'Independent Protocol'}
                   </span>
                 </div>
-                <Link to={`/research/projects/${project.id}`}>
-                  <Button
-                    variant="secondary"
-                    className="text-xs py-1 px-3 h-auto hover:border-cyan-500/40 hover:text-cyan-300"
-                  >
-                    Manage Workspace
-                  </Button>
+                <Link
+                  to={project.status === 'DRAFT' && project.editable ? `/research/projects/${project.id}/edit` : `/research/projects/${project.id}`}
+                  className="inline-flex h-9 items-center gap-1.5 px-3 rounded-lg border border-slate-700/70 bg-slate-800/60 text-xs font-medium text-slate-200 hover:border-cyan-500/50 hover:bg-slate-800 hover:text-cyan-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 shrink-0"
+                >
+                  <span>{project.status === 'DRAFT' ? 'Continue editing' : 'Open project'}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
                 </Link>
               </div>
             </div>

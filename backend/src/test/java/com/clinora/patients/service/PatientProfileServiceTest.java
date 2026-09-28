@@ -2,6 +2,7 @@ package com.clinora.patients.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -217,6 +218,20 @@ class PatientProfileServiceTest {
         UserAccount inactive = user(UserRole.PATIENT, AccountStatus.SUSPENDED);
         when(fixture.users.findById(USER_ID)).thenReturn(Optional.of(inactive));
         assertThrows(PatientApiException.class, () -> fixture.service.profile(USER_ID));
+    }
+
+    @Test
+    void researcherCanAccessHealthProfileDomain() {
+        Fixture fixture = new Fixture();
+        UserAccount researcher = user(UserRole.RESEARCHER, AccountStatus.ACTIVE);
+        when(fixture.users.findById(USER_ID)).thenReturn(Optional.of(researcher));
+        when(fixture.profiles.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+        var view = fixture.service.profile(USER_ID);
+
+        assertNotNull(view);
+        assertFalse(view.profileCreated());
+        assertEquals("patient@example.test", view.email());
     }
 
     @Test

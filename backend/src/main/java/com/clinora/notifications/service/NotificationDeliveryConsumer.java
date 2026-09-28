@@ -59,7 +59,7 @@ public class NotificationDeliveryConsumer {
 
     private boolean activePatient(UUID userId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'RESEARCHER') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
             Integer.class,
             userId
         );

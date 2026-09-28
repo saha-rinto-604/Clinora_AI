@@ -92,12 +92,12 @@ public class ClinoraWebSocketConfig implements WebSocketMessageBrokerConfigurer 
                         throw new IllegalArgumentException("Authenticated WebSocket identity is invalid.");
                     }
                     Integer activePatient = jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+                        "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'RESEARCHER') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
                         Integer.class,
                         userId
                     );
                     if (activePatient == null || activePatient != 1) {
-                        throw new IllegalArgumentException("An active Patient account is required for notifications.");
+                        throw new IllegalArgumentException("An active Patient or Researcher account is required for notifications.");
                     }
                     accessor.setUser(converter.convert(jwt));
                     return message;

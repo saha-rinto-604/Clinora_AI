@@ -2,6 +2,7 @@ import {
   AlertCircle,
   Archive,
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   BrainCircuit,
   CheckCircle2,
@@ -421,12 +422,14 @@ export function ResearchProjectDetailPage() {
                           </Link>
                           <div className="text-xs text-slate-400 font-mono mt-0.5">Format: {req.requestedFormat}</div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
                           <ResearchStatusBadge status={req.status} />
-                          <Link to={`/research/dataset-requests/${req.id}`}>
-                            <Button variant="secondary" className="text-xs py-1 px-2.5 h-auto">
-                              View
-                            </Button>
+                          <Link
+                            to={`/research/dataset-requests/${req.id}`}
+                            className="inline-flex h-9 items-center gap-1.5 px-3 rounded-lg border border-slate-700/70 bg-slate-800/60 text-xs font-medium text-slate-200 hover:border-cyan-500/50 hover:bg-slate-800 hover:text-cyan-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 shrink-0"
+                          >
+                            <span>{req.status === 'DRAFT' ? 'Continue request' : 'Open request'}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
                           </Link>
                         </div>
                       </div>

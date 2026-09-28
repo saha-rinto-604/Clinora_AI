@@ -41,6 +41,8 @@ export interface PatientProfile {
 }
 
 export interface UpdatePatientProfileInput {
+  firstName?: string;
+  lastName?: string;
   dateOfBirth: string | null;
   gender: PatientGender | null;
   bloodGroup: BloodGroup | null;

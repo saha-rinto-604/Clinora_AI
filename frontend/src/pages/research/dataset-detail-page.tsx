@@ -1166,10 +1166,6 @@ export function DatasetDetailPage() {
                     </span>
                   </>
                 )}
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <ShieldCheck className="w-3 h-3" />
-                  De-identified
-                </span>
               </div>
             </div>
           </div>

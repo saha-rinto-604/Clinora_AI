@@ -34,7 +34,7 @@ function renderLogin(role: string, from?: string) {
         <Route path="/doctor" element={<div>Doctor dashboard destination</div>} />
         <Route path="/patient" element={<div>Patient dashboard destination</div>} />
         <Route path="/research" element={<div>Research dashboard destination</div>} />
-        <Route path="/admin/access-reviews" element={<div>Admin dashboard destination</div>} />
+        <Route path="/admin/research/projects" element={<div>Admin dashboard destination</div>} />
         <Route path="/account" element={<div>Account destination</div>} />
       </Routes>
     </MemoryRouter>,

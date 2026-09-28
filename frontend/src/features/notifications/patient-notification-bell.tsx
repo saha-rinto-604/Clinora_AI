@@ -5,15 +5,27 @@ import { EmptyState } from '../../components/app/app-ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { buttonVariants } from '../../components/ui/button-variants';
 import { cn } from '../../lib/cn';
+import { useAuthStore } from '../auth/auth-store';
 import { notificationApi, type PatientNotification } from './notification-api';
 import { notificationTarget } from './notification-target';
 import { connectPatientNotificationStream } from './patient-notification-stream';
 
-export function PatientNotificationBell({ className }: { className?: string }) {
+export function PatientNotificationBell({
+  className,
+  notificationsPath,
+}: {
+  className?: string;
+  notificationsPath?: string;
+}) {
+  const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PatientNotification[]>([]);
   const [unread, setUnread] = useState(0);
+
+  const notificationsUrl =
+    notificationsPath ??
+    (user?.role === 'RESEARCHER' ? '/research/notifications' : '/patient/notifications');
 
   useEffect(() => {
     let active = true;
@@ -50,7 +62,7 @@ export function PatientNotificationBell({ className }: { className?: string }) {
       }
     }
     setOpen(false);
-    navigate(notificationTarget(notification));
+    navigate(notificationTarget(notification, user?.role));
   };
 
   return (
@@ -118,11 +130,15 @@ export function PatientNotificationBell({ className }: { className?: string }) {
             className="mt-4"
             icon={<Bell size={16} />}
             title="You're up to date"
-            copy="Important appointment and account updates will appear here."
+            copy={
+              user?.role === 'RESEARCHER'
+                ? 'Project, dataset, and credential updates will appear here.'
+                : 'Important appointment and account updates will appear here.'
+            }
           />
         )}
         <Link
-          to="/patient/notifications"
+          to={notificationsUrl}
           onClick={() => setOpen(false)}
           className={cn(buttonVariants({ variant: 'ghost' }), 'mt-3 w-full justify-center')}
         >

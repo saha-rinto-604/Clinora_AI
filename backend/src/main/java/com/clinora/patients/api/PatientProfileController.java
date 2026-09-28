@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/patient")
-@PreAuthorize("hasRole('PATIENT')")
+@PreAuthorize("hasAnyRole('PATIENT', 'RESEARCHER')")
 public class PatientProfileController {
 
     private static final String PHONE_PATTERN = "^[+0-9() .-]{7,32}$";
@@ -74,6 +74,8 @@ public class PatientProfileController {
     }
 
     public record UpdatePatientProfileRequest(
+        @Size(max = 120, message = "First name must be 120 characters or fewer.") String firstName,
+        @Size(max = 120, message = "Last name must be 120 characters or fewer.") String lastName,
         @PastOrPresent(message = "Date of birth cannot be in the future.") LocalDate dateOfBirth,
         PatientGender gender,
         BloodGroup bloodGroup,
@@ -94,6 +96,8 @@ public class PatientProfileController {
     ) {
         UpdatePatientProfileCommand toCommand() {
             return new UpdatePatientProfileCommand(
+                firstName,
+                lastName,
                 dateOfBirth,
                 gender,
                 bloodGroup,

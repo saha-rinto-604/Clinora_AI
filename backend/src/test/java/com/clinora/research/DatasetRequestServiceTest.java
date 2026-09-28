@@ -15,6 +15,7 @@ import com.clinora.research.exception.ResearchErrorCode;
 import com.clinora.research.repository.DatasetRequestRepository;
 import com.clinora.research.repository.ResearchProjectRepository;
 import com.clinora.research.service.DatasetRequestService;
+import com.clinora.research.service.ResearchAuthorizationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -242,5 +243,61 @@ class DatasetRequestServiceTest {
                 anyString(),
                 contains("CANCELLED")
         );
+    }
+
+    @Test
+    @DisplayName("Co-researcher collaborator can create dataset request on approved project")
+    void collaboratorCanCreateDraft() {
+        ResearchProject approvedProject = createApprovedProject();
+        UUID collaboratorId = UUID.randomUUID();
+        ResearchAuthorizationService authService = mock(ResearchAuthorizationService.class);
+        when(authService.requireDatasetRequestPermission(projectId, collaboratorId)).thenReturn(approvedProject);
+
+        DatasetRequestService serviceWithAuth = new DatasetRequestService(
+                requestRepository, projectRepository, auditService, clock, authService
+        );
+
+        when(requestRepository.existsByProjectIdAndNameIgnoreCase(projectId, "Collaborator Cohort")).thenReturn(false);
+        when(requestRepository.save(any(DatasetRequest.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreateDatasetRequestInput input = new CreateDatasetRequestInput(
+                "Collaborator Cohort",
+                "Purpose",
+                "{}",
+                "[]",
+                "{}",
+                DatasetFormat.CSV
+        );
+
+        DatasetRequestResponse response = serviceWithAuth.createDraft(collaboratorId, projectId, input, clientIp, userAgent);
+
+        assertThat(response.name()).isEqualTo("Collaborator Cohort");
+        verify(authService).requireDatasetRequestPermission(projectId, collaboratorId);
+    }
+
+    @Test
+    @DisplayName("Viewer collaborator is rejected when attempting to create dataset request")
+    void viewerCollaboratorIsRejected() {
+        UUID viewerId = UUID.randomUUID();
+        ResearchAuthorizationService authService = mock(ResearchAuthorizationService.class);
+        when(authService.requireDatasetRequestPermission(projectId, viewerId))
+                .thenThrow(new ResearchApiException(HttpStatus.FORBIDDEN, "INSUFFICIENT_ROLE", "Only project Owners and Co-Researchers can manage dataset requests."));
+
+        DatasetRequestService serviceWithAuth = new DatasetRequestService(
+                requestRepository, projectRepository, auditService, clock, authService
+        );
+
+        CreateDatasetRequestInput input = new CreateDatasetRequestInput(
+                "Viewer Cohort",
+                "Purpose",
+                "{}",
+                "[]",
+                "{}",
+                DatasetFormat.CSV
+        );
+
+        assertThatThrownBy(() -> serviceWithAuth.createDraft(viewerId, projectId, input, clientIp, userAgent))
+                .isInstanceOf(ResearchApiException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
     }
 }

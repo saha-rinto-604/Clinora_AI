@@ -35,6 +35,15 @@ public class AIEvaluationController {
         return ApiResponse.success("AI model evaluation run initiated successfully.", run);
     }
 
+    @GetMapping("/options")
+    public ApiResponse<AIEvaluationOptionsResponse> getOptions(
+            @PathVariable UUID projectId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        AIEvaluationOptionsResponse options = evaluationService.getEvaluationOptions(projectId, userId(jwt));
+        return ApiResponse.success("AI evaluation options retrieved successfully.", options);
+    }
+
     @GetMapping
     public ApiResponse<List<AIEvaluationRunResponse>> listRuns(
             @PathVariable UUID projectId,

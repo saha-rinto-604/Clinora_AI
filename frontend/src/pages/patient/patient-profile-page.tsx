@@ -27,8 +27,10 @@ import { z } from 'zod';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/feedback';
 import { FormNotice } from '../../features/auth/auth-ui';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { patientApi, patientErrorMessage } from '../../features/patient/patient-api';
 import {
+  getProfileSections,
   profileSections,
   sectionCompletion,
   type ProfileSectionId,
@@ -57,6 +59,8 @@ const optionalNumber = (min: number, max: number, label: string) =>
       message: `${label} must be between ${min} and ${max}.`,
     });
 const schema = z.object({
+  firstName: z.string().trim().min(1, 'Enter your first name.').max(120, 'First name must be 120 characters or fewer.'),
+  lastName: z.string().trim().min(1, 'Enter your last name.').max(120, 'Last name must be 120 characters or fewer.'),
   dateOfBirth: z
     .string()
     .refine(
@@ -82,6 +86,8 @@ type FormValues = z.infer<typeof schema>;
 type ProfileView = ProfileSectionId;
 
 const emptyValues: FormValues = {
+  firstName: '',
+  lastName: '',
   dateOfBirth: '',
   gender: '',
   bloodGroup: '',
@@ -105,9 +111,12 @@ export function PatientProfilePage() {
   const [saveError, setSaveError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [pendingView, setPendingView] = useState<ProfileView | null>(null);
+  const user = useAuthStore((state) => state.user);
+  const userRole = user?.role;
+  const sections = useMemo(() => getProfileSections(userRole), [userRole]);
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('section');
-  const initialView: ProfileView = profileSections.some(({ id }) => id === requested)
+  const initialView: ProfileView = sections.some(({ id }) => id === requested)
     ? (requested as ProfileView)
     : 'personal';
   const [activeView, setActiveView] = useState<ProfileView>(initialView);
@@ -133,7 +142,7 @@ export function PatientProfilePage() {
         }
       })
       .catch((error) => {
-        if (active) setLoadError(patientErrorMessage(error, 'Unable to load your Patient profile.'));
+        if (active) setLoadError(patientErrorMessage(error, 'Unable to load your health profile.'));
       });
     return () => {
       active = false;
@@ -182,20 +191,28 @@ export function PatientProfilePage() {
       const updated = await patientApi.updateProfile(toApiInput(formValues));
       setProfile(updated);
       reset(toFormValues(updated));
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && (updated.firstName || updated.lastName)) {
+        useAuthStore.getState().setUser({
+          ...currentUser,
+          firstName: updated.firstName || currentUser.firstName,
+          lastName: updated.lastName || currentUser.lastName,
+        });
+      }
       setSaveMessage(
         measurementRecorded
           ? 'Health Profile updated. Your latest measurement was added to Health Trends.'
           : 'Health Profile updated.',
       );
     } catch (error) {
-      setSaveError(patientErrorMessage(error, 'Unable to save your Patient profile. Your changes are still here.'));
+      setSaveError(patientErrorMessage(error, 'Unable to save your health profile. Your changes are still here.'));
     }
   };
 
   const saveCurrent = handleSubmit((formValues) => persist(formValues));
   if (!profile && !loadError)
     return (
-      <div className="mx-auto w-full max-w-[1120px]" role="status" aria-label="Loading Patient profile">
+      <div className="mx-auto w-full max-w-[1120px]" role="status" aria-label="Loading health profile">
         <Skeleton className="h-24 rounded-2xl" />
         <Skeleton className="mt-7 h-24 rounded-[24px]" />
         <div className="mt-6 grid gap-6 lg:grid-cols-12">
@@ -208,7 +225,7 @@ export function PatientProfilePage() {
   if (!profile) return null;
 
   const completion = sectionCompletion(profile);
-  const currentStepIndex = profileSections.findIndex(({ id }) => id === activeView);
+  const currentStepIndex = sections.findIndex(({ id }) => id === activeView);
 
   return (
     <div className="mx-auto w-full max-w-[1120px]">
@@ -217,13 +234,19 @@ export function PatientProfilePage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-[15px]">
           Keep the information you manage in Clinora accurate and up to date.
         </p>
-        <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
-          Changes to your health information are reflected in your{' '}
-          <Link to="/patient/history" className="font-semibold text-[var(--clinora-info-foreground)]">
-            Health Record
-          </Link>
-          .
-        </p>
+        {userRole === 'RESEARCHER' ? (
+          <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
+            Keep your personal health background, physical baseline, emergency contact, and research consent preferences up to date.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
+            Changes to your health information are reflected in your{' '}
+            <Link to="/patient/history" className="font-semibold text-[var(--clinora-info-foreground)]">
+              Health Record
+            </Link>
+            .
+          </p>
+        )}
       </header>
 
       <section
@@ -235,15 +258,16 @@ export function PatientProfilePage() {
             Profile photo
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized
-            appointment context.
+            {userRole === 'RESEARCHER'
+              ? 'Add a photo so your Clinora research profile is recognizable to project collaborators and reviewers.'
+              : 'Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized appointment context.'}
           </p>
         </div>
-        <ProfileImageEditor name={`${profile.firstName} ${profile.lastName}`.trim() || 'Patient'} compact />
+        <ProfileImageEditor name={`${profile.firstName} ${profile.lastName}`.trim() || (userRole === 'RESEARCHER' ? 'Researcher' : 'Patient')} compact />
       </section>
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
-        <ProfileSignalRail profile={profile} active={activeView} onSelect={(section) => requestView(section)} />
+        <ProfileSignalRail profile={profile} active={activeView} sections={sections} onSelect={(section) => requestView(section)} />
         <section className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0b1424]/95 lg:col-span-9">
           {saveMessage ? (
             <div className="px-5 pt-5 sm:px-7 sm:pt-7" role="status" aria-live="polite">
@@ -269,7 +293,7 @@ export function PatientProfilePage() {
                   <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-6">
                     <div>
                       <p className="text-xs font-medium text-cyan-200">
-                        Step {currentStepIndex + 1} of {profileSections.length}
+                        Step {currentStepIndex + 1} of {sections.length}
                       </p>
                       <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">{sectionTitle(activeView)}</h2>
                       <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">{sectionDescription(activeView)}</p>
@@ -285,7 +309,7 @@ export function PatientProfilePage() {
                     <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-6">
                       <div>
                         <p className="text-xs font-medium text-cyan-200">
-                          Step {currentStepIndex + 1} of {profileSections.length}
+                          Step {currentStepIndex + 1} of {sections.length}
                         </p>
                         <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">{sectionTitle(activeView)}</h2>
                         <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
@@ -578,7 +602,18 @@ function PersonalSection({ profile, register, errors }: SectionProps & { profile
   return (
     <>
       <div className="grid gap-5 border-b border-white/[0.07] pb-6 sm:grid-cols-2">
-        <ReadOnlyIdentity label="Full name" value={`${profile.firstName} ${profile.lastName}`} />
+        <InputField
+          label="First name"
+          error={errors.firstName?.message}
+          {...register('firstName')}
+        />
+        <InputField
+          label="Last name"
+          error={errors.lastName?.message}
+          {...register('lastName')}
+        />
+      </div>
+      <div className="border-b border-white/[0.07] pb-6">
         <ReadOnlyIdentity label="Email" value={profile.email} />
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
@@ -734,7 +769,7 @@ function EmergencySection({ register, errors }: SectionProps) {
       </div>
       <div className="flex gap-3 border-y border-white/[0.07] py-5 text-xs leading-5 text-slate-500">
         <ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200" aria-hidden="true" />
-        <p>This contact is stored as part of your private Patient profile and is not displayed publicly.</p>
+        <p>This contact is stored as part of your private health profile and is not displayed publicly.</p>
       </div>
     </>
   );
@@ -1004,6 +1039,8 @@ function sectionDescription(section: ProfileSectionId) {
 }
 function toFormValues(profile: PatientProfile): FormValues {
   return {
+    firstName: profile.firstName ?? '',
+    lastName: profile.lastName ?? '',
     dateOfBirth: profile.dateOfBirth ?? '',
     gender: profile.gender ?? '',
     bloodGroup: profile.bloodGroup ?? '',
@@ -1023,6 +1060,8 @@ function toFormValues(profile: PatientProfile): FormValues {
 }
 function toApiInput(values: FormValues): UpdatePatientProfileInput {
   return {
+    firstName: values.firstName.trim(),
+    lastName: values.lastName.trim(),
     dateOfBirth: nullable(values.dateOfBirth),
     gender: nullable(values.gender) as PatientGender | null,
     bloodGroup: nullable(values.bloodGroup) as BloodGroup | null,

@@ -21,7 +21,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @Transactional
@@ -31,6 +33,7 @@ public class DatasetRequestService {
     private final ResearchProjectRepository projectRepository;
     private final AuthAuditService auditService;
     private final Clock clock;
+    private final ResearchAuthorizationService authorizationService;
 
     public DatasetRequestService(
             DatasetRequestRepository requestRepository,
@@ -38,10 +41,22 @@ public class DatasetRequestService {
             AuthAuditService auditService,
             Clock clock
     ) {
+        this(requestRepository, projectRepository, auditService, clock, null);
+    }
+
+    @Autowired
+    public DatasetRequestService(
+            DatasetRequestRepository requestRepository,
+            ResearchProjectRepository projectRepository,
+            AuthAuditService auditService,
+            Clock clock,
+            ResearchAuthorizationService authorizationService
+    ) {
         this.requestRepository = requestRepository;
         this.projectRepository = projectRepository;
         this.auditService = auditService;
         this.clock = clock;
+        this.authorizationService = authorizationService;
     }
 
     public DatasetRequestResponse createDraft(
@@ -51,7 +66,7 @@ public class DatasetRequestService {
             String ip,
             String userAgent
     ) {
-        ResearchProject project = findOwnedProject(researcherUserId, projectId);
+        ResearchProject project = findAccessibleProject(researcherUserId, projectId);
         validateProjectEligibility(project);
 
         if (requestRepository.existsByProjectIdAndNameIgnoreCase(projectId, input.name().trim())) {
@@ -96,7 +111,7 @@ public class DatasetRequestService {
             int page,
             int size
     ) {
-        findOwnedProject(researcherUserId, projectId);
+        findAccessibleProject(researcherUserId, projectId, false);
 
         int safePage = Math.max(0, page - 1);
         int safeSize = Math.clamp(size, 1, 50);
@@ -120,7 +135,7 @@ public class DatasetRequestService {
 
     @Transactional(readOnly = true)
     public DatasetRequestResponse getDetail(UUID researcherUserId, UUID requestId) {
-        DatasetRequest request = findOwnedRequest(researcherUserId, requestId);
+        DatasetRequest request = findAccessibleRequest(researcherUserId, requestId, false);
         return DatasetRequestResponse.from(request);
     }
 
@@ -131,7 +146,7 @@ public class DatasetRequestService {
             String ip,
             String userAgent
     ) {
-        DatasetRequest request = findOwnedRequest(researcherUserId, requestId);
+        DatasetRequest request = findAccessibleRequest(researcherUserId, requestId, true);
         Instant now = Instant.now(clock);
 
         request.updateDraft(
@@ -165,7 +180,7 @@ public class DatasetRequestService {
             String ip,
             String userAgent
     ) {
-        DatasetRequest request = findOwnedRequest(researcherUserId, requestId);
+        DatasetRequest request = findAccessibleRequest(researcherUserId, requestId, true);
         ResearchProject project = projectRepository.findById(request.getProjectId())
                 .orElseThrow(() -> new ResearchApiException(HttpStatus.NOT_FOUND, ResearchErrorCode.PROJECT_NOT_FOUND, "Project not found"));
         validateProjectEligibility(project);
@@ -193,7 +208,7 @@ public class DatasetRequestService {
             String ip,
             String userAgent
     ) {
-        DatasetRequest request = findOwnedRequest(researcherUserId, requestId);
+        DatasetRequest request = findAccessibleRequest(researcherUserId, requestId, true);
         Instant now = Instant.now(clock);
         request.cancel(now);
         DatasetRequest saved = requestRepository.save(request);
@@ -211,11 +226,28 @@ public class DatasetRequestService {
         return DatasetRequestResponse.from(saved);
     }
 
-    private ResearchProject findOwnedProject(UUID researcherUserId, UUID projectId) {
+    private ResearchProject findAccessibleProject(UUID researcherUserId, UUID projectId) {
+        return findAccessibleProject(researcherUserId, projectId, true);
+    }
+
+    private ResearchProject findAccessibleProject(UUID researcherUserId, UUID projectId, boolean writeAccess) {
         Objects.requireNonNull(researcherUserId, "Researcher user ID cannot be null");
         Objects.requireNonNull(projectId, "Project ID cannot be null");
 
-        return projectRepository.findByIdAndOwnerUserId(projectId, researcherUserId)
+        // 1. Direct owner match
+        Optional<ResearchProject> owned = projectRepository.findByIdAndOwnerUserId(projectId, researcherUserId);
+        if (owned.isPresent()) {
+            return owned.get();
+        }
+
+        // 2. Member match via authorizationService
+        if (authorizationService != null) {
+            return writeAccess
+                    ? authorizationService.requireDatasetRequestPermission(projectId, researcherUserId)
+                    : authorizationService.requireReadAccess(projectId, researcherUserId);
+        }
+
+        return projectRepository.findAccessibleByIdAndUserId(projectId, researcherUserId)
                 .orElseThrow(() -> new ResearchApiException(
                         HttpStatus.NOT_FOUND,
                         ResearchErrorCode.PROJECT_NOT_FOUND,
@@ -223,7 +255,7 @@ public class DatasetRequestService {
                 ));
     }
 
-    private DatasetRequest findOwnedRequest(UUID researcherUserId, UUID requestId) {
+    private DatasetRequest findAccessibleRequest(UUID researcherUserId, UUID requestId, boolean writeAccess) {
         Objects.requireNonNull(researcherUserId, "Researcher user ID cannot be null");
         Objects.requireNonNull(requestId, "Dataset request ID cannot be null");
 
@@ -241,7 +273,21 @@ public class DatasetRequestService {
                         "Associated research project not found."
                 ));
 
-        if (!project.getOwnerUserId().equals(researcherUserId)) {
+        if (project.getOwnerUserId().equals(researcherUserId)) {
+            return request;
+        }
+
+        if (authorizationService != null) {
+            if (writeAccess) {
+                authorizationService.requireDatasetRequestPermission(request.getProjectId(), researcherUserId);
+            } else {
+                authorizationService.requireReadAccess(request.getProjectId(), researcherUserId);
+            }
+            return request;
+        }
+
+        Optional<ResearchProject> accessible = projectRepository.findAccessibleByIdAndUserId(request.getProjectId(), researcherUserId);
+        if (accessible.isEmpty()) {
             throw new ResearchApiException(
                     HttpStatus.NOT_FOUND,
                     ResearchErrorCode.PROJECT_NOT_FOUND,

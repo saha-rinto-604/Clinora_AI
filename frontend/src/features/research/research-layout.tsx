@@ -1,16 +1,18 @@
 import {
+  AlertTriangle,
+  Award,
   BarChart2,
   Bell,
   ChevronDown,
   Clock3,
   FolderGit2,
+  HeartPulse,
   Home,
   LockKeyhole,
   LogOut,
   Menu,
   PlusCircle,
   Search,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -28,6 +30,10 @@ import { cn } from '../../lib/cn';
 import { authApi } from '../auth/auth-api';
 import { useAuthStore } from '../auth/auth-store';
 import { ProfileAvatar } from '../profile/profile-image';
+import {
+  researchCredentialsApi,
+  type ResearcherCredentialView,
+} from './research-credentials-api';
 
 type NavigationItem = {
   to: string;
@@ -39,7 +45,7 @@ type NavigationItem = {
 
 const navigation: { label: string; items: NavigationItem[] }[] = [
   {
-    label: 'Research workspace',
+    label: 'Overview',
     items: [
       { to: '/research', label: 'Dashboard', shortLabel: 'Overview', icon: Home, end: true },
       { to: '/research/projects', label: 'My Projects', shortLabel: 'Projects', icon: FolderGit2 },
@@ -48,8 +54,18 @@ const navigation: { label: string; items: NavigationItem[] }[] = [
     ],
   },
   {
-    label: 'Governance & Account',
-    items: [{ to: '/account', label: 'Security & account', shortLabel: 'Account', icon: LockKeyhole }],
+    label: 'Health',
+    items: [
+      { to: '/research/profile', label: 'Health Profile', shortLabel: 'Profile', icon: HeartPulse },
+      { to: '/research/credentials', label: 'Credentials & Verification', shortLabel: 'Credentials', icon: Award },
+    ],
+  },
+  {
+    label: 'Utility',
+    items: [
+      { to: '/research/notifications', label: 'Notifications', shortLabel: 'Alerts', icon: Bell },
+      { to: '/account', label: 'Account & Security', shortLabel: 'Account', icon: LockKeyhole },
+    ],
   },
 ];
 
@@ -69,6 +85,13 @@ export function ResearchShell({ children }: { children: ReactNode }) {
   const [now, setNow] = useState(() => new Date());
   const [signingOut, setSigningOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [credentials, setCredentials] = useState<ResearcherCredentialView | null>(null);
+
+  useEffect(() => {
+    researchCredentialsApi.getMyCredentials()
+      .then(setCredentials)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 10_000);
@@ -99,11 +122,17 @@ export function ResearchShell({ children }: { children: ReactNode }) {
     } else if (/dataset|data|cohort|download/.test(query)) {
       setSearchFeedback('');
       navigate('/research/datasets');
-    } else if (/account|security|profile/.test(query)) {
+    } else if (/profile|health|biomarker|vitals|allergy/.test(query)) {
+      setSearchFeedback('');
+      navigate('/research/profile');
+    } else if (/notif|alert/.test(query)) {
+      setSearchFeedback('');
+      navigate('/research/notifications');
+    } else if (/account|security/.test(query)) {
       setSearchFeedback('');
       navigate('/account');
     } else {
-      setSearchFeedback('Try searching: "projects", "datasets", or "new project"');
+      setSearchFeedback('Try searching: "projects", "datasets", "health profile", or "new project"');
     }
   };
 
@@ -207,6 +236,12 @@ export function ResearchShell({ children }: { children: ReactNode }) {
                 <div className="font-semibold text-slate-200">{displayName}</div>
                 <div className="text-[10px] text-slate-400 font-mono truncate">{displayEmail}</div>
               </div>
+              <DropdownMenuItem onSelect={() => navigate('/research/profile')}>
+                <HeartPulse size={15} aria-hidden="true" /> Health Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate('/research/notifications')}>
+                <Bell size={15} aria-hidden="true" /> Notifications
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => navigate('/account')}>
                 <LockKeyhole size={15} aria-hidden="true" /> Account & Security
               </DropdownMenuItem>
@@ -315,26 +350,10 @@ export function ResearchShell({ children }: { children: ReactNode }) {
             )}
           </div>
 
-          {/* Right Utilities: Governed Tag, Notification Bell, and Live Clock */}
-          <div className="flex items-center gap-6 shrink-0">
-            {/* Governed Badge */}
-            <span className="hidden xl:inline-flex items-center gap-1.5 rounded-full border border-cyan-500/20 bg-cyan-950/40 px-3 py-1 text-xs font-medium text-cyan-300 shadow-sm">
-              <ShieldCheck size={13} className="text-cyan-400" />
-              Governed Research Protocol
-            </span>
-
-            {/* Notification Bell */}
-            <button
-              type="button"
-              className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors"
-              aria-label="Research alerts"
-              title="Research notifications"
-            >
-              <Bell size={18} aria-hidden="true" />
-            </button>
-
+          {/* Right Utilities: Live Clock */}
+          <div className="flex items-center shrink-0">
             {/* Live Clock Component Matching Patient Portal */}
-            <div className="flex items-center gap-3.5 border-l border-white/10 pl-6 text-slate-300 font-mono text-xs tabular-nums">
+            <div className="flex items-center gap-3.5 text-slate-300 font-mono text-xs tabular-nums">
               <Clock3 size={22} className="text-cyan-400 shrink-0" aria-hidden="true" />
               <time dateTime={now.toISOString()} className="flex flex-col leading-tight">
                 <span className="text-[11px] text-slate-400 font-sans tracking-wide">
@@ -352,6 +371,30 @@ export function ResearchShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
+
+        {/* Mandatory Credential Verification Countdown Banner */}
+        {credentials?.isSuspendedRisk && (
+          <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                <span>
+                  <strong>Mandatory Credential Verification:</strong> Please upload your Student ID / Faculty Badge and Educational Certificate within{' '}
+                  <span className="font-semibold text-white">
+                    {Math.max(0, Math.ceil(credentials.secondsRemaining / 86400))} days
+                  </span>{' '}
+                  to prevent automatic account suspension.
+                </span>
+              </div>
+              <NavLink
+                to="/research/credentials"
+                className="inline-flex items-center gap-1 font-semibold text-amber-300 underline hover:text-white shrink-0"
+              >
+                Submit Credentials &rarr;
+              </NavLink>
+            </div>
+          </div>
+        )}
 
         {/* Page Content */}
         <main className="w-full pb-16">{children}</main>
