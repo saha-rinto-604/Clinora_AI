@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Undo2,
   Users,
+  FileText,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -30,6 +31,7 @@ import type { DatasetRequest, ResearchProject } from '../../features/research/re
 import { AIEvaluationSection } from './ai-evaluation-section';
 import { ProjectCollaboratorsSection } from './project-collaborators-section';
 import { ProjectAuditTrailSection } from './project-audit-trail-section';
+import { ProjectNotepadSection } from './project-notepad-section';
 
 export function ResearchProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -41,7 +43,7 @@ export function ResearchProjectDetailPage() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'collaborators' | 'evaluations' | 'audit'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'collaborators' | 'notepad' | 'evaluations' | 'audit'>(
     'overview',
   );
 
@@ -302,6 +304,18 @@ export function ResearchProjectDetailPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab('notepad')}
+          className={`px-4 py-2.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
+            activeTab === 'notepad'
+              ? 'border-cyan-400 text-cyan-300 font-semibold'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Notepad
+        </button>
+
+        <button
           onClick={() => setActiveTab('evaluations')}
           className={`px-4 py-2.5 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
             activeTab === 'evaluations'
@@ -328,8 +342,8 @@ export function ResearchProjectDetailPage() {
 
       {/* Main Metadata Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: Tab Content */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Tab Content */}
+        <div className={activeTab === 'notepad' ? 'lg:col-span-3 space-y-6' : 'lg:col-span-2 space-y-6'}>
           {activeTab === 'overview' && (
             <>
               {/* Objective */}
@@ -437,6 +451,16 @@ export function ResearchProjectDetailPage() {
             />
           )}
 
+          {activeTab === 'notepad' && (
+            <ProjectNotepadSection
+              projectId={project.id}
+              isOwner={isOwner}
+              canEdit={isOwner || (project.editable ?? true)}
+              currentUserId={user?.id || ''}
+              currentUserName={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : 'Researcher'}
+            />
+          )}
+
           {activeTab === 'evaluations' && (
             <AIEvaluationSection projectId={project.id} isApproved={isApprovedOrActive} />
           )}
@@ -445,7 +469,8 @@ export function ResearchProjectDetailPage() {
         </div>
 
         {/* Right Col: Governance Timeline & Metadata */}
-        <div className="space-y-6">
+        {activeTab !== 'notepad' && (
+          <div className="space-y-6">
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-xs space-y-4">
             <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">Governance Timestamps</h3>
             <div className="space-y-3">
@@ -489,7 +514,8 @@ export function ResearchProjectDetailPage() {
               ever be exposed to the research workspace.
             </p>
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

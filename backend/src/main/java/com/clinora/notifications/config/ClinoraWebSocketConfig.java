@@ -107,12 +107,21 @@ public class ClinoraWebSocketConfig implements WebSocketMessageBrokerConfigurer 
                         throw new IllegalArgumentException("Authenticated WebSocket session required.");
                     }
                     String destination = accessor.getDestination();
-                    if (!"/user/queue/notifications".equals(destination)) {
+                    boolean allowed = "/user/queue/notifications".equals(destination)
+                            || (destination != null && destination.startsWith("/topic/research/projects/"));
+                    if (!allowed) {
                         throw new IllegalArgumentException("WebSocket subscription is not permitted.");
                     }
                 }
                 if (accessor.getCommand() == StompCommand.SEND) {
-                    throw new IllegalArgumentException("Client messaging is not enabled.");
+                    if (accessor.getUser() == null) {
+                        throw new IllegalArgumentException("Authenticated WebSocket session required.");
+                    }
+                    String destination = accessor.getDestination();
+                    boolean allowed = destination != null && destination.startsWith("/app/research/projects/");
+                    if (!allowed) {
+                        throw new IllegalArgumentException("Client messaging is not enabled for this destination.");
+                    }
                 }
                 return message;
             }

@@ -780,3 +780,109 @@ export interface ProjectActivityItem {
   description: string;
   timestamp: string;
 }
+
+// ─── Research Notepad Collaborative Documents ──────────────────────────────
+
+export type ResearchDocumentType = 'PAPER_DRAFT' | 'METHODOLOGY' | 'ANALYSIS_NOTES' | 'GENERAL';
+
+export interface DocumentContributor {
+  userId: string;
+  name: string;
+  email: string;
+  profileImageUrl?: string;
+}
+
+export interface ResearchDocumentSummary {
+  id: string;
+  projectId: string;
+  title: string;
+  documentType: ResearchDocumentType;
+  createdByUserId: string;
+  createdByName: string;
+  createdByProfileImageUrl?: string;
+  lastEditedByUserId: string;
+  lastEditedByName: string;
+  lastEditedByProfileImageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+  archived: boolean;
+  contributors: DocumentContributor[];
+  revisionCount: number;
+}
+
+export interface ResearchDocumentDetail extends ResearchDocumentSummary {
+  contentJson: string;
+  crdtStateBase64?: string;
+  currentRevisionNumber: number;
+}
+
+export interface ResearchDocumentRevision {
+  id: string;
+  documentId: string;
+  revisionNumber: number;
+  editedByUserId: string;
+  editorName: string;
+  editorProfileImageUrl?: string;
+  title: string;
+  contentJson: string;
+  changeSummary?: string;
+  createdAt: string;
+}
+
+export interface ResearchDocumentComment {
+  id: string;
+  documentId: string;
+  authorUserId: string;
+  authorName: string;
+  authorProfileImageUrl?: string;
+  content: string;
+  selectedText?: string;
+  resolved: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDocumentPayload {
+  title: string;
+  documentType: ResearchDocumentType;
+  contentJson?: string;
+  crdtStateBase64?: string;
+}
+
+export interface UpdateDocumentPayload {
+  title?: string;
+  documentType?: ResearchDocumentType;
+  contentJson?: string;
+  crdtUpdateBase64?: string;
+  changeSummary?: string;
+  expectedRevisionNumber?: number;
+}
+
+export interface RenameDocumentPayload {
+  title: string;
+}
+
+export interface AddDocumentCommentPayload {
+  content: string;
+  selectedText?: string;
+}
+
+export interface SafeDatasetReference {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  cohortSize: string;
+}
+
+export interface SafeAIEvaluationReference {
+  id: string;
+  modelName: string;
+  taskType: string;
+  status: string;
+  accuracy?: number;
+  precisionScore?: number;
+  recall?: number;
+  f1Score?: number;
+}

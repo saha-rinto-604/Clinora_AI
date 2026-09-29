@@ -51,6 +51,16 @@ import type {
   RegisterResearchOutputPayload,
   UpdateResearchOutputPayload,
   ProjectSelectOption,
+  ResearchDocumentSummary,
+  ResearchDocumentDetail,
+  ResearchDocumentRevision,
+  ResearchDocumentComment,
+  CreateDocumentPayload,
+  UpdateDocumentPayload,
+  RenameDocumentPayload,
+  AddDocumentCommentPayload,
+  SafeDatasetReference,
+  SafeAIEvaluationReference,
 } from './research-types';
 
 export interface ProjectListParams {
@@ -620,6 +630,145 @@ export const researchApi = {
   async getProjectAuditTrail(projectId: string): Promise<ResearchAuditLogEntry[]> {
     const response = await apiClient.get<ApiEnvelope<ResearchAuditLogEntry[]>>(
       `/research/projects/${projectId}/audit-events`,
+    );
+    return response.data.data;
+  },
+
+  // ─── Research Notepad Collaborative Documents ──────────────────────────────
+
+  /** List all documents for a project. */
+  async listDocuments(projectId: string): Promise<ResearchDocumentSummary[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchDocumentSummary[]>>(
+      `/research/projects/${projectId}/documents`,
+    );
+    return response.data.data;
+  },
+
+  /** Get detailed document with content and contributors. */
+  async getDocument(projectId: string, documentId: string): Promise<ResearchDocumentDetail> {
+    const response = await apiClient.get<ApiEnvelope<ResearchDocumentDetail>>(
+      `/research/projects/${projectId}/documents/${documentId}`,
+    );
+    return response.data.data;
+  },
+
+  /** Create a new research document. */
+  async createDocument(projectId: string, payload: CreateDocumentPayload): Promise<ResearchDocumentDetail> {
+    const response = await apiClient.post<ApiEnvelope<ResearchDocumentDetail>>(
+      `/research/projects/${projectId}/documents`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  /** Autosave or update document content, title, and CRDT delta. */
+  async updateDocument(
+    projectId: string,
+    documentId: string,
+    payload: UpdateDocumentPayload,
+  ): Promise<ResearchDocumentDetail> {
+    const response = await apiClient.patch<ApiEnvelope<ResearchDocumentDetail>>(
+      `/research/projects/${projectId}/documents/${documentId}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  /** Rename a document. */
+  async renameDocument(projectId: string, documentId: string, title: string): Promise<ResearchDocumentDetail> {
+    const response = await apiClient.post<ApiEnvelope<ResearchDocumentDetail>>(
+      `/research/projects/${projectId}/documents/${documentId}/rename`,
+      { title },
+    );
+    return response.data.data;
+  },
+
+  /** Archive a document (OWNER only). */
+  async archiveDocument(projectId: string, documentId: string): Promise<ResearchDocumentDetail> {
+    const response = await apiClient.post<ApiEnvelope<ResearchDocumentDetail>>(
+      `/research/projects/${projectId}/documents/${documentId}/archive`,
+    );
+    return response.data.data;
+  },
+
+  /** List revision history for a document. */
+  async listDocumentRevisions(projectId: string, documentId: string): Promise<ResearchDocumentRevision[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchDocumentRevision[]>>(
+      `/research/projects/${projectId}/documents/${documentId}/versions`,
+    );
+    return response.data.data;
+  },
+
+  /** Get specific historical revision. */
+  async getDocumentRevision(
+    projectId: string,
+    documentId: string,
+    versionNumber: number,
+  ): Promise<ResearchDocumentRevision> {
+    const response = await apiClient.get<ApiEnvelope<ResearchDocumentRevision>>(
+      `/research/projects/${projectId}/documents/${documentId}/versions/${versionNumber}`,
+    );
+    return response.data.data;
+  },
+
+  /** Restore a previous revision without deleting history. */
+  async restoreDocumentRevision(
+    projectId: string,
+    documentId: string,
+    versionNumber: number,
+  ): Promise<ResearchDocumentDetail> {
+    const response = await apiClient.post<ApiEnvelope<ResearchDocumentDetail>>(
+      `/research/projects/${projectId}/documents/${documentId}/versions/${versionNumber}/restore`,
+    );
+    return response.data.data;
+  },
+
+  /** List comments for a document. */
+  async listDocumentComments(projectId: string, documentId: string): Promise<ResearchDocumentComment[]> {
+    const response = await apiClient.get<ApiEnvelope<ResearchDocumentComment[]>>(
+      `/research/projects/${projectId}/documents/${documentId}/comments`,
+    );
+    return response.data.data;
+  },
+
+  /** Add a comment to a document. */
+  async addDocumentComment(
+    projectId: string,
+    documentId: string,
+    payload: AddDocumentCommentPayload,
+  ): Promise<ResearchDocumentComment> {
+    const response = await apiClient.post<ApiEnvelope<ResearchDocumentComment>>(
+      `/research/projects/${projectId}/documents/${documentId}/comments`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  /** Resolve or reopen a comment. */
+  async resolveDocumentComment(
+    projectId: string,
+    documentId: string,
+    commentId: string,
+    resolved: boolean,
+  ): Promise<ResearchDocumentComment> {
+    const response = await apiClient.patch<ApiEnvelope<ResearchDocumentComment>>(
+      `/research/projects/${projectId}/documents/${documentId}/comments/${commentId}`,
+      { resolved },
+    );
+    return response.data.data;
+  },
+
+  /** Safe reference lookups (provenance metadata only, no dataset files). */
+  async getSafeDatasetReferences(projectId: string): Promise<SafeDatasetReference[]> {
+    const response = await apiClient.get<ApiEnvelope<SafeDatasetReference[]>>(
+      `/research/projects/${projectId}/documents/references/datasets`,
+    );
+    return response.data.data;
+  },
+
+  async getSafeEvaluationReferences(projectId: string): Promise<SafeAIEvaluationReference[]> {
+    const response = await apiClient.get<ApiEnvelope<SafeAIEvaluationReference[]>>(
+      `/research/projects/${projectId}/documents/references/evaluations`,
     );
     return response.data.data;
   },
