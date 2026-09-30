@@ -20,7 +20,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/research/datasets/{datasetId}/versions/{versionNumber}/stats")
-@PreAuthorize("hasAnyRole('RESEARCHER', 'ADMIN')")
+@PreAuthorize("hasRole('RESEARCHER')")
 public class DatasetStatisticsController {
 
     private final DatasetStatisticsService statisticsService;

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 @RestController
 @RequestMapping("/api/v1/research")
-@PreAuthorize("hasAnyRole('RESEARCHER', 'ADMIN')")
+@PreAuthorize("hasRole('RESEARCHER')")
 public class ResearcherCohortController {
 
     private final CohortBuilderService cohortBuilderService;

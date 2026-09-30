@@ -28,6 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityFoundationConfig.class)
 @TestPropertySource(properties = "clinora.auth.jwt-secret=test-secret-that-is-at-least-32-bytes-long")
 class AdminResearcherAccountControllerSecurityTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.clinora.research.service.ResearchAccessGuard researchAccessGuard;
 
     private static final UUID ADMIN_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 

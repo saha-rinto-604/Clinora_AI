@@ -58,7 +58,7 @@ class ResearchPublicationServiceTest {
                 evaluationRunRepository,
                 auditService,
                 objectMapper
-        );
+        , org.mockito.Mockito.mock(com.clinora.research.service.ResearchAccessGuard.class));
 
         ownerId = UUID.randomUUID();
         projectId = UUID.randomUUID();

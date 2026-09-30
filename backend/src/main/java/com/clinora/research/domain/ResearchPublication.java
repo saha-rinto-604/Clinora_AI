@@ -122,13 +122,13 @@ public class ResearchPublication {
         this.title = Objects.requireNonNull(title, "Title required").trim();
         this.abstractText = abstractText;
         this.publicationType = Objects.requireNonNull(publicationType, "Publication type required");
-        this.status = status != null ? status : PublicationStatus.PUBLISHED;
-        this.libraryVisibility = libraryVisibility != null ? libraryVisibility : LibraryVisibility.CLINORA_RESEARCHERS;
+        this.status = status != null ? status : PublicationStatus.DRAFT;
+        this.libraryVisibility = libraryVisibility != null ? libraryVisibility : LibraryVisibility.PROJECT_ONLY;
         this.methodologySummary = methodologySummary;
         this.studyDesign = studyDesign;
         this.analysisSummary = analysisSummary;
         this.keywords = keywords;
-        this.authors = (authors != null && !authors.isBlank()) ? authors.trim() : "Clinora Research Consortium";
+        this.authors = (authors != null && !authors.isBlank()) ? authors.trim() : "";
         this.researchField = researchField;
         this.doi = doi != null ? doi.trim() : null;
         this.journal = journal != null ? journal.trim() : null;
@@ -167,13 +167,13 @@ public class ResearchPublication {
                 title,
                 abstractText,
                 publicationType,
-                PublicationStatus.PUBLISHED,
-                LibraryVisibility.CLINORA_RESEARCHERS,
+                PublicationStatus.DRAFT,
+                LibraryVisibility.PROJECT_ONLY,
                 null,
                 null,
                 null,
                 null,
-                "Clinora Research Consortium",
+                "",
                 null,
                 doi,
                 journal,

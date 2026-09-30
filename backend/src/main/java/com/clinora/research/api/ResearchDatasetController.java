@@ -24,8 +24,9 @@ import java.util.UUID;
 @Validated
 @RestController
 @RequestMapping("/api/v1/research")
-@PreAuthorize("hasAnyRole('RESEARCHER', 'ADMIN')")
+@PreAuthorize("hasRole('RESEARCHER')")
 public class ResearchDatasetController {
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard;
 
     private final DatasetGenerationService generationService;
     private final ResearchDatasetRepository datasetRepository;
@@ -34,8 +35,10 @@ public class ResearchDatasetController {
     public ResearchDatasetController(
             DatasetGenerationService generationService,
             ResearchDatasetRepository datasetRepository,
-            DatasetGenerationJobRepository jobRepository
+            DatasetGenerationJobRepository jobRepository,
+            com.clinora.research.service.ResearchAccessGuard accessGuard
     ) {
+        this.accessGuard = accessGuard;
         this.generationService = generationService;
         this.datasetRepository = datasetRepository;
         this.jobRepository = jobRepository;
@@ -43,16 +46,19 @@ public class ResearchDatasetController {
 
     @PostMapping("/dataset-requests/{requestId}/generate")
     public ApiResponse<DatasetGenerationJobResponse> triggerGeneration(
-            @PathVariable UUID requestId
+            @PathVariable UUID requestId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        DatasetGenerationJob job = generationService.enqueueJob(requestId);
+        DatasetGenerationJob job = generationService.enqueueJob(requestId, userId(jwt));
         return ApiResponse.success("Dataset generation job dispatched to background worker.", DatasetGenerationJobResponse.from(job));
     }
 
     @GetMapping("/dataset-requests/{requestId}/generation-jobs/latest")
     public ApiResponse<DatasetGenerationJobResponse> getLatestJob(
-            @PathVariable UUID requestId
+            @PathVariable UUID requestId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
+        accessGuard.request(requestId, userId(jwt), false);
         DatasetGenerationJob job = jobRepository.findFirstByDatasetRequestIdOrderByCreatedAtDesc(requestId)
                 .orElse(null);
         return ApiResponse.success("Latest generation job status retrieved.", job != null ? DatasetGenerationJobResponse.from(job) : null);
@@ -82,8 +88,10 @@ public class ResearchDatasetController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID requestId
     ) {
+        accessGuard.request(requestId, userId(jwt), false);
         ResearchDataset dataset = datasetRepository.findByDatasetRequestId(requestId)
                 .orElse(null);
+        if (dataset != null) accessGuard.dataset(dataset.getId(), userId(jwt));
         return ApiResponse.success("Dataset retrieved for request.", dataset != null ? ResearchDatasetResponse.from(dataset) : null);
     }
 

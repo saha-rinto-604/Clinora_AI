@@ -45,6 +45,7 @@ public class ResearchPublicationService {
     private final AIEvaluationRunRepository evaluationRunRepository;
     private final ResearchAuditService auditService;
     private final ObjectMapper objectMapper;
+    private final ResearchAccessGuard accessGuard;
 
     public ResearchPublicationService(
             ResearchPublicationRepository publicationRepository,
@@ -54,7 +55,7 @@ public class ResearchPublicationService {
             ResearchDatasetRepository researchDatasetRepository,
             AIEvaluationRunRepository evaluationRunRepository,
             ResearchAuditService auditService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper, ResearchAccessGuard accessGuard
     ) {
         this.publicationRepository = publicationRepository;
         this.projectRepository = projectRepository;
@@ -64,6 +65,7 @@ public class ResearchPublicationService {
         this.evaluationRunRepository = evaluationRunRepository;
         this.auditService = auditService;
         this.objectMapper = objectMapper;
+        this.accessGuard = accessGuard;
     }
 
     // =========================================================================
@@ -130,7 +132,7 @@ public class ResearchPublicationService {
                 .stream().map(ResearchProject::getId).toList());
 
         userProjectIds.addAll(memberRepository.findByUserId(userId)
-                .stream().map(ResearchProjectMember::getProjectId).toList());
+                .stream().filter(m -> m.getRemovedAt() == null).map(ResearchProjectMember::getProjectId).toList());
 
         List<ResearchPublication> outputs;
         if (userProjectIds.isEmpty()) {
@@ -171,7 +173,7 @@ public class ResearchPublicationService {
         ResearchProject project = verifyWritePermission(request.projectId(), userId);
 
         // Validate provenance links
-        validateProvenanceBelongsToProject(request.projectId(), request.linkedDatasetVersionIds(), request.linkedEvaluationRunIds());
+        validateProvenanceBelongsToProject(request.projectId(), request.linkedDatasetVersionIds(), request.linkedEvaluationRunIds(), userId);
 
         String citationMetaJson = serializeJson(request.citationMetadata(), "{}");
         String dsVersionsJson = serializeJson(request.linkedDatasetVersionIds(), "[]");
@@ -184,7 +186,7 @@ public class ResearchPublicationService {
                 request.abstractText(),
                 request.publicationType(),
                 request.status(),
-                request.libraryVisibility() != null ? request.libraryVisibility() : LibraryVisibility.CLINORA_RESEARCHERS,
+                request.libraryVisibility() != null ? request.libraryVisibility() : LibraryVisibility.PROJECT_ONLY,
                 request.methodologySummary(),
                 request.studyDesign(),
                 request.analysisSummary(),
@@ -276,7 +278,7 @@ public class ResearchPublicationService {
 
         ResearchProject project = verifyWritePermission(pub.getProjectId(), userId);
 
-        validateProvenanceBelongsToProject(pub.getProjectId(), request.linkedDatasetVersionIds(), request.linkedEvaluationRunIds());
+        validateProvenanceBelongsToProject(pub.getProjectId(), request.linkedDatasetVersionIds(), request.linkedEvaluationRunIds(), userId);
 
         PublicationStatus oldStatus = pub.getStatus();
         LibraryVisibility oldVisibility = pub.getLibraryVisibility();
@@ -393,6 +395,7 @@ public class ResearchPublicationService {
     public List<ProjectSelectOption> getAuthorizedProjectsForRegistration(UUID userId) {
         List<ResearchProject> ownedProjects = projectRepository.findByOwnerUserIdOrderByCreatedAtDesc(userId);
         List<UUID> memberProjectIds = memberRepository.findByUserId(userId).stream()
+                .filter(m -> m.getRemovedAt() == null)
                 .filter(m -> m.getRole() == ProjectMemberRole.OWNER || m.getRole() == ProjectMemberRole.CO_RESEARCHER)
                 .map(ResearchProjectMember::getProjectId)
                 .toList();
@@ -408,6 +411,7 @@ public class ResearchPublicationService {
             List<ResearchDataset> datasets = researchDatasetRepository.findByProjectIdOrderByCreatedAtDesc(p.getId());
             List<DatasetVersionSelectOption> dsOptions = new ArrayList<>();
             for (ResearchDataset d : datasets) {
+                if (!accessGuard.canReadDataset(d.getId(), userId)) continue;
                 List<DatasetVersion> versions = datasetVersionRepository.findByDatasetIdOrderByVersionNumberDesc(d.getId());
                 for (DatasetVersion v : versions) {
                     dsOptions.add(new DatasetVersionSelectOption(
@@ -420,10 +424,7 @@ public class ResearchPublicationService {
             }
 
             // Find evaluation runs for this project
-            List<AIEvaluationRun> runs = evaluationRunRepository.findByProjectIdOrderByCreatedAtDesc(p.getId());
-            List<EvaluationRunSelectOption> runOptions = runs.stream()
-                    .map(r -> new EvaluationRunSelectOption(r.getId(), r.getModelId(), r.getModelVersion(), r.getTaskType().name()))
-                    .toList();
+            List<EvaluationRunSelectOption> runOptions = List.of(); // No verified completed evaluations yet.
 
             result.add(new ProjectSelectOption(
                     p.getId(),
@@ -459,13 +460,13 @@ public class ResearchPublicationService {
                 request.title(),
                 request.abstractText(),
                 request.publicationType(),
-                PublicationStatus.PUBLISHED,
-                LibraryVisibility.CLINORA_RESEARCHERS,
+                PublicationStatus.DRAFT,
+                LibraryVisibility.PROJECT_ONLY,
                 null,
                 null,
                 null,
                 null,
-                "Clinora Research Consortium",
+                "Authors not recorded",
                 null,
                 request.doi(),
                 request.journal(),
@@ -590,7 +591,7 @@ public class ResearchPublicationService {
                 : "n.d.";
         String authors = (pub.getAuthors() != null && !pub.getAuthors().isBlank())
                 ? pub.getAuthors()
-                : "Clinora Research Consortium";
+                : "Authors not recorded";
         String venue = resolveVenue(pub);
         String doiPart = (pub.getDoi() != null && !pub.getDoi().isBlank())
                 ? " https://doi.org/" + pub.getDoi()
@@ -748,7 +749,7 @@ public class ResearchPublicationService {
                         run.getModelId(),
                         run.getModelVersion(),
                         run.getTaskType().name(),
-                        run.getStatus().name()
+                        run.getStatus() == EvaluationRunStatus.COMPLETED ? "UNVERIFIED" : run.getStatus().name()
                 ));
             });
         }
@@ -758,7 +759,7 @@ public class ResearchPublicationService {
     private void validateProvenanceBelongsToProject(
             UUID projectId,
             List<UUID> linkedDatasetVersionIds,
-            List<UUID> linkedEvaluationRunIds
+            List<UUID> linkedEvaluationRunIds, UUID userId
     ) {
         if (linkedDatasetVersionIds != null) {
             for (UUID vId : linkedDatasetVersionIds) {
@@ -774,6 +775,7 @@ public class ResearchPublicationService {
                                 "INVALID_PROVENANCE_LINK",
                                 "Dataset for version not found: " + vId
                         ));
+                accessGuard.dataset(ds.getId(), userId);
                 if (!ds.getProjectId().equals(projectId)) {
                     throw new ResearchApiException(
                             HttpStatus.BAD_REQUEST,
@@ -784,32 +786,20 @@ public class ResearchPublicationService {
             }
         }
 
-        if (linkedEvaluationRunIds != null) {
-            for (UUID runId : linkedEvaluationRunIds) {
-                AIEvaluationRun run = evaluationRunRepository.findById(runId)
-                        .orElseThrow(() -> new ResearchApiException(
-                                HttpStatus.BAD_REQUEST,
-                                "INVALID_PROVENANCE_LINK",
-                                "Linked evaluation run not found: " + runId
-                        ));
-                if (!run.getProjectId().equals(projectId)) {
-                    throw new ResearchApiException(
-                            HttpStatus.BAD_REQUEST,
-                            "INVALID_PROVENANCE_LINK",
-                            "Linked evaluation run " + runId + " does not belong to project: " + projectId
-                    );
-                }
-            }
+        if (linkedEvaluationRunIds != null && !linkedEvaluationRunIds.isEmpty()) {
+            throw new ResearchApiException(HttpStatus.BAD_REQUEST, "UNVERIFIED_EVALUATION_PROVENANCE",
+                "No verified evaluation execution is available for publication citation.");
         }
     }
 
     private boolean isUserProjectMemberOrOwner(UUID projectId, UUID userId) {
         return projectRepository.findById(projectId)
-                .map(p -> p.getOwnerUserId().equals(userId) || memberRepository.existsByProjectIdAndUserId(projectId, userId))
+                .map(p -> p.getOwnerUserId().equals(userId) || memberRepository.existsActiveByProjectIdAndUserId(projectId, userId))
                 .orElse(false);
     }
 
     private ResearchProject verifyWritePermission(UUID projectId, UUID userId) {
+        accessGuard.project(projectId, userId);
         ResearchProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResearchApiException(
                         HttpStatus.NOT_FOUND,
@@ -821,7 +811,7 @@ public class ResearchPublicationService {
             return project;
         }
 
-        boolean canWrite = memberRepository.findByProjectIdAndUserId(projectId, userId)
+        boolean canWrite = memberRepository.findActiveByProjectIdAndUserId(projectId, userId)
                 .map(m -> m.getRole() == ProjectMemberRole.OWNER || m.getRole() == ProjectMemberRole.CO_RESEARCHER)
                 .orElse(false);
 
@@ -836,6 +826,7 @@ public class ResearchPublicationService {
     }
 
     private ResearchProject verifyReadPermission(UUID projectId, UUID userId) {
+        accessGuard.project(projectId, userId);
         ResearchProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResearchApiException(
                         HttpStatus.NOT_FOUND,
@@ -843,7 +834,7 @@ public class ResearchPublicationService {
                         "Research project not found: " + projectId
                 ));
 
-        if (project.getOwnerUserId().equals(userId) || memberRepository.existsByProjectIdAndUserId(projectId, userId)) {
+        if (project.getOwnerUserId().equals(userId) || memberRepository.existsActiveByProjectIdAndUserId(projectId, userId)) {
             return project;
         }
 

@@ -17,5 +17,10 @@ public interface ResearchDocumentRepository extends JpaRepository<ResearchDocume
 
     Optional<ResearchDocument> findByIdAndProjectId(UUID id, UUID projectId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select d from ResearchDocument d where d.id = :id and d.projectId = :projectId")
+    Optional<ResearchDocument> findForUpdate(@org.springframework.data.repository.query.Param("id") UUID id,
+        @org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
     long countByProjectId(UUID projectId);
 }

@@ -41,19 +41,21 @@ public class ResearcherCredentialService {
     private final ApplicationDocumentStoragePort storagePort;
     private final AuthAuditService auditService;
     private final Clock clock;
+    private final ResearchAccessGuard accessGuard;
 
     public ResearcherCredentialService(
             ResearcherCredentialVerificationRepository credentialRepository,
             UserAccountRepository userRepository,
             ApplicationDocumentStoragePort storagePort,
             AuthAuditService auditService,
-            Clock clock
+            Clock clock, ResearchAccessGuard accessGuard
     ) {
         this.credentialRepository = credentialRepository;
         this.userRepository = userRepository;
         this.storagePort = storagePort;
         this.auditService = auditService;
         this.clock = clock;
+        this.accessGuard = accessGuard;
     }
 
     @Transactional
@@ -303,6 +305,7 @@ public class ResearcherCredentialService {
             userRepository.findById(record.getUserId()).ifPresent(user -> {
                 if (user.getAccountStatus() == AccountStatus.ACTIVE) {
                     user.suspend(now);
+                    accessGuard.revokeTokens(user.getId());
                     userRepository.save(user);
                     auditService.record(
                             null,
@@ -327,6 +330,7 @@ public class ResearcherCredentialService {
 
                 if (user.getAccountStatus() == AccountStatus.ACTIVE) {
                     user.suspend(now);
+                    accessGuard.revokeTokens(user.getId());
                     userRepository.save(user);
                     auditService.record(
                             null,

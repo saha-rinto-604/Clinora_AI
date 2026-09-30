@@ -43,7 +43,7 @@ class PatientResearchConsentServiceTest {
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(now, ZoneOffset.UTC);
-        service = new PatientResearchConsentService(consentRepository, auditService, clock);
+        service = new PatientResearchConsentService(consentRepository, auditService, clock, org.mockito.Mockito.mock(com.clinora.research.service.ResearchPrivacyService.class));
     }
 
     @Test
@@ -89,7 +89,7 @@ class PatientResearchConsentServiceTest {
     void testUpdateConsent_revoke() {
         PatientResearchConsent existing = PatientResearchConsent.createConsented(patientId, "v1.0-2026", now.minusSeconds(86400));
         when(consentRepository.findByPatientUserId(patientId)).thenReturn(Optional.of(existing));
-        when(consentRepository.save(any(PatientResearchConsent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(consentRepository.saveAndFlush(any(PatientResearchConsent.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PatientResearchConsentDto dto = service.updateConsent(patientId, false, "127.0.0.1", "TestAgent");
 

@@ -40,6 +40,7 @@ import java.util.*;
 
 @Service
 public class AdminResearcherAccountService {
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard;
 
     private final JdbcTemplate jdbc;
     private final UserAccountRepository userRepository;
@@ -76,8 +77,10 @@ public class AdminResearcherAccountService {
             AuthAuditService auditService,
             AuthAuditEventRepository auditEventRepository,
             ProfileImageService profileImageService,
-            Clock clock
+            Clock clock,
+            com.clinora.research.service.ResearchAccessGuard accessGuard
     ) {
+        this.accessGuard = accessGuard;
         this.jdbc = jdbc;
         this.userRepository = userRepository;
         this.applicationRepository = applicationRepository;
@@ -512,6 +515,7 @@ public class AdminResearcherAccountService {
 
         String revokeReason = "ACCOUNT_SUSPENDED: " + (reason != null && !reason.isBlank() ? reason.trim() : "Admin suspended researcher account");
         sessionService.revokeAll(researcherUserId, revokeReason);
+        accessGuard.revokeTokens(researcherUserId);
 
         auditService.record(
                 adminUserId,
@@ -549,6 +553,7 @@ public class AdminResearcherAccountService {
 
         String revokeReason = "ADMIN_REVOKED: " + (reason != null && !reason.isBlank() ? reason.trim() : "Admin revoked all sessions");
         sessionService.revokeAll(researcherUserId, revokeReason);
+        accessGuard.revokeTokens(researcherUserId);
 
         auditService.record(
                 adminUserId,

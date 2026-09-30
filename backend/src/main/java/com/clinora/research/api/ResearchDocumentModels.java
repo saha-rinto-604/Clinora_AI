@@ -107,13 +107,16 @@ public final class ResearchDocumentModels {
             String contentJson,
             String crdtUpdateBase64,
             String changeSummary,
-            Integer expectedRevisionNumber
+            @NotNull @jakarta.validation.constraints.Positive Integer expectedRevisionNumber
     ) {}
+
+    public record RevisionExpectation(@NotNull @jakarta.validation.constraints.Positive Integer expectedRevisionNumber) {}
 
     public record RenameDocumentRequest(
             @NotBlank(message = "Document title is required")
             @Size(max = 255, message = "Document title must not exceed 255 characters")
-            String title
+            String title,
+            @NotNull @jakarta.validation.constraints.Positive Integer expectedRevisionNumber
     ) {}
 
     public record AddDocumentCommentRequest(

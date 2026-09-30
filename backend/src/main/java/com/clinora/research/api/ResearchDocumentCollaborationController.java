@@ -24,13 +24,18 @@ public class ResearchDocumentCollaborationController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ResearchAuthorizationService authz;
+    private final com.clinora.research.service.ResearchAccessGuard guard;
+    private final com.clinora.users.repository.UserAccountRepository users;
 
     public ResearchDocumentCollaborationController(
             SimpMessagingTemplate messagingTemplate,
-            ResearchAuthorizationService authz
+            ResearchAuthorizationService authz, com.clinora.research.service.ResearchAccessGuard guard,
+            com.clinora.users.repository.UserAccountRepository users
     ) {
         this.messagingTemplate = messagingTemplate;
         this.authz = authz;
+        this.guard = guard;
+        this.users = users;
     }
 
     public record DocumentEditMessage(
@@ -55,21 +60,7 @@ public class ResearchDocumentCollaborationController {
             @Payload DocumentEditMessage message,
             Principal principal
     ) {
-        UUID userId = extractUserId(principal);
-        if (userId == null) {
-            log.warn("Unauthenticated document edit message rejected for project {}", projectId);
-            return;
-        }
-
-        ProjectMemberRole role = authz.resolveProjectRole(projectId, userId).orElse(null);
-        if (role == null || role == ProjectMemberRole.VIEWER) {
-            log.warn("Unauthorized document edit message rejected for user {} in project {}", userId, projectId);
-            return;
-        }
-
-        // Broadcast CRDT update to all collaborators currently viewing this document
-        String destination = "/topic/research/projects/" + projectId + "/documents/" + documentId;
-        messagingTemplate.convertAndSend(destination, message);
+        throw new org.springframework.security.access.AccessDeniedException("Use revision-checked document saves. Live content broadcasting is unavailable.");
     }
 
     @MessageMapping("/research/projects/{projectId}/documents/{documentId}/presence")
@@ -82,6 +73,7 @@ public class ResearchDocumentCollaborationController {
         UUID userId = extractUserId(principal);
         if (userId == null) return;
 
+        guard.document(projectId, documentId, userId, false);
         // Verify read access to the project
         try {
             authz.requireReadAccess(projectId, userId);
@@ -91,7 +83,10 @@ public class ResearchDocumentCollaborationController {
         }
 
         String destination = "/topic/research/projects/" + projectId + "/documents/" + documentId + "/presence";
-        messagingTemplate.convertAndSend(destination, message);
+        var user = users.findById(userId).orElseThrow();
+        String name = user.getFirstName() + " " + user.getLastName();
+        messagingTemplate.convertAndSend(destination,
+            new DocumentPresenceMessage(userId, name, "#22d3ee", "viewing", Instant.now()));
     }
 
     private UUID extractUserId(Principal principal) {
@@ -99,10 +94,6 @@ public class ResearchDocumentCollaborationController {
         if (principal instanceof Authentication auth && auth.getPrincipal() instanceof Jwt jwt) {
             return UUID.fromString(jwt.getSubject());
         }
-        try {
-            return UUID.fromString(principal.getName());
-        } catch (Exception e) {
-            return null;
-        }
+        return null;
     }
 }

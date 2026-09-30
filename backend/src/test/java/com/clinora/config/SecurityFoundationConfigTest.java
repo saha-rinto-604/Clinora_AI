@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Import({SecurityFoundationConfig.class, SecurityFoundationConfigTest.SecurityProbeController.class})
 @TestPropertySource(properties = "clinora.auth.jwt-secret=test-secret-that-is-at-least-32-bytes-long")
 class SecurityFoundationConfigTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.clinora.research.service.ResearchAccessGuard researchAccessGuard;
 
     @Autowired
     private MockMvc mvc;

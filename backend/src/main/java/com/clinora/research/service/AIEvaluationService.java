@@ -43,6 +43,7 @@ import java.util.*;
  */
 @Service
 public class AIEvaluationService {
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard;
 
     private static final Logger log = LoggerFactory.getLogger(AIEvaluationService.class);
 
@@ -135,8 +136,10 @@ public class AIEvaluationService {
             ClassificationMetricsCalculator classificationCalculator,
             ExtractionMetricsCalculator extractionCalculator,
             AbnormalityDetectionMetricsCalculator abnormalityCalculator,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            com.clinora.research.service.ResearchAccessGuard accessGuard
     ) {
+        this.accessGuard = accessGuard;
         this.evaluationRunRepository = evaluationRunRepository;
         this.projectRepository = projectRepository;
         this.datasetVersionRepository = datasetVersionRepository;
@@ -163,6 +166,7 @@ public class AIEvaluationService {
 
         List<DatasetVersionOption> versionOptions = new ArrayList<>();
         for (ResearchDataset dataset : datasets) {
+            if (!accessGuard.canReadDataset(dataset.getId(), userId)) continue;
             // Check dataset status: must be ACTIVE, not revoked, not expired
             if (!"ACTIVE".equalsIgnoreCase(dataset.getStatus()) || dataset.getRevokedAt() != null) {
                 continue;
@@ -302,12 +306,14 @@ public class AIEvaluationService {
             );
         }
 
+        accessGuard.dataset(version.getDatasetId(), userId);
+
         // 7. Provenance & configuration serialization
         Map<String, Object> configMap = new HashMap<>(request.configuration() != null ? request.configuration() : Map.of());
-        configMap.put("evaluationEngineVersion", "Clinora_Eval_Engine_v1.2");
+        configMap.put("executionStatus", "UNAVAILABLE");
         configMap.put("datasetChecksum", version.getChecksum());
         configMap.put("datasetFormat", version.getFormat());
-        configMap.put("evaluationHarness", "Clinora_Eval_Harness_2026");
+        configMap.put("evaluationHarness", "NOT_CONFIGURED");
 
         String configJson = "{}";
         try {
@@ -351,49 +357,13 @@ public class AIEvaluationService {
                 "datasetVersion=" + version.getId()
         );
 
-        // 8. Execute evaluation computation
-        run.markRunning();
-        auditService.record(
-                userId,
-                AuthAuditAction.AI_EVALUATION_STARTED,
-                AuthAuditOutcome.SUCCESS,
-                "api",
-                "worker",
-                run.getId().toString(),
-                "status=RUNNING"
-        );
-
-        try {
-            EvaluationMetrics computedMetrics = computeMetricsForRun(run, version);
-            String metricsJson = objectMapper.writeValueAsString(computedMetrics);
-            run.markCompleted(metricsJson);
-            log.info("AI evaluation run {} successfully completed. Model: {} v{}, Prompt: v{}",
-                    run.getId(), run.getModelId(), run.getModelVersion(), run.getPromptVersion());
-
-            auditService.record(
-                    userId,
-                    AuthAuditAction.AI_EVALUATION_COMPLETED,
-                    AuthAuditOutcome.SUCCESS,
-                    "api",
-                    "worker",
-                    run.getId().toString(),
-                    "accuracy=" + computedMetrics.accuracy() + ";balancedAccuracy=" + computedMetrics.balancedAccuracy()
-            );
-        } catch (Exception e) {
-            log.error("AI evaluation run {} failed during metric calculation", run.getId(), e);
-            run.markFailed(e.getMessage());
-            auditService.record(
-                    userId,
-                    AuthAuditAction.AI_EVALUATION_FAILED,
-                    AuthAuditOutcome.FAILURE,
-                    "api",
-                    "worker",
-                    run.getId().toString(),
-                    "reason=" + e.getMessage()
-            );
-        }
+        // No approved predictions/ground-truth execution adapter exists yet.
+        run.markFailed("EVALUATION_EXECUTION_UNAVAILABLE: Authorized predictions and ground truth are not configured. No evaluation was executed.");
+        auditService.record(userId, AuthAuditAction.AI_EVALUATION_FAILED, AuthAuditOutcome.FAILURE,
+                "api", "workspace", run.getId().toString(), "execution=UNAVAILABLE;metrics=NONE");
 
         run = evaluationRunRepository.save(run);
+        requireRunAccess(run, userId);
         return toResponse(run);
     }
 
@@ -402,6 +372,7 @@ public class AIEvaluationService {
         authorizationService.requireReadAccess(projectId, userId);
         return evaluationRunRepository.findByProjectIdOrderByCreatedAtDesc(projectId)
                 .stream()
+                .filter(run -> canAccessRun(run, userId))
                 .map(this::toResponse)
                 .toList();
     }
@@ -415,6 +386,7 @@ public class AIEvaluationService {
                         "EVALUATION_RUN_NOT_FOUND",
                         "Evaluation run " + runId + " not found in project " + projectId
                 ));
+        requireRunAccess(run, userId);
         return toResponse(run);
     }
 
@@ -458,6 +430,7 @@ public class AIEvaluationService {
                 "cancelledBy=" + userId
         );
 
+        requireRunAccess(run, userId);
         return toResponse(run);
     }
 
@@ -471,39 +444,19 @@ public class AIEvaluationService {
     /**
      * Executes the task-specific calculation against the dataset record volume.
      */
-    private EvaluationMetrics computeMetricsForRun(AIEvaluationRun run, DatasetVersion version) {
-        long n = Math.max(10, version.getRecordCount());
+    private boolean canAccessRun(AIEvaluationRun run, UUID userId) {
+        return datasetVersionRepository.findById(run.getDatasetVersionId())
+                .map(v -> accessGuard.canReadDataset(v.getDatasetId(), userId)).orElse(false);
+    }
 
-        if (run.getTaskType() == EvaluationTaskType.EXTRACTION) {
-            long exactMatches = (long) Math.floor(n * 0.82);
-            long toleranceMatches = (long) Math.floor(n * 0.94);
-            double meanAbsoluteError = 0.042;
-            return extractionCalculator.calculate(exactMatches, toleranceMatches, n, meanAbsoluteError);
-        } else if (run.getTaskType() == EvaluationTaskType.ABNORMALITY_DETECTION) {
-            long tp = (long) Math.floor(n * 0.35);
-            long tn = (long) Math.floor(n * 0.55);
-            long fp = (long) Math.floor(n * 0.06);
-            long fn = Math.max(0, n - (tp + tn + fp));
-            return abnormalityCalculator.calculate(tp, fp, tn, fn);
-        } else {
-            // Categorical CLASSIFICATION
-            long tp = (long) Math.floor(n * 0.46);
-            long tn = (long) Math.floor(n * 0.44);
-            long fp = (long) Math.floor(n * 0.06);
-            long fn = Math.max(0, n - (tp + tn + fp));
-            return classificationCalculator.calculate(tp, fp, tn, fn);
-        }
+    private void requireRunAccess(AIEvaluationRun run, UUID userId) {
+        DatasetVersion version = datasetVersionRepository.findById(run.getDatasetVersionId())
+                .orElseThrow(() -> new ResearchApiException(HttpStatus.FORBIDDEN, "DATASET_ACCESS_DENIED", "Evaluation dataset is unavailable."));
+        accessGuard.dataset(version.getDatasetId(), userId);
     }
 
     private AIEvaluationRunResponse toResponse(AIEvaluationRun run) {
         EvaluationMetrics parsedMetrics = null;
-        if (run.getMetrics() != null && !run.getMetrics().isBlank()) {
-            try {
-                parsedMetrics = objectMapper.readValue(run.getMetrics(), EvaluationMetrics.class);
-            } catch (Exception e) {
-                log.warn("Failed to parse evaluation metrics JSON for run {}", run.getId(), e);
-            }
-        }
 
         return new AIEvaluationRunResponse(
                 run.getId(),
@@ -514,12 +467,12 @@ public class AIEvaluationService {
                 run.getPromptVersion(),
                 run.getTaskType(),
                 run.getGroundTruthDefinition(),
-                run.getStatus(),
+                run.getStatus() == EvaluationRunStatus.COMPLETED ? EvaluationRunStatus.FAILED : run.getStatus(),
                 run.getStartedAt(),
                 run.getCompletedAt(),
                 run.getConfiguration(),
                 parsedMetrics,
-                run.getFailureReason(),
+                run.getStatus() == EvaluationRunStatus.COMPLETED ? "Historical result has unverified provenance; metrics withheld." : run.getFailureReason(),
                 run.getCreatedBy(),
                 run.getCreatedAt()
         );

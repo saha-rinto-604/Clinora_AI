@@ -183,5 +183,5 @@ clinora:
     recovery-min-age-seconds: ${AI_RECOVERY_MIN_AGE_SECONDS:15}
     processing-timeout-seconds: ${AI_PROCESSING_TIMEOUT_SECONDS:300}
   research:
-    min-cohort-size: ${CLINORA_RESEARCH_MIN_COHORT_SIZE:1}
+    min-cohort-size: ${CLINORA_RESEARCH_MIN_COHORT_SIZE:5}
     pseudonym-secret: ${CLINORA_RESEARCH_PSEUDONYM_SECRET:}

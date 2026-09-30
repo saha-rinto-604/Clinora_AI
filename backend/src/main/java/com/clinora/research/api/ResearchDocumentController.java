@@ -113,6 +113,7 @@ public class ResearchDocumentController {
     public ApiResponse<DocumentDetailDto> archiveDocument(
             @PathVariable UUID projectId,
             @PathVariable UUID documentId,
+            @Valid @RequestBody RevisionExpectation revision,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest servletRequest
     ) {
@@ -120,6 +121,7 @@ public class ResearchDocumentController {
         DocumentDetailDto doc = documentService.archiveDocument(
                 projectId,
                 documentId,
+                revision.expectedRevisionNumber(),
                 userId,
                 servletRequest.getRemoteAddr(),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT)
@@ -155,6 +157,7 @@ public class ResearchDocumentController {
             @PathVariable UUID projectId,
             @PathVariable UUID documentId,
             @PathVariable int versionNumber,
+            @Valid @RequestBody RevisionExpectation revision,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest servletRequest
     ) {
@@ -163,6 +166,7 @@ public class ResearchDocumentController {
                 projectId,
                 documentId,
                 versionNumber,
+                revision.expectedRevisionNumber(),
                 userId,
                 servletRequest.getRemoteAddr(),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT)

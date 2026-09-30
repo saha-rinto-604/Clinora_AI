@@ -122,8 +122,8 @@ public class PatientProfileService {
         validateDateOfBirth(command.dateOfBirth());
 
         Instant now = clock.instant();
-        if ((command.firstName() != null && !command.firstName().isBlank())
-            || (command.lastName() != null && !command.lastName().isBlank())) {
+        if (user.getRole() == com.clinora.users.domain.UserRole.RESEARCHER && ((command.firstName() != null && !command.firstName().isBlank())
+            || (command.lastName() != null && !command.lastName().isBlank()))) {
             user.updateName(command.firstName(), command.lastName(), now);
             users.save(user);
         }

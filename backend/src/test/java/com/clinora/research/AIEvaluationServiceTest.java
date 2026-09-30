@@ -55,6 +55,8 @@ class AIEvaluationServiceTest {
     private DatasetVersion datasetVersion;
     private DatasetAccessGrant activeGrant;
 
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard = mock(com.clinora.research.service.ResearchAccessGuard.class);
+
     @BeforeEach
     void setUp() {
         evalRepo = mock(AIEvaluationRunRepository.class);
@@ -81,7 +83,7 @@ class AIEvaluationServiceTest {
                 extractionCalculator,
                 abnormalityCalculator,
                 objectMapper
-        );
+        , accessGuard);
         diseaseAnalyticsPolicy = new DiseaseAnalyticsPolicy();
 
         projectId = UUID.randomUUID();
@@ -202,12 +204,12 @@ class AIEvaluationServiceTest {
         AIEvaluationRunResponse response = service.createAndExecuteRun(projectId, request, ownerUserId);
 
         assertNotNull(response);
-        assertEquals(EvaluationRunStatus.COMPLETED, response.status());
+        assertEquals(EvaluationRunStatus.FAILED, response.status());
         assertEquals("clinora-ai-clinical", response.modelId());
-        assertNotNull(response.metrics());
-        assertTrue(response.metrics().sampleCount() > 0);
+        assertNull(response.metrics());
+        assertTrue(response.failureReason().contains("EVALUATION_EXECUTION_UNAVAILABLE"));
         verify(evalRepo, atLeast(2)).save(any(AIEvaluationRun.class));
-        verify(auditService, atLeastOnce()).record(eq(ownerUserId), eq(com.clinora.audit.AuthAuditAction.AI_EVALUATION_COMPLETED), any(), any(), any(), any(), any());
+        verify(auditService, atLeastOnce()).record(eq(ownerUserId), eq(com.clinora.audit.AuthAuditAction.AI_EVALUATION_FAILED), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -282,8 +284,8 @@ class AIEvaluationServiceTest {
     }
 
     @Test
-    @DisplayName("Extraction task calculates exactMatchRate and toleranceMatchRate")
-    void extractionTaskCalculatesExtractionMetrics() {
+    @DisplayName("Extraction without an execution adapter returns unavailable with no metrics")
+    void extractionTaskCannotFabricateMetrics() {
         when(authService.requireReadAccess(projectId, ownerUserId)).thenReturn(approvedProject);
         when(authService.resolveProjectRole(projectId, ownerUserId)).thenReturn(Optional.of(ProjectMemberRole.OWNER));
         when(versionRepo.findById(versionId)).thenReturn(Optional.of(datasetVersion));
@@ -302,15 +304,15 @@ class AIEvaluationServiceTest {
         );
 
         AIEvaluationRunResponse response = service.createAndExecuteRun(projectId, request, ownerUserId);
-        assertNotNull(response.metrics());
-        assertNotNull(response.metrics().exactMatchRate());
-        assertNotNull(response.metrics().toleranceMatchRate());
-        assertTrue(response.metrics().exactMatchRate() > 0);
+        assertNull(response.metrics());
+        assertEquals(EvaluationRunStatus.FAILED, response.status());
+        assertTrue(response.failureReason().contains("No evaluation was executed"));
     }
 
     @Test
     @DisplayName("Options endpoint returns only authorized dataset versions for the requesting user")
     void optionsEndpointFiltersByDatasetAccessGrant() {
+        when(accessGuard.canReadDataset(datasetId, coResearcherUserId)).thenReturn(true);
         when(authService.requireReadAccess(projectId, coResearcherUserId)).thenReturn(approvedProject);
         when(datasetRepo.findByProjectIdOrderByCreatedAtDesc(projectId)).thenReturn(List.of(activeDataset));
         when(accessGrantRepo.findByDatasetIdAndResearcherUserId(datasetId, coResearcherUserId)).thenReturn(Optional.of(activeGrant));

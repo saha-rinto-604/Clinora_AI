@@ -77,7 +77,7 @@ class DatasetGenerationServiceTest {
                 new ObjectMapper(),
                 clock,
                 "clinora.research.dataset-generation"
-        );
+        , org.mockito.Mockito.mock(com.clinora.research.service.ResearchAccessGuard.class), org.mockito.Mockito.mock(com.clinora.research.service.ResearchPrivacyService.class));
     }
 
     @Test
@@ -159,7 +159,7 @@ class DatasetGenerationServiceTest {
         when(datasetRepository.findByDatasetRequestId(reqId)).thenReturn(Optional.empty());
         when(datasetRepository.save(any(ResearchDataset.class))).thenAnswer(i -> i.getArgument(0));
         when(versionRepository.findByDatasetIdOrderByVersionNumberDesc(any(UUID.class))).thenReturn(List.of());
-        when(versionRepository.save(any(DatasetVersion.class))).thenAnswer(i -> i.getArgument(0));
+        when(versionRepository.saveAndFlush(any(DatasetVersion.class))).thenAnswer(i -> i.getArgument(0));
 
         service.processJob(jobId);
 
@@ -167,7 +167,7 @@ class DatasetGenerationServiceTest {
         verify(storagePort).put(contains("datasets/"), eq(payload), eq("text/csv"));
 
         ArgumentCaptor<DatasetVersion> versionCaptor = ArgumentCaptor.forClass(DatasetVersion.class);
-        verify(versionRepository).save(versionCaptor.capture());
+        verify(versionRepository).saveAndFlush(versionCaptor.capture());
         DatasetVersion savedVersion = versionCaptor.getValue();
         assertEquals(1, savedVersion.getVersionNumber());
         assertTrue(savedVersion.isImmutable());

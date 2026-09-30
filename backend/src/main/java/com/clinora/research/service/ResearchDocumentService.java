@@ -191,7 +191,7 @@ public class ResearchDocumentService {
                     "INSUFFICIENT_ROLE", "Viewers have read-only access and cannot edit documents.");
         }
 
-        ResearchDocument document = findDocumentOrThrow(projectId, documentId);
+        ResearchDocument document = findDocumentForUpdate(projectId, documentId);
         if (document.isArchived()) {
             throw new ResearchApiException(HttpStatus.BAD_REQUEST,
                     "DOCUMENT_ARCHIVED", "Archived documents are read-only and cannot be modified.");
@@ -199,6 +199,7 @@ public class ResearchDocumentService {
 
         int latestRevision = revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(document.getId())
                 .map(ResearchDocumentRevision::getRevisionNumber).orElse(1);
+        requireRevision(request.expectedRevisionNumber(), latestRevision);
 
         String previousTitle = document.getTitle();
         byte[] crdtUpdate = decodeBase64(request.crdtUpdateBase64());
@@ -256,15 +257,20 @@ public class ResearchDocumentService {
                     "INSUFFICIENT_ROLE", "Only Owners and Co-Researchers can rename research documents.");
         }
 
-        ResearchDocument document = findDocumentOrThrow(projectId, documentId);
+        ResearchDocument document = findDocumentForUpdate(projectId, documentId);
         if (document.isArchived()) {
             throw new ResearchApiException(HttpStatus.BAD_REQUEST,
                     "DOCUMENT_ARCHIVED", "Archived documents cannot be renamed.");
         }
 
+        int latestRevision = revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(documentId)
+                .map(ResearchDocumentRevision::getRevisionNumber).orElse(1);
+        requireRevision(request.expectedRevisionNumber(), latestRevision);
         String oldTitle = document.getTitle();
         document.rename(request.title(), userId);
         document = documentRepository.save(document);
+        revisionRepository.save(new ResearchDocumentRevision(UUID.randomUUID(), documentId, latestRevision + 1,
+            userId, document.getTitle(), document.getContentJson(), document.getCrdtState(), "Document renamed"));
 
         Map<String, Object> meta = new HashMap<>();
         meta.put("projectId", projectId.toString());
@@ -277,7 +283,7 @@ public class ResearchDocumentService {
         List<UUID> editors = revisionRepository.findDistinctEditorIdsByDocumentId(document.getId());
         Set<UUID> contributorsSet = new LinkedHashSet<>(editors);
         contributorsSet.add(document.getCreatedByUserId());
-        long revCount = revisionRepository.countByDocumentId(document.getId());
+        long revCount = latestRevision + 1;
 
         return toDetailDto(document, new ArrayList<>(contributorsSet), (int) revCount, revCount);
     }
@@ -286,6 +292,7 @@ public class ResearchDocumentService {
     public DocumentDetailDto archiveDocument(
             UUID projectId,
             UUID documentId,
+            Integer expectedRevisionNumber,
             UUID userId,
             String ipAddress,
             String userAgent
@@ -300,14 +307,19 @@ public class ResearchDocumentService {
                     "INSUFFICIENT_ROLE", "Only project Owners can archive research documents.");
         }
 
-        ResearchDocument document = findDocumentOrThrow(projectId, documentId);
+        ResearchDocument document = findDocumentForUpdate(projectId, documentId);
         if (document.isArchived()) {
             throw new ResearchApiException(HttpStatus.BAD_REQUEST,
                     "DOCUMENT_ALREADY_ARCHIVED", "This document is already archived.");
         }
 
+        int latestRevision = revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(documentId)
+                .map(ResearchDocumentRevision::getRevisionNumber).orElse(1);
+        requireRevision(expectedRevisionNumber, latestRevision);
         document.archive(userId);
         document = documentRepository.save(document);
+        revisionRepository.save(new ResearchDocumentRevision(UUID.randomUUID(), documentId, latestRevision + 1,
+            userId, document.getTitle(), document.getContentJson(), document.getCrdtState(), "Document archived"));
 
         Map<String, Object> meta = new HashMap<>();
         meta.put("projectId", projectId.toString());
@@ -319,7 +331,7 @@ public class ResearchDocumentService {
         List<UUID> editors = revisionRepository.findDistinctEditorIdsByDocumentId(document.getId());
         Set<UUID> contributorsSet = new LinkedHashSet<>(editors);
         contributorsSet.add(document.getCreatedByUserId());
-        long revCount = revisionRepository.countByDocumentId(document.getId());
+        long revCount = latestRevision + 1;
 
         return toDetailDto(document, new ArrayList<>(contributorsSet), (int) revCount, revCount);
     }
@@ -379,6 +391,7 @@ public class ResearchDocumentService {
             UUID projectId,
             UUID documentId,
             int revisionNumber,
+            Integer expectedRevisionNumber,
             UUID userId,
             String ipAddress,
             String userAgent
@@ -393,7 +406,7 @@ public class ResearchDocumentService {
                     "INSUFFICIENT_ROLE", "Only project Owners and Co-Researchers can restore prior versions.");
         }
 
-        ResearchDocument document = findDocumentOrThrow(projectId, documentId);
+        ResearchDocument document = findDocumentForUpdate(projectId, documentId);
         if (document.isArchived()) {
             throw new ResearchApiException(HttpStatus.BAD_REQUEST,
                     "DOCUMENT_ARCHIVED", "Archived documents cannot be modified or restored.");
@@ -405,6 +418,7 @@ public class ResearchDocumentService {
 
         int latestRevision = revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(document.getId())
                 .map(ResearchDocumentRevision::getRevisionNumber).orElse(1);
+        requireRevision(expectedRevisionNumber, latestRevision);
 
         document.updateContent(historical.getTitle(), document.getDocumentType(), historical.getContentJson(), historical.getCrdtUpdate(), userId);
         document = documentRepository.save(document);
@@ -562,7 +576,7 @@ public class ResearchDocumentService {
     public List<SafeDatasetReferenceDto> listSafeDatasetReferences(UUID projectId, UUID userId) {
         authz.requireReadAccess(projectId, userId);
         return datasetRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
-                .filter(ResearchDataset::isActive)
+                .filter(ds -> authz.canReadDataset(ds.getId(), userId))
                 .map(ds -> new SafeDatasetReferenceDto(
                         ds.getId(),
                         ds.getName(),
@@ -574,18 +588,21 @@ public class ResearchDocumentService {
     @Transactional(readOnly = true)
     public List<SafeAIEvaluationReferenceDto> listSafeEvaluationReferences(UUID projectId, UUID userId) {
         authz.requireReadAccess(projectId, userId);
-        return evaluationRunRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
-                .filter(run -> run.getStatus() == EvaluationRunStatus.COMPLETED)
-                .map(run -> new SafeAIEvaluationReferenceDto(
-                        run.getId(),
-                        run.getModelId(),
-                        run.getModelVersion(),
-                        run.getTaskType().name(),
-                        run.getStatus().name()
-                )).toList();
+        // No verified execution adapter exists; historical fabricated completions are not valid citations.
+        return List.of();
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private void requireRevision(Integer expected, int actual) {
+        if (expected == null || expected != actual) throw new ResearchApiException(HttpStatus.CONFLICT,
+            "DOCUMENT_REVISION_CONFLICT", "This document has changed. Preserve your local draft and reload before saving again.");
+    }
+
+    private ResearchDocument findDocumentForUpdate(UUID projectId, UUID documentId) {
+        return documentRepository.findForUpdate(documentId, projectId)
+            .orElseThrow(() -> new ResearchApiException(HttpStatus.NOT_FOUND, "DOCUMENT_NOT_FOUND", "Document not found in this project."));
+    }
 
     private ResearchDocument findDocumentOrThrow(UUID projectId, UUID documentId) {
         return documentRepository.findByIdAndProjectId(documentId, projectId)

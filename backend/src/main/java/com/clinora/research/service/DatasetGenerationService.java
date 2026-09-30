@@ -37,6 +37,7 @@ import java.util.*;
 
 @Service
 public class DatasetGenerationService {
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatasetGenerationService.class);
 
@@ -56,6 +57,7 @@ public class DatasetGenerationService {
     private final Clock clock;
     private final String queueName;
     private final ResearchProjectMemberRepository memberRepository;
+    private final ResearchPrivacyService privacy;
 
     @Autowired
     public DatasetGenerationService(
@@ -74,8 +76,11 @@ public class DatasetGenerationService {
             ObjectMapper objectMapper,
             Clock clock,
             @Value("${clinora.research.dataset-generation-queue:" + ResearchMessagingConfig.DEFAULT_RESEARCH_DATASET_QUEUE + "}") String queueName,
-            @Autowired(required = false) ResearchProjectMemberRepository memberRepository
+            @Autowired(required = false) ResearchProjectMemberRepository memberRepository,
+            com.clinora.research.service.ResearchAccessGuard accessGuard, ResearchPrivacyService privacy
     ) {
+        this.accessGuard = accessGuard;
+        this.privacy = privacy;
         this.requestRepository = requestRepository;
         this.projectRepository = projectRepository;
         this.datasetRepository = datasetRepository;
@@ -109,7 +114,8 @@ public class DatasetGenerationService {
             AuthAuditService auditService,
             ObjectMapper objectMapper,
             Clock clock,
-            String queueName
+            String queueName,
+            ResearchAccessGuard accessGuard, ResearchPrivacyService privacy
     ) {
         this(
                 requestRepository,
@@ -127,8 +133,14 @@ public class DatasetGenerationService {
                 objectMapper,
                 clock,
                 queueName,
-                null
+                null, accessGuard, privacy
         );
+    }
+
+    @Transactional
+    public DatasetGenerationJob enqueueJob(UUID datasetRequestId, UUID userId) {
+        accessGuard.request(datasetRequestId, userId, true);
+        return enqueueJob(datasetRequestId);
     }
 
     @Transactional
@@ -196,6 +208,9 @@ public class DatasetGenerationService {
             ResearchProject project = projectRepository.findById(request.getProjectId())
                     .orElseThrow(() -> new IllegalStateException("Research project not found: " + request.getProjectId()));
 
+            privacy.lockConsentChanges();
+            accessGuard.request(request.getId(), project.getOwnerUserId(), true);
+
             // Extract criteria & fetch eligible observation candidates
             List<DeidentificationService.RawObservationRow> rows = fetchEligibleRows(request);
 
@@ -246,7 +261,8 @@ public class DatasetGenerationService {
                     deidResult.deidentificationProfileVersion(),
                     clock.instant()
             );
-            versionRepository.save(version);
+            versionRepository.saveAndFlush(version);
+            privacy.recordContributions(version.getId(), rows.stream().map(DeidentificationService.RawObservationRow::patientUserId).toList());
 
             // Automatically grant access to project owner and active project members
             Set<UUID> recipientUserIds = new LinkedHashSet<>();
@@ -290,17 +306,19 @@ public class DatasetGenerationService {
                     jobId, dataset.getId(), nextVersion, deidResult.totalEligibleRecords());
         } catch (Exception e) {
             LOGGER.error("Dataset generation job {} FAILED: {}", jobId, e.getMessage(), e);
-            targetJob.markFailed(e.getMessage(), clock.instant());
+            targetJob.markFailed("Dataset generation failed. Review eligibility, consent and approved request criteria.", clock.instant());
             jobRepository.save(targetJob);
         }
     }
 
     @Transactional(readOnly = true)
     public List<ResearchDataset> listDatasetsForProject(UUID projectId, UUID requestingUserId) {
+        accessGuard.project(projectId, requestingUserId);
         ResearchProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResearchApiException(HttpStatus.NOT_FOUND, ResearchErrorCode.PROJECT_NOT_FOUND, "Project not found"));
 
-        return datasetRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
+        return datasetRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
+            .filter(d -> accessGuard.canReadDataset(d.getId(), requestingUserId)).toList();
     }
 
     /**
@@ -310,6 +328,7 @@ public class DatasetGenerationService {
      */
     @Transactional(readOnly = true)
     public List<ResearchDataset> listDatasetsForResearcher(UUID requestingUserId) {
+        accessGuard.activeResearcher(requestingUserId);
         // Collect dataset IDs from owned projects
         Set<UUID> datasetIds = new LinkedHashSet<>();
         List<ResearchProject> ownedProjects = projectRepository.findByOwnerUserIdOrderByCreatedAtDesc(requestingUserId);
@@ -336,7 +355,8 @@ public class DatasetGenerationService {
         grants.stream().filter(DatasetAccessGrant::isActive).forEach(g -> datasetIds.add(g.getDatasetId()));
 
         if (datasetIds.isEmpty()) return List.of();
-        return datasetRepository.findByIdInOrderByCreatedAtDesc(datasetIds);
+        return datasetRepository.findByIdInOrderByCreatedAtDesc(datasetIds).stream()
+            .filter(d -> accessGuard.canReadDataset(d.getId(), requestingUserId)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -396,6 +416,7 @@ public class DatasetGenerationService {
     }
 
     private void verifyDatasetAccess(ResearchDataset dataset, UUID requestingUserId) {
+        accessGuard.dataset(dataset.getId(), requestingUserId);
         ResearchProject project = projectRepository.findById(dataset.getProjectId()).orElseThrow();
         if (project.getOwnerUserId().equals(requestingUserId)) {
             return;
@@ -450,7 +471,7 @@ public class DatasetGenerationService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.warn("Failed to parse requested population JSON: {}", e.getMessage());
+            throw new IllegalArgumentException("Invalid approved population criteria", e);
         }
 
         // Parse requested variables
@@ -467,7 +488,7 @@ public class DatasetGenerationService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.warn("Failed to parse requested variables JSON: {}", e.getMessage());
+            throw new IllegalArgumentException("Invalid approved variables", e);
         }
 
         if (!aliases.isEmpty()) {

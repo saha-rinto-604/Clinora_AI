@@ -22,16 +22,23 @@ import java.util.UUID;
  */
 @Service
 public class ResearchAuthorizationService {
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard;
 
     private final ResearchProjectRepository projectRepository;
     private final ResearchProjectMemberRepository memberRepository;
 
     public ResearchAuthorizationService(
             ResearchProjectRepository projectRepository,
-            ResearchProjectMemberRepository memberRepository
+            ResearchProjectMemberRepository memberRepository,
+            com.clinora.research.service.ResearchAccessGuard accessGuard
     ) {
+        this.accessGuard = accessGuard;
         this.projectRepository = projectRepository;
         this.memberRepository = memberRepository;
+    }
+
+    public boolean canReadDataset(UUID datasetId, UUID userId) {
+        return accessGuard.canReadDataset(datasetId, userId);
     }
 
     /**
@@ -41,6 +48,7 @@ public class ResearchAuthorizationService {
      */
     @Transactional(readOnly = true)
     public Optional<ProjectMemberRole> resolveProjectRole(UUID projectId, UUID userId) {
+        accessGuard.activeResearcher(userId);
         ResearchProject project = projectRepository.findById(projectId).orElse(null);
         if (project == null) {
             return Optional.empty();
@@ -60,6 +68,7 @@ public class ResearchAuthorizationService {
      */
     @Transactional(readOnly = true)
     public ResearchProject requireReadAccess(UUID projectId, UUID userId) {
+        accessGuard.activeResearcher(userId);
         ResearchProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResearchApiException(HttpStatus.NOT_FOUND,
                         ResearchErrorCode.PROJECT_NOT_FOUND, "Research project not found."));
@@ -82,6 +91,7 @@ public class ResearchAuthorizationService {
      */
     @Transactional(readOnly = true)
     public ResearchProject requireOwnerAccess(UUID projectId, UUID userId) {
+        accessGuard.activeResearcher(userId);
         ResearchProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResearchApiException(HttpStatus.NOT_FOUND,
                         ResearchErrorCode.PROJECT_NOT_FOUND, "Research project not found."));

@@ -29,7 +29,7 @@ public class DefaultDeidentificationService implements DeidentificationService {
     @org.springframework.beans.factory.annotation.Autowired
     public DefaultDeidentificationService(
             ObjectMapper objectMapper,
-            @Value("${clinora.research.min-cohort-size:1}") int minCohortSize,
+            @Value("${clinora.research.min-cohort-size:5}") int minCohortSize,
             @Value("${clinora.research.pseudonym-secret:${CLINORA_RESEARCH_PSEUDONYM_SECRET:}}") String pseudonymSecret,
             org.springframework.core.env.Environment environment
     ) {
@@ -39,7 +39,7 @@ public class DefaultDeidentificationService implements DeidentificationService {
                 System.getProperty("surefire.test.class.path") != null ||
                 System.getProperty("sun.java.command", "").contains("surefire")
         );
-        this.minCohortSize = isDevOrTest ? Math.max(1, Math.min(minCohortSize, 2)) : Math.max(1, minCohortSize);
+        this.minCohortSize = Math.max(5, minCohortSize);
         if (pseudonymSecret == null || pseudonymSecret.isBlank()) {
             if (isDevOrTest) {
                 this.pseudonymSecret = "dev-only-clinora-research-pseudonym-secret-change-me";
@@ -47,6 +47,9 @@ public class DefaultDeidentificationService implements DeidentificationService {
                 throw new IllegalStateException("CLINORA_RESEARCH_PSEUDONYM_SECRET is required but not configured. Application startup aborted for security.");
             }
         } else {
+            if (!isDevOrTest && (pseudonymSecret.length() < 32 || pseudonymSecret.contains("dev-only") || pseudonymSecret.contains("test-only") || pseudonymSecret.contains("change-me"))) {
+                throw new IllegalStateException("A private research pseudonym secret of at least 32 characters is required.");
+            }
             this.pseudonymSecret = pseudonymSecret;
         }
     }

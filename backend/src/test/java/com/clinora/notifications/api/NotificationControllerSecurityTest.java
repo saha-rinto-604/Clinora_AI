@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(SecurityFoundationConfig.class)
 @TestPropertySource(properties = "clinora.auth.jwt-secret=test-secret-that-is-at-least-32-bytes-long")
 class NotificationControllerSecurityTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.clinora.research.service.ResearchAccessGuard researchAccessGuard;
     private static final UUID USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @Autowired

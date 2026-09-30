@@ -13,19 +13,23 @@ import java.util.UUID;
 @Validated
 @RestController
 @RequestMapping("/api/v1/research/projects/{projectId}/audit-events")
-@PreAuthorize("hasAnyRole('RESEARCHER', 'ADMIN')")
+@PreAuthorize("hasRole('RESEARCHER')")
 public class ResearchAuditController {
+    private final com.clinora.research.service.ResearchAccessGuard accessGuard;
 
     private final ResearchAuditService auditService;
 
-    public ResearchAuditController(ResearchAuditService auditService) {
+    public ResearchAuditController(ResearchAuditService auditService, com.clinora.research.service.ResearchAccessGuard accessGuard) {
         this.auditService = auditService;
+        this.accessGuard = accessGuard;
     }
 
     @GetMapping
     public ApiResponse<List<ResearchAuditLogEntry>> getProjectAuditHistory(
-            @PathVariable UUID projectId
+            @PathVariable UUID projectId,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt
     ) {
+        accessGuard.project(projectId, UUID.fromString(jwt.getSubject()));
         List<ResearchAuditLogEntry> entries = auditService.getProjectAuditHistory(projectId);
         return ApiResponse.success("Project audit trail retrieved successfully.", entries);
     }

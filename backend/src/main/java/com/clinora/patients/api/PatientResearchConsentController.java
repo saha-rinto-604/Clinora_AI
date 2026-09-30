@@ -16,7 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/patient/privacy/research-consent")
-@PreAuthorize("hasAnyRole('PATIENT', 'RESEARCHER')")
+@PreAuthorize("hasRole('PATIENT')")
 public class PatientResearchConsentController {
 
     private final PatientResearchConsentService consentService;
@@ -46,7 +46,7 @@ public class PatientResearchConsentController {
         );
         String msg = request.consented()
                 ? "Research consent granted. Thank you for contributing to clinical research."
-                : "Research consent revoked. Your records will be excluded from future research datasets.";
+                : "Research consent revoked. Your records are excluded from new research datasets and affected stored versions are suspended for governance review.";
         return ApiResponse.success(msg, updated);
     }
 

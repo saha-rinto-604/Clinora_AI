@@ -60,12 +60,14 @@ public class DatasetStatisticsService {
     /** Full summary: all variables with descriptive stats. */
     public DatasetStatsSummary getSummary(UUID datasetId, int versionNumber, UUID requestingUserId) {
         List<ParsedRecord> records = loadRecords(datasetId, versionNumber, requestingUserId);
+        requireCohort(records);
 
         long uniqueSubjects = records.stream()
                 .map(ParsedRecord::subjectId)
                 .distinct()
                 .count();
 
+        requireSafePartition(records, ParsedRecord::observationPeriod);
         List<String> availablePeriods = records.stream()
                 .map(ParsedRecord::observationPeriod)
                 .filter(p -> p != null && !p.isBlank() && !"UNKNOWN".equals(p))
@@ -96,15 +98,18 @@ public class DatasetStatisticsService {
     /** Distribution histogram bins for one variable. */
     public List<FrequencyBin> getDistribution(UUID datasetId, int versionNumber, String variableCode, UUID requestingUserId) {
         List<ParsedRecord> records = loadRecords(datasetId, versionNumber, requestingUserId);
+        requireCohort(records);
         List<Double> values = extractValues(records, variableCode);
         if (values.isEmpty()) return List.of();
-        return computeHistogramBins(values, DEFAULT_BIN_COUNT);
+        return safeHistogram(records.stream().filter(r -> variableCode.equalsIgnoreCase(r.variableCode()) && r.value() != null).toList());
     }
 
     /** Time trend: mean per observation period (only real periods, never interpolated). */
     public List<TrendPoint> getTrend(UUID datasetId, int versionNumber, String variableCode, UUID requestingUserId) {
         List<ParsedRecord> records = loadRecords(datasetId, versionNumber, requestingUserId);
+        requireCohort(records);
 
+        requireSafePartition(records.stream().filter(r -> variableCode.equalsIgnoreCase(r.variableCode()) && r.value() != null).toList(), ParsedRecord::observationPeriod);
         Map<String, List<Double>> byPeriod = records.stream()
                 .filter(r -> variableCode.equalsIgnoreCase(r.variableCode()))
                 .filter(r -> r.value() != null)
@@ -131,7 +136,9 @@ public class DatasetStatisticsService {
             UUID requestingUserId
     ) {
         List<ParsedRecord> records = loadRecords(datasetId, versionNumber, requestingUserId);
+        requireCohort(records);
 
+        requireSafePartition(records.stream().filter(r -> variableCode.equalsIgnoreCase(r.variableCode()) && r.value() != null).toList(), r -> resolveGroup(r, groupBy));
         Map<String, List<Double>> byGroup = records.stream()
                 .filter(r -> variableCode.equalsIgnoreCase(r.variableCode()))
                 .filter(r -> r.value() != null)
@@ -254,6 +261,8 @@ public class DatasetStatisticsService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private VariableSummary computeVariableSummary(String variableCode, List<ParsedRecord> records) {
+        requireCohort(records);
+        requireSafePartition(records, r -> r.value() == null ? "MISSING" : "PRESENT");
         List<Double> values = records.stream()
                 .filter(r -> r.value() != null)
                 .map(r -> r.value().doubleValue())
@@ -279,7 +288,7 @@ public class DatasetStatisticsService {
         double min = sorted.get(0);
         double max = sorted.get(sorted.size() - 1);
         double stdDev = computeStdDev(sorted, mean);
-        List<FrequencyBin> distribution = computeHistogramBins(sorted, DEFAULT_BIN_COUNT);
+        List<FrequencyBin> distribution = safeHistogram(records.stream().filter(r -> r.value() != null).toList());
 
         return new VariableSummary(variableCode, variableCode, unit,
                 values.size(), missingCount,
@@ -310,34 +319,47 @@ public class DatasetStatisticsService {
         return Math.sqrt(variance);
     }
 
-    private List<FrequencyBin> computeHistogramBins(List<Double> sortedValues, int targetBins) {
-        if (sortedValues.isEmpty()) return List.of();
-        double min = sortedValues.get(0);
-        double max = sortedValues.get(sortedValues.size() - 1);
-
-        // All same value → single bin
-        if (min == max) {
-            return List.of(new FrequencyBin(String.valueOf(min), min, min, sortedValues.size()));
+    private void requireCohort(List<ParsedRecord> records) {
+        if (records.stream().anyMatch(r -> r.subjectId() == null || r.subjectId().isBlank())
+                || records.stream().map(ParsedRecord::subjectId).distinct().count() < 5) {
+            throw new ResearchApiException(HttpStatus.FORBIDDEN, "SMALL_COHORT_SUPPRESSED",
+                "Statistics require at least five distinct subjects in every reported group.");
         }
+    }
 
-        int bins = Math.min(targetBins, Math.max(1, (int) Math.ceil(1 + 3.322 * Math.log10(sortedValues.size()))));
-        double binWidth = (max - min) / bins;
-        List<FrequencyBin> result = new ArrayList<>();
+    private void requireSafePartition(List<ParsedRecord> records, java.util.function.Function<ParsedRecord, String> key) {
+        requireCohort(records);
+        var groups = records.stream().collect(Collectors.groupingBy(r -> Objects.toString(key.apply(r), "UNKNOWN")));
+        // Suppress the complete output if any group or its complement is small.
+        // Omitting only one group would disclose it by subtraction from the total.
+        for (var entry : groups.entrySet()) {
+            requireCohort(entry.getValue());
+            var complement = records.stream().filter(r -> !Objects.toString(key.apply(r), "UNKNOWN").equals(entry.getKey())).toList();
+            if (!complement.isEmpty()) requireCohort(complement);
+        }
+    }
 
-        for (int i = 0; i < bins; i++) {
-            double lo = min + i * binWidth;
-            double hi = (i == bins - 1) ? max + 0.0001 : lo + binWidth;
-            final int binIndex = i;
-            long count = sortedValues.stream()
-                    .filter(v -> v >= lo && v < (binIndex == bins - 1 ? hi : lo + binWidth))
-                    .count();
-            if (i == bins - 1) {
-                count = sortedValues.stream().filter(v -> v >= lo && v <= max).count();
+    private List<FrequencyBin> safeHistogram(List<ParsedRecord> records) {
+        requireCohort(records);
+        double min = records.stream().mapToDouble(r -> r.value().doubleValue()).min().orElseThrow();
+        double max = records.stream().mapToDouble(r -> r.value().doubleValue()).max().orElseThrow();
+        // Coarsen the whole histogram until every nonempty bin has five distinct subjects.
+        for (int bins = min == max ? 1 : DEFAULT_BIN_COUNT; bins >= 1; bins--) {
+            double width = (max - min) / bins;
+            List<FrequencyBin> result = new ArrayList<>();
+            boolean safe = true;
+            for (int i = 0; i < bins; i++) {
+                double lo = min + i * width;
+                double hi = i == bins - 1 ? max : min + (i + 1) * width;
+                boolean last = i == bins - 1;
+                var bucket = records.stream().filter(r -> r.value().doubleValue() >= lo
+                    && (last ? r.value().doubleValue() <= hi : r.value().doubleValue() < hi)).toList();
+                if (!bucket.isEmpty() && bucket.stream().map(ParsedRecord::subjectId).distinct().count() < 5) { safe = false; break; }
+                result.add(new FrequencyBin(String.format(Locale.ROOT, "%.1f-%.1f", lo, hi), round2(lo), round2(hi), bucket.size()));
             }
-            String label = String.format("%.1f–%.1f", lo, lo + binWidth);
-            result.add(new FrequencyBin(label, round2(lo), round2(lo + binWidth), count));
+            if (safe) return result;
         }
-        return result;
+        return List.of();
     }
 
     private String resolveGroup(ParsedRecord r, String groupBy) {

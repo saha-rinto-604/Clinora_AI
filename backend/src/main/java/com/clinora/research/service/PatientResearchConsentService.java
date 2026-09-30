@@ -23,15 +23,17 @@ public class PatientResearchConsentService {
     private final PatientResearchConsentRepository consentRepository;
     private final AuthAuditService auditService;
     private final Clock clock;
+    private final ResearchPrivacyService privacy;
 
     public PatientResearchConsentService(
             PatientResearchConsentRepository consentRepository,
             AuthAuditService auditService,
-            Clock clock
+            Clock clock, ResearchPrivacyService privacy
     ) {
         this.consentRepository = consentRepository;
         this.auditService = auditService;
         this.clock = clock;
+        this.privacy = privacy;
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +57,7 @@ public class PatientResearchConsentService {
             String ip,
             String userAgent
     ) {
+        privacy.lockConsentChanges();
         Instant now = clock.instant();
         PatientResearchConsent consent = consentRepository.findByPatientUserId(patientUserId)
                 .orElseGet(() -> new PatientResearchConsent(
@@ -84,7 +87,8 @@ public class PatientResearchConsentService {
             LOGGER.info("Patient {} GRANTED research consent under policy {}", patientUserId, consent.getPolicyVersion());
         } else {
             consent.revokeConsent(now);
-            consentRepository.save(consent);
+            consentRepository.saveAndFlush(consent);
+            privacy.suspendContributions(patientUserId, ip, userAgent);
 
             auditService.record(
                     patientUserId,

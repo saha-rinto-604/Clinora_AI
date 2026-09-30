@@ -98,7 +98,7 @@ class AdminResearcherAccountServiceTest {
                 auditEventRepository,
                 profileImageService,
                 clock
-        );
+        , org.mockito.Mockito.mock(com.clinora.research.service.ResearchAccessGuard.class));
 
         researcherId = UUID.randomUUID();
         adminId = UUID.randomUUID();

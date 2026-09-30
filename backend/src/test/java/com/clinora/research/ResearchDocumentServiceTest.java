@@ -158,6 +158,7 @@ class ResearchDocumentServiceTest {
 
         when(authz.resolveProjectRole(projectId, coResearcherUserId)).thenReturn(Optional.of(ProjectMemberRole.CO_RESEARCHER));
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         when(documentRepository.save(any(ResearchDocument.class))).thenAnswer(inv -> inv.getArgument(0));
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(docId))
                 .thenReturn(Optional.of(new ResearchDocumentRevision(UUID.randomUUID(), docId, 1, ownerUserId, "Initial Draft", "{}", null, "Initial")));
@@ -194,6 +195,7 @@ class ResearchDocumentServiceTest {
         UUID docId = UUID.randomUUID();
         ResearchDocument document = new ResearchDocument(docId, projectId, "Review Note", ResearchDocumentType.GENERAL, "{}", null, ownerUserId);
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         when(documentRepository.save(any(ResearchDocument.class))).thenAnswer(inv -> inv.getArgument(0));
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(docId))
                 .thenReturn(Optional.of(new ResearchDocumentRevision(UUID.randomUUID(), docId, 1, ownerUserId, "Review Note", "{}", null, "Initial")));
@@ -205,7 +207,7 @@ class ResearchDocumentServiceTest {
 
         // Attempt archive -> Forbidden (only OWNER can archive)
         assertThrows(ResearchApiException.class, () ->
-                service.archiveDocument(projectId, docId, supervisorUserId, "127.0.0.1", "TestAgent"));
+                service.archiveDocument(projectId, docId, 1, supervisorUserId, "127.0.0.1", "TestAgent"));
     }
 
     @Test
@@ -214,6 +216,7 @@ class ResearchDocumentServiceTest {
         UUID docId = UUID.randomUUID();
         ResearchDocument document = new ResearchDocument(docId, projectId, "Protected Doc", ResearchDocumentType.GENERAL, "{}", null, ownerUserId);
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         when(authz.resolveProjectRole(projectId, viewerUserId)).thenReturn(Optional.of(ProjectMemberRole.VIEWER));
 
         // Cannot create
@@ -226,11 +229,11 @@ class ResearchDocumentServiceTest {
 
         // Cannot rename
         assertThrows(ResearchApiException.class, () ->
-                service.renameDocument(projectId, docId, new RenameDocumentRequest("New Title"), viewerUserId, "127.0.0.1", "TestAgent"));
+                service.renameDocument(projectId, docId, new RenameDocumentRequest("New Title", 1), viewerUserId, "127.0.0.1", "TestAgent"));
 
         // Cannot archive
         assertThrows(ResearchApiException.class, () ->
-                service.archiveDocument(projectId, docId, viewerUserId, "127.0.0.1", "TestAgent"));
+                service.archiveDocument(projectId, docId, 1, viewerUserId, "127.0.0.1", "TestAgent"));
 
         // Cannot comment
         assertThrows(ResearchApiException.class, () ->
@@ -273,6 +276,7 @@ class ResearchDocumentServiceTest {
         document.updateContent("Attribution Test", null, "{\"updated\":true}", null, coResearcherUserId);
 
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         when(revisionRepository.findDistinctEditorIdsByDocumentId(docId)).thenReturn(List.of(coResearcherUserId));
         when(revisionRepository.countByDocumentId(docId)).thenReturn(2L);
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(docId))
@@ -296,6 +300,7 @@ class ResearchDocumentServiceTest {
         );
 
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         // Elena created it, Robert and Marcus edited revisions; Sophia (viewer) never edited
         when(revisionRepository.findDistinctEditorIdsByDocumentId(docId))
                 .thenReturn(List.of(coResearcherUserId, supervisorUserId));
@@ -329,13 +334,14 @@ class ResearchDocumentServiceTest {
         );
 
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         when(documentRepository.save(any(ResearchDocument.class))).thenAnswer(inv -> inv.getArgument(0));
         when(revisionRepository.findByDocumentIdAndRevisionNumber(docId, 1)).thenReturn(Optional.of(rev1));
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(docId)).thenReturn(Optional.of(rev2));
         when(authz.resolveProjectRole(projectId, ownerUserId)).thenReturn(Optional.of(ProjectMemberRole.OWNER));
 
         // Restore version 1
-        DocumentDetailDto restored = service.restoreRevision(projectId, docId, 1, ownerUserId, "127.0.0.1", "TestAgent");
+        DocumentDetailDto restored = service.restoreRevision(projectId, docId, 1, 2, ownerUserId, "127.0.0.1", "TestAgent");
 
         assertEquals(3, restored.currentRevisionNumber(), "Restoring creates new revision 3 without deleting prior revisions");
         assertEquals("Original Content V1", document.getContentJson());
@@ -355,6 +361,7 @@ class ResearchDocumentServiceTest {
         document.archive(ownerUserId);
 
         when(documentRepository.findByIdAndProjectId(docId, projectId)).thenReturn(Optional.of(document));
+        when(documentRepository.findForUpdate(docId, projectId)).thenReturn(Optional.of(document));
         when(authz.resolveProjectRole(projectId, ownerUserId)).thenReturn(Optional.of(ProjectMemberRole.OWNER));
 
         // Update rejected
@@ -363,7 +370,7 @@ class ResearchDocumentServiceTest {
 
         // Rename rejected
         assertThrows(ResearchApiException.class, () ->
-                service.renameDocument(projectId, docId, new RenameDocumentRequest("New Title"), ownerUserId, "127.0.0.1", "TestAgent"));
+                service.renameDocument(projectId, docId, new RenameDocumentRequest("New Title", 1), ownerUserId, "127.0.0.1", "TestAgent"));
 
         // Comment rejected
         assertThrows(ResearchApiException.class, () ->
@@ -371,7 +378,7 @@ class ResearchDocumentServiceTest {
 
         // Restore rejected
         assertThrows(ResearchApiException.class, () ->
-                service.restoreRevision(projectId, docId, 1, ownerUserId, "127.0.0.1", "TestAgent"));
+                service.restoreRevision(projectId, docId, 1, 1, ownerUserId, "127.0.0.1", "TestAgent"));
     }
 
     @Test
@@ -408,4 +415,20 @@ class ResearchDocumentServiceTest {
                 })
         );
     }
+    @Test
+    void staleSaveDoesNotChangeDocumentOrCreateRevision() {
+        UUID docId = UUID.randomUUID();
+        ResearchDocument doc = new ResearchDocument(docId,projectId,"Latest",ResearchDocumentType.GENERAL,"latest body",null,ownerUserId);
+        when(authz.resolveProjectRole(projectId,ownerUserId)).thenReturn(Optional.of(ProjectMemberRole.OWNER));
+        when(documentRepository.findForUpdate(docId,projectId)).thenReturn(Optional.of(doc));
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(docId)).thenReturn(Optional.of(
+            new ResearchDocumentRevision(UUID.randomUUID(),docId,2,ownerUserId,"Latest","latest body",null,"Latest")));
+        var stale = new UpdateDocumentRequest("Old",null,"stale body",null,"stale",1);
+        var failure = assertThrows(ResearchApiException.class, () -> service.updateDocument(projectId,docId,stale,ownerUserId,"test","test"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT,failure.getStatus());
+        assertEquals("latest body",doc.getContentJson());
+        verify(documentRepository,never()).save(any());
+        verify(revisionRepository,never()).save(any());
+    }
+
 }

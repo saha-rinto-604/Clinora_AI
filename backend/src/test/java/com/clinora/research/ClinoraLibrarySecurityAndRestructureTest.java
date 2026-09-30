@@ -64,7 +64,7 @@ class ClinoraLibrarySecurityAndRestructureTest {
                 evaluationRunRepository,
                 auditService,
                 objectMapper
-        );
+        , org.mockito.Mockito.mock(com.clinora.research.service.ResearchAccessGuard.class));
 
         ownerId = UUID.randomUUID();
         nonMemberId = UUID.randomUUID();
@@ -478,7 +478,7 @@ class ClinoraLibrarySecurityAndRestructureTest {
         ResearchApiException ex = assertThrows(ResearchApiException.class, () ->
                 service.registerOutput(ownerId, request, "127.0.0.1", "Agent")
         );
-        assertEquals("INVALID_PROVENANCE_LINK", ex.getErrorCode());
+        assertEquals("UNVERIFIED_EVALUATION_PROVENANCE", ex.getErrorCode());
     }
 
     @Test

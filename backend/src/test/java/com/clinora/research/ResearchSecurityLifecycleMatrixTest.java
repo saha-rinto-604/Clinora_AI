@@ -135,7 +135,7 @@ class ResearchSecurityLifecycleMatrixTest {
                 objectMapper,
                 clock,
                 "clinora.research.dataset-generation"
-        );
+        , org.mockito.Mockito.mock(com.clinora.research.service.ResearchAccessGuard.class), org.mockito.Mockito.mock(com.clinora.research.service.ResearchPrivacyService.class));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
