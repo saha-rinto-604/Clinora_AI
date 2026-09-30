@@ -185,6 +185,9 @@ services:
       VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080/ws}
     ports:
       - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       backend:
         condition: service_started
@@ -204,7 +207,8 @@ services:
       OCR_INTERNAL_TOKEN: ${OCR_INTERNAL_TOKEN:-dev-only-clinora-ocr-token-change-me}
       OCR_ENGINE: ${OCR_ENGINE:-auto}
       OCR_LANG: ${OCR_LANG:-en}
-      OCR_MAX_WORKERS: ${OCR_MAX_WORKERS:-2}
+      # One persistent native thread owns initialization and inference.
+      OCR_MAX_WORKERS: "1"
       OCR_JOB_TIMEOUT_SECONDS: ${OCR_JOB_TIMEOUT_SECONDS:-180}
       OCR_MAX_FILE_SIZE_MB: ${OCR_MAX_FILE_SIZE_MB:-20}
       OCR_MAX_PAGES: ${OCR_MAX_PAGES:-10}
@@ -213,19 +217,12 @@ services:
       OCR_NUMERIC_REVIEW_THRESHOLD: ${OCR_NUMERIC_REVIEW_THRESHOLD:-0.95}
       OCR_TABLE_RECOGNITION_ENABLED: ${OCR_TABLE_RECOGNITION_ENABLED:-true}
       OCR_REGION_DETECTION_ENABLED: ${OCR_REGION_DETECTION_ENABLED:-true}
-      OCR_MEDGEMMA_ASSIST_ENABLED: ${OCR_MEDGEMMA_ASSIST_ENABLED:-true}
-      OCR_MEDGEMMA_ASSIST_MODE: ${OCR_MEDGEMMA_ASSIST_MODE:-suspect}
-      OCR_MEDGEMMA_URL: ${OCR_MEDGEMMA_URL:-http://host.docker.internal:8002}
-      OCR_MEDGEMMA_CONNECT_TIMEOUT_SECONDS: ${OCR_MEDGEMMA_CONNECT_TIMEOUT_SECONDS:-4}
-      OCR_MEDGEMMA_READ_TIMEOUT_SECONDS: ${OCR_MEDGEMMA_READ_TIMEOUT_SECONDS:-25}
-      OCR_MEDGEMMA_MAX_TOKENS: ${OCR_MEDGEMMA_MAX_TOKENS:-900}
-      OCR_MEDGEMMA_IMAGE_MAX_SIDE: ${OCR_MEDGEMMA_IMAGE_MAX_SIDE:-1800}
-      OCR_MEDGEMMA_TARGET_CONFIDENCE_THRESHOLD: ${OCR_MEDGEMMA_TARGET_CONFIDENCE_THRESHOLD:-0.90}
     ports:
       - "8000:8000"
     volumes:
       - clinora-paddle-models:/root/.paddlex
     healthcheck:
+      start_period: 180s
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 15s
       timeout: 5s

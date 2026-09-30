@@ -137,17 +137,17 @@ function AnalysisStart() {
         <div className="clinora-report-start-reference__steps" aria-label="Report analysis workflow">
           <div>
             <strong>1 · Extract</strong>
-            <span>Clinora reads reported laboratory values.</span>
+            <span>Reads reported values</span>
           </div>
           <ChevronRight size={15} aria-hidden="true" />
           <div>
             <strong>2 · Verify</strong>
-            <span>Compare uncertain values with the source.</span>
+            <span>Verify against source</span>
           </div>
           <ChevronRight size={15} aria-hidden="true" />
           <div>
             <strong>3 · Understand</strong>
-            <span>Get a clear, patient-friendly insight after verification.</span>
+            <span>AI clinical insight</span>
           </div>
         </div>
       </section>
@@ -172,7 +172,6 @@ function AnalysisStart() {
           </span>
           <div>
             <h2 id="personal-lab-reports-title">Personal lab reports</h2>
-            <p>Reports that belong to you and can contribute to your own Clinora Health Record.</p>
           </div>
           <Link to="/patient/reports" className="clinora-report-library-reference__view-all">
             View all <ChevronRight size={14} aria-hidden="true" />
@@ -193,10 +192,7 @@ function AnalysisStart() {
           </span>
           <div>
             <h2 id="other-lab-reports-title">Other lab reports</h2>
-            <p>
-              Reports uploaded for family members or someone else. These stay separate from your own Clinora Health
-              Record.
-            </p>
+            <p>Uploaded for family or others; kept separate from your Health Record.</p>
           </div>
           <div className="clinora-report-library-reference__filters" aria-label="Filter other reports">
             <label>
@@ -524,10 +520,11 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
       {extraction.displayedPreviousResult && ['QUEUED', 'PROCESSING'].includes(extraction.status) ? (
         <div
-          className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 text-sm text-cyan-100"
+          className="flex items-center gap-2.5 rounded-lg border border-cyan-300/20 bg-cyan-950/40 px-3.5 py-2 text-xs text-cyan-200"
           role="status"
         >
-          Your current reviewed extraction remains visible while Clinora processes the original report again.
+          <RefreshCw size={14} className="animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
+          <span>Your current reviewed extraction remains visible while Clinora processes the original report again.</span>
         </div>
       ) : null}
 
@@ -543,10 +540,11 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
         <>
           {extraction.status === 'SUCCEEDED' && extraction.reprocessing && !(extraction.pendingDifferenceCount ?? 0) ? (
             <div
-              className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 text-sm text-emerald-100"
+              className="flex items-center gap-2.5 rounded-lg border border-emerald-300/20 bg-emerald-950/40 px-3.5 py-2 text-xs text-emerald-200"
               role="status"
             >
-              Re-extraction finished. No extracted values changed.
+              <CheckCircle2 size={14} className="shrink-0" aria-hidden="true" />
+              <span>Re-extraction finished. No extracted values changed.</span>
             </div>
           ) : null}
           <div className="clinora-report-review-reference__workspace">
@@ -564,10 +562,20 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
               aria-labelledby="review-what-clinora-read-title"
             >
               <div className="clinora-report-review-reference__results-head">
-                <div>
-                  <p className="clinora-reference-section-label">Extracted results</p>
-                  <h2 id="review-what-clinora-read-title">Review what Clinora read</h2>
-                  <p>Check values against the original. Edits change extracted values, not the original.</p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 id="review-what-clinora-read-title">Review what Clinora read</h2>
+                    <span className="clinora-report-review-reference__count-badge">
+                      {extraction.observations.length} results
+                    </span>
+                  </div>
+                  <div className="clinora-report-review-reference__status-line" aria-live="polite">
+                    <span className={(extraction.pendingDifferenceCount ?? unresolved) ? 'needs-review' : 'complete'}>
+                      {(extraction.pendingDifferenceCount ?? unresolved)
+                        ? `${extraction.pendingDifferenceCount ?? unresolved} ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'needs' : 'need'} review`
+                        : 'All flagged values have been reviewed'}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {extraction.status === 'SUCCEEDED' ? (
@@ -577,7 +585,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                       onClick={() => setReExtractOpen(true)}
                       disabled={action === 're-extract'}
                     >
-                      <RefreshCw size={15} aria-hidden="true" /> Re-extract report
+                      <RefreshCw size={14} aria-hidden="true" /> Re-extract report
                     </Button>
                   ) : null}
                   <button
@@ -598,27 +606,11 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 </div>
               ) : null}
 
-              <div className="clinora-report-review-reference__summary" aria-live="polite">
-                <span className="clinora-reference-icon-well">
-                  <FileText size={18} aria-hidden="true" />
-                </span>
-                <div>
-                  <strong>
-                    {extraction.observations.length} <span>results extracted</span>
-                  </strong>
-                  <small className={(extraction.pendingDifferenceCount ?? unresolved) ? 'needs-review' : 'complete'}>
-                    {(extraction.pendingDifferenceCount ?? unresolved)
-                      ? `${extraction.pendingDifferenceCount ?? unresolved} ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'needs' : 'need'} review`
-                      : 'All flagged values have been reviewed'}
-                  </small>
-                </div>
-              </div>
-
               <div className="clinora-report-review-reference__table-head" aria-hidden="true">
                 <span>Test</span>
                 <span>Result</span>
                 <span>Reference on report</span>
-                <span>Action</span>
+                <span>Status / actions</span>
               </div>
               <div className="clinora-report-review-reference__rows">
                 {reviewRows.map((observation) => (
@@ -693,7 +685,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                 </strong>
                 <small>
                   {extraction.reviewStatus === 'VERIFIED'
-                    ? 'Your reviewed values are ready for Clinora AI insight.'
+                    ? 'Ready for Clinora AI insight.'
                     : (extraction.pendingDifferenceCount ?? unresolved)
                       ? `Review ${extraction.pendingDifferenceCount ?? unresolved} changed, new, or flagged ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'value' : 'values'} before confirmation.`
                       : 'All extracted values are ready for your confirmation.'}
@@ -806,7 +798,7 @@ function ProcessingPanel({ extraction }: { extraction: PatientReportExtraction }
               </div>
               <div className="space-y-4 pt-4" aria-hidden="true">
                 {[86, 72, 91, 64, 79, 68].map((width, index) => (
-                  <div key={width + index} className="grid grid-cols-[1.25fr_0.7fr_0.8fr] items-center gap-2">
+                  <div key={`ocr-skeleton-row-${index}`} className="grid grid-cols-[1.25fr_0.7fr_0.8fr] items-center gap-2">
                     <span className="h-2 rounded-full bg-white/[0.08]" style={{ width: `${width}%` }} />
                     <span className="h-2 rounded-full bg-white/[0.055]" />
                     <span className="h-2 rounded-full bg-white/[0.045]" />
@@ -838,7 +830,7 @@ function ProcessingPanel({ extraction }: { extraction: PatientReportExtraction }
               : 'Clinora is locating laboratory-style text and values so you can compare the transcription with the original before any AI insight is requested.'}
           </p>
 
-          <ReportProcessingNotice requestedAt={extraction.requestedAt} stage="extraction" queued={queued} />
+          <ReportProcessingNotice stage="extraction" queued={queued} />
 
           <div className="mt-7 space-y-3">
             <ExtractionStatusRow
@@ -1168,7 +1160,7 @@ function ObservationCard({
           <PencilLine size={14} aria-hidden="true" /> Edit result
         </button>
         <button type="button" onClick={onSelect}>
-          <Eye size={14} aria-hidden="true" /> View on report
+          <Eye size={14} aria-hidden="true" /> View source
         </button>
       </div>
 
@@ -1425,13 +1417,13 @@ function ProgressStep({
 }) {
   return (
     <div className={cn('clinora-report-review-reference__progress-step', done && 'is-done', active && 'is-active')}>
-      <span className="clinora-report-review-reference__progress-icon">
+      <span className="clinora-report-review-reference__progress-icon" aria-hidden="true">
         {done ? (
-          <CheckCircle2 size={17} aria-hidden="true" />
+          <CheckCircle2 size={13} />
         ) : active ? (
-          <span className="clinora-report-review-reference__progress-ring" aria-hidden="true" />
+          <span className="clinora-report-review-reference__progress-ring" />
         ) : (
-          <Icon size={17} aria-hidden="true" />
+          <Icon size={13} />
         )}
       </span>
       <span>

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DoctorConsultationPage } from './doctor-consultation-page';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 
 const mocks = vi.hoisted(() => ({
   appointment: vi.fn(),
@@ -144,6 +145,21 @@ describe('Doctor consultation reference layout', () => {
     expect(mocks.complete).toHaveBeenCalledWith(
       'consultation-1',
       expect.objectContaining({ assessment: '', plan: '', prescriptions: [] }),
+    );
+  });
+
+  it('returns to the validated Patient context and opens care history on the timeline tab', async () => {
+    renderWorkspace(
+      doctorNavigationState('/doctor/patients/patient-1?tab=consultations', 'Back to patient'),
+    );
+
+    expect(await screen.findByRole('link', { name: 'Back to patient' })).toHaveAttribute(
+      'href',
+      '/doctor/patients/patient-1?tab=consultations',
+    );
+    expect(screen.getByRole('link', { name: 'Care history' })).toHaveAttribute(
+      'href',
+      '/doctor/patients/patient-1?tab=timeline',
     );
   });
 
@@ -308,9 +324,9 @@ const normalMessage =
 const emptyMessage =
   'You have not added digital clinical notes or care actions to this consultation. You can still complete it. Are you sure you want to finish?';
 
-function renderWorkspace() {
+function renderWorkspace(state?: unknown) {
   return render(
-    <MemoryRouter initialEntries={['/doctor/appointments/appointment-1/consultation']}>
+    <MemoryRouter initialEntries={[{ pathname: '/doctor/appointments/appointment-1/consultation', state }]}>
       <Routes>
         <Route path="/doctor/appointments/:appointmentId/consultation" element={<DoctorConsultationPage />} />
       </Routes>

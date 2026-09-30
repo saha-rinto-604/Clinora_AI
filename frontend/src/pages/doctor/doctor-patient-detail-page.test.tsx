@@ -6,6 +6,7 @@ import { axe } from 'jest-axe';
 import type { DoctorPatientDetail, PatientCareEpisode } from '../../features/consultations/consultation-api';
 import { detailDate, detailDateTime } from '../../features/doctor/doctor-patient-detail-model';
 import { DoctorPatientDetailPage } from './doctor-patient-detail-page';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 
 const mocks = vi.hoisted(() => ({ patient: vi.fn(), photo: vi.fn() }));
 vi.mock('../../features/consultations/consultation-api', async () => {
@@ -213,6 +214,46 @@ describe('Doctor individual Patient workspace', () => {
     await user.click(screen.getByRole('tab', { name: 'Overview' }));
     await user.click(screen.getByRole('button', { name: 'View all appointments' }));
     expect(screen.getByRole('tab', { name: 'Appointments' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('restores the selected tab from the URL and returns to the same active consultation', async () => {
+    const data = patientFixture();
+    data.currentCare.consultationInProgress = true;
+    data.careHistory = [
+      {
+        ...completedEpisode,
+        consultationId: 'active-record',
+        appointmentId: 'active-appointment',
+        status: 'IN_PROGRESS',
+        completedAt: null,
+      },
+    ];
+    mocks.patient.mockResolvedValue(data);
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/doctor/patients/authorized-patient-id',
+            search: '?tab=timeline',
+            state: doctorNavigationState(
+              '/doctor/appointments/active-appointment/consultation',
+              'Back to consultation',
+            ),
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/doctor/patients/:patientId" element={<DoctorPatientDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('tabpanel', { name: 'Care Timeline' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to consultation' })).toHaveAttribute(
+      'href',
+      '/doctor/appointments/active-appointment/consultation',
+    );
   });
 
   it('does not create report rows when nothing is currently shared and falls back to initials when the photo is unavailable', async () => {

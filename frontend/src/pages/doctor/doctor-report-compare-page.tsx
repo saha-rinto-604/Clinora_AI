@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRightLeft, FileSearch } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { buttonVariants } from '../../components/ui/button-variants';
@@ -12,9 +12,11 @@ import {
   type DoctorReportObservation,
 } from '../../features/doctor/doctor-api';
 import { formatDoctorDate, reportTypeLabel } from '../../features/doctor/doctor-display';
+import { doctorBackTarget } from '../../features/doctor/doctor-navigation';
 
 export function DoctorReportComparePage() {
   const { appointmentId = '' } = useParams();
+  const location = useLocation();
   const [params] = useSearchParams();
   const left = params.get('left') || '';
   const right = params.get('right') || '';
@@ -44,6 +46,13 @@ export function DoctorReportComparePage() {
   }, [load]);
 
   const rows = useMemo(() => comparisonRows(data), [data]);
+  const appointmentPath = `/doctor/appointments/${appointmentId}`;
+  const consultationPath = `${appointmentPath}/consultation`;
+  const back = doctorBackTarget(
+    location.state,
+    { to: appointmentPath, label: 'Back to appointment' },
+    (path) => path === appointmentPath || path === consultationPath,
+  );
 
   if (loading) {
     return (
@@ -61,8 +70,8 @@ export function DoctorReportComparePage() {
           {error || 'The report comparison is unavailable.'}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <Link to={`/doctor/appointments/${appointmentId}`} className={buttonVariants({ variant: 'appSecondary' })}>
-            Back to appointment
+          <Link to={back.to} state={back.state} className={buttonVariants({ variant: 'appSecondary' })}>
+            {back.label}
           </Link>
           {left && right && left !== right ? (
             <Button variant="appSecondary" onClick={() => void load()}>
@@ -77,10 +86,11 @@ export function DoctorReportComparePage() {
   return (
     <div className="space-y-7">
       <Link
-        to={`/doctor/appointments/${appointmentId}`}
+        to={back.to}
+        state={back.state}
         className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-[var(--clinora-text-muted)] transition-colors hover:text-[var(--clinora-info-foreground)]"
       >
-        <ArrowLeft size={16} aria-hidden="true" /> Back to appointment
+        <ArrowLeft size={16} aria-hidden="true" /> {back.label}
       </Link>
 
       <AppSectionHeader

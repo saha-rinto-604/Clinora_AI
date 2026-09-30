@@ -9,7 +9,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { buttonVariants } from '../../components/ui/button-variants';
@@ -23,9 +23,11 @@ import {
 } from '../../features/doctor/doctor-api';
 import { formatDoctorDate, reportTypeLabel } from '../../features/doctor/doctor-display';
 import { ClinoraClinicalSupportPanel } from '../../features/doctor/clinora-clinical-support-panel';
+import { doctorBackTarget } from '../../features/doctor/doctor-navigation';
 
 export function DoctorReportReviewPage() {
   const { appointmentId = '', reportId = '' } = useParams();
+  const location = useLocation();
   const [data, setData] = useState<DoctorReportReview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,6 +109,14 @@ export function DoctorReportReviewPage() {
     }
   };
 
+  const appointmentPath = `/doctor/appointments/${appointmentId}`;
+  const consultationPath = `${appointmentPath}/consultation`;
+  const back = doctorBackTarget(
+    location.state,
+    { to: appointmentPath, label: 'Back to appointment' },
+    (path) => path === appointmentPath || path === consultationPath,
+  );
+
   if (loading) {
     return (
       <div className="space-y-6" aria-label="Loading shared report">
@@ -129,8 +139,8 @@ export function DoctorReportReviewPage() {
           <Button variant="appSecondary" onClick={() => void load()}>
             Try again
           </Button>
-          <Link to={`/doctor/appointments/${appointmentId}`} className={buttonVariants({ variant: 'appSecondary' })}>
-            Back to appointment
+          <Link to={back.to} state={back.state} className={buttonVariants({ variant: 'appSecondary' })}>
+            {back.label}
           </Link>
         </div>
       </AppSurface>
@@ -143,11 +153,12 @@ export function DoctorReportReviewPage() {
   return (
     <div className="space-y-7">
       <Link
-        to={`/doctor/appointments/${appointmentId}`}
+        to={back.to}
+        state={back.state}
         className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-[var(--clinora-text-muted)] transition-colors hover:text-[var(--clinora-info-foreground)]"
       >
         <ArrowLeft size={16} aria-hidden="true" />
-        Back to appointment
+        {back.label}
       </Link>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

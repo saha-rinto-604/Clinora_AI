@@ -63,6 +63,11 @@ const mobileNavigation = allNavigation.filter((item) =>
   ['/doctor', '/doctor/schedule', '/doctor/patients', '/doctor/inbox'].includes(item.to),
 );
 
+function doctorSectionActive(to: string, pathname: string, routerActive: boolean) {
+  if (to === '/doctor/schedule' && pathname.startsWith('/doctor/appointments/')) return true;
+  return routerActive;
+}
+
 export function DoctorLayout() {
   return (
     <DoctorShell>
@@ -136,7 +141,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
                     className={({ isActive }) =>
                       cn(
                         'group relative flex min-h-10 items-center gap-3 rounded-[11px] px-3 text-[13px] font-medium transition-colors duration-200',
-                        isActive
+                        doctorSectionActive(to, location.pathname, isActive)
                           ? 'bg-white/[0.055] text-white'
                           : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-200',
                       )
@@ -144,7 +149,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
                   >
                     {({ isActive }) => (
                       <>
-                        {isActive ? (
+                        {doctorSectionActive(to, location.pathname, isActive) ? (
                           <motion.span
                             layoutId="doctor-r3-active"
                             className="absolute inset-y-2.5 left-0 w-[2px] rounded-full bg-cyan-300"
@@ -155,7 +160,11 @@ export function DoctorShell({ children }: { children: ReactNode }) {
                           size={16}
                           strokeWidth={1.8}
                           aria-hidden="true"
-                          className={isActive ? 'text-cyan-200' : 'text-slate-600 group-hover:text-slate-300'}
+                          className={
+                            doctorSectionActive(to, location.pathname, isActive)
+                              ? 'text-cyan-200'
+                              : 'text-slate-600 group-hover:text-slate-300'
+                          }
                         />
                         <span className="truncate">{label}</span>
                       </>
@@ -278,7 +287,7 @@ export function DoctorShell({ children }: { children: ReactNode }) {
                 className={({ isActive }) =>
                   cn(
                     'relative flex min-h-[62px] flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors duration-200',
-                    isActive ? 'text-cyan-200' : 'text-slate-600',
+                    doctorSectionActive(to, location.pathname, isActive) ? 'text-cyan-200' : 'text-slate-600',
                   )
                 }
               >

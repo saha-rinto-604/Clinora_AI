@@ -327,7 +327,7 @@ public class PatientReportAiAnalysisService {
         return jdbc.query(
             """
             SELECT id, report_id, patient_user_id, extraction_result_id, input_snapshot::text AS input_snapshot,
-                model_name, model_revision, prompt_version, schema_version
+                model_name, model_revision, prompt_version, schema_version, requested_at
             FROM medical_report_ai_analysis_jobs
             WHERE id = ?
             """,
@@ -340,7 +340,9 @@ public class PatientReportAiAnalysisService {
                 rs.getString("model_name"),
                 rs.getString("model_revision"),
                 rs.getString("prompt_version"),
-                rs.getString("schema_version")
+                rs.getString("schema_version"),
+                rs.getTimestamp("requested_at") == null ? null
+                    : Math.max(0L, java.time.Duration.between(instant(rs, "requested_at"), now).toMillis())
             ),
             jobId
         ).stream().findFirst().orElse(null);
@@ -1042,8 +1044,15 @@ public class PatientReportAiAnalysisService {
         String modelName,
         String modelRevision,
         String promptVersion,
-        String schemaVersion
+        String schemaVersion,
+        Long queueWaitMs
     ) {
+        public WorkItem(UUID jobId, UUID reportId, UUID patientUserId, UUID extractionResultId,
+                        AnalysisInputSnapshot input, String modelName, String modelRevision,
+                        String promptVersion, String schemaVersion) {
+            this(jobId, reportId, patientUserId, extractionResultId, input, modelName, modelRevision,
+                 promptVersion, schemaVersion, null);
+        }
     }
 
     public record DoctorSnapshot(

@@ -242,7 +242,7 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
 
     await user.click(screen.getByText('MCHC').closest('button')!);
     expect(screen.getByText('Source for MCHC')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'View on report' })).toHaveLength(extraction.observations.length);
+    expect(screen.getAllByRole('button', { name: 'View source' })).toHaveLength(extraction.observations.length);
 
     await user.click(screen.getAllByRole('button', { name: 'Edit result' })[0]);
     expect(screen.getByText('What Clinora originally extracted')).toBeInTheDocument();

@@ -11,6 +11,7 @@ import {
   type ClinicalInboxItem,
   type ClinicalInboxView,
 } from '../../features/consultations/consultation-api';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 
 export function DoctorClinicalInboxPage() {
   const [data, setData] = useState<ClinicalInboxView | null>(null);
@@ -105,6 +106,7 @@ export function DoctorClinicalInboxPage() {
                   <li key={item.key}>
                     <Link
                       to={item.destination}
+                      state={doctorNavigationState('/doctor/inbox', 'Back to Clinical Inbox')}
                       className="group grid min-h-[86px] gap-2 px-5 py-3.5 transition-colors hover:bg-[var(--clinora-surface-hover)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6"
                     >
                       <span className="min-w-0">

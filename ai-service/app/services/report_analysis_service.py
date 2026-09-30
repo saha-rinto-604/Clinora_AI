@@ -4,9 +4,10 @@ import json
 import logging
 import re
 import threading
-import time
 from collections.abc import Iterable
 from uuid import UUID
+
+from .patient_analysis_metrics import PatientAnalysisMetrics
 
 from pydantic import ValidationError
 
@@ -485,6 +486,16 @@ class ReportAnalysisService:
         self._semaphore = threading.BoundedSemaphore(1)
 
     def analyze(self, request: ReportAnalysisRequest) -> ReportAnalysisResponse:
+        metrics = PatientAnalysisMetrics(request.requestId)
+        outcome = "failed"
+        try:
+            result = self._analyze(request, metrics)
+            outcome = "completed"
+            return result
+        finally:
+            metrics.emit(outcome)
+
+    def _analyze(self, request: ReportAnalysisRequest, metrics: PatientAnalysisMetrics) -> ReportAnalysisResponse:
         allowed_observation_ids = VerifiedObservationIds(request.observations, compact=True)
         evidence_ids = {str(observation.observationId): key
                         for key, observation in allowed_observation_ids.facts.items()}
@@ -493,56 +504,59 @@ class ReportAnalysisService:
         repair_attempted = False
 
         while True:
-            with self._semaphore:
-                started = time.monotonic()
-                generation = self._runtime.generate(
-                    messages,
-                    allowed_observation_ids=allowed_observation_ids,
-                )
-                LOGGER.info("Patient report generation: seconds=%.2f prompt_tokens=%s completion_tokens=%s repair=%s",
-                            time.monotonic() - started, getattr(generation, "prompt_tokens", None),
-                            getattr(generation, "completion_tokens", None), repair_attempted)
+            with metrics.stage("queue_wait_ms"):
+                self._semaphore.acquire()
+            try:
+                with metrics.generation(repair_attempted):
+                    generation = self._runtime.generate(
+                        messages,
+                        allowed_observation_ids=allowed_observation_ids,
+                    )
+                metrics.record(generation)
+            finally:
+                self._semaphore.release()
             raw, truncated, generation_diagnostics = self._generation_details(generation)
 
             try:
-                if truncated:
-                    raise InvalidModelOutputError(
-                        "Clinora AI output was truncated at the configured token limit.",
-                        "OUTPUT_TRUNCATED",
-                        generation_diagnostics,
+                with metrics.stage("grounding_validation_ms"):
+                    if truncated:
+                        raise InvalidModelOutputError(
+                            "Clinora AI output was truncated at the configured token limit.",
+                            "OUTPUT_TRUNCATED",
+                            generation_diagnostics,
+                        )
+                    parsed_candidate = parse_candidate_output(raw)
+                    if "clusters" in parsed_candidate:
+                        parsed_candidate = parse_cluster_output(raw)
+                    parsed_candidate = _expand_evidence_ids(parsed_candidate, original_ids)
+                    # Apply Clinora's existing raw safety boundary before sanitizing or
+                    # grounding candidate output. Unsafe model text is never silently hidden.
+                    self._validate_raw_safety_boundary(parsed_candidate)
+                    is_cluster_contract = "clusters" in parsed_candidate or "clinicalClusters" in parsed_candidate
+                    if is_cluster_contract:
+                        candidate_payload, candidate_diagnostics = model_payload_from_cluster_output(
+                            request, parsed_candidate,
+                        )
+                        LOGGER.info("Clinora AI cluster grounding counts: %s", json.dumps(candidate_diagnostics))
+                    else:
+                        # Historical compact responses retain R4's evidence-level pruning.
+                        # Live v5 generation is constrained to clusters by the runtime schema.
+                        candidate_payload, candidate_diagnostics = model_payload_from_candidate_output(
+                            request, parsed_candidate,
+                        )
+                        LOGGER.info(
+                            "Clinora AI legacy grounding: raw_candidates=%s accepted_candidates=%s pruned_evidence=%s",
+                            candidate_diagnostics["modelCandidates"],
+                            candidate_diagnostics["acceptedCandidates"],
+                            candidate_diagnostics.get("discardedEvidenceIds", 0),
+                        )
+                    payload = self._validated_payload(
+                        request,
+                        json.dumps(candidate_payload, separators=(",", ":"), ensure_ascii=True),
+                        truncated=truncated,
+                        generation_diagnostics=generation_diagnostics,
+                        cluster_grounded=is_cluster_contract,
                     )
-                parsed_candidate = parse_candidate_output(raw)
-                if "clusters" in parsed_candidate:
-                    parsed_candidate = parse_cluster_output(raw)
-                parsed_candidate = _expand_evidence_ids(parsed_candidate, original_ids)
-                # Apply Clinora's existing raw safety boundary before sanitizing or
-                # grounding candidate output. Unsafe model text is never silently hidden.
-                self._validate_raw_safety_boundary(parsed_candidate)
-                is_cluster_contract = "clusters" in parsed_candidate or "clinicalClusters" in parsed_candidate
-                if is_cluster_contract:
-                    candidate_payload, candidate_diagnostics = model_payload_from_cluster_output(
-                        request, parsed_candidate,
-                    )
-                    LOGGER.info("Clinora AI cluster grounding counts: %s", json.dumps(candidate_diagnostics))
-                else:
-                    # Historical compact responses retain R4's evidence-level pruning.
-                    # Live v5 generation is constrained to clusters by the runtime schema.
-                    candidate_payload, candidate_diagnostics = model_payload_from_candidate_output(
-                        request, parsed_candidate,
-                    )
-                    LOGGER.info(
-                        "Clinora AI legacy grounding: raw_candidates=%s accepted_candidates=%s pruned_evidence=%s",
-                        candidate_diagnostics["modelCandidates"],
-                        candidate_diagnostics["acceptedCandidates"],
-                        candidate_diagnostics.get("discardedEvidenceIds", 0),
-                    )
-                payload = self._validated_payload(
-                    request,
-                    json.dumps(candidate_payload, separators=(",", ":"), ensure_ascii=True),
-                    truncated=truncated,
-                    generation_diagnostics=generation_diagnostics,
-                    cluster_grounded=is_cluster_contract,
-                )
                 break
             except (CandidateOutputError, LegacyCandidateOutputError) as exc:
                 if repair_attempted or truncated:

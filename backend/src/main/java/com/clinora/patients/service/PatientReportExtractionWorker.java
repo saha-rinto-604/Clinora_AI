@@ -32,21 +32,55 @@ public class PatientReportExtractionWorker {
             return;
         }
 
+        long started = System.nanoTime();
         WorkItem work = extraction.claim(jobId);
         if (work == null) return;
+        double sourceLoadMs = 0;
+        double ocrRequestMs = 0;
+        double persistenceMs = 0;
+        String outcome = "failed";
         try {
-            SourceObject source = extraction.source(work);
-            var response = ocr.extract(
-                work.jobId(),
-                source.bytes(),
-                source.filename(),
-                source.contentType()
-            );
-            extraction.complete(work, response);
+            SourceObject source;
+            long stage = System.nanoTime();
+            try {
+                source = extraction.source(work);
+            } finally {
+                sourceLoadMs = elapsedMs(stage);
+            }
+            com.clinora.ocr.client.OcrClient.ExtractionResponse response;
+            stage = System.nanoTime();
+            try {
+                response = ocr.extract(work.jobId(), source.bytes(), source.filename(), source.contentType());
+            } finally {
+                ocrRequestMs = elapsedMs(stage);
+            }
+            stage = System.nanoTime();
+            try {
+                extraction.complete(work, response);
+                outcome = "INSUFFICIENT".equals(response.qualityState())
+                    || response.warnings() != null && response.warnings().contains("EXTRACTION_QUALITY_INSUFFICIENT")
+                    ? "quality_rejected" : "completed";
+            } finally {
+                persistenceMs = elapsedMs(stage);
+            }
         } catch (Exception exception) {
             log.warn("Patient report extraction failed for job {}: {}", jobId, exception.getClass().getSimpleName());
-            extraction.fail(work, failureCode(exception));
+            long failureStarted = System.nanoTime();
+            try {
+                extraction.fail(work, failureCode(exception));
+            } finally {
+                persistenceMs += elapsedMs(failureStarted);
+            }
+        } finally {
+            double processingMs = elapsedMs(started);
+            log.info("ocr_job_performance request_id={} queue_wait_ms={} source_load_ms={} ocr_request_ms={} persistence_ms={} processing_ms={} total_ms={} outcome={}",
+                jobId, work.queueWaitMs(), sourceLoadMs, ocrRequestMs, persistenceMs, processingMs,
+                work.queueWaitMs() == null ? null : work.queueWaitMs() + processingMs, outcome);
         }
+    }
+
+    private static double elapsedMs(long start) {
+        return (System.nanoTime() - start) / 1_000_000.0;
     }
 
     private String failureCode(Exception exception) {

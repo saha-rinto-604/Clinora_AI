@@ -16,8 +16,8 @@ import {
   Stethoscope,
   Video,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import type { ReactNode } from 'react';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { StatusPill } from '../../components/app/app-ui';
 import { Skeleton } from '../../components/ui/feedback';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
@@ -44,9 +44,17 @@ import {
   type CareTimelineEvent,
 } from '../../features/doctor/doctor-patient-detail-model';
 import { ProfileAvatar } from '../../features/profile/profile-image';
+import {
+  doctorBackTarget,
+  doctorNavigationState,
+  type DoctorNavigationState,
+} from '../../features/doctor/doctor-navigation';
+import '../../styles/patient-care.css';
 
 const secondaryAction =
   'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-cyan-300/20 bg-[#061c2a]/70 px-3 text-xs font-medium text-slate-200 transition hover:border-cyan-300/40 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300';
+const tertiaryAction =
+  'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium text-slate-400 transition hover:bg-cyan-300/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300';
 const quickAction =
   'flex min-h-10 w-full items-center gap-2.5 rounded-lg bg-[#0a2535]/70 px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-cyan-300/10 focus-visible:outline-2 focus-visible:outline-cyan-300';
 const tabs = [
@@ -56,13 +64,18 @@ const tabs = [
   { value: 'consultations', label: 'Consultations', icon: Stethoscope },
   { value: 'timeline', label: 'Care Timeline', icon: History },
 ];
+const patientDetailTabs = new Set(tabs.map((item) => item.value));
+
+function patientDetailTab(value: string | null) {
+  return value && patientDetailTabs.has(value) ? value : 'overview';
+}
 
 export function DoctorPatientDetailPage() {
   const { patientId = '' } = useParams();
   const { data, loading, error, retry } = useDoctorPatientDetail(patientId);
   if (loading)
     return (
-      <div className="mx-auto max-w-[1100px] space-y-4" role="status" aria-label="Loading Patient care history">
+      <div className="w-full space-y-4" role="status" aria-label="Loading Patient care history">
         <Skeleton className="h-48 rounded-2xl" />
         <Skeleton className="h-11 rounded-lg" />
         <Skeleton className="h-56 rounded-2xl" />
@@ -88,7 +101,15 @@ export function DoctorPatientDetailPage() {
 }
 
 function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
-  const [tab, setTab] = useState('overview');
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = patientDetailTab(searchParams.get('tab'));
+  const setTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'overview') next.delete('tab');
+    else next.set('tab', patientDetailTab(value));
+    setSearchParams(next, { replace: true });
+  };
   const model = patientDetailModel(data);
   const { care, state, statusLabel, activeEpisode, appointments, history, next, appointmentId, primary } = model;
   const tone = state === 'IN_PROGRESS' || state === 'FOLLOW_UP' ? 'warning' : 'success';
@@ -112,75 +133,40 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
           : care.latestConsultationAt
             ? `Latest completed consultation · ${detailDate(care.latestConsultationAt)}`
             : 'Your clinical care relationship';
+  const patientPath = `/doctor/patients/${encodeURIComponent(data.patientId)}${
+    tab === 'overview' ? '' : `?tab=${tab}`
+  }`;
+  const relatedAppointmentIds = new Set([
+    ...appointments.map((appointment) => appointment.appointmentId),
+    ...history.map((episode) => episode.appointmentId),
+  ]);
+  const back = doctorBackTarget(
+    location.state,
+    { to: '/doctor/patients', label: 'Back to Patients' },
+    (path) =>
+      path === '/doctor/patients' ||
+      [...relatedAppointmentIds].some((id) => path === consultationPath(id)),
+  );
+  const patientReturnState = doctorNavigationState(patientPath, 'Back to patient', back);
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] space-y-4 pb-4">
-      <div className="flex min-h-8 items-center justify-between gap-3">
+    <div className="w-full space-y-4 pb-4">
+      <div className="flex min-h-8 items-center gap-3">
         <Link
-          to="/doctor/patients"
+          to={back.to}
+          state={back.state}
           className="inline-flex min-h-8 items-center gap-2 text-sm text-slate-300 hover:text-cyan-200"
         >
           <ArrowLeft size={16} />
-          Back to Patients
+          {back.label}
         </Link>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={secondaryAction}>
-              <MoreHorizontal size={16} className="text-cyan-300" />
-              More actions
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {next ? (
-              <DropdownMenuItem asChild>
-                <Link to={appointmentPath(next.appointmentId)}>Open upcoming appointment</Link>
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem onSelect={() => setTab('timeline')}>Review care history</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <header
         aria-label="Patient identity"
-        className="relative isolate overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#031724] px-4 py-5 sm:px-6"
+        className="patient-care-art relative isolate overflow-hidden rounded-[var(--radius-app-card)] border border-[var(--clinora-border-interactive)] bg-[var(--clinora-surface-hero)] px-5 py-5 sm:px-6 sm:py-6"
       >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(100deg,#03131f_15%,#041b2b_65%,#04283d)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-[45%] overflow-hidden opacity-40"
-        >
-          <svg
-            viewBox="0 0 360 210"
-            preserveAspectRatio="xMaxYMid slice"
-            className="h-full w-full fill-cyan-300/50 stroke-cyan-400/30"
-            focusable="false"
-          >
-            <path
-              fill="none"
-              d="M80 0 160 52 240 12 292 72 360 28M0 80 90 110 160 52 215 113 292 72 348 142M90 110 126 180 215 113 256 193 348 142 360 210M160 52 160 0M215 113 240 12M126 180 38 210M256 193 238 210"
-            />
-            {[
-              [160, 52],
-              [240, 12],
-              [292, 72],
-              [90, 110],
-              [215, 113],
-              [126, 180],
-              [256, 193],
-              [348, 142],
-            ].map(([cx, cy]) => (
-              <g key={`${cx}-${cy}`}>
-                <circle cx={cx} cy={cy} r="13" fill="none" />
-                <circle cx={cx} cy={cy} r="3" />
-              </g>
-            ))}
-          </svg>
-        </div>
-        <div className="grid items-start gap-x-5 gap-y-4 sm:grid-cols-[80px_minmax(0,1fr)] lg:grid-cols-[80px_minmax(0,1fr)_260px]">
+        <div className="grid items-start gap-x-5 gap-y-4 sm:grid-cols-[80px_minmax(0,1fr)] lg:grid-cols-[80px_minmax(0,1fr)_minmax(270px,0.65fr)]">
           <div className="sm:row-span-2">
             {appointmentId ? (
               <ProfileAvatar
@@ -200,8 +186,8 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
           </div>
           <div className="min-w-0">
             <h1 className="break-words text-2xl font-semibold tracking-[-0.03em] text-white">{data.patientName}</h1>
-            <p className="mt-2 break-all text-[11px] text-slate-400">
-              Patient ID <span className="ml-2 text-slate-300">{data.patientId}</span>
+            <p className="mt-2 max-w-md truncate text-[10px] text-slate-500" title={data.patientId}>
+              Patient ID <span className="ml-2 font-mono text-slate-500">{data.patientId}</span>
             </p>
             <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-slate-300">
               <CalendarDays size={14} className="mt-0.5 shrink-0 text-cyan-300" />
@@ -224,10 +210,11 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-2 sm:col-start-2">
+          <div className="flex flex-wrap gap-2 sm:col-start-2 lg:col-span-2">
             {primary ? (
               <Link
                 to={primary.to}
+                state={back.to === primary.to ? back.state : patientReturnState}
                 className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-cyan-400 px-4 text-xs font-semibold text-slate-950 shadow-[0_0_18px_rgba(34,211,238,.16)] transition hover:bg-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
               >
                 {primary.label}
@@ -242,6 +229,24 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
               <History size={14} />
               {state === 'NEW_PATIENT' ? 'View appointments' : 'View care history'}
             </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={tertiaryAction}>
+                  <MoreHorizontal size={16} className="text-cyan-300" />
+                  More actions
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {next ? (
+                  <DropdownMenuItem asChild>
+                    <Link to={appointmentPath(next.appointmentId)} state={patientReturnState}>
+                      Open upcoming appointment
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onSelect={() => setTab('timeline')}>Review care history</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -288,6 +293,9 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
                 {state === 'IN_PROGRESS' && activeEpisode ? (
                   <Link
                     to={consultationPath(activeEpisode.appointmentId)}
+                    state={
+                      back.to === consultationPath(activeEpisode.appointmentId) ? back.state : patientReturnState
+                    }
                     className="mt-2 flex items-center gap-3 rounded-lg bg-[#0a2535]/70 p-3 hover:bg-cyan-300/10"
                   >
                     <FileText className="shrink-0 text-cyan-300" size={22} />
@@ -327,7 +335,7 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
                 <h3 className="mb-2 text-xs font-medium text-slate-200">Quick actions</h3>
                 <div className="space-y-2">
                   {appointmentId ? (
-                    <Link className={quickAction} to={appointmentPath(appointmentId)}>
+                    <Link className={quickAction} to={appointmentPath(appointmentId)} state={patientReturnState}>
                       <FileText size={16} className="shrink-0 text-cyan-300" />
                       {state === 'NEW_PATIENT'
                         ? 'Review appointment & shared reports'
@@ -355,24 +363,37 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
             appointments={appointments.slice(0, 5)}
             activeAppointmentId={activeEpisode?.appointmentId}
             onViewAll={() => setTab('appointments')}
+            navigationState={patientReturnState}
           />
           {history.length ? (
-            <HistorySection episodes={history.slice(0, 3)} onViewAll={() => setTab('consultations')} />
+            <HistorySection
+              episodes={history.slice(0, 3)}
+              onViewAll={() => setTab('consultations')}
+              navigationState={patientReturnState}
+            />
           ) : (
             <NoHistory />
           )}
         </TabsContent>
         <TabsContent value="appointments">
-          <AppointmentSection appointments={appointments} activeAppointmentId={activeEpisode?.appointmentId} />
+          <AppointmentSection
+            appointments={appointments}
+            activeAppointmentId={activeEpisode?.appointmentId}
+            navigationState={patientReturnState}
+          />
         </TabsContent>
         <TabsContent value="reports">
-          <ReportSharing appointments={appointments} activeAppointmentId={activeEpisode?.appointmentId} />
+          <ReportSharing
+            appointments={appointments}
+            activeAppointmentId={activeEpisode?.appointmentId}
+            navigationState={patientReturnState}
+          />
         </TabsContent>
         <TabsContent value="consultations">
-          {history.length ? <HistorySection episodes={history} /> : <NoHistory />}
+          {history.length ? <HistorySection episodes={history} navigationState={patientReturnState} /> : <NoHistory />}
         </TabsContent>
         <TabsContent value="timeline">
-          <CareTimeline events={model.events} />
+          <CareTimeline events={model.events} navigationState={patientReturnState} />
         </TabsContent>
       </Tabs>
     </div>
@@ -469,10 +490,12 @@ function AppointmentSection({
   appointments,
   activeAppointmentId,
   onViewAll,
+  navigationState,
 }: {
   appointments: PatientAppointmentLink[];
   activeAppointmentId?: string;
   onViewAll?: () => void;
+  navigationState: DoctorNavigationState;
 }) {
   return (
     <DetailSection
@@ -493,6 +516,7 @@ function AppointmentSection({
             <li key={appointment.appointmentId}>
               <Link
                 to={appointmentPath(appointment.appointmentId)}
+                state={navigationState}
                 className="group grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg py-2 transition hover:bg-cyan-300/[0.04] sm:grid-cols-[60px_90px_minmax(0,1fr)_auto_auto]"
               >
                 <span className="flex min-h-14 flex-col items-center justify-center rounded-lg border border-cyan-300/10 bg-[#082434]/70">
@@ -549,7 +573,15 @@ function AppointmentSection({
   );
 }
 
-function HistorySection({ episodes, onViewAll }: { episodes: PatientCareEpisode[]; onViewAll?: () => void }) {
+function HistorySection({
+  episodes,
+  onViewAll,
+  navigationState,
+}: {
+  episodes: PatientCareEpisode[];
+  onViewAll?: () => void;
+  navigationState: DoctorNavigationState;
+}) {
   return (
     <DetailSection
       title="Consultations over time"
@@ -574,6 +606,7 @@ function HistorySection({ episodes, onViewAll }: { episodes: PatientCareEpisode[
               />
               <Link
                 to={consultationPath(episode.appointmentId)}
+                state={navigationState}
                 className="grid items-start gap-2 border-t border-cyan-300/10 py-3 hover:bg-cyan-300/[0.03] sm:grid-cols-[160px_minmax(0,1fr)_16px]"
               >
                 <span className="text-xs">
@@ -630,9 +663,11 @@ function NoHistory() {
 function ReportSharing({
   appointments,
   activeAppointmentId,
+  navigationState,
 }: {
   appointments: PatientAppointmentLink[];
   activeAppointmentId?: string;
+  navigationState: DoctorNavigationState;
 }) {
   const shared = appointments.filter((appointment) => appointment.sharedReportCount > 0);
   return (
@@ -654,7 +689,11 @@ function ReportSharing({
                   {detailDateTime(appointment.scheduledStart, appointment.timezone)}
                 </p>
               </div>
-              <Link className={secondaryAction} to={appointmentPath(appointment.appointmentId)}>
+              <Link
+                className={secondaryAction}
+                to={appointmentPath(appointment.appointmentId)}
+                state={navigationState}
+              >
                 Open appointment to review
                 <ArrowRight size={13} />
               </Link>
@@ -667,7 +706,11 @@ function ReportSharing({
         </p>
       )}
       {activeAppointmentId && !shared.some((appointment) => appointment.appointmentId === activeAppointmentId) ? (
-        <Link className={`${secondaryAction} mt-3`} to={appointmentPath(activeAppointmentId)}>
+        <Link
+          className={`${secondaryAction} mt-3`}
+          to={appointmentPath(activeAppointmentId)}
+          state={navigationState}
+        >
           Review current appointment access
           <ArrowRight size={13} />
         </Link>
@@ -676,7 +719,7 @@ function ReportSharing({
   );
 }
 
-function CareTimeline({ events }: { events: CareTimelineEvent[] }) {
+function CareTimeline({ events, navigationState }: { events: CareTimelineEvent[]; navigationState: DoctorNavigationState }) {
   return (
     <DetailSection
       title="Care Timeline"
@@ -698,6 +741,7 @@ function CareTimeline({ events }: { events: CareTimelineEvent[] }) {
                 {event.to ? (
                   <Link
                     to={event.to}
+                    state={navigationState}
                     className="mt-1 inline-flex items-center gap-2 font-medium text-slate-200 hover:text-cyan-200"
                   >
                     {event.title}

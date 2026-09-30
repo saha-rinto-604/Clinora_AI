@@ -38,6 +38,21 @@ const report: PatientReport = {
   updatedAt: '2026-08-30T08:00:00Z',
 };
 
+const familyReport: PatientReport = {
+  ...report,
+  id: '33333333-3333-3333-3333-333333333333',
+  reportName: "Mom's regular healthcare check-up",
+  subjectType: 'OTHER',
+  subjectLabel: 'Mom',
+  reportDate: null,
+  providerLaboratory: null,
+  originalFilename: 'family-check-up.png',
+  mimeType: 'image/png',
+  sizeBytes: 115712,
+  createdAt: '2026-09-12T08:00:00Z',
+  updatedAt: '2026-09-12T08:00:00Z',
+};
+
 const reportPage: PatientReportPage = {
   items: [report],
   page: 1,
@@ -89,13 +104,33 @@ describe('Phase 5B Patient report vault', () => {
 
     expect(await screen.findByRole('heading', { name: 'Medical reports' })).toBeInTheDocument();
     expect(await screen.findByText('Annual blood panel')).toBeInTheDocument();
-    expect(screen.getAllByText('Laboratory results').length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/Laboratory results/).length).toBeGreaterThan(1);
     expect(screen.getByText('City Diagnostic Centre')).toBeInTheDocument();
     expect(screen.getByText(/PDF · 240 KB/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open/i })).toHaveAttribute('href', `/patient/reports/${report.id}`);
     expect(screen.getByRole('searchbox', { name: /search medical reports/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/filter by report type/i)).toBeInTheDocument();
     expect(screen.queryByText(/AI analysis|OCR result|doctor review/i)).not.toBeInTheDocument();
+  });
+
+  it('separates personal and other-person reports without repeating empty metadata', async () => {
+    mocks.list.mockResolvedValue({
+      ...reportPage,
+      items: [{ ...report, subjectType: 'SELF' }, familyReport],
+      totalItems: 2,
+      activeCount: 2,
+    });
+    renderReportsPage();
+
+    const yourReports = await screen.findByRole('region', { name: 'Your reports' });
+    const otherReports = screen.getByRole('region', { name: "Other people's reports" });
+
+    expect(within(yourReports).getByText('Annual blood panel')).toBeInTheDocument();
+    expect(within(otherReports).getByText("Mom's regular healthcare check-up")).toBeInTheDocument();
+    expect(within(otherReports).getByText('Mom')).toBeInTheDocument();
+    expect(within(otherReports).getByText(/PNG · 113 KB/i)).toBeInTheDocument();
+    expect(screen.queryByText('Date not provided')).not.toBeInTheDocument();
+    expect(screen.queryByText('Not added')).not.toBeInTheDocument();
   });
 
   it('uses a focused first-use experience without empty library controls or duplicate upload actions', async () => {

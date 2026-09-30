@@ -13,17 +13,9 @@ from statistics import mean
 import numpy as np
 import pytesseract
 from pdf2image import convert_from_bytes, pdfinfo_from_bytes
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
 from pytesseract import Output
 
-from .medgemma_document_assist import (
-    MedGemmaAssistInvalidOutput,
-    MedGemmaAssistTimeout,
-    MedGemmaAssistUnavailable,
-    enabled as medgemma_assist_enabled,
-    extract_page as medgemma_extract_page,
-    mode as medgemma_assist_mode,
-)
 from .parser_v3 import (
     NORMALIZER_VERSION,
     PARSER_VERSION,
@@ -31,11 +23,11 @@ from .parser_v3 import (
     estimate_known_lab_label_mentions,
     estimate_lab_row_candidates,
     is_known_lab_label,
-    observation_from_assisted_row,
     parse_observations,
     recognized_lab_labels,
 )
 from .schemas import ExtractionResponse, Observation
+from .performance import OcrTimings, current, stage
 
 MAX_FILE_BYTES = int(os.getenv("OCR_MAX_FILE_SIZE_MB", "20")) * 1024 * 1024
 MAX_PAGES = max(1, int(os.getenv("OCR_MAX_PAGES", "10")))
@@ -55,6 +47,7 @@ _SUPPORTED_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 _PADDLE_LOCK = threading.Lock()
 _PADDLE_PIPELINE = None
 _PADDLE_BASIC_PIPELINE = None
+_PADDLE_BASIC_INITIALIZATION_FAILED = False
 
 
 class OcrInputError(ValueError):
@@ -101,131 +94,79 @@ class ReconciliationStats:
 
 
 def extract_document(file_bytes: bytes, content_type: str | None, filename: str | None) -> ExtractionResponse:
+    # The API owns request timing; direct callers receive the same safe telemetry.
+    if current() is not None:
+        return _extract_document(file_bytes, content_type, filename)
+    metrics = OcrTimings()
+    outcome = "failed"
+    try:
+        with metrics.activate():
+            result = _extract_document(file_bytes, content_type, filename)
+            outcome = "completed"
+            return result
+    finally:
+        metrics.emit(outcome)
+
+
+def _extract_document(file_bytes: bytes, content_type: str | None, filename: str | None) -> ExtractionResponse:
     normalized_type = _validate_source(file_bytes, content_type, filename)
-    images = _render_pages(file_bytes, normalized_type)
+    with stage("document_render_ms"):
+        images = _render_pages(file_bytes, normalized_type)
     if not images:
         raise OcrInputError("NO_READABLE_PAGES", "The document does not contain a readable page.")
 
     output = _run_ocr(images)
-    pages = [page.blocks for page in output.pages]
-    page_sizes = [(page.width, page.height) for page in output.pages]
-    observations = parse_observations(pages, page_sizes, NUMERIC_REVIEW_THRESHOLD)
-    candidate_rows = estimate_lab_row_candidates(pages)
-    known_label_mentions = estimate_known_lab_label_mentions(pages)
-    warnings = list(output.warnings)
+    with stage("parser_normalizer_ms"):
+        pages = [page.blocks for page in output.pages]
+        page_sizes = [(page.width, page.height) for page in output.pages]
+        observations = parse_observations(pages, page_sizes, NUMERIC_REVIEW_THRESHOLD)
+        candidate_rows = estimate_lab_row_candidates(pages)
+        known_label_mentions = estimate_known_lab_label_mentions(pages)
+        warnings = list(output.warnings)
 
-    assist_regions = _targeted_assist_regions(images, pages, observations)
-    malformed_count = sum(_is_malformed_multi_label(item) for item in observations)
-    if malformed_count:
-        warnings.append("MALFORMED_MULTI_LABEL_ROW_SUPPRESSED")
-    primary_observations = [item for item in observations if not _is_malformed_multi_label(item)]
-    reconciliation = ReconciliationStats()
+        malformed_count = sum(_is_malformed_multi_label(item) for item in observations)
+        if malformed_count:
+            warnings.append("MALFORMED_MULTI_LABEL_ROW_SUPPRESSED")
+        observations = [item for item in observations if not _is_malformed_multi_label(item)]
+        reconciliation = ReconciliationStats()
 
-    if medgemma_assist_enabled() and _should_use_medgemma_assist(
-        primary_observations, pages, candidate_rows, known_label_mentions, assist_regions
-    ):
-        assisted: list[Observation] = []
-        assist_failed = False
-        for region in assist_regions:
-            try:
-                page = medgemma_extract_page(
-                    region.image,
-                    region.page_number,
-                    region_description="; ".join(region.reasons),
-                )
-            except MedGemmaAssistTimeout:
-                warnings.append("MEDGEMMA_DOCUMENT_ASSIST_TIMEOUT")
-                assist_failed = True
-                break
-            except MedGemmaAssistUnavailable:
-                warnings.append("MEDGEMMA_DOCUMENT_ASSIST_UNAVAILABLE")
-                assist_failed = True
-                break
-            except MedGemmaAssistInvalidOutput:
-                warnings.append("MEDGEMMA_DOCUMENT_ASSIST_INVALID")
-                assist_failed = True
-                break
-            for row in page.rows:
-                observation = observation_from_assisted_row(row, region.page_number)
-                if observation is not None:
-                    assisted.append(observation)
-        if assisted:
-            observations, reconciliation = _reconcile_with_stats(primary_observations, assisted)
-            observations = _suppress_malformed_multi_label_rows(observations)
-            warnings.append("MEDGEMMA_DOCUMENT_ASSIST_USED")
-            if reconciliation.disagreements:
-                warnings.append("MEDGEMMA_DOCUMENT_ASSIST_DISAGREEMENT")
-        elif not assist_failed:
-            observations = primary_observations
-            warnings.append("MEDGEMMA_DOCUMENT_ASSIST_NO_ROWS")
-        else:
-            observations = primary_observations
-    else:
-        observations = primary_observations
+        confidences = [block.confidence for page in output.pages for block in page.blocks if block.confidence >= 0]
+        raw_text = "\n\n".join(
+            "\n".join(block.text for block in page.blocks if block.text.strip()) for page in output.pages
+        ).strip()
 
-    confidences = [block.confidence for page in output.pages for block in page.blocks if block.confidence >= 0]
-    raw_text = "\n\n".join(
-        "\n".join(block.text for block in page.blocks if block.text.strip()) for page in output.pages
-    ).strip()
+        if not raw_text:
+            warnings.append("NO_TEXT_DETECTED")
+        if raw_text and not observations:
+            warnings.append("NO_STRUCTURED_LAB_VALUES_DETECTED")
+        insufficient = _extraction_quality_insufficient(
+            observations, candidate_rows, known_label_mentions, raw_text, output.engine
+        ) or _excessive_disagreement(reconciliation)
+        if insufficient:
+            warnings.append("EXTRACTION_QUALITY_INSUFFICIENT")
+        quality_state = (
+            "INSUFFICIENT"
+            if insufficient
+            else "REVIEW_REQUIRED"
+            if malformed_count or reconciliation.disagreements or any(item.reviewRequired for item in observations)
+            else "HIGH_CONFIDENCE"
+        )
 
-    if not raw_text:
-        warnings.append("NO_TEXT_DETECTED")
-    if raw_text and not observations:
-        warnings.append("NO_STRUCTURED_LAB_VALUES_DETECTED")
-    insufficient = _extraction_quality_insufficient(
-        observations, candidate_rows, known_label_mentions, raw_text, output.engine
-    ) or _excessive_disagreement(reconciliation)
-    if insufficient:
-        warnings.append("EXTRACTION_QUALITY_INSUFFICIENT")
-    quality_state = (
-        "INSUFFICIENT"
-        if insufficient
-        else "REVIEW_REQUIRED"
-        if malformed_count or reconciliation.disagreements or any(item.reviewRequired for item in observations)
-        else "HIGH_CONFIDENCE"
-    )
-
-    return ExtractionResponse(
-        engine=output.engine,
-        engineVersion=output.version,
-        documentType="LAB_REPORT" if observations else "MEDICAL_REPORT",
-        pageCount=len(images),
-        overallConfidence=round(mean(confidences), 5) if confidences else None,
-        parserVersion=PARSER_VERSION,
-        normalizerVersion=NORMALIZER_VERSION,
-        qualityState=quality_state,
-        observations=observations,
-        warnings=list(dict.fromkeys(warnings)),
-    )
+        return ExtractionResponse(
+            engine=output.engine,
+            engineVersion=output.version,
+            documentType="LAB_REPORT" if observations else "MEDICAL_REPORT",
+            pageCount=len(images),
+            overallConfidence=round(mean(confidences), 5) if confidences else None,
+            parserVersion=PARSER_VERSION,
+            normalizerVersion=NORMALIZER_VERSION,
+            qualityState=quality_state,
+            observations=observations,
+            warnings=list(dict.fromkeys(warnings)),
+        )
 
 
-def _should_use_medgemma_assist(
-    observations: list[Observation],
-    pages: list[list[TextBlock]],
-    candidate_rows: int,
-    known_label_mentions: int,
-    regions: list[AssistRegion],
-) -> bool:
-    if not regions:
-        return False
-    if medgemma_assist_mode() == "always":
-        return True
-    # Review flags and low OCR confidence remain useful provenance, but are not
-    # by themselves evidence that a second reader can recover missing facts.
-    # In suspect mode, spend the bounded vision budget only on deterministic
-    # structural gaps or explicit reconstruction failures.
-    structural_gap = candidate_rows > len(observations) or known_label_mentions > len(observations)
-    recoverable_region = any(
-        reason in {
-            "malformed multi-label row",
-            "recognized analyte text without a parsed row",
-        }
-        for region in regions
-        for reason in region.reasons
-    )
-    return structural_gap or recoverable_region
-
-
+# Historical reconciliation/crop helpers are retained for regression tests only.
 def _targeted_assist_regions(
     images: list[Image.Image],
     pages: list[list[TextBlock]],
@@ -427,20 +368,55 @@ def ensure_primary_engine_ready() -> str:
     if OCR_ENGINE == "tesseract":
         _ensure_tesseract_ready()
         return "TESSERACT"
-    try:
-        _paddle_pipeline(structured=TABLE_RECOGNITION_ENABLED or REGION_DETECTION_ENABLED)
-        return "PADDLE_PP_STRUCTURE_V3"
-    except Exception:
+    # Readiness must not conceal failure of the configured primary engine.
+    pipeline = _paddle_pipeline(structured=TABLE_RECOGNITION_ENABLED or REGION_DETECTION_ENABLED)
+    if not callable(getattr(pipeline, "predict", None)):
+        raise OcrProcessingError("OCR_ENGINE_UNAVAILABLE", "The primary OCR engine is not usable.")
+    return "PADDLE_PP_STRUCTURE_V3"
+
+
+def warm_primary_engine() -> str:
+    global _PADDLE_BASIC_INITIALIZATION_FAILED
+    engine = ensure_primary_engine_ready()
+    if OCR_ENGINE != "tesseract":
+        # Materialize lazy predictors before accepting Patient requests.
+        _run_paddle([_warmup_table()],
+                    structured=TABLE_RECOGNITION_ENABLED or REGION_DETECTION_ENABLED)
         if TABLE_RECOGNITION_ENABLED or REGION_DETECTION_ENABLED:
             try:
+                # Preserve the existing basic fallback without constructing it
+                # on the first Patient request that needs it.
                 _paddle_pipeline(structured=False)
-                return "PADDLE_PP_STRUCTURE_V3_BASIC"
             except Exception:
-                pass
-        if OCR_ENGINE == "paddle":
-            raise
-        _ensure_tesseract_ready()
-        return "TESSERACT_FALLBACK"
+                _PADDLE_BASIC_INITIALIZATION_FAILED = True
+    return engine
+
+
+def _warmup_table() -> Image.Image:
+    """Exercise text and table predictors with generated, non-patient data."""
+    image = Image.new("RGB", (1000, 800), "white")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size=24)
+    rows = (
+        ("Test", "Result", "Unit", "Reference"),
+        ("Hemoglobin", "14.0", "g/dL", "12.0-16.0"),
+        ("WBC", "7000", "/Cmm", "4000-11000"),
+        ("Platelets", "160000", "/Cmm", "150000-400000"),
+        ("MCV", "90", "fL", "80-100"),
+        ("Glucose", "92", "mg/dL", "70-100"),
+    )
+    draw.text((50, 50), "Synthetic startup laboratory table", font=font, fill="black")
+    columns = (50, 360, 530, 700, 960)
+    for index, row in enumerate(rows):
+        top = 150 + index * 80
+        for left, value in zip(columns, row):
+            draw.text((left + 10, top + 24), value, font=font, fill="black")
+        draw.line((columns[0], top, columns[-1], top), fill="black", width=2)
+    bottom = 150 + len(rows) * 80
+    draw.line((columns[0], bottom, columns[-1], bottom), fill="black", width=2)
+    for left in columns:
+        draw.line((left, 150, left, bottom), fill="black", width=2)
+    return image
 
 
 def _validate_source(file_bytes: bytes, content_type: str | None, filename: str | None) -> str:
@@ -547,8 +523,9 @@ def _run_paddle(images: list[Image.Image], structured: bool = True) -> EngineOut
     table_structure_used = False
     for image in images:
         array = np.asarray(image)
-        predictions = pipeline.predict(array)
-        result = next(iter(predictions), None)
+        with stage("paddle_inference_ms"):
+            predictions = pipeline.predict(array)
+            result = next(iter(predictions), None)
         if result is None:
             pages.append(EnginePage([], image.width, image.height))
             continue
@@ -686,6 +663,8 @@ def _blocks_from_ocr(raw: object, width: int, height: int) -> list[TextBlock]:
 
 def _paddle_pipeline(structured: bool = True):
     global _PADDLE_PIPELINE, _PADDLE_BASIC_PIPELINE
+    if not structured and _PADDLE_BASIC_INITIALIZATION_FAILED:
+        raise OcrProcessingError("OCR_ENGINE_UNAVAILABLE", "The fallback OCR engine is unavailable.")
     existing = _PADDLE_PIPELINE if structured else _PADDLE_BASIC_PIPELINE
     if existing is not None:
         return existing
@@ -693,24 +672,30 @@ def _paddle_pipeline(structured: bool = True):
         existing = _PADDLE_PIPELINE if structured else _PADDLE_BASIC_PIPELINE
         if existing is not None:
             return existing
-        from paddleocr import PPStructureV3
+        with stage("paddle_initialization_ms"):
+            from paddleocr import PPStructureV3
 
-        created = PPStructureV3(
-            lang=OCR_LANGUAGE,
-            device="cpu",
-            enable_mkldnn=False,
-            layout_detection_model_name="PP-DocLayout-S",
-            text_detection_model_name="PP-OCRv5_mobile_det",
-            text_recognition_model_name="PP-OCRv5_mobile_rec",
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False,
-            use_seal_recognition=False,
-            use_table_recognition=structured and TABLE_RECOGNITION_ENABLED,
-            use_formula_recognition=False,
-            use_chart_recognition=False,
-            use_region_detection=structured and REGION_DETECTION_ENABLED,
-        )
+            created = PPStructureV3(
+                lang=OCR_LANGUAGE,
+                device="cpu",
+                # Validated together with the Dockerfile's Paddle 3.2.2 pin.
+                # Keep HPI off: the installed CPU HPI backend fails conversion.
+                enable_mkldnn=True,
+                enable_hpi=False,
+                cpu_threads=10,
+                text_recognition_batch_size=8,
+                layout_detection_model_name="PP-DocLayout-S",
+                text_detection_model_name="PP-OCRv5_mobile_det",
+                text_recognition_model_name="PP-OCRv5_mobile_rec",
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False,
+                use_seal_recognition=False,
+                use_table_recognition=structured and TABLE_RECOGNITION_ENABLED,
+                use_formula_recognition=False,
+                use_chart_recognition=False,
+                use_region_detection=structured and REGION_DETECTION_ENABLED,
+            )
         if structured:
             _PADDLE_PIPELINE = created
         else:

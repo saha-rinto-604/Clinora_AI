@@ -70,6 +70,12 @@ def build_router(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="The local AI model does not currently have enough GPU capacity.",
             ) from exc
+        except ModelTimeoutError as exc:
+            LOGGER.warning("MedGemma timed out for request %s", request.requestId)
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="The local AI model timed out.",
+            ) from exc
         except ModelUnavailableError as exc:
             LOGGER.warning("MedGemma unavailable for request %s", request.requestId)
             raise HTTPException(

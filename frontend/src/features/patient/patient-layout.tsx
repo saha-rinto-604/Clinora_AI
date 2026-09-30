@@ -96,6 +96,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
   const clinicalHome = location.pathname === '/patient' || location.pathname === '/patient/';
   const reportWorkspace = location.pathname.startsWith('/patient/reports');
   const analysisWorkspace = location.pathname.startsWith('/patient/analyze');
+  const aiInsightWorkspace = /^\/patient\/analyze\/[^/]+\/insight\/?$/.test(location.pathname);
   const bloodNetworkWorkspace = location.pathname.startsWith('/patient/blood-network');
   const [signingOut, setSigningOut] = useState(false);
 
@@ -277,9 +278,11 @@ export function PatientShell({ children }: { children: ReactNode }) {
               ? ''
               : bloodNetworkWorkspace
                 ? 'max-w-[1480px]'
-                : reportWorkspace || analysisWorkspace
-                  ? 'max-w-[1360px]'
-                  : 'max-w-[1224px]',
+                : aiInsightWorkspace
+                  ? 'max-w-[1680px]'
+                  : reportWorkspace || analysisWorkspace
+                    ? 'max-w-[1360px]'
+                    : 'max-w-[1224px]',
           )}
         >
           {children}

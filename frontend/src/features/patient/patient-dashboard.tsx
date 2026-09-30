@@ -143,7 +143,6 @@ export function DashboardHeader({
               </span>
             ) : null}
           </div>
-          <p>Here&apos;s what matters for your health today.</p>
         </div>
         <p className="patient-home__motto" aria-hidden="true">
           Science
@@ -165,6 +164,7 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
         </span>
         <div>
           <h2>AI Report Analysis</h2>
+          <p>Verify report values and review AI-assisted insight.</p>
           <Link className="patient-home__button patient-home__button--primary" to="/patient/analyze">
             <ScanText size={14} aria-hidden="true" />
             Analyze a report
@@ -192,6 +192,7 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
         </span>
         <div>
           <h2>Medical Reports</h2>
+          <p>Keep reports organized and upload new records.</p>
           <button type="button" className="patient-home__button" onClick={onUpload}>
             <UploadCloud size={14} aria-hidden="true" />
             Upload a report
@@ -372,7 +373,6 @@ export function DashboardHealthOverview({
     <DashboardPanel
       title="Today's Health Overview"
       icon={ChartNoAxesCombined}
-      copy="A quick snapshot of your saved measurements and health record."
       to="/patient/history"
       className="patient-home__overview"
     >
@@ -464,7 +464,6 @@ export function DashboardCare({
     <DashboardPanel
       title={rail ? 'Next Appointment' : 'Upcoming Care'}
       icon={rail ? undefined : CalendarDays}
-      copy={rail ? undefined : 'Your scheduled appointments and care.'}
       to="/patient/appointments"
       className={rail ? 'patient-home__next' : 'patient-home__care'}
     >
@@ -542,7 +541,6 @@ export function DashboardActivity({ section }: { section: PatientHomeSection<Tim
     <DashboardPanel
       title="Recent Health Activity"
       icon={Clock3}
-      copy="Your latest updates across connected care."
       to="/patient/timeline"
       className="patient-home__activity"
     >
@@ -696,7 +694,7 @@ export function DashboardPrivacy({ section }: { section: PatientHomeSection<Pati
               ? 'Sharing status is unavailable.'
               : shares > 0
                 ? `${shares} report${shares === 1 ? '' : 's'} shared with ${doctors} Clinora Doctor${doctors === 1 ? '' : 's'}.`
-                : 'Your health data stays private and secure, shared only through your authorized care network.'}
+                : 'Private and secure. Shared only with your authorized care network.'}
           </p>
         </DashboardState>
         {shares != null && shares > 0 ? (
