@@ -25,7 +25,7 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @RestController
 @RequestMapping("/api/v1/patient/notifications")
-@PreAuthorize("hasRole('PATIENT')")
+@PreAuthorize("hasAnyRole('PATIENT', 'RESEARCHER')")
 public class PatientNotificationController {
     private final PatientNotificationService notifications;
 

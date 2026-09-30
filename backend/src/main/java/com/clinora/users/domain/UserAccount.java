@@ -177,6 +177,16 @@ public class UserAccount {
         touch(now);
     }
 
+    public void updateName(String firstName, String lastName, Instant now) {
+        if (firstName != null && !firstName.isBlank()) {
+            this.firstName = firstName.trim();
+        }
+        if (lastName != null && !lastName.isBlank()) {
+            this.lastName = lastName.trim();
+        }
+        touch(now);
+    }
+
     private void touch(Instant now) {
         this.updatedAt = now;
     }

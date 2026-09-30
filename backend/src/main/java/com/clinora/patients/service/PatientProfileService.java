@@ -122,6 +122,12 @@ public class PatientProfileService {
         validateDateOfBirth(command.dateOfBirth());
 
         Instant now = clock.instant();
+        if ((command.firstName() != null && !command.firstName().isBlank())
+            || (command.lastName() != null && !command.lastName().isBlank())) {
+            user.updateName(command.firstName(), command.lastName(), now);
+            users.save(user);
+        }
+
         PatientProfile profile = profiles.findByUserId(userId).orElse(null);
         boolean created = profile == null;
         if (profile == null) {
@@ -274,14 +280,14 @@ public class PatientProfileService {
             "PATIENT_ACCOUNT_NOT_FOUND",
             "The authenticated Patient account is unavailable."
         ));
-        if (user.getRole() != UserRole.PATIENT) {
-            throw new PatientApiException(HttpStatus.FORBIDDEN, "PATIENT_ROLE_REQUIRED", "Patient access is required.");
+        if (user.getRole() != UserRole.PATIENT && user.getRole() != UserRole.RESEARCHER) {
+            throw new PatientApiException(HttpStatus.FORBIDDEN, "PATIENT_ROLE_REQUIRED", "Patient or Researcher access is required.");
         }
         if (!user.isLoginAllowed()) {
             throw new PatientApiException(
                 HttpStatus.FORBIDDEN,
                 "PATIENT_ACCOUNT_INACTIVE",
-                "This Patient account is not currently active."
+                "This account is not currently active."
             );
         }
         return user;
@@ -347,6 +353,8 @@ public class PatientProfileService {
     }
 
     public record UpdatePatientProfileCommand(
+        String firstName,
+        String lastName,
         LocalDate dateOfBirth,
         PatientGender gender,
         BloodGroup bloodGroup,
@@ -363,6 +371,27 @@ public class PatientProfileService {
         List<String> chronicConditions,
         List<String> currentMedications
     ) {
+        public UpdatePatientProfileCommand(
+            LocalDate dateOfBirth,
+            PatientGender gender,
+            BloodGroup bloodGroup,
+            String phone,
+            String address,
+            BigDecimal heightCm,
+            BigDecimal weightKg,
+            String familyMedicalHistory,
+            String lifestyleInformation,
+            String emergencyContactName,
+            String emergencyContactPhone,
+            String emergencyContactRelationship,
+            List<String> allergies,
+            List<String> chronicConditions,
+            List<String> currentMedications
+        ) {
+            this(null, null, dateOfBirth, gender, bloodGroup, phone, address, heightCm, weightKg,
+                familyMedicalHistory, lifestyleInformation, emergencyContactName, emergencyContactPhone,
+                emergencyContactRelationship, allergies, chronicConditions, currentMedications);
+        }
     }
 
     public record EmergencyContactView(String name, String phone, String relationship, boolean configured) {

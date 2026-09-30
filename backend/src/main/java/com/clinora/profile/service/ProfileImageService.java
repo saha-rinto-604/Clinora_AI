@@ -261,11 +261,26 @@ public class ProfileImageService {
         return rows.stream().findFirst();
     }
 
+    @Transactional(readOnly = true)
+    public Optional<ProfileImageContent> adminVisibleContent(UUID userId) {
+        return content(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasProfileImage(UUID userId) {
+        Integer count = jdbc.queryForObject(
+            "SELECT COUNT(*)::int FROM user_profile_images WHERE user_id = ?",
+            Integer.class,
+            userId
+        );
+        return count != null && count > 0;
+    }
+
     private void requireSelfServiceRole(UUID userId) {
         Integer count = jdbc.queryForObject(
             """
             SELECT COUNT(*)::int FROM users
-            WHERE id = ? AND role IN ('PATIENT','DOCTOR')
+            WHERE id = ? AND role IN ('PATIENT','DOCTOR','RESEARCHER')
               AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL
             """,
             Integer.class,
