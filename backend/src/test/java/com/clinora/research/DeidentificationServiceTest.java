@@ -39,7 +39,7 @@ class DeidentificationServiceTest {
         List<DeidentificationService.RawObservationRow> rows = List.of(
                 new DeidentificationService.RawObservationRow(p1, LocalDate.of(1980, 5, 20), "MALE", LocalDate.of(2026, 3, 10), "HBA1C", new BigDecimal("6.8"), "%", new BigDecimal("4.0"), new BigDecimal("5.6"), "HIGH"),
                 new DeidentificationService.RawObservationRow(p2, LocalDate.of(1975, 11, 2), "FEMALE", LocalDate.of(2026, 3, 12), "HBA1C", new BigDecimal("7.1"), "%", new BigDecimal("4.0"), new BigDecimal("5.6"), "HIGH"),
-                new DeidentificationService.RawObservationRow(p3, LocalDate.of(1990, 1, 15), "FEMALE", LocalDate.of(2026, 3, 15), "FASTING_GLUCOSE", new BigDecimal("110"), "mg/dL", new BigDecimal("70"), new BigDecimal("99"), "HIGH")
+                new DeidentificationService.RawObservationRow(p3, LocalDate.of(1990, 1, 15), "FEMALE", LocalDate.of(2026, 3, 15), "HBA1C", new BigDecimal("6.9"), "%", new BigDecimal("70"), new BigDecimal("99"), "HIGH")
         );
 
         DeidentificationResult result = service.transform(reqId, projectId, "CSV", rows);
@@ -195,7 +195,7 @@ class DeidentificationServiceTest {
         List<DeidentificationService.RawObservationRow> rows = List.of(
                 new DeidentificationService.RawObservationRow(p1, LocalDate.of(1980, 5, 20), "MALE", LocalDate.of(2026, 3, 10), "HBA1C", new BigDecimal("6.8"), "%", null, null, null),
                 new DeidentificationService.RawObservationRow(p2, LocalDate.of(1975, 11, 2), "FEMALE", LocalDate.of(2026, 3, 12), "HBA1C", new BigDecimal("7.1"), "%", null, null, null),
-                new DeidentificationService.RawObservationRow(p3, LocalDate.of(1990, 1, 15), "FEMALE", LocalDate.of(2026, 3, 15), "FASTING_GLUCOSE", new BigDecimal("110"), "mg/dL", null, null, null)
+                new DeidentificationService.RawObservationRow(p3, LocalDate.of(1990, 1, 15), "FEMALE", LocalDate.of(2026, 3, 15), "HBA1C", new BigDecimal("6.9"), "%", null, null, null)
         );
 
         DeidentificationResult result = service.transform(UUID.randomUUID(), UUID.randomUUID(), "JSON", rows);
@@ -206,4 +206,21 @@ class DeidentificationServiceTest {
         assertTrue(json.contains("\"variableCode\":\"HBA1C\""));
         assertTrue(json.contains("\"subjectId\":\"SUBJ-"));
     }
+    @Test
+    void deployedConstructorCannotLowerMinimumAndRejectsPlaceholderSecrets() {
+        var environment = new org.springframework.mock.env.MockEnvironment();
+        assertThrows(IllegalStateException.class, () -> new DefaultDeidentificationService(new ObjectMapper(), 1, "replace-with-a-private-long-secret-of-32-characters", environment));
+        var deployed = new DefaultDeidentificationService(new ObjectMapper(), 1, "sufficiently-private-unit-fixture-key-123456789", environment);
+        var rows = java.util.stream.IntStream.range(0, 4).mapToObj(i -> new DeidentificationService.RawObservationRow(UUID.randomUUID(), null, null, LocalDate.of(2026,1,1), "HBA1C", BigDecimal.ONE, "%", null, null, null)).toList();
+        assertThrows(IllegalStateException.class, () -> deployed.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows));
+    }
+
+    @Test
+    void rejectsSmallVariableGroupEvenWhenOverallCohortMeetsMinimum() {
+        var rows = new ArrayList<DeidentificationService.RawObservationRow>();
+        for (int i=0;i<5;i++) rows.add(new DeidentificationService.RawObservationRow(UUID.randomUUID(), null, null, LocalDate.of(2026,1,1), i==0 ? "HBA1C" : "HEMOGLOBIN", BigDecimal.ONE, null, null, null, null));
+        var deployed = new DefaultDeidentificationService(new ObjectMapper(), 5, "synthetic-unit-test-only-secret-material");
+        assertThrows(IllegalStateException.class, () -> deployed.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows));
+    }
+
 }

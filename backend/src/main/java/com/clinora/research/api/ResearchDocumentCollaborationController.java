@@ -82,7 +82,7 @@ public class ResearchDocumentCollaborationController {
             return;
         }
 
-        String destination = "/topic/research/projects/" + projectId + "/documents/" + documentId + "/presence";
+        String destination = "/topic/research.projects." + projectId + ".documents." + documentId + ".presence";
         var user = users.findById(userId).orElseThrow();
         String name = user.getFirstName() + " " + user.getLastName();
         messagingTemplate.convertAndSend(destination,

@@ -223,4 +223,40 @@ class DatasetGenerationServiceTest {
                 eq("127.0.0.1"), eq("JUnit"), eq(datasetId.toString()), contains("version=1")
         );
     }
+    @Test
+    void approvedFiltersRemainInGenerationQuery() {
+        var request = requestWithFilters("[\"HBA1C\"]", "{\"observationConditions\":[{\"variableCode\":\"HBA1C\",\"operator\":\"GTE\",\"value\":6.5}]}");
+        when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of());
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "fetchEligibleRows", request);
+        var sql = ArgumentCaptor.forClass(String.class);
+        var parameters = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbcTemplate).query(sql.capture(), parameters.capture(), any(RowMapper.class));
+        assertTrue(sql.getValue().contains("crep.subject_type='SELF'"));
+        assertTrue(sql.getValue().contains("cobs.effective_numeric_value >= :conditionValue0"));
+        assertEquals(new BigDecimal("6.5"), parameters.getValue().getValue("conditionValue0"));
+        assertTrue(sql.getValue().contains("prc.consent_status = 'CONSENTED'"));
+    }
+
+    @Test
+    void malformedApprovedFiltersFailBeforeQueryOrStorage() {
+        var request = requestWithFilters("[\"HBA1C\"]", "{\"observationConditions\":[{\"variableCode\":\"HBA1C\",\"operator\":\"OR 1=1\",\"value\":6.5}]}");
+        assertThrows(IllegalArgumentException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "fetchEligibleRows", request));
+        verifyNoInteractions(jdbcTemplate, storagePort);
+    }
+
+    @Test
+    void demographicRequestDoesNotExportClinicalValues() {
+        UUID patient = UUID.randomUUID();
+        var row = new DeidentificationService.RawObservationRow(patient, LocalDate.of(1980,1,1), "MALE", LocalDate.of(2026,1,1), "HBA1C", new BigDecimal("6.5"), "%", null, null, null);
+        when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of(row, row));
+        List<DeidentificationService.RawObservationRow> result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "fetchEligibleRows", requestWithFilters("[\"AGE_BAND\"]", "{}"));
+        assertEquals(1, result.size());
+        assertNull(result.getFirst().numericValue());
+        assertEquals("DEMOGRAPHICS", result.getFirst().variableCode());
+    }
+
+    private DatasetRequest requestWithFilters(String variables, String filters) {
+        return new DatasetRequest(UUID.randomUUID(), UUID.randomUUID(), "Synthetic request", "Test", "{}", variables, filters, DatasetFormat.CSV, clock.instant());
+    }
+
 }

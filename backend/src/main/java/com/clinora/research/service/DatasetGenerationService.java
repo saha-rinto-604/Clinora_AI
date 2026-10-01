@@ -474,17 +474,60 @@ public class DatasetGenerationService {
             throw new IllegalArgumentException("Invalid approved population criteria", e);
         }
 
+        // Reapply approved observation conditions; never widen a request by dropping its filters.
+        try {
+            JsonNode filters = objectMapper.readTree(Objects.requireNonNullElse(request.getRequestedFilters(), "{}"));
+            if (!filters.isObject()) throw new IllegalArgumentException("Filters must be an object");
+            JsonNode conditions = filters.path("observationConditions");
+            if (!conditions.isMissingNode() && !conditions.isNull() && !conditions.isArray()) throw new IllegalArgumentException("Invalid conditions");
+            int index = 0;
+            for (JsonNode condition : conditions) {
+                var variable = catalog.getByCode(condition.path("variableCode").asText()).orElseThrow();
+                String operator = condition.path("operator").asText().toUpperCase(Locale.ROOT);
+                if (!variable.supportedOperators().contains(operator) || !condition.path("value").isNumber()) throw new IllegalArgumentException("Invalid observation condition");
+                String alias = "conditionAliases" + index;
+                String value = "conditionValue" + index;
+                String max = "conditionMax" + index;
+                params.addValue(alias, variable.labelAliases().stream().map(v -> v.toLowerCase(Locale.ROOT)).toList());
+                params.addValue(value, condition.get("value").decimalValue());
+                String comparison = switch (operator) {
+                    case "GTE" -> ">= :" + value;
+                    case "LTE" -> "<= :" + value;
+                    case "GT" -> "> :" + value;
+                    case "LT" -> "< :" + value;
+                    case "EQ" -> "= :" + value;
+                    case "BETWEEN" -> {
+                        if (!condition.path("maxValue").isNumber() || condition.get("maxValue").decimalValue().compareTo(condition.get("value").decimalValue()) < 0) throw new IllegalArgumentException("Invalid condition range");
+                        params.addValue(max, condition.get("maxValue").decimalValue());
+                        yield "BETWEEN :" + value + " AND :" + max;
+                    }
+                    default -> throw new IllegalArgumentException("Unsupported observation operator");
+                };
+                whereClause.append("AND EXISTS (SELECT 1 FROM patient_medical_reports crep ")
+                    .append("JOIN medical_report_extraction_results cres ON cres.report_id=crep.id ")
+                    .append("JOIN medical_report_observations cobs ON cobs.extraction_result_id=cres.id ")
+                    .append("WHERE crep.patient_user_id=rep.patient_user_id AND crep.subject_type='SELF' AND crep.archived_at IS NULL ")
+                    .append("AND cobs.verification_status IN ('DOCTOR_VERIFIED','PATIENT_CONFIRMED','PATIENT_CORRECTED') AND cobs.review_required=false ")
+                    .append("AND (LOWER(cobs.normalized_label) IN (:").append(alias).append(") OR LOWER(cobs.effective_label) IN (:").append(alias).append(")) ")
+                    .append("AND cobs.effective_numeric_value ").append(comparison).append(") ");
+                index++;
+            }
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Invalid approved observation filters", exception);
+        }
+
         // Parse requested variables
         Set<String> aliases = new HashSet<>();
         try {
             if (request.getRequestedVariables() != null && !request.getRequestedVariables().isBlank()) {
                 List<String> vars = objectMapper.readValue(request.getRequestedVariables(), new TypeReference<List<String>>() {});
                 for (String varCode : vars) {
-                    catalog.getByCode(varCode).ifPresent(v -> {
+                    var v = catalog.getByCode(varCode).orElseThrow(() -> new IllegalArgumentException("Unknown approved variable"));
+                    {
                         if (!"Demographics".equalsIgnoreCase(v.category())) {
                             v.labelAliases().forEach(a -> aliases.add(a.toLowerCase(Locale.ROOT)));
                         }
-                    });
+                    }
                 }
             }
         } catch (Exception e) {
@@ -518,7 +561,13 @@ public class DatasetGenerationService {
             ORDER BY rep.patient_user_id, rep.report_date ASC, obs.created_at ASC
             """.formatted(whereClause.toString());
 
-        return jdbcTemplate.query(sql, params, (rs, rowNum) -> mapRow(rs));
+        List<DeidentificationService.RawObservationRow> eligible = jdbcTemplate.query(sql, params, (rs, rowNum) -> mapRow(rs));
+        if (!aliases.isEmpty()) return eligible;
+        // A demographic-only request must not export unrequested clinical observations.
+        var unique = new LinkedHashMap<UUID, DeidentificationService.RawObservationRow>();
+        for (var row : eligible) unique.putIfAbsent(row.patientUserId(), new DeidentificationService.RawObservationRow(
+            row.patientUserId(), row.dateOfBirth(), row.gender(), row.reportDate(), "DEMOGRAPHICS", null, null, null, null, null));
+        return List.copyOf(unique.values());
     }
 
     private DeidentificationService.RawObservationRow mapRow(ResultSet rs) throws SQLException {

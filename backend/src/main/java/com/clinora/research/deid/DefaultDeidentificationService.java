@@ -35,9 +35,7 @@ public class DefaultDeidentificationService implements DeidentificationService {
     ) {
         this.objectMapper = objectMapper;
         boolean isDevOrTest = environment != null && (
-                environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test", "dev")) ||
-                System.getProperty("surefire.test.class.path") != null ||
-                System.getProperty("sun.java.command", "").contains("surefire")
+                environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test", "dev"))
         );
         this.minCohortSize = Math.max(5, minCohortSize);
         if (pseudonymSecret == null || pseudonymSecret.isBlank()) {
@@ -47,7 +45,7 @@ public class DefaultDeidentificationService implements DeidentificationService {
                 throw new IllegalStateException("CLINORA_RESEARCH_PSEUDONYM_SECRET is required but not configured. Application startup aborted for security.");
             }
         } else {
-            if (!isDevOrTest && (pseudonymSecret.length() < 32 || pseudonymSecret.contains("dev-only") || pseudonymSecret.contains("test-only") || pseudonymSecret.contains("change-me"))) {
+            if (!isDevOrTest && (pseudonymSecret.length() < 32 || pseudonymSecret.contains("dev-only") || pseudonymSecret.contains("test-only") || pseudonymSecret.contains("change-me") || pseudonymSecret.contains("replace-with"))) {
                 throw new IllegalStateException("A private research pseudonym secret of at least 32 characters is required.");
             }
             this.pseudonymSecret = pseudonymSecret;
@@ -96,6 +94,14 @@ public class DefaultDeidentificationService implements DeidentificationService {
                     "Cohort contains %d unique subjects, which fails the minimum subject threshold protection (minimum %d subjects). Generation aborted to prevent re-identification."
                             .formatted(uniquePatients.size(), minCohortSize)
             );
+        }
+
+        Map<String, Set<UUID>> variableSubjects = new HashMap<>();
+        for (RawObservationRow row : rows) {
+            variableSubjects.computeIfAbsent(row.variableCode(), ignored -> new HashSet<>()).add(row.patientUserId());
+        }
+        if (variableSubjects.values().stream().anyMatch(subjects -> subjects.size() < minCohortSize)) {
+            throw new IllegalStateException("A requested variable has fewer than the minimum distinct eligible subjects.");
         }
 
         List<DeidentifiedRecord> deidentifiedRecords = new ArrayList<>(rows.size());

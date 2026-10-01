@@ -141,8 +141,10 @@ class ResearchPrivacyPostgresIntegrationTest {
         var socket = new ResearchSocketAccess(guard,jdbc,Clock.systemUTC());
         var jwt = Jwt.withTokenValue("synthetic").header("alg","HS256").subject(owner.toString())
             .claim("role","RESEARCHER").issuedAt(Instant.now().minusSeconds(10)).expiresAt(Instant.now().plusSeconds(600)).build();
-        String topic = "/topic/research/projects/"+project+"/documents/"+document;
+        String topic = "/topic/research.projects."+project+".documents."+document;
         assertDoesNotThrow(() -> socket.destination(jwt,topic,false));
+        assertDoesNotThrow(() -> socket.destination(jwt,"/app/research/projects/"+project+"/documents/"+document+"/presence",true));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> socket.destination(jwt,"/topic/research.projects.*.documents.#",false));
         assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> socket.destination(jwt,"/topic/research/projects/*",false));
         assertThrows(ResearchApiException.class, () -> socket.destination(jwt,topic.replace(document.toString(),UUID.randomUUID().toString()),false));
         assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> socket.destination(jwt,topic.replace("/topic/","/app/")+"/edit",true));

@@ -176,7 +176,8 @@ public class DefaultCohortBuilderService implements CohortBuilderService {
                 eligibleRecords = matchingPatients;
             }
         } catch (Exception e) {
-            LOGGER.error("Cohort preview query execution failed: {}", e.getMessage(), e);
+            LOGGER.error("Cohort preview query execution failed", e);
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Cohort preview is temporarily unavailable", e);
         }
 
         long executionMs = System.currentTimeMillis() - startTime;

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ResearchSocketAccess {
     private static final String ID = "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})";
-    private static final Pattern TOPIC = Pattern.compile("^/topic/research/projects/" + ID + "/documents/" + ID + "(?:/presence)?$");
+    private static final Pattern TOPIC = Pattern.compile("^/topic/research\\.projects\\." + ID + "\\.documents\\." + ID + "(?:\\.presence)?$");
     private static final Pattern PRESENCE = Pattern.compile("^/app/research/projects/" + ID + "/documents/" + ID + "/presence$");
     private final ResearchAccessGuard guard;
     private final JdbcTemplate jdbc;
