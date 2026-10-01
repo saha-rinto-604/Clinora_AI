@@ -24,7 +24,9 @@ function ApplicationSignIn() {
     setMessageTone('info');
     try {
       await applicationApi.requestAccessLink(email);
-      setMessage('If an eligible professional application exists for this email, we’ve sent a verification or secure sign-in link.');
+      setMessage(
+        'If an eligible professional application exists for this email, we’ve sent a verification or secure sign-in link.',
+      );
     } catch (error) {
       setMessageTone('error');
       setMessage(applicationErrorMessage(error, 'We could not send a secure sign-in link. Please try again.'));

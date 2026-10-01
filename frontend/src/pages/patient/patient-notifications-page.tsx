@@ -11,10 +11,13 @@ import {
   type PatientNotification,
 } from '../../features/notifications/notification-api';
 import { notificationTarget } from '../../features/notifications/notification-target';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { cn } from '../../lib/cn';
 
 export function PatientNotificationsPage() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const isResearcher = user?.role === 'RESEARCHER';
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [items, setItems] = useState<PatientNotification[]>([]);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
@@ -71,7 +74,7 @@ export function PatientNotificationsPage() {
         /* navigation remains available */
       }
     }
-    navigate(notificationTarget(item));
+    navigate(notificationTarget(item, user?.role));
   };
   const markAllRead = async () => {
     setBusy('read-all');
@@ -122,7 +125,9 @@ export function PatientNotificationsPage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">Notifications</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)]">
-          Appointment changes and reminders from your Clinora care. Open an update to review the related booking.
+          {isResearcher
+            ? 'Research collaboration, dataset requests, credential verification, and account alerts. Open an update to review details.'
+            : 'Appointment changes and reminders from your Clinora care. Open an update to review the related booking.'}
         </p>
       </header>
 
@@ -166,7 +171,9 @@ export function PatientNotificationsPage() {
             copy={
               unreadOnly
                 ? 'You are up to date.'
-                : 'Booking confirmations, schedule changes, cancellations, and reminders will appear here when there is something new to review.'
+                : isResearcher
+                  ? 'Project updates, dataset requests, credential approvals, and alerts will appear here when there is something new to review.'
+                  : 'Booking confirmations, schedule changes, cancellations, and reminders will appear here when there is something new to review.'
             }
           />
         ) : null}

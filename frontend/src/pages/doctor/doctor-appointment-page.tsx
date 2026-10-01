@@ -172,11 +172,7 @@ export function DoctorAppointmentPage() {
   const back = doctorBackTarget(location.state, scheduleBackTarget, (path) =>
     isAppointmentOrigin(path, data.patient.id),
   );
-  const appointmentBackState = doctorNavigationState(
-    `/doctor/appointments/${data.id}`,
-    'Back to appointment',
-    back,
-  );
+  const appointmentBackState = doctorNavigationState(`/doctor/appointments/${data.id}`, 'Back to appointment', back);
 
   return (
     <div className="space-y-7">

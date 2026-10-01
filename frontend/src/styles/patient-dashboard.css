@@ -57,12 +57,14 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg,
+    linear-gradient(
+      90deg,
       #020b14 0%,
       rgba(2, 11, 20, 0.95) 22%,
       rgba(2, 11, 20, 0.25) 49%,
       rgba(2, 11, 20, 0.12) 72%,
-      #020b14 100%),
+      #020b14 100%
+    ),
     linear-gradient(180deg, rgba(2, 11, 20, 0.12) 0%, rgba(2, 11, 20, 0.04) 43%, #020b14 100%);
 }
 
@@ -80,7 +82,7 @@
   position: relative;
 }
 
-.patient-home__search-wrap>p {
+.patient-home__search-wrap > p {
   position: absolute;
   z-index: 5;
   top: 100%;
@@ -123,7 +125,7 @@
   color: #a0b4c7;
 }
 
-.patient-home__search>svg {
+.patient-home__search > svg {
   flex-shrink: 0;
 }
 
@@ -155,7 +157,7 @@
   color: #bdd4e6;
 }
 
-.patient-home__notification>span {
+.patient-home__notification > span {
   position: absolute;
   top: -2px;
   right: -2px;
@@ -214,7 +216,7 @@
   font-weight: 650;
 }
 
-.patient-home__greeting>div>p {
+.patient-home__greeting > div > p {
   margin-top: 8px;
   color: #acc1d4;
   font-size: 15px;
@@ -275,7 +277,7 @@
   border: 1px solid rgba(125, 211, 252, 0.12);
 }
 
-.patient-home__action>div {
+.patient-home__action > div {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -351,14 +353,16 @@
   font-size: 11px;
   line-height: 1.2;
   font-weight: 600;
-  transition: background 160ms, border-color 160ms;
+  transition:
+    background 160ms,
+    border-color 160ms;
 }
 
 .patient-home__action .patient-home__button {
   margin-top: auto;
 }
 
-.patient-home__button>svg {
+.patient-home__button > svg {
   flex-shrink: 0;
 }
 
@@ -404,7 +408,7 @@
   text-decoration: none;
 }
 
-.patient-home__metric+.patient-home__metric {
+.patient-home__metric + .patient-home__metric {
   border-left: 1px solid rgba(125, 211, 252, 0.1);
 }
 
@@ -436,7 +440,7 @@
   font-size: 10px;
 }
 
-.patient-home__metric>svg {
+.patient-home__metric > svg {
   display: none;
 }
 
@@ -453,7 +457,7 @@
   margin-bottom: 10px;
 }
 
-.patient-home__panel-heading>div {
+.patient-home__panel-heading > div {
   display: flex;
   align-items: center;
   min-width: 0;
@@ -473,7 +477,7 @@
   font-size: 11px;
 }
 
-.patient-home__panel-heading>a {
+.patient-home__panel-heading > a {
   flex-shrink: 0;
   color: #38c8ff;
   font-size: 11px;
@@ -511,7 +515,7 @@
   text-align: center;
 }
 
-.patient-home__health-card+.patient-home__health-card {
+.patient-home__health-card + .patient-home__health-card {
   border-left: 1px solid rgba(125, 211, 252, 0.1);
 }
 
@@ -543,7 +547,7 @@
   color: #fff;
 }
 
-.patient-home__measurement>span {
+.patient-home__measurement > span {
   color: #7c93a8;
   font-size: 13px;
   margin-left: 6px;
@@ -637,7 +641,7 @@
 }
 
 .patient-home__care-list a:hover {
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .patient-home__date-tile {
@@ -660,30 +664,30 @@
   color: #e3f1fb;
 }
 
-.patient-home__care-list a>div {
+.patient-home__care-list a > div {
   flex: 1;
   min-width: 0;
 }
 
-.patient-home__care-list a>div>span {
+.patient-home__care-list a > div > span {
   display: block;
   font-size: 11px;
   color: #a4bdd0;
 }
 
-.patient-home__care-list a>div>strong {
+.patient-home__care-list a > div > strong {
   display: block;
   font-size: 13px;
   font-weight: 550;
   overflow-wrap: anywhere;
 }
 
-.patient-home__care-list a>svg {
+.patient-home__care-list a > svg {
   color: #55d2ff;
   flex-shrink: 0;
 }
 
-.patient-home__activity-list>li {
+.patient-home__activity-list > li {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -701,7 +705,7 @@
   border-radius: 8px;
 }
 
-.patient-home__activity-list li>div {
+.patient-home__activity-list li > div {
   flex: 1;
   min-width: 0;
 }
@@ -712,7 +716,7 @@
   font-weight: 550;
 }
 
-.patient-home__activity-list div>span {
+.patient-home__activity-list div > span {
   display: block;
   color: #91adc1;
   font-size: 10px;
@@ -762,7 +766,7 @@
   margin: 16px 0 12px;
 }
 
-.patient-home__doctor>div {
+.patient-home__doctor > div {
   min-width: 0;
 }
 
@@ -772,7 +776,7 @@
   display: block;
 }
 
-.patient-home__doctor div>span {
+.patient-home__doctor div > span {
   display: block;
   font-size: 11px;
   color: #9ebad0;
@@ -788,7 +792,7 @@
   font-size: 12px;
 }
 
-.patient-home__next>.patient-home__button {
+.patient-home__next > .patient-home__button {
   margin-top: 15px;
   width: 100%;
   border-radius: 9px;
@@ -812,7 +816,7 @@
   overflow-wrap: normal;
 }
 
-.patient-home__quick-grid :is(a, button)>span {
+.patient-home__quick-grid :is(a, button) > span {
   display: grid;
   width: 100%;
   aspect-ratio: 1;
@@ -827,7 +831,7 @@
     background 160ms;
 }
 
-.patient-home__quick-grid :is(a, button):hover>span {
+.patient-home__quick-grid :is(a, button):hover > span {
   border-color: #00bcd4;
   background: #06394a;
 }
@@ -841,7 +845,7 @@
   background: rgba(4, 24, 36, 0.75);
 }
 
-.patient-home__insight-baseline>div {
+.patient-home__insight-baseline > div {
   min-width: 0;
 }
 
@@ -924,7 +928,7 @@
   background: rgba(125, 211, 252, 0.07);
 }
 
-.patient-home__loading span+span {
+.patient-home__loading span + span {
   width: 70%;
 }
 
@@ -1030,7 +1034,7 @@
     gap: 5px;
   }
 
-  .patient-home__action .patient-home__button>svg:first-child {
+  .patient-home__action .patient-home__button > svg:first-child {
     display: none;
   }
 
@@ -1047,7 +1051,7 @@
     height: 39px;
   }
 
-  .patient-home__metric>svg {
+  .patient-home__metric > svg {
     display: none;
   }
 
@@ -1065,7 +1069,7 @@
     gap: 0;
   }
 
-  .patient-home__panel-heading>div {
+  .patient-home__panel-heading > div {
     gap: 7px;
   }
 
@@ -1156,7 +1160,7 @@
     font-size: 25px;
   }
 
-  .patient-home__greeting>div>p {
+  .patient-home__greeting > div > p {
     font-size: 13px;
   }
 
@@ -1169,7 +1173,7 @@
     padding: 17px;
   }
 
-  .patient-home__action+.patient-home__action {
+  .patient-home__action + .patient-home__action {
     border-left: 0;
     border-top: 1px solid var(--home-border);
   }
@@ -1214,7 +1218,7 @@
     height: 40px;
   }
 
-  .patient-home__metric>svg {
+  .patient-home__metric > svg {
     display: none;
   }
 
@@ -1236,7 +1240,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   .patient-home *,
   .patient-home *::before,
   .patient-home *::after {

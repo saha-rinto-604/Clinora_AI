@@ -201,32 +201,29 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
   const scheduled = new Date(appointment.scheduledStart);
   const now = Date.now();
   const scheduledEnd = new Date(appointment.scheduledEnd).getTime();
-  const readyNow =
-    appointment.status === 'BOOKED' &&
-    scheduled.getTime() <= now &&
-    scheduledEnd >= now;
+  const readyNow = appointment.status === 'BOOKED' && scheduled.getTime() <= now && scheduledEnd >= now;
   const awaitingCompletion =
     appointment.status === 'BOOKED' && !appointment.consultationInProgress && scheduledEnd < now;
   const tone: 'info' | 'success' | 'warning' | 'neutral' = appointment.consultationInProgress
     ? 'warning'
     : awaitingCompletion
       ? 'warning'
-    : readyNow
-      ? 'info'
-      : appointment.status === 'BOOKED'
-        ? 'success'
-        : appointment.status === 'CANCELLED'
-          ? 'warning'
-          : 'neutral';
+      : readyNow
+        ? 'info'
+        : appointment.status === 'BOOKED'
+          ? 'success'
+          : appointment.status === 'CANCELLED'
+            ? 'warning'
+            : 'neutral';
   const statusLabel = appointment.consultationInProgress
     ? 'Consultation in progress'
     : awaitingCompletion
       ? 'Awaiting completion'
-    : readyNow
-      ? 'Ready now'
-      : appointment.status === 'BOOKED'
-        ? 'Confirmed'
-        : sentenceCase(appointment.status);
+      : readyNow
+        ? 'Ready now'
+        : appointment.status === 'BOOKED'
+          ? 'Confirmed'
+          : sentenceCase(appointment.status);
   return (
     <AppSurface as="article" variant="interactive" padding="compact" className="sm:p-4">
       <div className="patient-care-appointment-row">

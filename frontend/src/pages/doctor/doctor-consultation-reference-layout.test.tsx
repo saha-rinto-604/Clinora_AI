@@ -149,9 +149,7 @@ describe('Doctor consultation reference layout', () => {
   });
 
   it('returns to the validated Patient context and opens care history on the timeline tab', async () => {
-    renderWorkspace(
-      doctorNavigationState('/doctor/patients/patient-1?tab=consultations', 'Back to patient'),
-    );
+    renderWorkspace(doctorNavigationState('/doctor/patients/patient-1?tab=consultations', 'Back to patient'));
 
     expect(await screen.findByRole('link', { name: 'Back to patient' })).toHaveAttribute(
       'href',

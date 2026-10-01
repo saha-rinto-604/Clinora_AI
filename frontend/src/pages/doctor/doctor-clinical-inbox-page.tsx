@@ -165,7 +165,11 @@ function InboxMetric({ icon, label, value }: { icon: ReactNode; label: string; v
 
 function groupItems(items: ClinicalInboxItem[]) {
   const definitions = [
-    { type: 'NEEDS_ACTION', title: 'Needs action', copy: 'Scheduled appointments that passed their time window without being completed.' },
+    {
+      type: 'NEEDS_ACTION',
+      title: 'Needs action',
+      copy: 'Scheduled appointments that passed their time window without being completed.',
+    },
     { type: 'READY_NOW', title: 'Ready now', copy: 'Appointments whose scheduled care window is currently open.' },
     { type: 'IN_PROGRESS', title: 'In progress', copy: 'Encounter documentation that still needs completion.' },
     { type: 'EVIDENCE_READY', title: 'Needs review', copy: 'Patient-shared evidence available before upcoming care.' },

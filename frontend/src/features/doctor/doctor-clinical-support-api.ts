@@ -57,7 +57,8 @@ export interface DoctorSupportRoutingDecision {
   missingRequiredContext: DoctorSupportRequiredContext[];
 }
 
-export type DoctorSupportExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'DEGRADED' | 'PARTIAL_SUCCESS' | 'FAILED_SAFE';
+export type DoctorSupportExecutionStatus =
+  'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'DEGRADED' | 'PARTIAL_SUCCESS' | 'FAILED_SAFE';
 export type DoctorSupportTaskExecutionStatus = 'SUCCEEDED' | 'DEGRADED' | 'FAILED_SAFE' | 'EVIDENCE_SELECTION_REQUIRED';
 export type ExecutableDoctorSupportTaskId = DoctorSupportTaskId;
 

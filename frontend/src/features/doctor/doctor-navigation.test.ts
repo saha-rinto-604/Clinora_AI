@@ -22,7 +22,11 @@ describe('Doctor navigation context', () => {
   it('uses the explicit fallback for direct links and rejects unrelated context', () => {
     expect(doctorBackTarget(undefined, fallback, () => true)).toEqual(fallback);
     expect(
-      doctorBackTarget(doctorNavigationState('/doctor/patients/another-patient', 'Back to patient'), fallback, () => false),
+      doctorBackTarget(
+        doctorNavigationState('/doctor/patients/another-patient', 'Back to patient'),
+        fallback,
+        () => false,
+      ),
     ).toEqual(fallback);
   });
 

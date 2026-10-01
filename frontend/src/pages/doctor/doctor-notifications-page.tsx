@@ -125,13 +125,18 @@ export function DoctorNotificationsPage() {
       </div>
 
       {error ? (
-        <p role="alert" className="mt-4 rounded-xl border border-rose-300/20 bg-rose-300/[0.06] px-4 py-3 text-sm text-rose-200">
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-rose-300/20 bg-rose-300/[0.06] px-4 py-3 text-sm text-rose-200"
+        >
           {error}
         </p>
       ) : null}
 
       <AppSurface as="section" className="mt-5" aria-labelledby="doctor-notification-list-title">
-        <h2 id="doctor-notification-list-title" className="sr-only">Doctor notification list</h2>
+        <h2 id="doctor-notification-list-title" className="sr-only">
+          Doctor notification list
+        </h2>
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="h-24 rounded-xl" />

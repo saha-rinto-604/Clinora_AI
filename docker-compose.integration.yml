@@ -1,0 +1,35 @@
+# Use only with: -p clinora-integration-stage2 --env-file .env.integration
+# The dedicated project creates fresh volumes; never use this override against retained volumes.
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: clinora_integration_clean
+    ports: !override ["127.0.0.1:55440:5432"]
+  rabbitmq:
+    ports: !override ["127.0.0.1:5674:5672", "127.0.0.1:15674:15672", "127.0.0.1:61615:61613"]
+  minio:
+    ports: !override ["127.0.0.1:9010:9000", "127.0.0.1:9011:9001"]
+  backend:
+    build:
+      dockerfile: Dockerfile.integration
+    environment:
+      SPRING_PROFILES_ACTIVE: dev,integration-clean
+      DATABASE_URL: jdbc:postgresql://postgres:5432/clinora_integration_clean
+      CORS_ALLOWED_ORIGINS: http://localhost:5174
+      APP_FRONTEND_URL: http://localhost:5174
+      AI_SERVICE_URL: http://host.docker.internal:8005
+      CLINORA_RESEARCH_MIN_COHORT_SIZE: "5"
+      GEMINI_API_KEY: ""
+      EMAIL_PROVIDER: unconfigured
+    ports: !override ["127.0.0.1:8084:8080"]
+  frontend:
+    environment:
+      VITE_WS_URL: ws://localhost:8084/ws
+    ports: !override ["127.0.0.1:5174:5173"]
+  ocr-service:
+    ports: !override ["127.0.0.1:8004:8000"]
+  ai-service:
+    ports: !override ["127.0.0.1:8005:8001"]
+    environment:
+      LLAMA_SERVER_URL: http://host.docker.internal:8006
+      GEMINI_API_KEY: ""

@@ -7,6 +7,7 @@ interface AuthState {
   user: AuthUser | null;
   setSession: (accessToken: string, user: AuthUser) => void;
   setAnonymous: () => void;
+  setUser: (user: AuthUser) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -15,4 +16,5 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setSession: (accessToken, user) => set({ status: 'authenticated', accessToken, user }),
   setAnonymous: () => set({ status: 'anonymous', accessToken: null, user: null }),
+  setUser: (user) => set({ user }),
 }));

@@ -524,7 +524,9 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
           role="status"
         >
           <RefreshCw size={14} className="animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
-          <span>Your current reviewed extraction remains visible while Clinora processes the original report again.</span>
+          <span>
+            Your current reviewed extraction remains visible while Clinora processes the original report again.
+          </span>
         </div>
       ) : null}
 
@@ -798,7 +800,10 @@ function ProcessingPanel({ extraction }: { extraction: PatientReportExtraction }
               </div>
               <div className="space-y-4 pt-4" aria-hidden="true">
                 {[86, 72, 91, 64, 79, 68].map((width, index) => (
-                  <div key={`ocr-skeleton-row-${index}`} className="grid grid-cols-[1.25fr_0.7fr_0.8fr] items-center gap-2">
+                  <div
+                    key={`ocr-skeleton-row-${index}`}
+                    className="grid grid-cols-[1.25fr_0.7fr_0.8fr] items-center gap-2"
+                  >
                     <span className="h-2 rounded-full bg-white/[0.08]" style={{ width: `${width}%` }} />
                     <span className="h-2 rounded-full bg-white/[0.055]" />
                     <span className="h-2 rounded-full bg-white/[0.045]" />

@@ -89,7 +89,6 @@ export function PatientDoctorDetailPage() {
     if (!dateGroups.length) {
       setSelectedDateKey('');
       setSelectedSlot(null);
-      setConsultationMode(null);
       return;
     }
     if (!dateGroups.some((group) => group.key === selectedDateKey)) setSelectedDateKey(dateGroups[0].key);
@@ -175,8 +174,8 @@ export function PatientDoctorDetailPage() {
         if (activeReports.length !== selectedReports.length) setSelectedReports(activeReports);
         setError(
           activeReports.length !== selectedReports.length
-            ? 'A selected report is no longer active, so Clinora removed it from this booking. Your time and note are unchanged — review the remaining reports and confirm again.'
-            : 'One of the selected reports can no longer be shared. Your time, note, and report choices are still here — review the report selection and try again.',
+            ? 'A selected report is no longer active, so Clinora removed it from this booking. Your time and note are unchanged â€” review the remaining reports and confirm again.'
+            : 'One of the selected reports can no longer be shared. Your time, note, and report choices are still here â€” review the report selection and try again.',
         );
       } else if (code === 'APPOINTMENT_SLOT_UNAVAILABLE' && doctorId) {
         try {
@@ -190,7 +189,7 @@ export function PatientDoctorDetailPage() {
           // Preserve the Patient's form state even if the availability refresh also fails.
         }
         setError(
-          'That appointment time was just taken. Your reason and selected reports are still here — choose another available time.',
+          'That appointment time was just taken. Your reason and selected reports are still here â€” choose another available time.',
         );
       } else {
         setError(
@@ -233,11 +232,11 @@ export function PatientDoctorDetailPage() {
             <p className="mt-1.5 text-sm text-slate-500">
               {[professionalProfile?.displayTitle || doctor.professionalTitle, professionalProfile?.currentPosition]
                 .filter(Boolean)
-                .join(' · ')}
+                .join(' Â· ')}
               {professionalProfile?.yearsExperience != null
-                ? ` · ${professionalProfile.yearsExperience} years experience`
+                ? ` Â· ${professionalProfile.yearsExperience} years experience`
                 : doctor.yearsExperience != null
-                  ? ` · ${doctor.yearsExperience} years experience`
+                  ? ` Â· ${doctor.yearsExperience} years experience`
                   : ''}
             </p>
             {careRelationship?.returningPatient ? (
@@ -245,7 +244,7 @@ export function PatientDoctorDetailPage() {
                 <Check size={13} aria-hidden="true" />
                 Previously consulted
                 {careRelationship.lastConsultationAt
-                  ? ` · Last consultation ${new Date(careRelationship.lastConsultationAt).toLocaleDateString()}`
+                  ? ` Â· Last consultation ${new Date(careRelationship.lastConsultationAt).toLocaleDateString()}`
                   : ''}
               </p>
             ) : null}
@@ -425,7 +424,7 @@ export function PatientDoctorDetailPage() {
                               {formatTime(slot.startsAt, timezone)}
                             </span>
                             <span className="mt-1 block text-[10px] text-slate-600">
-                              {duration} min · until {formatTime(slot.endsAt, timezone)}
+                              {duration} min Â· until {formatTime(slot.endsAt, timezone)}
                             </span>
                           </button>
                         );
@@ -575,7 +574,7 @@ export function PatientDoctorDetailPage() {
                 onClick={() => void book()}
               >
                 {booking ? (
-                  'Confirming…'
+                  'Confirmingâ€¦'
                 ) : (
                   <>
                     <Check size={15} aria-hidden="true" /> Confirm appointment

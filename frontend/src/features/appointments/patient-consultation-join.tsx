@@ -49,8 +49,10 @@ export function PatientConsultationJoin({ appointmentId }: { appointmentId: stri
       {status?.state === 'TOO_EARLY' ? (
         <p>
           Join will be available shortly
-          {status.opensAt ? ` at ${new Date(status.opensAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}.
-          Access opens 15 minutes before your appointment.
+          {status.opensAt
+            ? ` at ${new Date(status.opensAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : ''}
+          . Access opens 15 minutes before your appointment.
         </p>
       ) : null}
       {status?.state === 'ROOM_NOT_READY' ? <p>Your Doctor has not made the secure room available yet.</p> : null}

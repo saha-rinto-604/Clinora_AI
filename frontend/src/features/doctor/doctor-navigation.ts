@@ -8,11 +8,7 @@ export type DoctorNavigationState = {
   doctorBack?: DoctorBackTarget;
 };
 
-export function doctorNavigationState(
-  to: string,
-  label: string,
-  parent?: DoctorBackTarget,
-): DoctorNavigationState {
+export function doctorNavigationState(to: string, label: string, parent?: DoctorBackTarget): DoctorNavigationState {
   return {
     doctorBack: {
       to,

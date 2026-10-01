@@ -1,6 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Check, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  FileText,
+  LoaderCircle,
+  Lock,
+  Pencil,
+  Plus,
+  Shield,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -15,9 +27,12 @@ import { z } from 'zod';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/feedback';
 import { FormNotice } from '../../features/auth/auth-ui';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { patientApi, patientErrorMessage } from '../../features/patient/patient-api';
 import {
+  getProfileSections,
   profileSections,
+  privacySection,
   sectionCompletion,
   type ProfileSectionId,
 } from '../../features/patient/patient-profile-state';
@@ -45,6 +60,8 @@ const optionalNumber = (min: number, max: number, label: string) =>
       message: `${label} must be between ${min} and ${max}.`,
     });
 const schema = z.object({
+  firstName: z.string().trim().min(1, 'Enter your first name.').max(120, 'First name must be 120 characters or fewer.'),
+  lastName: z.string().trim().min(1, 'Enter your last name.').max(120, 'Last name must be 120 characters or fewer.'),
   dateOfBirth: z
     .string()
     .refine(
@@ -70,6 +87,8 @@ type FormValues = z.infer<typeof schema>;
 type ProfileView = ProfileSectionId;
 
 const emptyValues: FormValues = {
+  firstName: '',
+  lastName: '',
   dateOfBirth: '',
   gender: '',
   bloodGroup: '',
@@ -93,9 +112,12 @@ export function PatientProfilePage() {
   const [saveError, setSaveError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [pendingView, setPendingView] = useState<ProfileView | null>(null);
+  const user = useAuthStore((state) => state.user);
+  const userRole = user?.role;
+  const sections = useMemo(() => getProfileSections(userRole), [userRole]);
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('section');
-  const initialView: ProfileView = profileSections.some(({ id }) => id === requested)
+  const initialView: ProfileView = sections.some(({ id }) => id === requested)
     ? (requested as ProfileView)
     : 'personal';
   const [activeView, setActiveView] = useState<ProfileView>(initialView);
@@ -121,7 +143,7 @@ export function PatientProfilePage() {
         }
       })
       .catch((error) => {
-        if (active) setLoadError(patientErrorMessage(error, 'Unable to load your Patient profile.'));
+        if (active) setLoadError(patientErrorMessage(error, 'Unable to load your health profile.'));
       });
     return () => {
       active = false;
@@ -167,23 +189,36 @@ export function PatientProfilePage() {
       const measurementRecorded =
         (profile?.heightCm !== nextHeight || profile?.weightKg !== nextWeight) &&
         (nextHeight !== null || nextWeight !== null);
-      const updated = await patientApi.updateProfile(toApiInput(formValues));
+      const input = toApiInput(formValues);
+      if (userRole !== 'RESEARCHER') {
+        delete input.firstName;
+        delete input.lastName;
+      }
+      const updated = await patientApi.updateProfile(input);
       setProfile(updated);
       reset(toFormValues(updated));
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && (updated.firstName || updated.lastName)) {
+        useAuthStore.getState().setUser({
+          ...currentUser,
+          firstName: updated.firstName || currentUser.firstName,
+          lastName: updated.lastName || currentUser.lastName,
+        });
+      }
       setSaveMessage(
         measurementRecorded
           ? 'Health Profile updated. Your latest measurement was added to Health Trends.'
           : 'Health Profile updated.',
       );
     } catch (error) {
-      setSaveError(patientErrorMessage(error, 'Unable to save your Patient profile. Your changes are still here.'));
+      setSaveError(patientErrorMessage(error, 'Unable to save your health profile. Your changes are still here.'));
     }
   };
 
   const saveCurrent = handleSubmit((formValues) => persist(formValues));
   if (!profile && !loadError)
     return (
-      <div className="mx-auto w-full max-w-[1120px]" role="status" aria-label="Loading Patient profile">
+      <div className="mx-auto w-full max-w-[1120px]" role="status" aria-label="Loading health profile">
         <Skeleton className="h-24 rounded-2xl" />
         <Skeleton className="mt-7 h-24 rounded-[24px]" />
         <div className="mt-6 grid gap-6 lg:grid-cols-12">
@@ -196,7 +231,7 @@ export function PatientProfilePage() {
   if (!profile) return null;
 
   const completion = sectionCompletion(profile);
-  const currentStepIndex = profileSections.findIndex(({ id }) => id === activeView);
+  const currentStepIndex = sections.findIndex(({ id }) => id === activeView);
 
   return (
     <div className="mx-auto w-full max-w-[1120px]">
@@ -205,13 +240,20 @@ export function PatientProfilePage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-[15px]">
           Keep the information you manage in Clinora accurate and up to date.
         </p>
-        <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
-          Changes to your health information are reflected in your{' '}
-          <Link to="/patient/history" className="font-semibold text-[var(--clinora-info-foreground)]">
-            Health Record
-          </Link>
-          .
-        </p>
+        {userRole === 'RESEARCHER' ? (
+          <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
+            Keep your personal health background, physical baseline, emergency contact, and research consent preferences
+            up to date.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-[var(--clinora-text-faint)]">
+            Changes to your health information are reflected in your{' '}
+            <Link to="/patient/history" className="font-semibold text-[var(--clinora-info-foreground)]">
+              Health Record
+            </Link>
+            .
+          </p>
+        )}
       </header>
 
       <section
@@ -223,15 +265,26 @@ export function PatientProfilePage() {
             Profile photo
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized
-            appointment context.
+            {userRole === 'RESEARCHER'
+              ? 'Add a photo so your Clinora research profile is recognizable to project collaborators and reviewers.'
+              : 'Add a photo so your Clinora profile is easier to recognize. A Doctor can see it only inside an authorized appointment context.'}
           </p>
         </div>
-        <ProfileImageEditor name={`${profile.firstName} ${profile.lastName}`.trim() || 'Patient'} compact />
+        <ProfileImageEditor
+          name={
+            `${profile.firstName} ${profile.lastName}`.trim() || (userRole === 'RESEARCHER' ? 'Researcher' : 'Patient')
+          }
+          compact
+        />
       </section>
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
-        <ProfileSignalRail profile={profile} active={activeView} onSelect={(section) => requestView(section)} />
+        <ProfileSignalRail
+          profile={profile}
+          active={activeView}
+          sections={sections}
+          onSelect={(section) => requestView(section)}
+        />
         <section className="min-w-0 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0b1424]/95 lg:col-span-9">
           {saveMessage ? (
             <div className="px-5 pt-5 sm:px-7 sm:pt-7" role="status" aria-live="polite">
@@ -252,60 +305,79 @@ export function PatientProfilePage() {
               exit={{ opacity: 0, x: reducedMotion ? 0 : -4 }}
               transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
-              <form onSubmit={saveCurrent}>
+              {activeView === 'privacy' ? (
                 <div className="p-5 sm:p-7">
                   <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-6">
                     <div>
-                      <p className="text-xs font-medium text-cyan-200">Step {currentStepIndex + 1} of 4</p>
+                      <p className="text-xs font-medium text-cyan-200">Privacy preferences</p>
                       <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">{sectionTitle(activeView)}</h2>
                       <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">{sectionDescription(activeView)}</p>
                     </div>
-                    {completion[activeView] ? (
-                      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-teal-300/16 bg-teal-300/[0.06] px-3 text-xs font-medium text-teal-100">
-                        <Check size={13} aria-hidden="true" /> Saved section
-                      </span>
-                    ) : null}
                   </div>
-
-                  <div className="mt-7 grid gap-6">
-                    {activeView === 'personal' ? (
-                      <PersonalSection profile={profile} register={register} errors={errors} />
-                    ) : null}
-                    {activeView === 'basic' ? <BasicSection register={register} errors={errors} bmi={bmi} /> : null}
-                    {activeView === 'medical' ? (
-                      <MedicalSection values={values} register={register} errors={errors} setValue={setValue} />
-                    ) : null}
-                    {activeView === 'emergency' ? <EmergencySection register={register} errors={errors} /> : null}
+                  <div className="mt-7">
+                    <PrivacyResearchSection />
                   </div>
                 </div>
+              ) : (
+                <form onSubmit={saveCurrent}>
+                  <div className="p-5 sm:p-7">
+                    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-6">
+                      <div>
+                        <p className="text-xs font-medium text-cyan-200">
+                          Step {currentStepIndex + 1} of {sections.filter((s) => s.id !== 'privacy').length}
+                        </p>
+                        <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">{sectionTitle(activeView)}</h2>
+                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+                          {sectionDescription(activeView)}
+                        </p>
+                      </div>
+                      {completion[activeView] ? (
+                        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-teal-300/16 bg-teal-300/[0.06] px-3 text-xs font-medium text-teal-100">
+                          <Check size={13} aria-hidden="true" /> Saved section
+                        </span>
+                      ) : null}
+                    </div>
 
-                <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-white/[0.09] bg-[#091321]/95 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-7">
-                  <p className={cn('text-sm', isDirty ? 'font-medium text-amber-100' : 'text-slate-500')}>
-                    {isDirty ? 'You have unsaved changes.' : 'All changes saved.'}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={!isDirty || isSubmitting}
-                      onClick={() => {
-                        reset(toFormValues(profile));
-                        setSaveError('');
-                        setSaveMessage('');
-                      }}
-                      className="min-h-11 rounded-xl border border-white/10 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-35"
-                    >
-                      Discard
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!isDirty || isSubmitting}
-                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 px-5 text-sm font-semibold text-slate-950 shadow-[0_10px_28px_rgba(14,165,233,.12)] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transform-none sm:flex-none"
-                    >
-                      {isSubmitting ? 'Saving…' : 'Save changes'}
-                    </button>
+                    <div className="mt-7 grid gap-6">
+                      {activeView === 'personal' ? (
+                        <PersonalSection profile={profile} register={register} errors={errors} />
+                      ) : null}
+                      {activeView === 'basic' ? <BasicSection register={register} errors={errors} bmi={bmi} /> : null}
+                      {activeView === 'medical' ? (
+                        <MedicalSection values={values} register={register} errors={errors} setValue={setValue} />
+                      ) : null}
+                      {activeView === 'emergency' ? <EmergencySection register={register} errors={errors} /> : null}
+                    </div>
                   </div>
-                </div>
-              </form>
+
+                  <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-white/[0.09] bg-[#091321]/95 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                    <p className={cn('text-sm', isDirty ? 'font-medium text-amber-100' : 'text-slate-500')}>
+                      {isDirty ? 'You have unsaved changes.' : 'All changes saved.'}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={!isDirty || isSubmitting}
+                        onClick={() => {
+                          reset(toFormValues(profile));
+                          setSaveError('');
+                          setSaveMessage('');
+                        }}
+                        className="min-h-11 rounded-xl border border-white/10 px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        Discard
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!isDirty || isSubmitting}
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 px-5 text-sm font-semibold text-slate-950 shadow-[0_10px_28px_rgba(14,165,233,.12)] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transform-none sm:flex-none"
+                      >
+                        {isSubmitting ? 'Saving…' : 'Save changes'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </AnimatePresence>
         </section>
@@ -345,11 +417,218 @@ export function PatientProfilePage() {
   );
 }
 
+function PrivacyResearchSection() {
+  const [consent, setConsent] = useState<import('../../features/patient/patient-types').PatientResearchConsent | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    patientApi
+      .getResearchConsent()
+      .then((data) => {
+        if (active) setConsent(data);
+      })
+      .catch((err) => {
+        if (active) setError(patientErrorMessage(err, 'Unable to load research consent status.'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleToggleConsent = async () => {
+    if (!consent) return;
+    setUpdating(true);
+    setError('');
+    setSuccess('');
+    try {
+      const nextConsented = !consent.isConsented;
+      const updated = await patientApi.updateResearchConsent(nextConsented);
+      setConsent(updated);
+      setSuccess(
+        nextConsented
+          ? 'Research consent granted. Thank you for contributing to clinical research.'
+          : 'Research consent revoked. Your records are now excluded from all future research cohorts.',
+      );
+    } catch (err) {
+      setError(patientErrorMessage(err, 'Failed to update research consent.'));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
+        <LoaderCircle className="w-6 h-6 animate-spin text-cyan-400" />
+        <span className="text-xs">Loading research consent preferences…</span>
+      </div>
+    );
+  }
+
+  const isConsented = consent?.isConsented ?? false;
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <div className="p-3.5 rounded-xl border border-rose-800/80 bg-rose-950/40 text-rose-300 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className="p-3.5 rounded-xl border border-teal-800/80 bg-teal-950/40 text-teal-300 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
+
+      {/* Primary Status Card */}
+      <div
+        className={cn(
+          'p-5 sm:p-6 rounded-2xl border transition-all',
+          isConsented
+            ? 'border-cyan-500/30 bg-[linear-gradient(135deg,rgba(6,24,37,0.8),rgba(4,20,27,0.9))] shadow-[0_0_24px_rgba(6,182,212,0.08)]'
+            : 'border-slate-800 bg-slate-950/60',
+        )}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div
+              className={cn(
+                'grid h-12 w-12 place-items-center rounded-2xl shrink-0 border',
+                isConsented
+                  ? 'border-cyan-400/30 bg-cyan-500/10 text-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.2)]'
+                  : 'border-slate-700 bg-slate-900 text-slate-400',
+              )}
+            >
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-base font-semibold text-white">
+                  {isConsented ? 'Active Research Contributor' : 'Research Participation Inactive'}
+                </h3>
+                <span
+                  className={cn(
+                    'px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border',
+                    isConsented
+                      ? 'border-emerald-500/30 bg-emerald-950/60 text-emerald-300'
+                      : 'border-slate-700 bg-slate-900 text-slate-400',
+                  )}
+                >
+                  {isConsented ? 'CONSENTED' : 'EXCLUDED'}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-300 max-w-xl leading-relaxed">
+                {isConsented
+                  ? 'Your verified clinical observations may be safely included in approved, ethics-governed biomedical studies under strict de-identification.'
+                  : 'Your clinical records are strictly excluded from research extraction pipelines and cohort builder queries.'}
+              </p>
+              {consent?.consentedAt && isConsented && (
+                <p className="mt-2 text-[11px] text-cyan-300/80 font-mono">
+                  Consent recorded on {new Date(consent.consentedAt).toLocaleDateString()} • Policy{' '}
+                  {consent.policyVersion}
+                </p>
+              )}
+              {consent?.revokedAt && !isConsented && (
+                <p className="mt-2 text-[11px] text-amber-300/80 font-mono">
+                  Consent revoked on {new Date(consent.revokedAt).toLocaleDateString()} • Policy {consent.policyVersion}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleToggleConsent}
+            disabled={updating}
+            className={cn(
+              'min-h-11 px-5 rounded-xl font-semibold text-xs tracking-wide transition-all shrink-0 self-start sm:self-center',
+              isConsented
+                ? 'border border-rose-800/60 bg-rose-950/30 text-rose-300 hover:bg-rose-900/40 hover:text-white'
+                : 'bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 hover:brightness-105 shadow-[0_8px_20px_rgba(14,165,233,0.15)]',
+            )}
+          >
+            {updating ? 'Updating…' : isConsented ? 'Revoke Research Consent' : 'Grant Research Consent'}
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Core Privacy Guarantees */}
+      <div className="grid gap-3 sm:grid-cols-2 pt-2">
+        <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-1.5">
+          <div className="flex items-center gap-2 text-cyan-300 font-semibold text-xs">
+            <Shield className="w-3.5 h-3.5" />
+            <span>Strict De-Identification</span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Names, contact numbers, emails, addresses, and document scans are completely removed. Researchers only
+            receive pseudonymous IDs such as <code>SUBJ-8291</code>.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-1.5">
+          <div className="flex items-center gap-2 text-cyan-300 font-semibold text-xs">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Age &amp; Date Generalization</span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Exact dates of birth are converted into 5-year age bands at the time of observation, and test dates are
+            generalized into quarters to prevent re-identification.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-1.5">
+          <div className="flex items-center gap-2 text-cyan-300 font-semibold text-xs">
+            <FileText className="w-3.5 h-3.5" />
+            <span>Ethics-Approved Studies Only</span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Data access requires institutional review board (IRB) approval. Researchers must sign binding agreements
+            prohibiting any attempt to re-identify patients.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-1.5">
+          <div className="flex items-center gap-2 text-cyan-300 font-semibold text-xs">
+            <Lock className="w-3.5 h-3.5" />
+            <span>Immediate Revocation</span>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            You can revoke consent at any time. Revocation takes effect immediately, excluding your data from all new
+            research dataset generations and queries. Access to affected stored dataset versions is suspended pending
+            governance review. Previously downloaded copies cannot be recalled automatically.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PersonalSection({ profile, register, errors }: SectionProps & { profile: PatientProfile }) {
+  const canEditName = useAuthStore((state) => state.user?.role === 'RESEARCHER');
   return (
     <>
-      <div className="grid gap-5 border-b border-white/[0.07] pb-6 sm:grid-cols-2">
-        <ReadOnlyIdentity label="Full name" value={`${profile.firstName} ${profile.lastName}`} />
+      {canEditName ? (
+        <div className="grid gap-5 border-b border-white/[0.07] pb-6 sm:grid-cols-2">
+          <InputField label="First name" error={errors.firstName?.message} {...register('firstName')} />
+          <InputField label="Last name" error={errors.lastName?.message} {...register('lastName')} />
+        </div>
+      ) : (
+        <div className="border-b border-white/[0.07] pb-6">
+          <ReadOnlyIdentity label="Full name" value={`${profile.firstName} ${profile.lastName}`} />
+        </div>
+      )}
+      <div className="border-b border-white/[0.07] pb-6">
         <ReadOnlyIdentity label="Email" value={profile.email} />
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
@@ -505,7 +784,7 @@ function EmergencySection({ register, errors }: SectionProps) {
       </div>
       <div className="flex gap-3 border-y border-white/[0.07] py-5 text-xs leading-5 text-slate-500">
         <ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200" aria-hidden="true" />
-        <p>This contact is stored as part of your private Patient profile and is not displayed publicly.</p>
+        <p>This contact is stored as part of your private health profile and is not displayed publicly.</p>
       </div>
     </>
   );
@@ -762,7 +1041,7 @@ function TextAreaField({
 }
 
 function sectionTitle(section: ProfileSectionId) {
-  return profileSections.find(({ id }) => id === section)?.label ?? 'Health Profile';
+  return [...profileSections, privacySection].find(({ id }) => id === section)?.label ?? 'Health Profile';
 }
 function sectionDescription(section: ProfileSectionId) {
   return {
@@ -770,10 +1049,13 @@ function sectionDescription(section: ProfileSectionId) {
     basic: 'Essential physical information kept as neutral health context.',
     medical: 'Allergies, conditions, medications, and relevant background information.',
     emergency: 'A trusted contact stored with your private Patient record.',
+    privacy: 'Your informed consent preferences for de-identified biomedical research.',
   }[section];
 }
 function toFormValues(profile: PatientProfile): FormValues {
   return {
+    firstName: profile.firstName ?? '',
+    lastName: profile.lastName ?? '',
     dateOfBirth: profile.dateOfBirth ?? '',
     gender: profile.gender ?? '',
     bloodGroup: profile.bloodGroup ?? '',
@@ -793,6 +1075,8 @@ function toFormValues(profile: PatientProfile): FormValues {
 }
 function toApiInput(values: FormValues): UpdatePatientProfileInput {
   return {
+    firstName: values.firstName.trim(),
+    lastName: values.lastName.trim(),
     dateOfBirth: nullable(values.dateOfBirth),
     gender: nullable(values.gender) as PatientGender | null,
     bloodGroup: nullable(values.bloodGroup) as BloodGroup | null,

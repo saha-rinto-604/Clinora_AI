@@ -143,9 +143,7 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
   const back = doctorBackTarget(
     location.state,
     { to: '/doctor/patients', label: 'Back to Patients' },
-    (path) =>
-      path === '/doctor/patients' ||
-      [...relatedAppointmentIds].some((id) => path === consultationPath(id)),
+    (path) => path === '/doctor/patients' || [...relatedAppointmentIds].some((id) => path === consultationPath(id)),
   );
   const patientReturnState = doctorNavigationState(patientPath, 'Back to patient', back);
 
@@ -293,9 +291,7 @@ function PatientWorkspace({ data }: { data: DoctorPatientDetail }) {
                 {state === 'IN_PROGRESS' && activeEpisode ? (
                   <Link
                     to={consultationPath(activeEpisode.appointmentId)}
-                    state={
-                      back.to === consultationPath(activeEpisode.appointmentId) ? back.state : patientReturnState
-                    }
+                    state={back.to === consultationPath(activeEpisode.appointmentId) ? back.state : patientReturnState}
                     className="mt-2 flex items-center gap-3 rounded-lg bg-[#0a2535]/70 p-3 hover:bg-cyan-300/10"
                   >
                     <FileText className="shrink-0 text-cyan-300" size={22} />
@@ -689,11 +685,7 @@ function ReportSharing({
                   {detailDateTime(appointment.scheduledStart, appointment.timezone)}
                 </p>
               </div>
-              <Link
-                className={secondaryAction}
-                to={appointmentPath(appointment.appointmentId)}
-                state={navigationState}
-              >
+              <Link className={secondaryAction} to={appointmentPath(appointment.appointmentId)} state={navigationState}>
                 Open appointment to review
                 <ArrowRight size={13} />
               </Link>
@@ -706,11 +698,7 @@ function ReportSharing({
         </p>
       )}
       {activeAppointmentId && !shared.some((appointment) => appointment.appointmentId === activeAppointmentId) ? (
-        <Link
-          className={`${secondaryAction} mt-3`}
-          to={appointmentPath(activeAppointmentId)}
-          state={navigationState}
-        >
+        <Link className={`${secondaryAction} mt-3`} to={appointmentPath(activeAppointmentId)} state={navigationState}>
           Review current appointment access
           <ArrowRight size={13} />
         </Link>
@@ -719,7 +707,13 @@ function ReportSharing({
   );
 }
 
-function CareTimeline({ events, navigationState }: { events: CareTimelineEvent[]; navigationState: DoctorNavigationState }) {
+function CareTimeline({
+  events,
+  navigationState,
+}: {
+  events: CareTimelineEvent[];
+  navigationState: DoctorNavigationState;
+}) {
   return (
     <DetailSection
       title="Care Timeline"

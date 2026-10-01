@@ -152,33 +152,37 @@ export function DoctorConsultationPage() {
       findingsNotes,
       assessment,
       plan,
-      prescriptions: prescriptions.filter((item) => !isEmptyPrescriptionDraft(item)).map((item) => ({
-        medicationName: item.medicationName,
-        strength: item.strength,
-        dose: item.dose,
-        route: item.route,
-        frequency: item.frequency,
-        duration: item.duration,
-        instructions: item.instructions,
-      })),
-      investigations: investigations.filter((item) => !isEmptyInvestigationDraft(item)).map((item) => ({
-        testName: item.testName,
-        reason: item.reason,
-        instructions: item.instructions,
-        priority: item.priority,
-      })),
+      prescriptions: prescriptions
+        .filter((item) => !isEmptyPrescriptionDraft(item))
+        .map((item) => ({
+          medicationName: item.medicationName,
+          strength: item.strength,
+          dose: item.dose,
+          route: item.route,
+          frequency: item.frequency,
+          duration: item.duration,
+          instructions: item.instructions,
+        })),
+      investigations: investigations
+        .filter((item) => !isEmptyInvestigationDraft(item))
+        .map((item) => ({
+          testName: item.testName,
+          reason: item.reason,
+          instructions: item.instructions,
+          priority: item.priority,
+        })),
       followUp: followUp && !isEmptyFollowUpDraft(followUp) ? followUp : null,
     };
   }, [assessment, consultation, findingsNotes, followUp, historyNotes, investigations, plan, prescriptions]);
   const hasDigitalContent = Boolean(
     historyNotes.trim() ||
-      findingsNotes.trim() ||
-      assessment.trim() ||
-      plan.trim() ||
-      draft?.prescriptions.length ||
-      consultation?.prescriptionDocuments.length ||
-      draft?.investigations.length ||
-      followUp !== null,
+    findingsNotes.trim() ||
+    assessment.trim() ||
+    plan.trim() ||
+    draft?.prescriptions.length ||
+    consultation?.prescriptionDocuments.length ||
+    draft?.investigations.length ||
+    followUp !== null,
   );
 
   const start = async () => {

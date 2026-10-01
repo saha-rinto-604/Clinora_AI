@@ -16,6 +16,7 @@ export default defineConfig({
     port: 5173,
     watch: {
       usePolling: true,
+      interval: 500,
     },
     // Keep browser-facing API calls on the Vite origin in development.
     // Host development defaults to localhost; Docker Compose overrides the target to the backend service.
