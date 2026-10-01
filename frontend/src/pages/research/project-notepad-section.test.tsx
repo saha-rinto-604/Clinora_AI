@@ -228,4 +228,52 @@ describe('ProjectNotepadSection', () => {
     );
     expect(researchApi.updateDocument).toHaveBeenCalledTimes(1);
   });
+  it('preserves a newer recovered draft when a save from the previous view completes', async () => {
+    const detail = { ...mockDetail, id: 'navigation-draft' };
+    vi.mocked(researchApi.listDocuments).mockResolvedValue([detail]);
+    vi.mocked(researchApi.getDocument).mockResolvedValue(detail);
+    let completeSave!: (value: ResearchDocumentDetail) => void;
+    vi.mocked(researchApi.updateDocument).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeSave = resolve;
+        }),
+    );
+    const props = {
+      projectId,
+      isOwner: true,
+      canEdit: true,
+      currentUserId: ownerUserId,
+      currentUserName: 'Synthetic researcher',
+    };
+    const first = render(<ProjectNotepadSection {...props} />);
+    const editor = await screen.findByLabelText(`Research document editor for ${ownerUserId}`);
+    await waitFor(() => expect(editor).toHaveTextContent('Protocol body'));
+    vi.useFakeTimers();
+    await act(async () => {
+      editor.innerHTML = '<p>Earlier in-flight edit</p>';
+      fireEvent.input(editor);
+      await vi.advanceTimersByTimeAsync(1600);
+    });
+    vi.useRealTimers();
+    expect(researchApi.updateDocument).toHaveBeenCalledTimes(1);
+    first.unmount();
+    const second = render(<ProjectNotepadSection {...props} />);
+    await screen.findByText(/Recovered an unsaved local draft/);
+    const recoveredEditor = screen.getByLabelText(`Research document editor for ${ownerUserId}`);
+    await act(async () => {
+      recoveredEditor.innerHTML = '<p>Newer recovered edit</p>';
+      fireEvent.input(recoveredEditor);
+    });
+    await act(async () => {
+      completeSave({ ...detail, currentRevisionNumber: 3 });
+    });
+    second.unmount();
+    render(<ProjectNotepadSection {...props} />);
+    await screen.findByText(/Recovered an unsaved local draft/);
+    expect(screen.getByLabelText(`Research document editor for ${ownerUserId}`)).toHaveTextContent(
+      'Newer recovered edit',
+    );
+    expect(researchApi.updateDocument).toHaveBeenCalledTimes(1);
+  });
 });

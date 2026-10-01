@@ -128,7 +128,8 @@ export function ProjectNotepadSection({ projectId, isOwner, canEdit, currentUser
             expectedRevisionNumber: doc.currentRevisionNumber,
           });
           documentRef.current = saved;
-          if (pendingContentRef.current === null) forgetResearchDraft(currentUserId, projectId, doc.id);
+          if (pendingContentRef.current === null && readResearchDraft(currentUserId, projectId, doc.id) === content)
+            forgetResearchDraft(currentUserId, projectId, doc.id);
           if (mountedRef.current) setCurrentDoc(saved);
         } catch {
           pendingContentRef.current ??= content;
@@ -538,15 +539,22 @@ export function ProjectNotepadSection({ projectId, isOwner, canEdit, currentUser
                     )
                   )
                     return;
-                  const latest = await researchApi.getDocument(projectId, currentDoc.id);
-                  forgetResearchDraft(currentUserId, projectId, currentDoc.id);
-                  documentRef.current = latest;
-                  pendingContentRef.current = null;
-                  blockedRef.current = false;
-                  setCurrentDoc(latest);
-                  editor?.commands.setContent(JSON.parse(latest.contentJson), false);
-                  setSaveStatus('saved');
-                  setError(null);
+                  try {
+                    const latest = await researchApi.getDocument(projectId, currentDoc.id);
+                    const latestContent = JSON.parse(latest.contentJson);
+                    editor?.commands.setContent(latestContent, false);
+                    forgetResearchDraft(currentUserId, projectId, currentDoc.id);
+                    documentRef.current = latest;
+                    pendingContentRef.current = null;
+                    blockedRef.current = false;
+                    setCurrentDoc(latest);
+                    setSaveStatus('saved');
+                    setError(null);
+                  } catch {
+                    setError(
+                      'Unable to reload the latest revision. Your local draft is retained; export it before trying again.',
+                    );
+                  }
                 }}
               >
                 Reload latest revision
