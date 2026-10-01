@@ -69,11 +69,11 @@ export function PatientConsultationSummary({ appointmentId }: { appointmentId: s
 
   const hasPatientVisibleContent = Boolean(
     summary.assessment ||
-      summary.plan ||
-      summary.prescriptions.length ||
-      summary.prescriptionDocuments.length ||
-      summary.investigations.length ||
-      summary.followUp,
+    summary.plan ||
+    summary.prescriptions.length ||
+    summary.prescriptionDocuments.length ||
+    summary.investigations.length ||
+    summary.followUp,
   );
 
   return (
@@ -251,9 +251,9 @@ export function PatientConsultationSummary({ appointmentId }: { appointmentId: s
           copy="No additional digital care notes were added for this consultation."
         />
       ) : !summary.prescriptions.length &&
-      !summary.prescriptionDocuments.length &&
-      !summary.investigations.length &&
-      !summary.followUp ? (
+        !summary.prescriptionDocuments.length &&
+        !summary.investigations.length &&
+        !summary.followUp ? (
         <EmptyState
           className="mt-5"
           icon={<Stethoscope size={17} />}

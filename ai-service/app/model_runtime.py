@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -57,6 +58,20 @@ class ModelGeneration:
     completion_tokens: int | None
     prompt_tokens: int | None = None
     provider_attempts: int = 1
+    timings: dict[str, float] | None = None
+
+
+def safe_generation_timings(payload: object) -> dict[str, float]:
+    """Keep only numeric llama.cpp timing fields; never copy provider payloads."""
+    if not isinstance(payload, dict):
+        return {}
+    return {
+        key: float(value) for key in (
+            "prompt_ms", "prompt_n", "prompt_per_second", "predicted_ms",
+            "predicted_n", "predicted_per_second", "cache_n",
+        )
+        if type(value := payload.get(key)) in (int, float) and math.isfinite(value) and value >= 0
+    }
 
 
 class VerifiedObservationIds(tuple):
@@ -296,7 +311,8 @@ class MedGemmaRuntime:
 
         self._ready = True
         self._last_error = None
-        return ModelGeneration(content.strip(), finish_reason, completion_tokens, prompt_tokens)
+        return ModelGeneration(content.strip(), finish_reason, completion_tokens, prompt_tokens,
+                               timings=safe_generation_timings(payload.get("timings")))
 
     @staticmethod
     def _chat_message(message: dict[str, object]) -> dict[str, str]:

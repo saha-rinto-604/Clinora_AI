@@ -167,6 +167,58 @@ describe('Doctor continuing-care information architecture', () => {
     expect(screen.getByText('No matching Patient')).toBeInTheDocument();
   });
 
+  it('excludes runtime-smoke identities from the Patient index and care-state counts', async () => {
+    mocks.patients.mockResolvedValue([
+      {
+        patientId: '11111111-1111-1111-1111-111111111111',
+        patientName: 'Anika Islam',
+        careState: 'ACTIVE_CARE',
+        consultationInProgress: false,
+        latestConsultationAt: '2026-09-23T09:00:00Z',
+        latestAssessment: null,
+        latestPlan: null,
+        requestedInvestigationCount: 0,
+        followUpDate: null,
+        nextAppointmentAt: null,
+        contextAppointmentId: null,
+        contextAppointmentAt: null,
+        contextAppointmentTimezone: null,
+        contextAppointmentMode: null,
+        contextAppointmentReason: null,
+        currentlySharedReportCount: 0,
+      },
+      {
+        patientId: '22222222-2222-2222-2222-222222222222',
+        patientName: 'Codex Runtime',
+        careState: 'ACTIVE_CARE',
+        consultationInProgress: false,
+        latestConsultationAt: '2026-09-24T09:00:00Z',
+        latestAssessment: null,
+        latestPlan: null,
+        requestedInvestigationCount: 0,
+        followUpDate: null,
+        nextAppointmentAt: null,
+        contextAppointmentId: null,
+        contextAppointmentAt: null,
+        contextAppointmentTimezone: null,
+        contextAppointmentMode: null,
+        contextAppointmentReason: null,
+        currentlySharedReportCount: 0,
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <DoctorPatientsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Anika Islam')).toBeInTheDocument();
+    expect(screen.queryByText('Codex Runtime')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /All 1/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Active care 1/ })).toBeInTheDocument();
+  });
+
   it('renders Clinical Inbox as an action queue without a generic upcoming bucket', async () => {
     mocks.inbox.mockResolvedValue({
       inProgressCount: 1,

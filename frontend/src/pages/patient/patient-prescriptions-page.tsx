@@ -1,5 +1,5 @@
 import { CalendarClock, Download, Eye, FileText, FlaskConical, Pill, Stethoscope } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
@@ -11,21 +11,34 @@ import {
   type PatientConsultationSummary,
   type PrescriptionDocumentView,
 } from '../../features/consultations/consultation-api';
-import { presentPrescriptionDocument } from '../../features/consultations/prescription-document-file';
+import {
+  closePrescriptionDocumentViewer,
+  preparePrescriptionDocumentViewer,
+  presentPrescriptionDocument,
+} from '../../features/consultations/prescription-document-file';
+
+type DocumentAttemptError = {
+  message: string;
+  summary: PatientConsultationSummary;
+  document: PrescriptionDocumentView;
+  disposition: 'view' | 'download';
+};
 
 export function PatientPrescriptionsPage() {
   const [items, setItems] = useState<PatientConsultationSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [documentError, setDocumentError] = useState<DocumentAttemptError | null>(null);
   const [documentBusy, setDocumentBusy] = useState('');
+  const documentRequestId = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setLoadError('');
     try {
       setItems(await consultationApi.patientPrescriptions());
     } catch (requestError) {
-      setError(consultationError(requestError, 'Your prescriptions could not be loaded.'));
+      setLoadError(consultationError(requestError, 'Your prescriptions could not be loaded.'));
     } finally {
       setLoading(false);
     }
@@ -33,6 +46,9 @@ export function PatientPrescriptionsPage() {
 
   useEffect(() => {
     void load();
+    return () => {
+      documentRequestId.current += 1;
+    };
   }, [load]);
 
   const openDocument = async (
@@ -40,16 +56,32 @@ export function PatientPrescriptionsPage() {
     document: PrescriptionDocumentView,
     disposition: 'view' | 'download',
   ) => {
+    const requestId = ++documentRequestId.current;
     const key = `${document.id}:${disposition}`;
     setDocumentBusy(key);
-    setError('');
+    setDocumentError(null);
+    let preparedViewer: Window | null = null;
     try {
+      if (disposition === 'view') preparedViewer = preparePrescriptionDocumentViewer();
       const blob = await consultationApi.patientPrescriptionDocument(summary.consultationId, document.id, disposition);
-      presentPrescriptionDocument(blob, document.originalFilename, disposition);
+      if (requestId !== documentRequestId.current) {
+        closePrescriptionDocumentViewer(preparedViewer);
+        return;
+      }
+      presentPrescriptionDocument(blob, document.originalFilename, disposition, preparedViewer);
+      setDocumentError(null);
     } catch (requestError) {
-      setError(consultationError(requestError, 'This prescription document could not be opened.'));
+      closePrescriptionDocumentViewer(preparedViewer);
+      if (requestId === documentRequestId.current) {
+        setDocumentError({
+          message: consultationError(requestError, 'This prescription document could not be opened.'),
+          summary,
+          document,
+          disposition,
+        });
+      }
     } finally {
-      setDocumentBusy('');
+      if (requestId === documentRequestId.current) setDocumentBusy('');
     }
   };
 
@@ -63,13 +95,32 @@ export function PatientPrescriptionsPage() {
         />
       </header>
 
-      {error ? (
+      {loadError ? (
         <AppSurface variant="attention">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p role="alert" className="text-sm text-amber-100">
-              {error}
+              {loadError}
             </p>
             <Button size="sm" variant="appSecondary" onClick={() => void load()}>
+              Try again
+            </Button>
+          </div>
+        </AppSurface>
+      ) : null}
+
+      {documentError ? (
+        <AppSurface variant="attention">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p role="alert" className="text-sm text-amber-100">
+              {documentError.message}
+            </p>
+            <Button
+              size="sm"
+              variant="appSecondary"
+              onClick={() =>
+                void openDocument(documentError.summary, documentError.document, documentError.disposition)
+              }
+            >
               Try again
             </Button>
           </div>
@@ -163,7 +214,7 @@ export function PatientPrescriptionsPage() {
                             <Button
                               size="sm"
                               variant="appSecondary"
-                              disabled={!!documentBusy}
+                              disabled={documentBusy === `${document.id}:view`}
                               onClick={() => void openDocument(summary, document, 'view')}
                             >
                               <Eye size={13} /> View
@@ -171,7 +222,7 @@ export function PatientPrescriptionsPage() {
                             <Button
                               size="sm"
                               variant="appSecondary"
-                              disabled={!!documentBusy}
+                              disabled={documentBusy === `${document.id}:download`}
                               onClick={() => void openDocument(summary, document, 'download')}
                             >
                               <Download size={13} /> Download

@@ -32,19 +32,19 @@ public class ProfileImageController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR')")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','RESEARCHER')")
     public ApiResponse<ProfileImageView> metadata(@AuthenticationPrincipal Jwt jwt) {
         return ApiResponse.success("Profile image state loaded.", images.metadata(userId(jwt)).orElse(null));
     }
 
     @GetMapping("/me/content")
-    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR')")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','RESEARCHER')")
     public ResponseEntity<byte[]> selfContent(@AuthenticationPrincipal Jwt jwt) {
         return content(images.selfContent(userId(jwt)).orElse(null));
     }
 
     @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR')")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','RESEARCHER')")
     public ApiResponse<ProfileImageView> replace(
         @AuthenticationPrincipal Jwt jwt,
         @RequestPart("file") MultipartFile file,
@@ -57,10 +57,18 @@ public class ProfileImageController {
     }
 
     @DeleteMapping("/me")
-    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR')")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','RESEARCHER')")
     public ApiResponse<Void> remove(@AuthenticationPrincipal Jwt jwt, HttpServletRequest request) {
         images.remove(userId(jwt), request.getRemoteAddr(), request.getHeader("User-Agent"));
         return ApiResponse.success("Profile photo removed.", null);
+    }
+
+    @GetMapping("/admin/users/{userId}")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<byte[]> adminVisibleUserContent(
+        @PathVariable UUID userId
+    ) {
+        return content(images.adminVisibleContent(userId).orElse(null));
     }
 
     @GetMapping("/patient/doctors/{doctorId}")

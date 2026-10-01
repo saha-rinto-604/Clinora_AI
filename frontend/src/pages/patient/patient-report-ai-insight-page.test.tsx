@@ -232,10 +232,10 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
 
     expect(await screen.findByRole('heading', { name: 'Analyzing your verified report' })).toBeInTheDocument();
     expect(screen.getByText('Verified lab report')).toBeInTheDocument();
-    expect(screen.getByText('Verified report')).toBeInTheDocument();
-    expect(screen.getByText('Clinical correlation')).toBeInTheDocument();
-    expect(screen.getByText('Evidence grounding')).toBeInTheDocument();
-    expect(screen.getByText('Safety checked result')).toBeInTheDocument();
+    expect(screen.queryByText('Clinical correlation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Evidence grounding')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Elapsed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d{2}:\d{2}$/)).not.toBeInTheDocument();
     expect(screen.getByText('Safety checked before display')).toBeInTheDocument();
     expect(screen.queryByText(/\b\d{1,3}%\b/)).not.toBeInTheDocument();
   });
@@ -316,7 +316,27 @@ describe('Phase 10P-R clean grounded AI insight refinement', () => {
 
     expect(await screen.findByText('Iron-deficiency anemia')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Your insight is not ready yet' })).toBeInTheDocument();
+    expect(screen.getByText('Previous successful insight')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The latest analysis did not complete. The insight below is from your previous successful analysis.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/MedGemma/i)).not.toBeInTheDocument();
+  });
+
+  it('identifies an older result by its job ID even without the previous-result flag', async () => {
+    mocks.getAi.mockResolvedValue({
+      ...conditionSucceeded,
+      status: 'FAILED',
+      jobId: 'new-failed-job',
+      displayedJobId: conditionSucceeded.jobId,
+      displayedPreviousResult: false,
+      failureCode: 'AI_TIMEOUT',
+    });
+    renderPage();
+    expect(await screen.findByText('Previous successful insight')).toBeInTheDocument();
+    expect(screen.getByText('Iron-deficiency anemia')).toBeInTheDocument();
   });
 
   it('keeps the ready state accessible', async () => {
@@ -453,6 +473,11 @@ describe('Phase 10P-R5 cluster-first interpretation', () => {
     expect(within(evidence).getByText('TSH')).toBeInTheDocument();
     expect(within(evidence).getByText('0.1 mIU/L')).toBeInTheDocument();
     expect(within(evidence).getByText('Ref: 0.4 - 4')).toBeInTheDocument();
+    expect(within(evidence).queryByText(redCellCluster.evidence[0].clinicalRelevance)).not.toBeInTheDocument();
+    expect(container).not.toHaveTextContent(
+      'There may be independent clinical processes in this report; each needs its own clinical context.',
+    );
+    expect(screen.queryByRole('region', { name: 'Supporting information' })).not.toBeInTheDocument();
     const summary = screen.getByRole('region', { name: 'Verified report summary' });
     expect(thyroid.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container).not.toHaveTextContent(/MedGemma/i);

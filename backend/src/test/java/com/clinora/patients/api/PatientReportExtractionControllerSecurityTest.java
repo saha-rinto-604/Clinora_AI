@@ -25,6 +25,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(SecurityFoundationConfig.class)
 @TestPropertySource(properties = "clinora.auth.jwt-secret=test-secret-that-is-at-least-32-bytes-long")
 class PatientReportExtractionControllerSecurityTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.clinora.research.service.ResearchAccessGuard researchAccessGuard;
     private static final UUID PATIENT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID REPORT_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID OBSERVATION_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");

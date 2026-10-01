@@ -1,23 +1,26 @@
 import { Check } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import type { PatientProfile } from './patient-types';
-import { profileSections, sectionCompletion, type ProfileSectionId } from './patient-profile-state';
+import { profileSections, getProfileSections, sectionCompletion, type ProfileSectionId } from './patient-profile-state';
 
 const sectionDescriptions: Record<ProfileSectionId, string> = {
   personal: 'Date of birth, gender, phone, and address',
   basic: 'Blood group, height, and weight',
   medical: 'Allergies, conditions, medications, and history',
   emergency: 'A trusted person Clinora can keep on record',
+  privacy: 'Informed research data-use and privacy consent',
 };
 
 export function ProfileSignalRail({
   profile,
   active,
   onSelect,
+  sections = profileSections,
 }: {
   profile: PatientProfile;
   active: ProfileSectionId;
   onSelect: (section: ProfileSectionId) => void;
+  sections?: ReturnType<typeof getProfileSections>;
 }) {
   const completion = sectionCompletion(profile);
 
@@ -33,7 +36,7 @@ export function ProfileSignalRail({
           onChange={(event) => onSelect(event.target.value as ProfileSectionId)}
           className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1424] px-3 text-sm font-semibold text-white outline-none focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
         >
-          {profileSections.map(({ id, label }, index) => (
+          {sections.map(({ id, label }, index) => (
             <option key={id} value={id}>
               {String(index + 1).padStart(2, '0')} {label}
             </option>
@@ -43,8 +46,8 @@ export function ProfileSignalRail({
 
       <div className="hidden lg:block">
         <p className="px-2 pb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Health Profile</p>
-        {profileSections.map(({ id, label }, index) => {
-          const completed = completion[id];
+        {sections.map(({ id, label }, index) => {
+          const completed = id !== 'privacy' && completion[id];
           const current = active === id;
           return (
             <button

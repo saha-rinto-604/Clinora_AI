@@ -1,6 +1,15 @@
 import type { PatientNotification } from './notification-api';
 
-export function notificationTarget(notification: PatientNotification) {
+export function notificationTarget(notification: PatientNotification, userRole?: string) {
+  if (notification.targetType === 'RESEARCH_PROJECT' && notification.targetId) {
+    return `/research/projects/${notification.targetId}`;
+  }
+  if (notification.targetType === 'RESEARCH_DATASET' && notification.targetId) {
+    return `/research/datasets/${notification.targetId}`;
+  }
+  if (notification.targetType === 'RESEARCHER_CREDENTIAL') {
+    return '/research/credentials';
+  }
   if (notification.targetType === 'APPOINTMENT' && notification.targetId) {
     return `/patient/appointments/${notification.targetId}`;
   }
@@ -14,5 +23,5 @@ export function notificationTarget(notification: PatientNotification) {
     return `/patient/blood-network?request=${notification.targetId}`;
   }
   if (notification.category === 'SECURITY') return '/account';
-  return '/patient/notifications';
+  return userRole === 'RESEARCHER' ? '/research/notifications' : '/patient/notifications';
 }

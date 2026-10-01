@@ -93,7 +93,7 @@ export function DashboardHeader({
               ref={input}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search reports, doctors, appointments…"
+              placeholder="Go to reports, doctors, appointments…"
               aria-label="Jump to reports, doctors, appointments or health record"
               aria-describedby={searchMessage ? 'patient-search-message' : undefined}
             />
@@ -143,7 +143,6 @@ export function DashboardHeader({
               </span>
             ) : null}
           </div>
-          <p>Here&apos;s what matters for your health today.</p>
         </div>
         <p className="patient-home__motto" aria-hidden="true">
           Science
@@ -164,9 +163,8 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
           <ScanText size={25} aria-hidden="true" />
         </span>
         <div>
-          <span className="patient-home__eyebrow">AI Report Analysis</span>
-          <h2>Turn a report into insights</h2>
-          <p>Review your reports and explore AI-assisted explanations in one place.</p>
+          <h2>AI Report Analysis</h2>
+          <p>Verify report values and review AI-assisted insight.</p>
           <Link className="patient-home__button patient-home__button--primary" to="/patient/analyze">
             <ScanText size={14} aria-hidden="true" />
             Analyze a report
@@ -179,9 +177,8 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
           <Droplets size={25} aria-hidden="true" />
         </span>
         <div>
-          <span className="patient-home__eyebrow">Blood Network</span>
-          <h2>Nearby help, organized</h2>
-          <p>Find compatible donors, request help, or support others in your community.</p>
+          <h2>Blood Network</h2>
+          <p>Request blood or respond to nearby requests.</p>
           <Link className="patient-home__button" to="/patient/blood-network">
             <Droplets size={14} aria-hidden="true" />
             Explore Blood Network
@@ -194,9 +191,8 @@ export function DashboardActions({ onUpload }: { onUpload: () => void }) {
           <FileText size={25} aria-hidden="true" />
         </span>
         <div>
-          <span className="patient-home__eyebrow">Medical Reports</span>
-          <h2>Your health records in one place</h2>
-          <p>Your test results, scans and documents stay secure and organized.</p>
+          <h2>Medical Reports</h2>
+          <p>Keep reports organized and upload new records.</p>
           <button type="button" className="patient-home__button" onClick={onUpload}>
             <UploadCloud size={14} aria-hidden="true" />
             Upload a report
@@ -377,7 +373,6 @@ export function DashboardHealthOverview({
     <DashboardPanel
       title="Today's Health Overview"
       icon={ChartNoAxesCombined}
-      copy="A quick snapshot of your saved measurements and health record."
       to="/patient/history"
       className="patient-home__overview"
     >
@@ -469,7 +464,6 @@ export function DashboardCare({
     <DashboardPanel
       title={rail ? 'Next Appointment' : 'Upcoming Care'}
       icon={rail ? undefined : CalendarDays}
-      copy={rail ? undefined : 'Your scheduled appointments and care.'}
       to="/patient/appointments"
       className={rail ? 'patient-home__next' : 'patient-home__care'}
     >
@@ -547,7 +541,6 @@ export function DashboardActivity({ section }: { section: PatientHomeSection<Tim
     <DashboardPanel
       title="Recent Health Activity"
       icon={Clock3}
-      copy="Your latest updates across connected care."
       to="/patient/timeline"
       className="patient-home__activity"
     >
@@ -701,7 +694,7 @@ export function DashboardPrivacy({ section }: { section: PatientHomeSection<Pati
               ? 'Sharing status is unavailable.'
               : shares > 0
                 ? `${shares} report${shares === 1 ? '' : 's'} shared with ${doctors} Clinora Doctor${doctors === 1 ? '' : 's'}.`
-                : 'Your health data stays private and secure, shared only through your authorized care network.'}
+                : 'Private and secure. Shared only with your authorized care network.'}
           </p>
         </DashboardState>
         {shares != null && shares > 0 ? (

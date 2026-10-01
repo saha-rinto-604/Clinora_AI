@@ -388,7 +388,7 @@ public class PatientReportExtractionService {
         return jdbc.query(
             """
             SELECT j.id, j.report_id, j.patient_user_id, r.object_key, r.original_filename, r.mime_type,
-                j.request_kind, j.baseline_result_id
+                j.request_kind, j.baseline_result_id, j.requested_at
             FROM medical_report_extraction_jobs j
             JOIN patient_medical_reports r ON r.id = j.report_id
             WHERE j.id = ?
@@ -401,7 +401,9 @@ public class PatientReportExtractionService {
                 rs.getString("original_filename"),
                 rs.getString("mime_type"),
                 rs.getString("request_kind"),
-                rs.getObject("baseline_result_id", UUID.class)
+                rs.getObject("baseline_result_id", UUID.class),
+                rs.getTimestamp("requested_at") == null ? null
+                    : Math.max(0L, java.time.Duration.between(instant(rs, "requested_at"), now).toMillis())
             ),
             jobId
         ).stream().findFirst().orElse(null);
@@ -1176,8 +1178,14 @@ public class PatientReportExtractionService {
         String filename,
         String mimeType,
         String requestKind,
-        UUID baselineResultId
+        UUID baselineResultId,
+        Long queueWaitMs
     ) {
+        public WorkItem(UUID jobId, UUID reportId, UUID patientUserId, String objectKey,
+                        String filename, String mimeType, String requestKind, UUID baselineResultId) {
+            this(jobId, reportId, patientUserId, objectKey, filename, mimeType, requestKind, baselineResultId, null);
+        }
+
         public WorkItem(
             UUID jobId,
             UUID reportId,

@@ -89,7 +89,6 @@ export function PatientDoctorDetailPage() {
     if (!dateGroups.length) {
       setSelectedDateKey('');
       setSelectedSlot(null);
-      setConsultationMode(null);
       return;
     }
     if (!dateGroups.some((group) => group.key === selectedDateKey)) setSelectedDateKey(dateGroups[0].key);
@@ -175,8 +174,8 @@ export function PatientDoctorDetailPage() {
         if (activeReports.length !== selectedReports.length) setSelectedReports(activeReports);
         setError(
           activeReports.length !== selectedReports.length
-            ? 'A selected report is no longer active, so Clinora removed it from this booking. Your time and note are unchanged — review the remaining reports and confirm again.'
-            : 'One of the selected reports can no longer be shared. Your time, note, and report choices are still here — review the report selection and try again.',
+            ? 'A selected report is no longer active, so Clinora removed it from this booking. Your time and note are unchanged â€” review the remaining reports and confirm again.'
+            : 'One of the selected reports can no longer be shared. Your time, note, and report choices are still here â€” review the report selection and try again.',
         );
       } else if (code === 'APPOINTMENT_SLOT_UNAVAILABLE' && doctorId) {
         try {
@@ -190,7 +189,7 @@ export function PatientDoctorDetailPage() {
           // Preserve the Patient's form state even if the availability refresh also fails.
         }
         setError(
-          'That appointment time was just taken. Your reason and selected reports are still here — choose another available time.',
+          'That appointment time was just taken. Your reason and selected reports are still here â€” choose another available time.',
         );
       } else {
         setError(
@@ -233,11 +232,11 @@ export function PatientDoctorDetailPage() {
             <p className="mt-1.5 text-sm text-slate-500">
               {[professionalProfile?.displayTitle || doctor.professionalTitle, professionalProfile?.currentPosition]
                 .filter(Boolean)
-                .join(' · ')}
+                .join(' Â· ')}
               {professionalProfile?.yearsExperience != null
-                ? ` · ${professionalProfile.yearsExperience} years experience`
+                ? ` Â· ${professionalProfile.yearsExperience} years experience`
                 : doctor.yearsExperience != null
-                  ? ` · ${doctor.yearsExperience} years experience`
+                  ? ` Â· ${doctor.yearsExperience} years experience`
                   : ''}
             </p>
             {careRelationship?.returningPatient ? (
@@ -245,7 +244,7 @@ export function PatientDoctorDetailPage() {
                 <Check size={13} aria-hidden="true" />
                 Previously consulted
                 {careRelationship.lastConsultationAt
-                  ? ` · Last consultation ${new Date(careRelationship.lastConsultationAt).toLocaleDateString()}`
+                  ? ` Â· Last consultation ${new Date(careRelationship.lastConsultationAt).toLocaleDateString()}`
                   : ''}
               </p>
             ) : null}
@@ -293,9 +292,7 @@ export function PatientDoctorDetailPage() {
             <h2 id="choose-mode-title" className="mt-1 text-xl font-semibold tracking-[-0.03em] text-white">
               Choose consultation mode
             </h2>
-            <p className="mt-1.5 text-xs leading-5 text-slate-500">
-              Select how you want to meet before choosing a date and time. A time published as Both remains one slot.
-            </p>
+            <p className="mt-1.5 text-xs leading-5 text-slate-500">Choose Online or In-person, then a date and time.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -427,7 +424,7 @@ export function PatientDoctorDetailPage() {
                               {formatTime(slot.startsAt, timezone)}
                             </span>
                             <span className="mt-1 block text-[10px] text-slate-600">
-                              {duration} min · until {formatTime(slot.endsAt, timezone)}
+                              {duration} min Â· until {formatTime(slot.endsAt, timezone)}
                             </span>
                           </button>
                         );
@@ -540,19 +537,24 @@ export function PatientDoctorDetailPage() {
             </dl>
 
             {selectedReports.length ? (
-              <div className="border-t border-white/[0.055] px-4 py-3 sm:px-5">
-                <ul className="space-y-1.5">
-                  {selectedReports.slice(0, 2).map((report) => (
-                    <li key={report.id} className="flex min-w-0 items-center gap-2 text-[10px] text-slate-500">
-                      <FileText size={11} className="shrink-0 text-cyan-300" aria-hidden="true" />
-                      <span className="truncate">{patientReportDisplayName(report)}</span>
+              <details className="border-t border-white/[0.055] px-4 py-3 sm:px-5">
+                <summary className="cursor-pointer py-2 text-xs font-semibold text-cyan-200">
+                  View all selected reports ({selectedReports.length})
+                </summary>
+                <ul className="mt-2 space-y-3" aria-label="Reports selected for this appointment">
+                  {selectedReports.map((report) => (
+                    <li key={report.id} className="flex min-w-0 items-start gap-2 text-xs text-slate-300">
+                      <FileText size={14} className="mt-0.5 shrink-0 text-cyan-300" aria-hidden="true" />
+                      <span className="min-w-0 break-words">
+                        {patientReportDisplayName(report)}
+                        {report.providerLaboratory ? (
+                          <span className="block text-slate-400">{report.providerLaboratory}</span>
+                        ) : null}
+                      </span>
                     </li>
                   ))}
-                  {selectedReports.length > 2 ? (
-                    <li className="text-[10px] text-slate-700">+{selectedReports.length - 2} more</li>
-                  ) : null}
                 </ul>
-              </div>
+              </details>
             ) : null}
 
             {error ? (
@@ -572,17 +574,13 @@ export function PatientDoctorDetailPage() {
                 onClick={() => void book()}
               >
                 {booking ? (
-                  'Confirming…'
+                  'Confirmingâ€¦'
                 ) : (
                   <>
                     <Check size={15} aria-hidden="true" /> Confirm appointment
                   </>
                 )}
               </Button>
-              <p className="mt-2.5 text-[10px] leading-4 text-slate-700">
-                Clinora verifies the selected time again at confirmation. Your note and report choices stay here if that
-                time is taken first.
-              </p>
             </div>
           </div>
         </aside>

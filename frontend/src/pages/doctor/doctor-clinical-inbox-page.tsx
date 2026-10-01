@@ -11,6 +11,7 @@ import {
   type ClinicalInboxItem,
   type ClinicalInboxView,
 } from '../../features/consultations/consultation-api';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 
 export function DoctorClinicalInboxPage() {
   const [data, setData] = useState<ClinicalInboxView | null>(null);
@@ -105,6 +106,7 @@ export function DoctorClinicalInboxPage() {
                   <li key={item.key}>
                     <Link
                       to={item.destination}
+                      state={doctorNavigationState('/doctor/inbox', 'Back to Clinical Inbox')}
                       className="group grid min-h-[86px] gap-2 px-5 py-3.5 transition-colors hover:bg-[var(--clinora-surface-hover)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6"
                     >
                       <span className="min-w-0">
@@ -163,7 +165,11 @@ function InboxMetric({ icon, label, value }: { icon: ReactNode; label: string; v
 
 function groupItems(items: ClinicalInboxItem[]) {
   const definitions = [
-    { type: 'NEEDS_ACTION', title: 'Needs action', copy: 'Scheduled appointments that passed their time window without being completed.' },
+    {
+      type: 'NEEDS_ACTION',
+      title: 'Needs action',
+      copy: 'Scheduled appointments that passed their time window without being completed.',
+    },
     { type: 'READY_NOW', title: 'Ready now', copy: 'Appointments whose scheduled care window is currently open.' },
     { type: 'IN_PROGRESS', title: 'In progress', copy: 'Encounter documentation that still needs completion.' },
     { type: 'EVIDENCE_READY', title: 'Needs review', copy: 'Patient-shared evidence available before upcoming care.' },

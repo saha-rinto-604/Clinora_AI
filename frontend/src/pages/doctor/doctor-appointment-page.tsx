@@ -11,7 +11,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { buttonVariants } from '../../components/ui/button-variants';
@@ -29,9 +29,25 @@ import {
 } from '../../features/doctor/doctor-display';
 import { ProfileAvatar } from '../../features/profile/profile-image';
 import { ClinoraClinicalSupportPanel } from '../../features/doctor/clinora-clinical-support-panel';
+import {
+  doctorBackTarget,
+  doctorNavigationState,
+  type DoctorBackTarget,
+} from '../../features/doctor/doctor-navigation';
+
+const scheduleBackTarget: DoctorBackTarget = { to: '/doctor/schedule', label: 'Back to appointments' };
+
+function isAppointmentListOrigin(path: string) {
+  return path === '/doctor' || path.startsWith('/doctor/schedule') || path === '/doctor/inbox';
+}
+
+function isAppointmentOrigin(path: string, patientId: string) {
+  return isAppointmentListOrigin(path) || path.startsWith(`/doctor/patients/${encodeURIComponent(patientId)}`);
+}
 
 export function DoctorAppointmentPage() {
   const { appointmentId = '' } = useParams();
+  const location = useLocation();
   const [data, setData] = useState<DoctorAppointmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -135,6 +151,7 @@ export function DoctorAppointmentPage() {
   }
 
   if (error || !data) {
+    const back = doctorBackTarget(location.state, scheduleBackTarget, isAppointmentListOrigin);
     return (
       <AppSurface as="section" variant="attention">
         <p role="alert" className="text-sm text-[var(--clinora-warning-foreground)]">
@@ -144,22 +161,28 @@ export function DoctorAppointmentPage() {
           <Button variant="appSecondary" onClick={() => void load()}>
             Try again
           </Button>
-          <Link to="/doctor/schedule" className={buttonVariants({ variant: 'appSecondary' })}>
-            Back to schedule
+          <Link to={back.to} state={back.state} className={buttonVariants({ variant: 'appSecondary' })}>
+            {back.label}
           </Link>
         </div>
       </AppSurface>
     );
   }
 
+  const back = doctorBackTarget(location.state, scheduleBackTarget, (path) =>
+    isAppointmentOrigin(path, data.patient.id),
+  );
+  const appointmentBackState = doctorNavigationState(`/doctor/appointments/${data.id}`, 'Back to appointment', back);
+
   return (
     <div className="space-y-7">
       <Link
-        to="/doctor/schedule"
+        to={back.to}
+        state={back.state}
         className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-[var(--clinora-text-muted)] transition-colors hover:text-[var(--clinora-info-foreground)]"
       >
         <ArrowLeft size={16} aria-hidden="true" />
-        Back to schedule
+        {back.label}
       </Link>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -180,6 +203,7 @@ export function DoctorAppointmentPage() {
           {data.status !== 'CANCELLED' ? (
             <Link
               to={`/doctor/appointments/${data.id}/consultation`}
+              state={appointmentBackState}
               className={buttonVariants({ variant: 'appPrimary' })}
             >
               <ClipboardList size={15} aria-hidden="true" />
@@ -430,6 +454,7 @@ export function DoctorAppointmentPage() {
                   <li key={report.reportId}>
                     <Link
                       to={`/doctor/appointments/${data.id}/reports/${report.reportId}`}
+                      state={appointmentBackState}
                       className="group flex min-h-20 items-center gap-4 px-5 py-4 transition-colors hover:bg-[var(--clinora-surface-hover)] focus-visible:outline-none sm:px-6"
                     >
                       <IconWell tone="success">
@@ -474,7 +499,11 @@ export function DoctorAppointmentPage() {
               </div>
               <div className="mt-4">
                 {compareHref ? (
-                  <Link to={compareHref} className={buttonVariants({ variant: 'appSecondary' })}>
+                  <Link
+                    to={compareHref}
+                    state={appointmentBackState}
+                    className={buttonVariants({ variant: 'appSecondary' })}
+                  >
                     <TestTube2 size={15} aria-hidden="true" /> Compare results
                   </Link>
                 ) : (

@@ -122,7 +122,7 @@ public class PatientBodyMeasurementService {
 
     private void requireActivePatient(UUID patientUserId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'RESEARCHER') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
             Integer.class,
             patientUserId
         );
@@ -130,7 +130,7 @@ public class PatientBodyMeasurementService {
             throw new PatientApiException(
                 HttpStatus.FORBIDDEN,
                 "ACTIVE_PATIENT_REQUIRED",
-                "An active Patient account is required."
+                "An active Patient or Researcher account is required."
             );
         }
     }

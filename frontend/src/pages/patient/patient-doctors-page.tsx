@@ -53,7 +53,7 @@ export function PatientDoctorsPage() {
       <PatientCareHeader
         eyebrow="Book care"
         title="Find a Doctor"
-        description="Compare verified Clinora Doctors using professional context and real published availability."
+        description="Find a verified Doctor and an available time."
         action={
           <Link to="/patient/appointments" className={buttonVariants({ variant: 'appSecondary' })}>
             <CalendarDays size={16} aria-hidden="true" /> My appointments

@@ -1,0 +1,4 @@
+# Isolated integration databases only; retained history upgrades are NOT authorized.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/integration-clean

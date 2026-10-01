@@ -4,12 +4,10 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
-  Clock3,
   FileCheck2,
   FileText,
   FlaskConical,
   LockKeyhole,
-  MessagesSquare,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -63,6 +61,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState('');
   const [rerunOpen, setRerunOpen] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -94,13 +93,22 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         .get(reportId)
         .then((next) => {
           setAnalysis(next);
-          setError('');
+          setRefreshError(false);
           if (!['QUEUED', 'PROCESSING'].includes(next.status)) window.clearInterval(timer);
         })
-        .catch(() => undefined);
+        .catch(() => setRefreshError(true));
     }, 2200);
     return () => window.clearInterval(timer);
   }, [analysisStatus, reportId]);
+
+  async function refreshStatus() {
+    try {
+      setAnalysis(await patientReportAiApi.get(reportId));
+      setRefreshError(false);
+    } catch {
+      setRefreshError(true);
+    }
+  }
 
   async function requestInsight(force = false) {
     setRequesting(true);
@@ -134,6 +142,18 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
           role="alert"
         >
           {error}
+        </div>
+      ) : null}
+
+      {refreshError ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/20 p-4 text-sm"
+        >
+          <span>We couldn&apos;t update the status.</span>
+          <Button variant="appSecondary" size="sm" onClick={() => void refreshStatus()}>
+            Check again
+          </Button>
         </div>
       ) : null}
 
@@ -174,9 +194,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
         <InsightReady report={report} extraction={extraction} busy={requesting} onStart={() => void requestInsight()} />
       ) : null}
 
-      {verified && analysisActive ? (
-        <InsightLab status={status} report={report} extraction={extraction} analysis={analysis} />
-      ) : null}
+      {verified && analysisActive ? <InsightLab status={status} report={report} extraction={extraction} /> : null}
 
       {verified && status === 'FAILED' ? (
         <InsightFailure
@@ -188,13 +206,25 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
       ) : null}
 
       {verified && analysis.result ? (
-        <InsightResult
-          report={report}
-          extraction={extraction}
-          analysis={analysis}
-          busy={requesting || analysisActive}
-          onRunAgain={() => setRerunOpen(true)}
-        />
+        <>
+          {status === 'FAILED' &&
+          (analysis.displayedPreviousResult ||
+            (analysis.displayedJobId && analysis.displayedJobId !== analysis.jobId)) ? (
+            <div role="status" className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-4">
+              <p className="font-semibold">Previous successful insight</p>
+              <p className="mt-1 text-sm text-[var(--clinora-text-muted)]">
+                The latest analysis did not complete. The insight below is from your previous successful analysis.
+              </p>
+            </div>
+          ) : null}
+          <InsightResult
+            report={report}
+            extraction={extraction}
+            analysis={analysis}
+            busy={requesting || analysisActive}
+            onRunAgain={() => setRerunOpen(true)}
+          />
+        </>
       ) : null}
 
       <Dialog open={rerunOpen} onOpenChange={(open) => !requesting && !analysisActive && setRerunOpen(open)}>
@@ -240,14 +270,11 @@ function InsightHeader({ report, reportId }: { report: PatientReport; reportId: 
           {report.providerLaboratory ? ` · ${report.providerLaboratory}` : ''}
         </p>
         <div className="clinora-ai-reference-header__trust">
-          <TrustChip icon={FileCheck2} label="Verified report values" />
-          <TrustChip icon={BrainCircuit} label="Reviewed for clarity" />
-          <TrustChip icon={ShieldCheck} label="Safety checked before delivery" />
+          <TrustChip icon={FileCheck2} label="Patient-verified report values" />
+          <TrustChip icon={BrainCircuit} label="AI-assisted interpretation" />
         </div>
       </div>
-      <div className="clinora-ai-reference-header__art" aria-hidden="true">
-        <span>Translating lab data into healthier tomorrows</span>
-      </div>
+      <div className="clinora-ai-reference-header__art" aria-hidden="true" />
     </header>
   );
 }
@@ -282,11 +309,10 @@ function InsightReady({
           <h2 className="mt-5 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">
             Understand what your verified lab report may suggest.
           </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-            Clinora AI looks for clinically meaningful patterns and possible conditions while keeping the exact values,
-            reference ranges, and range status fixed to the report you reviewed.
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Clinically meaningful patterns and conditions grounded strictly in your verified values.
           </p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button variant="appPrimary" className="min-h-11 px-5" onClick={onStart} disabled={busy}>
               {busy ? (
                 <RefreshCw size={17} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -295,16 +321,13 @@ function InsightReady({
               )}
               {busy ? 'Starting analysis…' : 'Analyze verified report'}
             </Button>
-            <p className="max-w-md text-xs leading-5 text-slate-500">
-              Possible conditions are shown only when supplied evidence passes Clinora’s grounding and safety checks.
-            </p>
           </div>
         </div>
         <aside className="border-t border-slate-200 bg-slate-50 p-6 sm:p-8 lg:border-l lg:border-t-0">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Report ready</p>
           <p className="mt-2 text-lg font-semibold text-slate-950">{patientReportDisplayName(report)}</p>
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <MetricTile label="Outside expected range" value={outside.length} tone="alert" />
+            <MetricTile label="Outside report reference range" value={outside.length} tone="alert" />
             <MetricTile label="Within expected range" value={within.length} tone="good" />
           </div>
           <div className="mt-6 space-y-3 text-sm text-slate-600">
@@ -344,23 +367,12 @@ function InsightLab({
   status,
   report,
   extraction,
-  analysis,
 }: {
   status: PatientReportAiJobStatus;
   report: PatientReport;
   extraction: PatientReportExtraction;
-  analysis: PatientReportAiAnalysis;
 }) {
   const queued = status === 'QUEUED';
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const started = analysis.startedAt ?? analysis.requestedAt;
-  const elapsedSeconds = started ? Math.max(0, Math.floor((now - new Date(started).getTime()) / 1000)) : 0;
   const previewRows = extraction.observations.slice(0, 5);
 
   return (
@@ -373,9 +385,6 @@ function InsightLab({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
             <FileText size={16} aria-hidden="true" /> {patientReportDisplayName(report)}
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold tabular-nums text-slate-600">
-            <Clock3 size={16} aria-hidden="true" /> {formatElapsed(elapsedSeconds)}
           </span>
         </div>
 
@@ -420,26 +429,15 @@ function InsightLab({
           <h2 className="text-3xl font-semibold tracking-[-0.035em] text-slate-950">Analyzing your verified report</h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             {queued
-              ? 'Your request is securely queued. Clinora AI will begin automatically as soon as private analysis capacity is available.'
-              : 'Clinora AI is evaluating cautious clinical possibilities, then checking every evidence link before anything is shown.'}
+              ? 'Your report is queued. Analysis will start automatically.'
+              : 'Clinora AI is analyzing your patient-verified report values.'}
           </p>
         </div>
 
-        <ReportProcessingNotice requestedAt={analysis.requestedAt} stage="analysis" queued={queued} light />
+        <ReportProcessingNotice stage="analysis" queued={queued} light />
 
         <div className="mt-6 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
           <div className={queued ? 'clinora-ai-queue-track h-2 w-full' : 'clinora-ai-activity-track h-2 w-full'} />
-        </div>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <ProcessStep title="Verified report" text="Confirmed report data" state="complete" />
-          <ProcessStep
-            title="Clinical correlation"
-            text={queued ? 'Waiting to start' : 'Related findings and clinical possibilities'}
-            state={queued ? 'waiting' : 'active'}
-          />
-          <ProcessStep title="Evidence grounding" text="Every clinical claim must be checked" state="waiting" />
-          <ProcessStep title="Safety checked result" text="Shown only after validation" state="waiting" />
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-slate-200 pt-5 text-xs font-medium text-slate-500">
@@ -456,42 +454,6 @@ function InsightLab({
       </div>
     </section>
   );
-}
-
-function ProcessStep({
-  title,
-  text,
-  state,
-}: {
-  title: string;
-  text: string;
-  state: 'complete' | 'active' | 'waiting';
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border px-4 py-3 text-left',
-        state === 'complete' && 'border-emerald-200 bg-emerald-50',
-        state === 'active' && 'border-blue-200 bg-blue-50',
-        state === 'waiting' && 'border-slate-200 bg-slate-50',
-      )}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        {state === 'complete' ? <CheckCircle2 size={16} className="text-emerald-600" aria-hidden="true" /> : null}
-        {state === 'active' ? (
-          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" />
-        ) : null}
-      </div>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{text}</p>
-    </div>
-  );
-}
-
-function formatElapsed(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function InsightFailure({
@@ -567,7 +529,6 @@ function InsightResult({
   const clusters = clusterContractPresent ? (result.clinicalClusters ?? []) : [];
   const legacyPatterns = clusterContractPresent ? [] : result.clinicalPatterns;
   const findingCount = clusters.length || legacyPatterns.length;
-  const hasClinicalPattern = findingCount > 0;
 
   const interpretationTitle = clusters.length
     ? `Your report contains ${clusters.length} clinically related ${clusters.length === 1 ? 'pattern' : 'patterns'}.`
@@ -576,20 +537,6 @@ function InsightResult({
       : result.analysisStatus === 'NO_CLEAR_ABNORMAL_PATTERN'
         ? 'No clear abnormal pattern stands out in this verified report.'
         : 'More context is needed to interpret these verified findings.';
-
-  const clinicalRelevance = new Map<string, string>();
-  clusters.forEach((cluster) => {
-    cluster.evidence.forEach((evidence) => {
-      if (evidence.clinicalRelevance?.trim() && !clinicalRelevance.has(evidence.observationId)) {
-        clinicalRelevance.set(evidence.observationId, evidence.clinicalRelevance.trim());
-      }
-    });
-  });
-  result.notableFindings.forEach((finding) => {
-    if (finding.interpretation?.trim() && !clinicalRelevance.has(finding.observationId)) {
-      clinicalRelevance.set(finding.observationId, finding.interpretation.trim());
-    }
-  });
 
   const evidenceIds = [
     ...clusters.flatMap((cluster) => cluster.evidence.map((item) => item.observationId)),
@@ -625,43 +572,14 @@ function InsightResult({
         <article className="clinora-ai-reference__interpretation" aria-labelledby="clinora-ai-interpretation-title">
           <div className="clinora-ai-reference__interpretation-copy">
             <div className="clinora-reference-section-label">
-              <BrainCircuit size={15} aria-hidden="true" /> Report interpretation
+              <BrainCircuit size={15} aria-hidden="true" /> AI interpretation
             </div>
             <h2 id="clinora-ai-interpretation-title">{interpretationTitle}</h2>
-            <p>{result.overallInterpretation?.trim() || result.summary}</p>
           </div>
           <div className="clinora-ai-reference__checks" aria-label="Interpretation safeguards">
-            <ResultReferenceCheck text="Verified report values evaluated" />
-            <ResultReferenceCheck
-              text={hasClinicalPattern ? 'Clinically related findings grouped' : 'No unsupported condition forced'}
-            />
-            <ResultReferenceCheck text="Evidence grounding checks applied" />
-            <ResultReferenceCheck text="Clinical uncertainty remains explicit" />
-            <ResultReferenceCheck text="Not a definitive diagnosis" />
+            <ResultReferenceCheck text="AI interpretation, not a diagnosis. Discuss with your doctor." />
           </div>
         </article>
-
-        <aside className="clinora-ai-reference__intelligence" aria-label="Clinora AI analysis process">
-          <div className="clinora-ai-reference__wave" aria-hidden="true" />
-          <h3>
-            Advanced AI.
-            <br />
-            Clearer answers.
-            <br />
-            Healthier tomorrows.
-          </h3>
-          <div className="clinora-ai-reference__intelligence-points">
-            <span>
-              <FlaskConical size={16} aria-hidden="true" /> Lab data analyzed
-            </span>
-            <span>
-              <BrainCircuit size={16} aria-hidden="true" /> Clinical patterns evaluated
-            </span>
-            <span>
-              <Sparkles size={16} aria-hidden="true" /> Evidence-based insight
-            </span>
-          </div>
-        </aside>
       </section>
 
       <section className="clinora-ai-reference__related-stack" aria-label="Clinical findings from this analysis">
@@ -717,11 +635,7 @@ function InsightResult({
         {evidenceObservations.length ? (
           <div className="clinora-ai-reference__evidence-grid">
             {evidenceObservations.map((observation) => (
-              <InsightEvidenceTile
-                key={observation.id}
-                observation={observation}
-                clinicalRelevance={clinicalRelevance.get(observation.id)}
-              />
+              <InsightEvidenceTile key={observation.id} observation={observation} />
             ))}
           </div>
         ) : (
@@ -732,18 +646,15 @@ function InsightResult({
       </section>
 
       <section className="clinora-ai-reference__summary" aria-label="Verified report summary">
-        <span className="clinora-reference-icon-well">
-          <FileText size={18} aria-hidden="true" />
-        </span>
         <div className="clinora-ai-reference__summary-metric is-alert">
-          <span>Report summary</span>
+          <span>Outside range</span>
           <strong>{String(outside.length).padStart(2, '0')}</strong>
-          <p>Values outside expected range</p>
+          <p>Verified values</p>
         </div>
         <div className="clinora-ai-reference__summary-metric is-good">
-          <span>Verified range status</span>
+          <span>Within range</span>
           <strong>{String(within.length).padStart(2, '0')}</strong>
-          <p>Values within expected range</p>
+          <p>Verified values</p>
         </div>
         <div className="clinora-ai-reference__overview">
           <strong>Report overview</strong>
@@ -777,7 +688,6 @@ function InsightResult({
               <FileCheck2 size={14} aria-hidden="true" /> Exact values from your verified report
             </p>
             <h2 id="verified-values-title">Verified laboratory values</h2>
-            <p>These are the actual values you confirmed. Clinora AI does not change them.</p>
           </div>
         </div>
         <div className="clinora-ai-reference__tables">
@@ -785,44 +695,6 @@ function InsightResult({
             <VerifiedValueTable key={columnIndex} observations={items} />
           ))}
         </div>
-      </section>
-
-      <section className="clinora-ai-reference__bottom-grid">
-        <article className="clinora-ai-reference__questions">
-          <div className="clinora-reference-section-label">
-            <MessagesSquare size={14} aria-hidden="true" /> Questions you may want to ask your clinician
-          </div>
-          {result.discussionPoints.length ? (
-            <ul>
-              {result.discussionPoints.map((point, index) => (
-                <li key={`${point.type}-${point.title}-${index}`}>
-                  <strong>{point.title}</strong>
-                  <span>{point.reason}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No discussion question was returned for this analysis.</p>
-          )}
-        </article>
-
-        <article className="clinora-ai-reference__about">
-          <div className="clinora-reference-section-label">
-            <ShieldCheck size={14} aria-hidden="true" /> About this AI insight
-          </div>
-          <p>
-            Clinora AI analyzes your verified report using evidence-grounded clinical reasoning to identify potential
-            patterns and provide educational insight. This is not a diagnosis and should not replace professional
-            medical advice.
-          </p>
-          {result.limitations.length ? (
-            <ul>
-              {result.limitations.map((item, index) => (
-                <li key={`${item}-${index}`}>{item}</li>
-              ))}
-            </ul>
-          ) : null}
-        </article>
       </section>
 
       <div className="clinora-ai-reference__actions">
@@ -834,16 +706,16 @@ function InsightResult({
             )}
           </span>
         ) : null}
-        <button type="button" onClick={onRunAgain} disabled={busy} className="clinora-reference-secondary-button">
-          <RefreshCw size={15} className={busy ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
-          {busy ? 'Re-running analysis…' : 'Re-run AI analysis'}
-        </button>
         <Link to="/patient/doctors" className="clinora-reference-primary-button">
           <Stethoscope size={15} aria-hidden="true" /> Find a doctor
         </Link>
         <Link to={`/patient/analyze/${report.id}`} className="clinora-reference-secondary-button">
           <FileCheck2 size={15} aria-hidden="true" /> View verified report
         </Link>
+        <button type="button" onClick={onRunAgain} disabled={busy} className="clinora-reference-secondary-button">
+          <RefreshCw size={15} className={busy ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+          {busy ? 'Re-running analysis…' : 'Re-run AI analysis'}
+        </button>
         <details className="clinora-ai-reference__analysis-meta">
           <summary>Analysis details</summary>
           <span>
@@ -1044,13 +916,7 @@ function ResultReferenceCheck({ text }: { text: string }) {
   );
 }
 
-function InsightEvidenceTile({
-  observation,
-  clinicalRelevance,
-}: {
-  observation: PatientReportObservation;
-  clinicalRelevance?: string;
-}) {
+function InsightEvidenceTile({ observation }: { observation: PatientReportObservation }) {
   const state = rangeState(observation);
   return (
     <article
@@ -1070,7 +936,6 @@ function InsightEvidenceTile({
       </div>
       <div className="clinora-ai-reference__evidence-value">{formatObservationValue(observation)}</div>
       <small>Ref: {formatReference(observation)}</small>
-      {clinicalRelevance ? <p>{clinicalRelevance}</p> : null}
     </article>
   );
 }

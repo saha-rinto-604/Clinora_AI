@@ -5,7 +5,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir paddlepaddle==3.3.0 \
+    && pip install --no-cache-dir paddlepaddle==3.2.2 \
     && pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 EXPOSE 8000

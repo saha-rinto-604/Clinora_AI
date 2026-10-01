@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { AppSectionHeader, AppSurface, EmptyState, IconWell, StatusPill } from '../../components/app/app-ui';
 import { Button } from '../../components/ui/button';
 import { buttonVariants } from '../../components/ui/button-variants';
@@ -45,12 +45,15 @@ import {
   type PrescriptionDocumentView,
 } from '../../features/consultations/consultation-api';
 import { presentPrescriptionDocument } from '../../features/consultations/prescription-document-file';
+import { doctorBackTarget, doctorNavigationState } from '../../features/doctor/doctor-navigation';
+import '../../styles/patient-care.css';
 
 type PrescriptionRow = PrescriptionDraft & { key: string };
 type InvestigationRow = InvestigationDraft & { key: string };
 
 export function DoctorConsultationPage() {
   const { appointmentId = '' } = useParams();
+  const location = useLocation();
   const [appointment, setAppointment] = useState<DoctorAppointmentDetail | null>(null);
   const [consultation, setConsultation] = useState<ConsultationView | null>(null);
   const [historyNotes, setHistoryNotes] = useState('');
@@ -149,33 +152,37 @@ export function DoctorConsultationPage() {
       findingsNotes,
       assessment,
       plan,
-      prescriptions: prescriptions.filter((item) => !isEmptyPrescriptionDraft(item)).map((item) => ({
-        medicationName: item.medicationName,
-        strength: item.strength,
-        dose: item.dose,
-        route: item.route,
-        frequency: item.frequency,
-        duration: item.duration,
-        instructions: item.instructions,
-      })),
-      investigations: investigations.filter((item) => !isEmptyInvestigationDraft(item)).map((item) => ({
-        testName: item.testName,
-        reason: item.reason,
-        instructions: item.instructions,
-        priority: item.priority,
-      })),
+      prescriptions: prescriptions
+        .filter((item) => !isEmptyPrescriptionDraft(item))
+        .map((item) => ({
+          medicationName: item.medicationName,
+          strength: item.strength,
+          dose: item.dose,
+          route: item.route,
+          frequency: item.frequency,
+          duration: item.duration,
+          instructions: item.instructions,
+        })),
+      investigations: investigations
+        .filter((item) => !isEmptyInvestigationDraft(item))
+        .map((item) => ({
+          testName: item.testName,
+          reason: item.reason,
+          instructions: item.instructions,
+          priority: item.priority,
+        })),
       followUp: followUp && !isEmptyFollowUpDraft(followUp) ? followUp : null,
     };
   }, [assessment, consultation, findingsNotes, followUp, historyNotes, investigations, plan, prescriptions]);
   const hasDigitalContent = Boolean(
     historyNotes.trim() ||
-      findingsNotes.trim() ||
-      assessment.trim() ||
-      plan.trim() ||
-      draft?.prescriptions.length ||
-      consultation?.prescriptionDocuments.length ||
-      draft?.investigations.length ||
-      followUp !== null,
+    findingsNotes.trim() ||
+    assessment.trim() ||
+    plan.trim() ||
+    draft?.prescriptions.length ||
+    consultation?.prescriptionDocuments.length ||
+    draft?.investigations.length ||
+    followUp !== null,
   );
 
   const start = async () => {
@@ -290,15 +297,31 @@ export function DoctorConsultationPage() {
   }
 
   const timingWarning = consultationTimingWarning(appointment);
+  const appointmentPath = `/doctor/appointments/${appointment.id}`;
+  const consultationPath = `${appointmentPath}/consultation`;
+  const patientBasePath = `/doctor/patients/${appointment.patient.id}`;
+  const patientPath = `${patientBasePath}?tab=timeline`;
+  const back = doctorBackTarget(
+    location.state,
+    { to: appointmentPath, label: 'Back to appointment' },
+    (path) =>
+      path === appointmentPath ||
+      path === patientBasePath ||
+      path.startsWith(`${patientBasePath}?`) ||
+      path === '/doctor/patients' ||
+      path === '/doctor/inbox',
+  );
+  const consultationReturnState = doctorNavigationState(consultationPath, 'Back to consultation', back);
 
   if (!consultation) {
     return (
       <div className="space-y-6">
         <Link
-          to={`/doctor/appointments/${appointment.id}`}
+          to={back.to}
+          state={back.state}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white"
         >
-          <ArrowLeft size={15} /> Back to appointment
+          <ArrowLeft size={15} /> {back.label}
         </Link>
         <AppSurface variant="hero">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -356,13 +379,14 @@ export function DoctorConsultationPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1240px] space-y-4" data-density="compact">
+    <div className="w-full space-y-4" data-density="compact">
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-2 border-b border-cyan-300/[0.08] pb-2">
         <Link
-          to={`/doctor/appointments/${appointment.id}`}
+          to={back.to}
+          state={back.state}
           className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white"
         >
-          <ArrowLeft size={14} /> Back to appointment
+          <ArrowLeft size={14} /> {back.label}
         </Link>
         <div className="flex items-center gap-2">
           {dirty && editable ? (
@@ -370,26 +394,11 @@ export function DoctorConsultationPage() {
           ) : editable ? (
             <span className="text-[10px] text-slate-500">Draft saved</span>
           ) : null}
-          <StatusPill tone={editable ? 'success' : 'neutral'} className="min-h-6 px-2 py-0.5 text-[10px]">
-            {editable ? 'In progress' : 'Completed'}
-          </StatusPill>
         </div>
       </div>
 
-      <section className="relative overflow-hidden rounded-[16px] border border-cyan-300/[0.16] bg-[linear-gradient(105deg,#062238,#06263c_55%,#042036)] px-4 py-4 sm:px-5">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border border-cyan-300/10"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-8 top-6 h-20 w-20 rounded-full border border-teal-300/10"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 w-[62%] opacity-80 [background:linear-gradient(140deg,transparent_24%,rgba(34,211,238,.14)_24.5%,transparent_25.5%,transparent_48%,rgba(45,212,191,.12)_48.5%,transparent_50%)]"
-        />
-        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <AppSurface as="section" variant="hero" padding="compact" className="patient-care-art overflow-hidden">
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <ProfileAvatar
               source={{ kind: 'doctor-patient', appointmentId: appointment.id }}
@@ -413,20 +422,24 @@ export function DoctorConsultationPage() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <StatusPill tone={editable ? 'success' : 'neutral'} className="border border-white/[0.08]">
+              {editable ? 'In progress' : 'Completed'}
+            </StatusPill>
             <Link
-              to={`/doctor/patients/${appointment.patient.id}`}
+              to={patientPath}
+              state={consultationReturnState}
               className={buttonVariants({ variant: 'appSecondary', size: 'sm' })}
             >
               Care history
             </Link>
           </div>
         </div>
-      </section>
+      </AppSurface>
 
       {error ? <ErrorBanner message={error} onReload={() => void load()} /> : null}
 
-      <div className="grid items-start gap-3 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[18.5rem_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(14rem,26%)_minmax(0,1fr)] xl:gap-5">
         <aside className="space-y-3">
           <AppSurface padding="compact" radius="compact" className="border-cyan-300/[0.14] bg-[#04131f]/82">
             <h2 className="text-xs font-semibold text-cyan-200">Patient context</h2>
@@ -464,6 +477,7 @@ export function DoctorConsultationPage() {
                   <li key={report.reportId}>
                     <Link
                       to={`/doctor/appointments/${appointment.id}/reports/${report.reportId}`}
+                      state={consultationReturnState}
                       className="flex items-center gap-2.5 px-4 py-3 hover:bg-[var(--clinora-surface-hover)]"
                     >
                       <IconWell tone="success" className="h-8 w-8 rounded-lg">

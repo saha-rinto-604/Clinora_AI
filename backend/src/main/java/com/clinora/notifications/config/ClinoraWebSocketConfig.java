@@ -23,6 +23,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class ClinoraWebSocketConfig implements WebSocketMessageBrokerConfigurer {
+    private final com.clinora.research.service.ResearchSocketAccess access;
+    private final java.util.concurrent.ConcurrentMap<String, org.springframework.security.oauth2.jwt.Jwt> sessions = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<String, java.util.concurrent.ConcurrentMap<String, String>> subscriptions = new java.util.concurrent.ConcurrentHashMap<>();
     private final CorsProperties cors;
     private final JwtDecoder jwtDecoder;
     private final JdbcTemplate jdbc;
@@ -33,6 +36,7 @@ public class ClinoraWebSocketConfig implements WebSocketMessageBrokerConfigurer 
     private final String relayVirtualHost;
 
     public ClinoraWebSocketConfig(
+        com.clinora.research.service.ResearchSocketAccess access,
         CorsProperties cors,
         JwtDecoder jwtDecoder,
         JdbcTemplate jdbc,
@@ -42,6 +46,7 @@ public class ClinoraWebSocketConfig implements WebSocketMessageBrokerConfigurer 
         @Value("${spring.rabbitmq.password:change-me}") String relayPassword,
         @Value("${spring.rabbitmq.virtual-host:/}") String relayVirtualHost
     ) {
+        this.access = access;
         this.cors = cors;
         this.jwtDecoder = jwtDecoder;
         this.jdbc = jdbc;
@@ -77,46 +82,70 @@ public class ClinoraWebSocketConfig implements WebSocketMessageBrokerConfigurer 
         registration.interceptors(new ChannelInterceptor() {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-                if (accessor == null || accessor.getCommand() == null) return message;
-                if (accessor.getCommand() == StompCommand.CONNECT) {
-                    String authorization = first(accessor.getNativeHeader("Authorization"));
-                    if (authorization == null || !authorization.startsWith("Bearer ")) {
-                        throw new IllegalArgumentException("Authenticated WebSocket connection required.");
-                    }
+                StompHeaderAccessor header = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+                if (header == null || header.getCommand() == null) return message;
+                String session = header.getSessionId();
+                if (session == null) throw new IllegalArgumentException("WebSocket session required.");
+                if (header.getCommand() == StompCommand.CONNECT) {
+                    String authorization = first(header.getNativeHeader("Authorization"));
+                    if (authorization == null || !authorization.startsWith("Bearer ")) throw new IllegalArgumentException("Authentication required.");
                     var jwt = jwtDecoder.decode(authorization.substring(7));
-                    UUID userId;
-                    try {
-                        userId = UUID.fromString(jwt.getSubject());
-                    } catch (RuntimeException exception) {
-                        throw new IllegalArgumentException("Authenticated WebSocket identity is invalid.");
-                    }
-                    Integer activePatient = jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM users WHERE id = ? AND role = 'PATIENT' AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
-                        Integer.class,
-                        userId
-                    );
-                    if (activePatient == null || activePatient != 1) {
-                        throw new IllegalArgumentException("An active Patient account is required for notifications.");
-                    }
-                    accessor.setUser(converter.convert(jwt));
+                    access.account(jwt);
+                    header.setUser(converter.convert(jwt));
+                    sessions.put(session, jwt);
+                    subscriptions.put(session, new java.util.concurrent.ConcurrentHashMap<>());
                     return message;
                 }
-                if (accessor.getCommand() == StompCommand.SUBSCRIBE) {
-                    if (accessor.getUser() == null) {
-                        throw new IllegalArgumentException("Authenticated WebSocket session required.");
-                    }
-                    String destination = accessor.getDestination();
-                    if (!"/user/queue/notifications".equals(destination)) {
-                        throw new IllegalArgumentException("WebSocket subscription is not permitted.");
-                    }
-                }
-                if (accessor.getCommand() == StompCommand.SEND) {
-                    throw new IllegalArgumentException("Client messaging is not enabled.");
+                if (header.getCommand() == StompCommand.DISCONNECT) { removeSession(session); return message; }
+                var jwt = sessions.get(session);
+                access.account(jwt);
+                if (header.getCommand() == StompCommand.SUBSCRIBE) {
+                    access.destination(jwt, header.getDestination(), false);
+                    if (header.getSubscriptionId() == null) throw new IllegalArgumentException("Subscription identity required.");
+                    subscriptions.get(session).put(header.getSubscriptionId(), header.getDestination());
+                } else if (header.getCommand() == StompCommand.UNSUBSCRIBE) {
+                    if (header.getSubscriptionId() != null) subscriptions.get(session).remove(header.getSubscriptionId());
+                } else if (header.getCommand() == StompCommand.SEND) {
+                    access.destination(jwt, header.getDestination(), true);
+                } else if (header.getCommand() != StompCommand.ACK && header.getCommand() != StompCommand.NACK) {
+                    throw new IllegalArgumentException("Unsupported client command.");
                 }
                 return message;
             }
         });
+    }
+
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        registration.interceptors(new ChannelInterceptor() {
+            @Override
+            public Message<?> preSend(Message<?> message, MessageChannel channel) {
+                var header = StompHeaderAccessor.wrap(message);
+                if (header.getCommand() != StompCommand.MESSAGE) return message;
+                String session = header.getSessionId();
+                String subscription = header.getSubscriptionId();
+                if (session == null || subscription == null) return null;
+                var destinations = subscriptions.get(session);
+                if (destinations == null) return null;
+                try {
+                    // Recheck current account, token, membership and document scope for every delivery.
+                    access.destination(sessions.get(session), destinations.get(subscription), false);
+                    return message;
+                } catch (RuntimeException denied) {
+                    return null; // No delivery after expiry, removal, suspension or failed authorization lookup.
+                }
+            }
+        });
+    }
+
+    @org.springframework.context.event.EventListener
+    public void disconnected(org.springframework.web.socket.messaging.SessionDisconnectEvent event) {
+        removeSession(event.getSessionId());
+    }
+
+    private void removeSession(String session) {
+        sessions.remove(session);
+        subscriptions.remove(session);
     }
 
     private static String first(List<String> values) {

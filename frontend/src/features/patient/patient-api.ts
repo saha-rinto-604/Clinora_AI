@@ -15,6 +15,19 @@ export const patientApi = {
     const response = await apiClient.get<ApiEnvelope<PatientDashboard>>('/patient/dashboard');
     return response.data.data;
   },
+  async getResearchConsent() {
+    const response = await apiClient.get<ApiEnvelope<import('./patient-types').PatientResearchConsent>>(
+      '/patient/privacy/research-consent',
+    );
+    return response.data.data;
+  },
+  async updateResearchConsent(consented: boolean) {
+    const response = await apiClient.post<ApiEnvelope<import('./patient-types').PatientResearchConsent>>(
+      '/patient/privacy/research-consent',
+      { consented },
+    );
+    return response.data.data;
+  },
 };
 
 export function patientErrorMessage(error: unknown, fallback: string) {

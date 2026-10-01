@@ -64,7 +64,7 @@ public class NotificationDeliveryConsumer {
 
     private boolean activeNotificationRecipient(UUID userId) {
         Integer count = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'DOCTOR') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
+            "SELECT COUNT(*) FROM users WHERE id = ? AND role IN ('PATIENT', 'DOCTOR', 'RESEARCHER') AND account_status = 'ACTIVE' AND email_verified_at IS NOT NULL",
             Integer.class,
             userId
         );
@@ -89,6 +89,8 @@ public class NotificationDeliveryConsumer {
             path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
                 ? "/doctor/appointments/" + notification.targetId()
                 : "/doctor/notifications";
+        } else if ("RESEARCHER".equals(role)) {
+            path = "/research/notifications";
         } else {
             path = "APPOINTMENT".equals(notification.targetType()) && notification.targetId() != null
                 ? "/patient/appointments/" + notification.targetId()

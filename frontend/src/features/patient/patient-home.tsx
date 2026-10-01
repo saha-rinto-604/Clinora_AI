@@ -54,6 +54,7 @@ const profileDescriptions: Record<ProfileSectionId, string> = {
   basic: 'Blood group and measurements',
   medical: 'Family history and lifestyle context',
   emergency: 'A trusted emergency contact',
+  privacy: 'Research informed consent preferences',
 };
 
 const profileLabels: Record<ProfileSectionId, string> = {
@@ -61,6 +62,7 @@ const profileLabels: Record<ProfileSectionId, string> = {
   basic: 'Basic health',
   medical: 'Medical background',
   emergency: 'Emergency contact',
+  privacy: 'Research & Privacy',
 };
 
 export function PatientHomeCanvas({ children }: { children: ReactNode }) {
@@ -92,9 +94,6 @@ export function PatientHomeHeader({
           {verified ? 'Verified Patient' : 'Verification pending'}
         </StatusPill>
       </div>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--clinora-text-muted)] sm:text-[15px]">
-        Here&apos;s what matters for your care today.
-      </p>
     </motion.header>
   );
 }
@@ -231,7 +230,6 @@ export function HealthProfileProgress({
         <AppSectionHeader
           title="Your Health Profile"
           titleId="health-profile-progress-title"
-          copy="Keep the health information you manage in Clinora complete and up to date."
           action={<StatusPill tone="success">Complete</StatusPill>}
         />
         <ul className="mt-5 grid gap-x-5 gap-y-3 border-y border-[var(--clinora-border-subtle)] py-4 sm:grid-cols-2">
@@ -266,7 +264,6 @@ export function HealthProfileProgress({
       <AppSectionHeader
         title="Your Health Profile"
         titleId="health-profile-progress-title"
-        copy="Keep the health information you manage in Clinora complete and up to date."
         action={<StatusPill tone="info">{completed} of 4 complete</StatusPill>}
       />
       <div className="mt-5">
@@ -380,12 +377,7 @@ export function HealthInsights({
 
   return (
     <AppSurface as="section" variant="elevated" className={className} aria-labelledby="health-insights-title">
-      <AppSectionHeader
-        eyebrow="Your baseline"
-        title="Health insights"
-        titleId="health-insights-title"
-        copy="Your saved measurements provide a reliable baseline for future comparisons."
-      />
+      <AppSectionHeader eyebrow="Your baseline" title="Health insights" titleId="health-insights-title" />
       {metrics.length ? (
         <>
           <ul
@@ -439,9 +431,6 @@ export function RecentHealthActivity({
             <h2 id="recent-health-activity-title" className="text-xl font-semibold tracking-[-0.025em] text-white">
               Recent health activity
             </h2>
-            <p className="mt-1 text-sm text-[var(--clinora-text-muted)]">
-              Meaningful changes across your health record.
-            </p>
           </div>
         </div>
         <Link to="/patient/timeline" className={buttonVariants({ variant: 'ghost' })}>
@@ -499,7 +488,7 @@ export function RecentHealthActivity({
       ) : null}
       {!section.loading && !section.error && !events.length ? (
         <p className="mt-5 text-sm leading-6 text-[var(--clinora-text-muted)]">
-          Your recent health activity will appear here as meaningful changes happen.
+          Recent health activity will appear here.
         </p>
       ) : null}
     </AppSurface>
@@ -519,7 +508,6 @@ export function HealthRecordSnapshot({
         eyebrow="Health record"
         title="Your current clinical essentials"
         titleId="health-record-snapshot-title"
-        copy="A concise view of the health information Clinora currently knows."
       />
       {section.loading ? <SectionSkeleton /> : null}
       {!section.loading && section.error ? (
@@ -591,7 +579,7 @@ export function PrivacySharingSummary({
             <p className="mt-2 text-sm leading-6 text-[var(--clinora-text-muted)]">
               {shares
                 ? `${shares} medical report${shares === 1 ? ' is' : 's are'} currently shared with ${doctors} Clinora Doctor${doctors === 1 ? '' : 's'}.`
-                : 'Your health information stays private and is shared only through authorized Clinora workflows.'}
+                : 'Shared only through authorized Clinora workflows.'}
             </p>
           ) : null}
           {shares > 0 ? (

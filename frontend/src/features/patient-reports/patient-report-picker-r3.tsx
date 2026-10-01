@@ -231,8 +231,7 @@ export function PatientReportPicker({ selectedReports, onChange, disabled = fals
                     Choose medical reports
                   </DialogTitle>
                   <DialogDescription className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
-                    Select only the records you want this Doctor to access for this appointment. Preview and title
-                    editing stay available from the row menu.
+                    Choose reports to share with this Doctor for this appointment.
                   </DialogDescription>
                 </div>
                 <div className="shrink-0 text-left lg:text-right">

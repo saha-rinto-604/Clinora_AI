@@ -41,6 +41,8 @@ export interface PatientProfile {
 }
 
 export interface UpdatePatientProfileInput {
+  firstName?: string;
+  lastName?: string;
   dateOfBirth: string | null;
   gender: PatientGender | null;
   bloodGroup: BloodGroup | null;
@@ -97,6 +99,17 @@ export const bloodGroupLabels: Record<BloodGroup, string> = {
   O_POSITIVE: 'O+',
   O_NEGATIVE: 'O−',
 };
+
+export type ResearchConsentStatus = 'CONSENTED' | 'WITHHELD' | 'REVOKED' | 'UNKNOWN';
+
+export interface PatientResearchConsent {
+  patientUserId: string;
+  consentStatus: ResearchConsentStatus;
+  isConsented: boolean;
+  policyVersion: string;
+  consentedAt: string | null;
+  revokedAt: string | null;
+}
 
 export const genderLabels: Record<PatientGender, string> = {
   FEMALE: 'Female',

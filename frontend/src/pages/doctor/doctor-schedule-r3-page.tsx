@@ -12,6 +12,7 @@ import {
   type DoctorAppointmentSummary,
 } from '../../features/doctor/doctor-api';
 import { doctorStatusLabel, doctorStatusTone } from '../../features/doctor/doctor-display';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 import { ProfileAvatar } from '../../features/profile/profile-image';
 import { cn } from '../../lib/cn';
 
@@ -178,7 +179,12 @@ export function DoctorSchedulePage() {
                 </div>
                 <ol className="divide-y divide-white/[0.05]">
                   {group.items.map((appointment) => (
-                    <ScheduleRow key={appointment.id} appointment={appointment} historical={scope === 'history'} />
+                    <ScheduleRow
+                      key={appointment.id}
+                      appointment={appointment}
+                      historical={scope === 'history'}
+                      returnTo={`/doctor/schedule?scope=${scope}`}
+                    />
                   ))}
                 </ol>
               </section>
@@ -198,13 +204,22 @@ export function DoctorSchedulePage() {
   );
 }
 
-function ScheduleRow({ appointment, historical }: { appointment: DoctorAppointmentSummary; historical: boolean }) {
+function ScheduleRow({
+  appointment,
+  historical,
+  returnTo,
+}: {
+  appointment: DoctorAppointmentSummary;
+  historical: boolean;
+  returnTo: string;
+}) {
   const needsAction = appointment.status === 'BOOKED' && new Date(appointment.scheduledEnd).getTime() < Date.now();
 
   return (
     <li>
       <Link
         to={`/doctor/appointments/${appointment.id}`}
+        state={doctorNavigationState(returnTo, 'Back to appointments')}
         className="group grid gap-3 px-5 py-4 transition-colors hover:bg-white/[0.022] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cyan-300 sm:px-6 md:grid-cols-[94px_minmax(0,1fr)_minmax(150px,0.45fr)_auto] md:items-center"
       >
         <span>

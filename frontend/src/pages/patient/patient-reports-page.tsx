@@ -9,6 +9,8 @@ import {
   RotateCcw,
   SearchX,
   UploadCloud,
+  UserRound,
+  UsersRound,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -38,6 +40,7 @@ import {
 import { PatientReportUploadDialog } from '../../features/patient-reports/patient-report-upload-dialog';
 import {
   patientReportDisplayName,
+  patientReportSubjectLabel,
   patientReportTypeLabels,
   patientReportTypes,
   type PatientReport,
@@ -265,6 +268,8 @@ function ReportWorkspace({
 }) {
   const selectedCollectionCount = collection === 'ACTIVE' ? reports.activeCount : reports.archivedCount;
   const showToolbar = selectedCollectionCount > 0 || hasFilters;
+  const personalReports = reports.items.filter((report) => (report.subjectType ?? 'SELF') === 'SELF');
+  const otherPeopleReports = reports.items.filter((report) => report.subjectType === 'OTHER');
 
   return (
     <AppSurface as="section" variant="elevated" padding="none" className="min-w-0 overflow-hidden">
@@ -340,19 +345,30 @@ function ReportWorkspace({
             onClear={onClearFilters}
           />
         ) : (
-          <div>
-            <ReportListHeader />
-            <ul aria-label={`${collection === 'ACTIVE' ? 'Current' : 'Archived'} medical reports`}>
-              {reports.items.map((report) => (
-                <ReportRow
-                  key={report.id}
-                  report={report}
-                  busy={busyReportId === report.id}
-                  onArchive={() => onArchive(report)}
-                  onRestore={() => onRestore(report)}
-                />
-              ))}
-            </ul>
+          <div className="space-y-8 px-4 py-6 sm:px-5 lg:px-6">
+            {personalReports.length ? (
+              <ReportGroup
+                title="Your reports"
+                description="Reports linked to your Patient record."
+                reports={personalReports}
+                collection={collection}
+                busyReportId={busyReportId}
+                onArchive={onArchive}
+                onRestore={onRestore}
+              />
+            ) : null}
+            {otherPeopleReports.length ? (
+              <ReportGroup
+                title="Other people's reports"
+                description="Uploaded for family or others and kept separate from your Health Record."
+                reports={otherPeopleReports}
+                collection={collection}
+                busyReportId={busyReportId}
+                onArchive={onArchive}
+                onRestore={onRestore}
+                otherPeople
+              />
+            ) : null}
           </div>
         )}
 
@@ -420,19 +436,55 @@ function CollectionTab({
   );
 }
 
-function ReportListHeader() {
+function ReportGroup({
+  title,
+  description,
+  reports,
+  collection,
+  busyReportId,
+  onArchive,
+  onRestore,
+  otherPeople = false,
+}: {
+  title: string;
+  description: string;
+  reports: PatientReport[];
+  collection: PatientReportCollection;
+  busyReportId: string;
+  onArchive: (report: PatientReport) => void;
+  onRestore: (report: PatientReport) => void;
+  otherPeople?: boolean;
+}) {
+  const SubjectIcon = otherPeople ? UsersRound : UserRound;
   return (
-    <div
-      className="hidden min-h-11 grid-cols-[minmax(14rem,1.45fr)_8.5rem_minmax(10rem,0.9fr)_7.5rem_9rem_auto] items-center gap-4 border-b border-[var(--clinora-border-subtle)] bg-black/[0.08] px-6 text-[10px] font-bold uppercase tracking-[0.13em] text-[var(--clinora-text-faint)] lg:grid"
-      aria-hidden="true"
-    >
-      <span>Report</span>
-      <span>Report date</span>
-      <span>Provider</span>
-      <span>File</span>
-      <span>Added</span>
-      <span className="sr-only">Actions</span>
-    </div>
+    <section aria-labelledby={`report-group-${otherPeople ? 'other' : 'self'}`}>
+      <div className="mb-3 flex items-start gap-3 px-1">
+        <IconWell tone={otherPeople ? 'neutral' : 'info'} className="h-9 w-9">
+          <SubjectIcon size={16} aria-hidden="true" />
+        </IconWell>
+        <div className="min-w-0 flex-1">
+          <h2 id={`report-group-${otherPeople ? 'other' : 'self'}`} className="text-sm font-semibold text-white">
+            {title}
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-[var(--clinora-text-muted)]">{description}</p>
+        </div>
+      </div>
+      <ul
+        aria-label={`${title}, ${collection === 'ACTIVE' ? 'current' : 'archived'}`}
+        className="overflow-hidden rounded-[var(--clinora-radius-md)] border border-[var(--clinora-border-subtle)] bg-[var(--clinora-surface-nested)]"
+      >
+        {reports.map((report) => (
+          <ReportRow
+            key={report.id}
+            report={report}
+            busy={busyReportId === report.id}
+            onArchive={() => onArchive(report)}
+            onRestore={() => onRestore(report)}
+            showSubject={otherPeople}
+          />
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -441,19 +493,23 @@ function ReportRow({
   busy,
   onArchive,
   onRestore,
+  showSubject,
 }: {
   report: PatientReport;
   busy: boolean;
   onArchive: () => void;
   onRestore: () => void;
+  showSubject: boolean;
 }) {
   const FileIcon = report.mimeType === 'application/pdf' ? FileText : FileImage;
   const displayName = patientReportDisplayName(report);
+  const hasReportDate = Boolean(report.reportDate);
+  const primaryDate = hasReportDate ? formatReportDate(report.reportDate) : formatReportTimestamp(report.createdAt);
   return (
-    <li className="grid gap-4 border-b border-[var(--clinora-border-subtle)] px-4 py-5 transition-colors last:border-b-0 hover:bg-white/[0.018] sm:px-5 lg:grid-cols-[minmax(14rem,1.45fr)_8.5rem_minmax(10rem,0.9fr)_7.5rem_9rem_auto] lg:items-center lg:gap-4 lg:px-6 lg:py-4">
+    <li className="grid gap-4 border-b border-[var(--clinora-border-subtle)] px-4 py-4 transition-colors last:border-b-0 hover:bg-white/[0.018] sm:px-5 lg:grid-cols-[minmax(18rem,1fr)_10rem_minmax(10rem,14rem)_auto] lg:items-center lg:gap-6">
       <div className="flex min-w-0 items-start gap-3">
-        <IconWell tone={report.archived ? 'neutral' : 'info'} className="shrink-0">
-          <FileIcon size={18} aria-hidden="true" />
+        <IconWell tone={report.archived ? 'neutral' : 'info'} className="h-9 w-9 shrink-0">
+          <FileIcon size={16} aria-hidden="true" />
         </IconWell>
         <div className="min-w-0">
           <Link
@@ -462,18 +518,31 @@ function ReportRow({
           >
             {displayName}
           </Link>
-          <p className="mt-1 text-xs text-[var(--clinora-info-foreground)]">
-            {patientReportTypeLabels[report.reportType]}
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--clinora-text-muted)]">
+            {showSubject ? (
+              <span className="rounded-full bg-[var(--clinora-info-soft)] px-2 py-0.5 font-medium text-[var(--clinora-info-foreground)]">
+                {patientReportSubjectLabel(report)}
+              </span>
+            ) : null}
+            <span>
+              {patientReportTypeLabels[report.reportType]} · {reportFileKind(report)} ·{' '}
+              {formatFileSize(report.sizeBytes)}
+            </span>
           </p>
-          <p className="mt-1.5 truncate text-xs text-[var(--clinora-text-faint)]">{report.originalFilename}</p>
+          <p className="mt-1 truncate text-[11px] text-[var(--clinora-text-faint)]">
+            {report.originalFilename}
+            {hasReportDate ? ` · Added ${formatReportTimestamp(report.createdAt)}` : ''}
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4 lg:contents">
-        <ReportCell label="Report date" value={formatReportDate(report.reportDate)} />
-        <ReportCell label="Provider" value={report.providerLaboratory ?? 'Not added'} />
-        <ReportCell label="File" value={`${reportFileKind(report)} · ${formatFileSize(report.sizeBytes)}`} />
-        <ReportCell label="Added" value={formatReportTimestamp(report.createdAt)} />
+      <div className="grid grid-cols-2 gap-4 lg:contents">
+        <ReportCell label={hasReportDate ? 'Report date' : 'Added'} value={primaryDate} />
+        {report.providerLaboratory?.trim() ? (
+          <ReportCell label="Provider" value={report.providerLaboratory.trim()} />
+        ) : (
+          <span aria-hidden="true" />
+        )}
       </div>
 
       <div className="flex items-center justify-end gap-2">
@@ -516,10 +585,8 @@ function ReportRow({
 function ReportCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--clinora-text-faint)] lg:sr-only">
-        {label}
-      </p>
-      <p className="mt-1 break-words text-xs leading-5 text-slate-300 lg:mt-0">{value}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--clinora-text-faint)]">{label}</p>
+      <p className="mt-1 break-words text-xs leading-5 text-slate-300">{value}</p>
     </div>
   );
 }

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.internal_analysis import build_router
-from app.model_runtime import MalformedModelResponseError, ModelUnavailableError
+from app.model_runtime import MalformedModelResponseError, ModelUnavailableError, ModelTimeoutError
 from app.schemas.report_analysis import ReportAnalysisResponse
 
 
@@ -117,7 +117,7 @@ class InternalAnalysisApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertNotIn("malformed", response.text)
 
-    def test_maps_llama_timeout_to_controlled_unavailable_response(self) -> None:
+    def test_maps_model_unavailable_to_503(self) -> None:
         app = FastAPI()
         app.include_router(build_router(FailingAnalysisService(ModelUnavailableError("timeout"))))  # type: ignore[arg-type]
         response = TestClient(app).post(
@@ -128,6 +128,16 @@ class InternalAnalysisApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertNotIn("timeout", response.text)
+
+    def test_maps_timeout_subclass_to_504_without_exception_content(self) -> None:
+        app = FastAPI()
+        app.include_router(build_router(FailingAnalysisService(ModelTimeoutError("private content"))))
+        response = TestClient(app).post(
+            "/internal/v1/report-analysis", json=self.payload,
+            headers={"X-Clinora-Internal-Token": "unit-test-secret"},
+        )
+        self.assertEqual(response.status_code, 504)
+        self.assertNotIn("private content", response.text)
 
 
 if __name__ == "__main__":

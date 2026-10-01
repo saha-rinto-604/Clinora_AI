@@ -11,6 +11,7 @@ import {
   type DoctorPatientListItem,
   type PatientCareState,
 } from '../../features/consultations/consultation-api';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 import { ProfileAvatar } from '../../features/profile/profile-image';
 
 export function DoctorPatientsPage() {
@@ -36,23 +37,25 @@ export function DoctorPatientsPage() {
     void load();
   }, [load]);
 
+  const visibleItems = useMemo(() => items.filter((item) => !isRuntimeSmokePatient(item.patientName)), [items]);
+
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return items.filter(
+    return visibleItems.filter(
       (item) =>
         (filter === 'ALL' || item.careState === filter) &&
         (!normalized || item.patientName.toLowerCase().includes(normalized)),
     );
-  }, [filter, items, query]);
+  }, [filter, query, visibleItems]);
 
   const counts = useMemo(
     () => ({
-      ALL: items.length,
-      ACTIVE_CARE: items.filter((item) => item.careState === 'ACTIVE_CARE').length,
-      NEW_PATIENT: items.filter((item) => item.careState === 'NEW_PATIENT').length,
-      FOLLOW_UP: items.filter((item) => item.careState === 'FOLLOW_UP').length,
+      ALL: visibleItems.length,
+      ACTIVE_CARE: visibleItems.filter((item) => item.careState === 'ACTIVE_CARE').length,
+      NEW_PATIENT: visibleItems.filter((item) => item.careState === 'NEW_PATIENT').length,
+      FOLLOW_UP: visibleItems.filter((item) => item.careState === 'FOLLOW_UP').length,
     }),
-    [items],
+    [visibleItems],
   );
 
   return (
@@ -172,6 +175,12 @@ const patientFilters: Array<{ value: PatientFilter; label: string }> = [
   { value: 'FOLLOW_UP', label: 'Follow-up' },
 ];
 
+const runtimeSmokePatientNames = new Set(['codex runtime', 'codex blood smoke', 'codex responder']);
+
+function isRuntimeSmokePatient(patientName: string) {
+  return runtimeSmokePatientNames.has(patientName.trim().toLowerCase());
+}
+
 function PatientRow({ patient, divided }: { patient: DoctorPatientListItem; divided: boolean }) {
   const isNew = patient.careState === 'NEW_PATIENT';
   const primaryContext = patient.consultationInProgress
@@ -244,6 +253,11 @@ function PatientRow({ patient, divided }: { patient: DoctorPatientListItem; divi
             </div>
             <Link
               to={destination}
+              state={
+                patient.consultationInProgress
+                  ? doctorNavigationState('/doctor/patients', 'Back to Patients')
+                  : undefined
+              }
               className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-cyan-300/20 bg-cyan-400/[0.05] px-3 text-[10px] font-semibold text-cyan-200 transition group-hover:border-cyan-300/35 group-hover:bg-cyan-400/[0.09]"
             >
               {patient.consultationInProgress && patient.contextAppointmentId ? 'Resume' : 'Open patient'}

@@ -20,6 +20,7 @@ import {
   type DoctorDashboard,
 } from '../../features/doctor/doctor-api';
 import { doctorStatusLabel, doctorStatusTone } from '../../features/doctor/doctor-display';
+import { doctorNavigationState } from '../../features/doctor/doctor-navigation';
 import { ProfileAvatar } from '../../features/profile/profile-image';
 
 const DOCTOR_DASHBOARD_VIDEO = '/assets/biomedical/clinora-doctor-dashboard-cinematic.mp4';
@@ -229,7 +230,11 @@ export function DoctorDashboardPage() {
                     <dd>{next.sharedReportCount}</dd>
                   </div>
                 </dl>
-                <Link className="clinora-r5-primary-action" to={`/doctor/appointments/${next.id}`}>
+                <Link
+                  className="clinora-r5-primary-action"
+                  to={`/doctor/appointments/${next.id}`}
+                  state={doctorNavigationState('/doctor', 'Back to dashboard')}
+                >
                   View Patient details <ArrowRight size={15} aria-hidden="true" />
                 </Link>
               </>
@@ -368,6 +373,7 @@ function DoctorTimeline({ appointments }: { appointments: DoctorAppointmentSumma
             <Link
               key={appointment.id}
               to={`/doctor/appointments/${appointment.id}`}
+              state={doctorNavigationState('/doctor', 'Back to dashboard')}
               className="clinora-r5-timeline-appointment"
               style={{ top: `${top}%`, minHeight: `${height}%` }}
             >

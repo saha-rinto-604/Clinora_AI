@@ -1,6 +1,6 @@
 from PIL import Image
 
-from app import engine_v3
+from app import engine_v3, medgemma_document_assist
 from app.engine_v3 import (
     EngineOutput,
     EnginePage,
@@ -9,7 +9,6 @@ from app.engine_v3 import (
     _suppress_malformed_multi_label_rows,
     _targeted_assist_regions,
 )
-from app.medgemma_document_assist import AssistedPage, MedGemmaAssistTimeout, MedGemmaAssistUnavailable
 from app.parser_v3 import TextBlock
 from app.schemas import BoundingBox, Observation
 
@@ -113,38 +112,45 @@ def _stub_document(
         "estimate_known_lab_label_mentions",
         lambda *_: len(primary) if known_label_mentions is None else known_label_mentions,
     )
-    monkeypatch.setattr(engine_v3, "medgemma_assist_enabled", lambda: True)
+    monkeypatch.setenv("OCR_MEDGEMMA_ASSIST_ENABLED", "true")
 
 
-def test_medgemma_timeout_returns_primary_ocr_result(monkeypatch) -> None:
+def test_structural_gap_never_calls_medgemma_even_if_enabled(monkeypatch) -> None:
     primary = [observation("Hemoglobin", 10.4, confidence=0.80, review_required=True)]
     _stub_document(monkeypatch, primary, candidate_rows=2)
-    monkeypatch.setattr(engine_v3, "medgemma_extract_page", lambda *_args, **_kwargs: (_ for _ in ()).throw(MedGemmaAssistTimeout()))
+    monkeypatch.setenv("OCR_MEDGEMMA_ASSIST_ENABLED", "true")
+    monkeypatch.setenv("OCR_MEDGEMMA_ASSIST_MODE", "always")
+    calls = []
+    monkeypatch.setattr(medgemma_document_assist, "extract_page", lambda *_args, **_kwargs: calls.append(True))
 
     result = engine_v3.extract_document(b"jpeg", "image/jpeg", "report.jpeg")
 
     assert result.observations == primary
-    assert "MEDGEMMA_DOCUMENT_ASSIST_TIMEOUT" in result.warnings
+    assert calls == []
+    assert not any("MEDGEMMA" in warning for warning in result.warnings)
     assert result.qualityState == "REVIEW_REQUIRED"
 
 
-def test_medgemma_unavailable_returns_primary_ocr_result(monkeypatch) -> None:
+def test_incomplete_extraction_stays_insufficient_without_secondary_reader(monkeypatch) -> None:
     primary = [observation("Hemoglobin", 10.4, confidence=0.80, review_required=True)]
-    _stub_document(monkeypatch, primary, known_label_mentions=2)
-    monkeypatch.setattr(engine_v3, "medgemma_extract_page", lambda *_args, **_kwargs: (_ for _ in ()).throw(MedGemmaAssistUnavailable()))
+    _stub_document(monkeypatch, primary, known_label_mentions=8)
+    calls = []
+    monkeypatch.setattr(medgemma_document_assist, "extract_page", lambda *_args, **_kwargs: calls.append(True))
 
     result = engine_v3.extract_document(b"jpeg", "image/jpeg", "report.jpeg")
 
     assert result.observations == primary
-    assert "MEDGEMMA_DOCUMENT_ASSIST_UNAVAILABLE" in result.warnings
+    assert calls == []
+    assert result.qualityState == "INSUFFICIENT"
+    assert "EXTRACTION_QUALITY_INSUFFICIENT" in result.warnings
 
 
 def test_clean_ocr_does_not_invoke_vision_assist(monkeypatch) -> None:
     primary = [observation("Hemoglobin", 10.4, confidence=0.99)]
     _stub_document(monkeypatch, primary)
     monkeypatch.setattr(
-        engine_v3,
-        "medgemma_extract_page",
+        medgemma_document_assist,
+        "extract_page",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("clean OCR invoked vision")),
     )
 
@@ -159,8 +165,8 @@ def test_structurally_complete_review_required_ocr_skips_vision_assist(monkeypat
     primary = [observation("Hemoglobin", 10.4, confidence=0.80, review_required=True)]
     _stub_document(monkeypatch, primary)
     monkeypatch.setattr(
-        engine_v3,
-        "medgemma_extract_page",
+        medgemma_document_assist,
+        "extract_page",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("reviewRequired alone invoked vision")
         ),
