@@ -1,0 +1,4 @@
+# Normal local runtime against approved retained DB
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/integration-clean

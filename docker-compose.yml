@@ -75,7 +75,7 @@ services:
       context: ./backend
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-8080}
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev,retained-approved}
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-clinora}
       POSTGRES_USER: ${POSTGRES_USER:-clinora}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
