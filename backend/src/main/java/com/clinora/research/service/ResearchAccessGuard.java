@@ -4,6 +4,7 @@ import com.clinora.research.exception.ResearchApiException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,9 +37,11 @@ public class ResearchAccessGuard {
     }
 
     public void revokeTokens(UUID userId) {
+        // Truncate to seconds to match JWT NumericDate (iat) precision (RFC 7519).
+        Instant cutoff = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         jdbc.update("INSERT INTO research_access_revocations(user_id,revoked_before) VALUES (?,?) "
             + "ON CONFLICT(user_id) DO UPDATE SET revoked_before=EXCLUDED.revoked_before",
-            userId, Timestamp.from(clock.instant()));
+            userId, Timestamp.from(cutoff));
     }
 
     public void project(UUID projectId, UUID userId) {

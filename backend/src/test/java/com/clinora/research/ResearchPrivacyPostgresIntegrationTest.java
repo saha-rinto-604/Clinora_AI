@@ -131,6 +131,27 @@ class ResearchPrivacyPostgresIntegrationTest {
         assertThrows(ResearchApiException.class, () -> guard.token(jwt));
     }
 
+    @Test void freshTokenAfterReactivationIsAccepted() {
+        // Pre-suspension token (iat well before now).
+        var oldJwt = Jwt.withTokenValue("synthetic").header("alg","HS256").subject(owner.toString())
+            .claim("role","RESEARCHER").issuedAt(Instant.now().minusSeconds(10)).expiresAt(Instant.now().plusSeconds(600)).build();
+        assertDoesNotThrow(() -> guard.token(oldJwt));
+
+        // Suspend: revoke all existing tokens.
+        guard.revokeTokens(owner);
+        jdbc.update("UPDATE users SET account_status='SUSPENDED' WHERE id=?",owner);
+        assertThrows(ResearchApiException.class, () -> guard.token(oldJwt));
+
+        // Reactivate: fresh token issued 1 second after cutoff must succeed.
+        jdbc.update("UPDATE users SET account_status='ACTIVE' WHERE id=?",owner);
+        var freshJwt = Jwt.withTokenValue("synthetic2").header("alg","HS256").subject(owner.toString())
+            .claim("role","RESEARCHER").issuedAt(Instant.now().plusSeconds(1)).expiresAt(Instant.now().plusSeconds(600)).build();
+        assertDoesNotThrow(() -> guard.token(freshJwt));
+
+        // Old pre-suspension token must still be rejected.
+        assertThrows(ResearchApiException.class, () -> guard.token(oldJwt));
+    }
+
     @Test void unknownHistoricalContributionLineageIsUnavailable() {
         jdbc.update("INSERT INTO dataset_versions(id,dataset_id,version_number,schema_version,record_count,storage_object_key,checksum,format,deidentification_profile_version,generated_at) VALUES (?,?,2,'1',50,'synthetic-historical','test','JSON','1',now())",UUID.randomUUID(),dataset);
         assertThrows(ResearchApiException.class, () -> guard.dataset(dataset,owner));
