@@ -24,7 +24,8 @@ public interface DeidentificationService {
             UUID datasetRequestId,
             UUID projectId,
             String format,
-            List<RawObservationRow> rows
+            List<RawObservationRow> rows,
+            List<String> requestedVariables
     );
 
     String generateProjectScopedPseudonym(UUID patientUserId, UUID projectId);

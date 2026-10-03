@@ -214,13 +214,24 @@ public class DatasetGenerationService {
             // Extract criteria & fetch eligible observation candidates
             List<DeidentificationService.RawObservationRow> rows = fetchEligibleRows(request);
 
+            if (rows == null || rows.isEmpty()) {
+                throw new DatasetGenerationException("EMPTY_ELIGIBLE_COHORT", "No records satisfied all approved eligibility and consent requirements.");
+            }
+
             // Execute Phase R8 De-identification Pipeline
             String formatStr = request.getRequestedFormat() != null ? request.getRequestedFormat().name() : "CSV";
+
+            List<String> reqVarsList = new ArrayList<>();
+            if (request.getRequestedVariables() != null && !request.getRequestedVariables().isBlank()) {
+                reqVarsList = objectMapper.readValue(request.getRequestedVariables(), new TypeReference<List<String>>() {});
+            }
+
             DeidentificationResult deidResult = deidentificationService.transform(
                     request.getId(),
                     project.getId(),
                     formatStr,
-                    rows
+                    rows,
+                    reqVarsList
             );
 
             // Create or fetch ResearchDataset
@@ -246,7 +257,11 @@ public class DatasetGenerationService {
             String objectKey = "datasets/%s/%s/v%d%s".formatted(project.getId(), dataset.getId(), nextVersion, extension);
             String contentType = "JSON".equalsIgnoreCase(deidResult.format()) ? "application/json" : "text/csv";
 
-            storagePort.put(objectKey, deidResult.serializedPayload(), contentType);
+            try {
+                storagePort.put(objectKey, deidResult.serializedPayload(), contentType);
+            } catch (Exception e) {
+                throw new DatasetGenerationException("EXPORT_FAILED", "Failed to export generated dataset to secure storage.", e);
+            }
 
             // Create immutable DatasetVersion
             DatasetVersion version = new DatasetVersion(
@@ -304,9 +319,13 @@ public class DatasetGenerationService {
 
             LOGGER.info("Dataset generation job {} SUCCEEDED: dataset {}, version {}, records {}",
                     jobId, dataset.getId(), nextVersion, deidResult.totalEligibleRecords());
+        } catch (DatasetGenerationException e) {
+            LOGGER.error("Dataset generation job {} FAILED ({}): {}", jobId, e.getCode(), e.getMessage());
+            targetJob.markFailedWithCode(e.getCode(), e.getMessage(), clock.instant());
+            jobRepository.save(targetJob);
         } catch (Exception e) {
             LOGGER.error("Dataset generation job {} FAILED: {}", jobId, e.getMessage(), e);
-            targetJob.markFailed("Dataset generation failed. Review eligibility, consent and approved request criteria.", clock.instant());
+            targetJob.markFailedWithCode("INTERNAL_GENERATION_ERROR", "Clinora could not complete this generation job because of a system error.", clock.instant());
             jobRepository.save(targetJob);
         }
     }
@@ -438,9 +457,6 @@ public class DatasetGenerationService {
         // Baseline Eligibility boundary: Fail-closed consent & verified hygiene
         whereClause.append("rep.subject_type = 'SELF' ")
                 .append("AND rep.archived_at IS NULL ")
-                .append("AND obs.verification_status IN ('DOCTOR_VERIFIED', 'PATIENT_CONFIRMED', 'PATIENT_CORRECTED') ")
-                .append("AND obs.review_required = false ")
-                .append("AND obs.effective_numeric_value IS NOT NULL ")
                 .append("AND EXISTS (SELECT 1 FROM patient_research_consents prc WHERE prc.patient_user_id = rep.patient_user_id AND prc.consent_status = 'CONSENTED' AND prc.revoked_at IS NULL) ");
 
         // Parse requested population criteria if available
@@ -513,7 +529,7 @@ public class DatasetGenerationService {
                 index++;
             }
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Invalid approved observation filters", exception);
+            throw new DatasetGenerationException("INVALID_APPROVED_FILTER", "Invalid approved observation filters", exception);
         }
 
         // Parse requested variables
@@ -522,7 +538,7 @@ public class DatasetGenerationService {
             if (request.getRequestedVariables() != null && !request.getRequestedVariables().isBlank()) {
                 List<String> vars = objectMapper.readValue(request.getRequestedVariables(), new TypeReference<List<String>>() {});
                 for (String varCode : vars) {
-                    var v = catalog.getByCode(varCode).orElseThrow(() -> new IllegalArgumentException("Unknown approved variable"));
+                    var v = catalog.getByCode(varCode).orElseThrow(() -> new DatasetGenerationException("UNSUPPORTED_REQUESTED_FIELD", varCode + " is not available in the approved Clinora research catalog."));
                     {
                         if (!"Demographics".equalsIgnoreCase(v.category())) {
                             v.labelAliases().forEach(a -> aliases.add(a.toLowerCase(Locale.ROOT)));
@@ -530,12 +546,18 @@ public class DatasetGenerationService {
                     }
                 }
             }
+        } catch (DatasetGenerationException e) {
+            throw e;
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid approved variables", e);
+            throw new DatasetGenerationException("INVALID_APPROVED_FILTER", "Invalid approved variables configuration", e);
         }
 
+        String aliasJoin = "LEFT JOIN medical_report_observations obs ON obs.extraction_result_id = res.id " +
+                "AND obs.verification_status IN ('DOCTOR_VERIFIED', 'PATIENT_CONFIRMED', 'PATIENT_CORRECTED') " +
+                "AND obs.review_required = false " +
+                "AND obs.effective_numeric_value IS NOT NULL ";
         if (!aliases.isEmpty()) {
-            whereClause.append("AND (LOWER(obs.normalized_label) IN (:aliases) OR LOWER(obs.effective_label) IN (:aliases)) ");
+            aliasJoin += "AND (LOWER(obs.normalized_label) IN (:aliases) OR LOWER(obs.effective_label) IN (:aliases)) ";
             params.addValue("aliases", new ArrayList<>(aliases));
         }
 
@@ -556,10 +578,10 @@ public class DatasetGenerationService {
             JOIN users u ON rep.patient_user_id = u.id
             LEFT JOIN patient_profiles p ON p.user_id = rep.patient_user_id
             JOIN medical_report_extraction_results res ON res.report_id = rep.id
-            JOIN medical_report_observations obs ON obs.extraction_result_id = res.id
+            %s
             WHERE %s
             ORDER BY rep.patient_user_id, rep.report_date ASC, obs.created_at ASC
-            """.formatted(whereClause.toString());
+            """.formatted(aliasJoin, whereClause.toString());
 
         List<DeidentificationService.RawObservationRow> eligible = jdbcTemplate.query(sql, params, (rs, rowNum) -> mapRow(rs));
         if (!aliases.isEmpty()) return eligible;

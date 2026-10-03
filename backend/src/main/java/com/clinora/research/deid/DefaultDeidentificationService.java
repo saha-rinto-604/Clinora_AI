@@ -15,6 +15,7 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.*;
+import java.math.BigDecimal;
 
 @Service
 public class DefaultDeidentificationService implements DeidentificationService {
@@ -77,10 +78,11 @@ public class DefaultDeidentificationService implements DeidentificationService {
             UUID datasetRequestId,
             UUID projectId,
             String requestedFormat,
-            List<RawObservationRow> rows
+            List<RawObservationRow> rows,
+            List<String> requestedVariables
     ) {
         if (rows == null || rows.isEmpty()) {
-            throw new IllegalArgumentException("Cannot de-identify empty observation cohort.");
+            throw new com.clinora.research.service.DatasetGenerationException("EMPTY_ELIGIBLE_COHORT", "No records satisfied all approved eligibility and consent requirements.");
         }
 
         Set<UUID> uniquePatients = new HashSet<>();
@@ -90,23 +92,64 @@ public class DefaultDeidentificationService implements DeidentificationService {
 
         // Minimum cohort size privacy protection
         if (uniquePatients.size() < minCohortSize) {
-            throw new IllegalStateException(
-                    "Cohort contains %d unique subjects, which fails the minimum subject threshold protection (minimum %d subjects). Generation aborted to prevent re-identification."
-                            .formatted(uniquePatients.size(), minCohortSize)
+            throw new com.clinora.research.service.DatasetGenerationException(
+                    "MINIMUM_COHORT_NOT_MET",
+                    "This request does not meet Clinora's minimum cohort requirement of " + minCohortSize + " subjects."
             );
         }
 
-        Map<String, Set<UUID>> variableSubjects = new HashMap<>();
+        // Deduplicate and fill missing requested variables to prepare for WIDE pivot
+        List<String> reqVars = requestedVariables == null ? List.of() : requestedVariables;
+        List<RawObservationRow> completeRows = new ArrayList<>();
+
+        Map<UUID, List<RawObservationRow>> byPatient = new HashMap<>();
         for (RawObservationRow row : rows) {
-            variableSubjects.computeIfAbsent(row.variableCode(), ignored -> new HashSet<>()).add(row.patientUserId());
-        }
-        if (variableSubjects.values().stream().anyMatch(subjects -> subjects.size() < minCohortSize)) {
-            throw new IllegalStateException("A requested variable has fewer than the minimum distinct eligible subjects.");
+            byPatient.computeIfAbsent(row.patientUserId(), k -> new ArrayList<>()).add(row);
         }
 
-        List<DeidentifiedRecord> deidentifiedRecords = new ArrayList<>(rows.size());
+        for (Map.Entry<UUID, List<RawObservationRow>> entry : byPatient.entrySet()) {
+            List<RawObservationRow> pRows = entry.getValue();
 
-        for (RawObservationRow row : rows) {
+            // Demographic fallback: find base row (e.g., max reportDate)
+            RawObservationRow baseRow = pRows.stream()
+                .max(Comparator.comparing(RawObservationRow::reportDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(pRows.get(0));
+
+            for (String rv : reqVars) {
+                // Find latest observation for rv
+                RawObservationRow bestVarRow = pRows.stream()
+                    .filter(r -> rv.equals(r.variableCode()))
+                    .max(Comparator
+                        .comparing(RawObservationRow::reportDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing((r1, r2) -> {
+                            BigDecimal v1 = r1.numericValue() == null ? BigDecimal.ZERO : r1.numericValue();
+                            BigDecimal v2 = r2.numericValue() == null ? BigDecimal.ZERO : r2.numericValue();
+                            return v1.compareTo(v2);
+                        })
+                    )
+                    .orElse(null);
+
+                if (bestVarRow != null) {
+                    completeRows.add(bestVarRow);
+                } else {
+                    // Missing observation = null cell
+                    completeRows.add(new RawObservationRow(
+                            baseRow.patientUserId(), baseRow.dateOfBirth(), baseRow.gender(), baseRow.reportDate(),
+                            rv, null, null, null, null, null
+                    ));
+                }
+            }
+            if (reqVars.isEmpty()) {
+                completeRows.add(new RawObservationRow(
+                        baseRow.patientUserId(), baseRow.dateOfBirth(), baseRow.gender(), baseRow.reportDate(),
+                        null, null, null, null, null, null
+                ));
+            }
+        }
+
+        List<DeidentifiedRecord> deidentifiedRecords = new ArrayList<>(completeRows.size());
+
+        for (RawObservationRow row : completeRows) {
             String subjectId = generateProjectScopedPseudonym(row.patientUserId(), projectId);
             String ageBand = computeAgeBand(row.dateOfBirth(), row.reportDate());
             String sex = row.gender() == null ? "UNKNOWN" : row.gender().toUpperCase(Locale.ROOT);
@@ -138,11 +181,11 @@ public class DefaultDeidentificationService implements DeidentificationService {
         byte[] payload;
 
         if ("JSON".equals(format)) {
-            payload = serializeToJson(deidentifiedRecords);
+            payload = serializeToJson(deidentifiedRecords, reqVars);
         } else {
             // Default to CSV
             format = "CSV";
-            payload = serializeToCsv(deidentifiedRecords);
+            payload = serializeToCsv(deidentifiedRecords, reqVars);
         }
 
         String checksum = computeSha256(payload);
@@ -153,7 +196,7 @@ public class DefaultDeidentificationService implements DeidentificationService {
         return new DeidentificationResult(
                 datasetRequestId,
                 projectId,
-                deidentifiedRecords.size(),
+                uniquePatients.size(),
                 uniquePatients.size(),
                 DEID_PROFILE_VERSION,
                 deidentifiedRecords,
@@ -204,31 +247,76 @@ public class DefaultDeidentificationService implements DeidentificationService {
         return reportDate.getYear() + "-Q" + quarter;
     }
 
-    private byte[] serializeToCsv(List<DeidentifiedRecord> records) {
+    private byte[] serializeToCsv(List<DeidentifiedRecord> records, List<String> reqVars) {
+        Map<String, List<DeidentifiedRecord>> bySubject = new LinkedHashMap<>();
+        for (DeidentifiedRecord rec : records) {
+            bySubject.computeIfAbsent(rec.subjectId(), k -> new ArrayList<>()).add(rec);
+        }
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (PrintWriter writer = new PrintWriter(baos, false, StandardCharsets.UTF_8)) {
-            // Write standard de-identified CSV header
-            writer.println("subject_id,age_band,sex,observation_period,variable_code,value,unit,reference_range,flag");
-            for (DeidentifiedRecord rec : records) {
-                writer.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s%n",
-                        escapeCsv(rec.subjectId()),
-                        escapeCsv(rec.ageBand()),
-                        escapeCsv(rec.sex()),
-                        escapeCsv(rec.observationPeriod()),
-                        escapeCsv(rec.variableCode()),
-                        rec.value() == null ? "" : rec.value().toPlainString(),
-                        escapeCsv(rec.unit()),
-                        escapeCsv(rec.referenceRange()),
-                        escapeCsv(rec.flag())
-                );
+            writer.print("subject_id,age_band,sex");
+            for (String rv : reqVars) {
+                writer.print("," + escapeCsv(rv.toLowerCase(Locale.ROOT)));
+            }
+            writer.println();
+
+            for (Map.Entry<String, List<DeidentifiedRecord>> entry : bySubject.entrySet()) {
+                List<DeidentifiedRecord> sRecs = entry.getValue();
+                DeidentifiedRecord base = sRecs.get(0);
+                writer.print(escapeCsv(base.subjectId()) + "," + escapeCsv(base.ageBand()) + "," + escapeCsv(base.sex()));
+
+                Map<String, DeidentifiedRecord> vars = new HashMap<>();
+                for (DeidentifiedRecord r : sRecs) {
+                    if (r.variableCode() != null) {
+                        vars.put(r.variableCode(), r);
+                    }
+                }
+
+                for (String rv : reqVars) {
+                    DeidentifiedRecord r = vars.get(rv);
+                    if (r != null && r.value() != null) {
+                        writer.print("," + r.value().toPlainString());
+                    } else {
+                        writer.print(",");
+                    }
+                }
+                writer.println();
             }
         }
         return baos.toByteArray();
     }
 
-    private byte[] serializeToJson(List<DeidentifiedRecord> records) {
+    private byte[] serializeToJson(List<DeidentifiedRecord> records, List<String> reqVars) {
         try {
-            return objectMapper.writeValueAsBytes(records);
+            Map<String, List<DeidentifiedRecord>> bySubject = new LinkedHashMap<>();
+            for (DeidentifiedRecord rec : records) {
+                bySubject.computeIfAbsent(rec.subjectId(), k -> new ArrayList<>()).add(rec);
+            }
+
+            List<Map<String, Object>> wideRecords = new ArrayList<>();
+            for (Map.Entry<String, List<DeidentifiedRecord>> entry : bySubject.entrySet()) {
+                List<DeidentifiedRecord> sRecs = entry.getValue();
+                DeidentifiedRecord base = sRecs.get(0);
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("subject_id", base.subjectId());
+                map.put("age_band", base.ageBand());
+                map.put("sex", base.sex());
+
+                Map<String, DeidentifiedRecord> vars = new HashMap<>();
+                for (DeidentifiedRecord r : sRecs) {
+                    if (r.variableCode() != null) {
+                        vars.put(r.variableCode(), r);
+                    }
+                }
+
+                for (String rv : reqVars) {
+                    DeidentifiedRecord r = vars.get(rv);
+                    map.put(rv.toLowerCase(Locale.ROOT), (r != null && r.value() != null) ? r.value() : null);
+                }
+                wideRecords.add(map);
+            }
+            return objectMapper.writeValueAsBytes(wideRecords);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize de-identified dataset to JSON", e);
         }

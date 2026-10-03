@@ -65,9 +65,28 @@ public class DatasetGenerationJob {
     }
 
     public void markFailed(String reason, Instant failedAt) {
+        markFailedWithCode("INTERNAL_GENERATION_ERROR", reason, failedAt);
+    }
+
+    public void markFailedWithCode(String code, String message, Instant failedAt) {
         this.status = "FAILED";
-        this.failureReason = reason != null && reason.length() > 1000 ? reason.substring(0, 1000) : reason;
+        String combined = code + "::" + message;
+        this.failureReason = combined.length() > 1000 ? combined.substring(0, 1000) : combined;
         this.completedAt = failedAt != null ? failedAt : Instant.now();
         this.updatedAt = this.completedAt;
+    }
+
+    public String getFailureCode() {
+        if (failureReason != null && failureReason.contains("::")) {
+            return failureReason.split("::", 2)[0];
+        }
+        return failureReason != null ? "INTERNAL_GENERATION_ERROR" : null;
+    }
+
+    public String getParsedFailureReason() {
+        if (failureReason != null && failureReason.contains("::")) {
+            return failureReason.split("::", 2)[1];
+        }
+        return failureReason;
     }
 }

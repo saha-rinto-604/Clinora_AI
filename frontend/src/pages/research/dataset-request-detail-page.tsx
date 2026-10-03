@@ -395,24 +395,90 @@ export function DatasetRequestDetailPage() {
 
       {/* Generation Failed Banner */}
       {latestJob && latestJob.status === 'FAILED' ? (
-        <div className="p-5 rounded-2xl border border-rose-800/80 bg-rose-950/40 text-rose-200 text-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 font-semibold text-rose-300 text-sm">
-              <AlertCircle className="w-4 h-4 text-rose-400" />
-              <span>Dataset Generation Failed</span>
+        latestJob.failureCode === 'MINIMUM_COHORT_NOT_MET' || latestJob.failureCode === 'EMPTY_ELIGIBLE_COHORT' || latestJob.failureCode === 'CONSENT_REQUIREMENT_NOT_MET' ? (
+          <div className="p-5 rounded-2xl border border-amber-800/80 bg-amber-950/30 text-amber-200 text-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 font-semibold text-amber-300 text-sm">
+                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <span>Dataset generation blocked</span>
+              </div>
+              {latestJob.retryable ? (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-7"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Retry Generation
+                </Button>
+              ) : null}
             </div>
-            <Button
-              onClick={handleGenerate}
-              disabled={generating}
-              size="sm"
-              className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7"
-            >
-              <RefreshCw className="w-3 h-3 mr-1" />
-              Retry Generation
-            </Button>
+            {latestJob.failureCode === 'MINIMUM_COHORT_NOT_MET' ? (
+              <>
+                <p className="text-slate-300 font-medium text-sm">Privacy threshold not met</p>
+                <p className="text-slate-400 mt-1">This request does not meet Clinora's minimum cohort requirement of 5 subjects. The dataset was not generated to protect patient privacy.</p>
+              </>
+            ) : latestJob.failureCode === 'EMPTY_ELIGIBLE_COHORT' ? (
+              <>
+                <p className="text-slate-300 font-medium text-sm">No eligible records matched this request</p>
+                <p className="text-slate-400 mt-1">No records satisfied all approved eligibility and consent requirements. The dataset was not generated.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-300 font-medium text-sm">Consent requirements not met</p>
+                <p className="text-slate-400 mt-1">The approved request could not produce a dataset while satisfying Clinora's research consent requirements.</p>
+              </>
+            )}
+            <div className="pt-2">
+              <Button onClick={() => window.scrollTo(0, 0)} variant="secondary" size="sm" className="bg-slate-800 text-slate-300 hover:bg-slate-700 h-8">Review request criteria</Button>
+            </div>
           </div>
-          <p className="text-slate-300 font-mono text-[11px] bg-slate-950 p-2.5 rounded border border-rose-900/60">
-            {latestJob.failureReason || 'An error occurred during de-identification transformation.'}
+        ) : (
+          <div className="p-5 rounded-2xl border border-rose-800/80 bg-rose-950/40 text-rose-200 text-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 font-semibold text-rose-300 text-sm">
+                <AlertCircle className="w-4 h-4 text-rose-400" />
+                <span>Dataset generation encountered an error</span>
+              </div>
+              {latestJob.retryable ? (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  size="sm"
+                  className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Try again
+                </Button>
+              ) : null}
+            </div>
+            {latestJob.failureCode === 'UNSUPPORTED_REQUESTED_FIELD' || latestJob.failureCode === 'INVALID_APPROVED_FILTER' ? (
+              <>
+                <p className="text-slate-300 font-medium text-sm">Unsupported dataset field or filter</p>
+                <p className="text-slate-400 mt-1">{latestJob.failureReason}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-400 mt-1">Clinora could not complete this generation job because of a system error. No dataset was released.</p>
+                <div className="pt-2">
+                  <span className="text-slate-500 text-[11px]">Contact administrator if this issue persists.</span>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      ) : null}
+
+      {/* Generation Succeeded Banner */}
+      {latestJob && latestJob.status === 'SUCCEEDED' ? (
+        <div className="p-5 rounded-2xl border border-emerald-800/80 bg-emerald-950/30 text-emerald-200 text-xs space-y-2">
+          <div className="font-semibold text-emerald-300 flex items-center gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            Dataset generated successfully
+          </div>
+          <p className="text-slate-300 mt-1">
+            The dataset snapshot is ready for download. Some approved variables may have had no available observations and were left empty to preserve the approved format.
           </p>
         </div>
       ) : null}

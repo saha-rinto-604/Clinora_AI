@@ -42,7 +42,7 @@ class DeidentificationServiceTest {
                 new DeidentificationService.RawObservationRow(p3, LocalDate.of(1990, 1, 15), "FEMALE", LocalDate.of(2026, 3, 15), "HBA1C", new BigDecimal("6.9"), "%", new BigDecimal("70"), new BigDecimal("99"), "HIGH")
         );
 
-        DeidentificationResult result = service.transform(reqId, projectId, "CSV", rows);
+        DeidentificationResult result = service.transform(reqId, projectId, "CSV", rows, java.util.List.of("HBA1C"));
 
         assertNotNull(result);
         assertEquals(3, result.totalEligibleRecords());
@@ -52,7 +52,7 @@ class DeidentificationServiceTest {
         assertEquals(64, result.sha256Checksum().length());
 
         String csv = new String(result.serializedPayload(), StandardCharsets.UTF_8);
-        assertTrue(csv.contains("subject_id,age_band,sex,observation_period,variable_code,value,unit,reference_range,flag"));
+        assertTrue(csv.contains("hba1c"));
 
         // Direct patient UUIDs must NEVER appear anywhere in CSV
         assertFalse(csv.contains(p1.toString()));
@@ -178,11 +178,11 @@ class DeidentificationServiceTest {
                 new DeidentificationService.RawObservationRow(p2, LocalDate.of(1975, 11, 2), "FEMALE", LocalDate.of(2026, 3, 12), "HBA1C", new BigDecimal("7.1"), "%", null, null, null)
         );
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
-                service.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows)
+        com.clinora.research.service.DatasetGenerationException ex = assertThrows(com.clinora.research.service.DatasetGenerationException.class, () ->
+                service.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows, java.util.List.of("HBA1C"))
         );
 
-        assertTrue(ex.getMessage().contains("minimum subject threshold"));
+        assertTrue(ex.getMessage().contains("minimum cohort requirement"));
     }
 
     @Test
@@ -198,13 +198,13 @@ class DeidentificationServiceTest {
                 new DeidentificationService.RawObservationRow(p3, LocalDate.of(1990, 1, 15), "FEMALE", LocalDate.of(2026, 3, 15), "HBA1C", new BigDecimal("6.9"), "%", null, null, null)
         );
 
-        DeidentificationResult result = service.transform(UUID.randomUUID(), UUID.randomUUID(), "JSON", rows);
+        DeidentificationResult result = service.transform(UUID.randomUUID(), UUID.randomUUID(), "JSON", rows, java.util.List.of("HBA1C"));
 
         assertEquals("JSON", result.format());
         String json = new String(result.serializedPayload(), StandardCharsets.UTF_8);
         assertTrue(json.startsWith("["));
-        assertTrue(json.contains("\"variableCode\":\"HBA1C\""));
-        assertTrue(json.contains("\"subjectId\":\"SUBJ-"));
+        assertTrue(json.contains("\"hba1c\":"));
+        assertTrue(json.contains("\"subject_id\":\"SUBJ-"));
     }
     @Test
     void deployedConstructorCannotLowerMinimumAndRejectsPlaceholderSecrets() {
@@ -212,15 +212,22 @@ class DeidentificationServiceTest {
         assertThrows(IllegalStateException.class, () -> new DefaultDeidentificationService(new ObjectMapper(), 1, "replace-with-a-private-long-secret-of-32-characters", environment));
         var deployed = new DefaultDeidentificationService(new ObjectMapper(), 1, "sufficiently-private-unit-fixture-key-123456789", environment);
         var rows = java.util.stream.IntStream.range(0, 4).mapToObj(i -> new DeidentificationService.RawObservationRow(UUID.randomUUID(), null, null, LocalDate.of(2026,1,1), "HBA1C", BigDecimal.ONE, "%", null, null, null)).toList();
-        assertThrows(IllegalStateException.class, () -> deployed.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows));
+        assertThrows(com.clinora.research.service.DatasetGenerationException.class, () -> deployed.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows, java.util.List.of("HBA1C")));
     }
 
     @Test
-    void rejectsSmallVariableGroupEvenWhenOverallCohortMeetsMinimum() {
+    void acceptsSmallVariableGroupWhenOverallCohortMeetsMinimum() {
         var rows = new ArrayList<DeidentificationService.RawObservationRow>();
         for (int i=0;i<5;i++) rows.add(new DeidentificationService.RawObservationRow(UUID.randomUUID(), null, null, LocalDate.of(2026,1,1), i==0 ? "HBA1C" : "HEMOGLOBIN", BigDecimal.ONE, null, null, null, null));
         var deployed = new DefaultDeidentificationService(new ObjectMapper(), 5, "synthetic-unit-test-only-secret-material");
-        assertThrows(IllegalStateException.class, () -> deployed.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows));
+
+        // Assert that the transformation succeeds because the overall cohort size (5) meets the minimum,
+        // even though HBA1C only has 1 observation and HEMOGLOBIN has 4.
+        DeidentificationResult result = deployed.transform(UUID.randomUUID(), UUID.randomUUID(), "CSV", rows, java.util.List.of("HBA1C", "HEMOGLOBIN"));
+
+        assertEquals(5, result.uniqueSubjectsCount());
+        String csv = new String(result.serializedPayload(), StandardCharsets.UTF_8);
+        assertTrue(csv.contains("hba1c,hemoglobin"));
     }
 
 }

@@ -153,7 +153,7 @@ class DatasetGenerationServiceTest {
         DeidentificationResult deidResult = new DeidentificationResult(
                 reqId, projId, 1, 1, "clinora-deid-v1", List.of(), payload, "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", "CSV"
         );
-        when(deidentificationService.transform(eq(reqId), eq(projId), eq("CSV"), anyList()))
+        when(deidentificationService.transform(eq(reqId), eq(projId), eq("CSV"), anyList(), anyList()))
                 .thenReturn(deidResult);
 
         when(datasetRepository.findByDatasetRequestId(reqId)).thenReturn(Optional.empty());
@@ -240,7 +240,7 @@ class DatasetGenerationServiceTest {
     @Test
     void malformedApprovedFiltersFailBeforeQueryOrStorage() {
         var request = requestWithFilters("[\"HBA1C\"]", "{\"observationConditions\":[{\"variableCode\":\"HBA1C\",\"operator\":\"OR 1=1\",\"value\":6.5}]}");
-        assertThrows(IllegalArgumentException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "fetchEligibleRows", request));
+        assertThrows(com.clinora.research.service.DatasetGenerationException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "fetchEligibleRows", request));
         verifyNoInteractions(jdbcTemplate, storagePort);
     }
 
@@ -255,8 +255,137 @@ class DatasetGenerationServiceTest {
         assertEquals("DEMOGRAPHICS", result.getFirst().variableCode());
     }
 
+    @Test
+    void eligiblePatientsRetainedWhenRequestedVariablesMissing() {
+        UUID patientA = UUID.randomUUID(); // Has unrelated observation
+        UUID patientB = UUID.randomUUID(); // Has NO observations
+        UUID patientC = UUID.randomUUID(); // Has requested observation
+
+        var rowA = new DeidentificationService.RawObservationRow(patientA, LocalDate.of(1980,1,1), "MALE", LocalDate.of(2026,1,1), "HGB", new BigDecimal("11.2"), "g/dL", null, null, null);
+        var rowB = new DeidentificationService.RawObservationRow(patientB, LocalDate.of(1985,1,1), "FEMALE", LocalDate.of(2026,1,1), null, null, null, null, null, null);
+        var rowC = new DeidentificationService.RawObservationRow(patientC, LocalDate.of(1990,1,1), "MALE", LocalDate.of(2026,1,1), "CRP", new BigDecimal("7.1"), "mg/L", null, null, null);
+
+        var request = requestWithFilters("[\"CRP\"]", "{}");
+        when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of(rowA, rowB, rowC));
+
+        List<DeidentificationService.RawObservationRow> result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "fetchEligibleRows", request);
+
+        // All eligible subjects must be retained, irrespective of observation matches
+        assertEquals(3, result.size());
+
+        var sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sql.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
+        String executedSql = sql.getValue();
+
+        // 1. LEFT JOIN must be used for observations to retain eligible subjects
+        assertTrue(executedSql.contains("LEFT JOIN medical_report_observations obs ON obs.extraction_result_id = res.id"));
+
+        // 2. The alias filter MUST be in the ON clause, NOT the WHERE clause, so subjects missing the requested var are not excluded
+        assertTrue(executedSql.contains("AND (LOWER(obs.normalized_label) IN (:aliases) OR LOWER(obs.effective_label) IN (:aliases))"));
+
+        // The where clause is independent of requested aliases
+        assertFalse(executedSql.contains("OR obs.id IS NULL"));
+    }
+
+
     private DatasetRequest requestWithFilters(String variables, String filters) {
         return new DatasetRequest(UUID.randomUUID(), UUID.randomUUID(), "Synthetic request", "Test", "{}", variables, filters, DatasetFormat.CSV, clock.instant());
+    }
+
+    @Test
+    @DisplayName("processJob fails with EMPTY_ELIGIBLE_COHORT when no records found")
+    void processJobEmptyEligibleCohort() {
+        UUID jobId = UUID.randomUUID();
+        UUID reqId = UUID.randomUUID();
+        UUID projId = UUID.randomUUID();
+
+        DatasetGenerationJob job = new DatasetGenerationJob(jobId, reqId, clock.instant());
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(job));
+
+        DatasetRequest request = new DatasetRequest(
+                reqId, projId, "Biomarker Study", "Purpose", "{}", "[\"HBA1C\"]", "{}",
+                DatasetFormat.CSV, clock.instant()
+        );
+        request.submit(clock.instant());
+        request.approve(UUID.randomUUID(), "Approved", clock.instant(), clock.instant().plusSeconds(86400 * 30));
+        when(requestRepository.findById(reqId)).thenReturn(Optional.of(request));
+
+        ResearchProject project = new ResearchProject(
+                projId, UUID.randomUUID(), "Title", "Obj", "Desc", "Field", "Methodology", "Inst", "Ethics", clock.instant()
+        );
+        when(projectRepository.findById(projId)).thenReturn(Optional.of(project));
+
+        when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .thenReturn(List.of());
+
+        service.processJob(jobId);
+
+        assertEquals("FAILED", job.getStatus());
+        assertEquals("EMPTY_ELIGIBLE_COHORT", job.getFailureCode());
+        assertEquals("No records satisfied all approved eligibility and consent requirements.", job.getParsedFailureReason());
+    }
+
+    @Test
+    @DisplayName("processJob fails with UNSUPPORTED_REQUESTED_FIELD when variables are invalid")
+    void processJobUnsupportedField() {
+        UUID jobId = UUID.randomUUID();
+        UUID reqId = UUID.randomUUID();
+        UUID projId = UUID.randomUUID();
+
+        DatasetGenerationJob job = new DatasetGenerationJob(jobId, reqId, clock.instant());
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(job));
+
+        DatasetRequest request = new DatasetRequest(
+                reqId, projId, "Study", "Purpose", "{}", "[\"INVALID_FIELD_123\"]", "{}",
+                DatasetFormat.CSV, clock.instant()
+        );
+        request.submit(clock.instant());
+        request.approve(UUID.randomUUID(), "Approved", clock.instant(), clock.instant().plusSeconds(86400 * 30));
+        when(requestRepository.findById(reqId)).thenReturn(Optional.of(request));
+
+        ResearchProject project = new ResearchProject(
+                projId, UUID.randomUUID(), "Title", "Obj", "Desc", "Field", "Methodology", "Inst", "Ethics", clock.instant()
+        );
+        when(projectRepository.findById(projId)).thenReturn(Optional.of(project));
+
+        service.processJob(jobId);
+
+        assertEquals("FAILED", job.getStatus());
+        assertEquals("UNSUPPORTED_REQUESTED_FIELD", job.getFailureCode());
+        assertTrue(job.getParsedFailureReason().contains("INVALID_FIELD_123 is not available"));
+    }
+
+    @Test
+    @DisplayName("processJob fails with INTERNAL_GENERATION_ERROR on unexpected exceptions")
+    void processJobInternalError() {
+        UUID jobId = UUID.randomUUID();
+        UUID reqId = UUID.randomUUID();
+        UUID projId = UUID.randomUUID();
+
+        DatasetGenerationJob job = new DatasetGenerationJob(jobId, reqId, clock.instant());
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(job));
+
+        DatasetRequest request = new DatasetRequest(
+                reqId, projId, "Study", "Purpose", "{}", "[\"HBA1C\"]", "{}",
+                DatasetFormat.CSV, clock.instant()
+        );
+        request.submit(clock.instant());
+        request.approve(UUID.randomUUID(), "Approved", clock.instant(), clock.instant().plusSeconds(86400 * 30));
+        when(requestRepository.findById(reqId)).thenReturn(Optional.of(request));
+
+        ResearchProject project = new ResearchProject(
+                projId, UUID.randomUUID(), "Title", "Obj", "Desc", "Field", "Methodology", "Inst", "Ethics", clock.instant()
+        );
+        when(projectRepository.findById(projId)).thenReturn(Optional.of(project));
+
+        when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .thenThrow(new RuntimeException("Database down!"));
+
+        service.processJob(jobId);
+
+        assertEquals("FAILED", job.getStatus());
+        assertEquals("INTERNAL_GENERATION_ERROR", job.getFailureCode());
+        assertEquals("Clinora could not complete this generation job because of a system error.", job.getParsedFailureReason());
     }
 
 }

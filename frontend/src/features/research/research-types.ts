@@ -259,7 +259,9 @@ export interface DatasetGenerationJob {
   id: string;
   datasetRequestId: string;
   status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
+  failureCode?: string;
   failureReason?: string;
+  retryable?: boolean;
   startedAt?: string;
   completedAt?: string;
   createdAt: string;

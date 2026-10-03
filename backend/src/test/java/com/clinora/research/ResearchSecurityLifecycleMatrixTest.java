@@ -421,7 +421,7 @@ class ResearchSecurityLifecycleMatrixTest {
                 )
         );
 
-        DeidentificationResult result = deidentificationService.transform(UUID.randomUUID(), projectId, "CSV", rows);
+        DeidentificationResult result = deidentificationService.transform(UUID.randomUUID(), projectId, "CSV", rows, java.util.List.of("HBA1C"));
 
         assertThat(result.records()).hasSize(3);
         String csvOutput = new String(result.serializedPayload(), StandardCharsets.UTF_8);

@@ -67,17 +67,26 @@ public final class ResearchDatasetModels {
             UUID id,
             UUID datasetRequestId,
             String status,
+            String failureCode,
             String failureReason,
+            boolean retryable,
             Instant startedAt,
             Instant completedAt,
             Instant createdAt
     ) {
         public static DatasetGenerationJobResponse from(DatasetGenerationJob j) {
+            String code = j.getFailureCode();
+            boolean retryable = false;
+            if (code != null) {
+                retryable = code.equals("INTERNAL_GENERATION_ERROR") || code.equals("EXPORT_FAILED");
+            }
             return new DatasetGenerationJobResponse(
                     j.getId(),
                     j.getDatasetRequestId(),
                     j.getStatus(),
-                    j.getFailureReason(),
+                    code,
+                    j.getParsedFailureReason(),
+                    retryable,
                     j.getStartedAt(),
                     j.getCompletedAt(),
                     j.getCreatedAt()
