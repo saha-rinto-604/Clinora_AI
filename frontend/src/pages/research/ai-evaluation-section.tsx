@@ -12,7 +12,12 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { evaluationConfig, evaluationError, evaluationReady, percentage } from '../../features/research/evaluation-presentation';
+import {
+  evaluationConfig,
+  evaluationError,
+  evaluationReady,
+  percentage,
+} from '../../features/research/evaluation-presentation';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
 import { researchApi } from '../../features/research/research-api';
@@ -107,10 +112,15 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
     if (!selectedRunId || !['CONFIGURED', 'RUNNING'].includes(selectedRunStatus ?? '')) return;
     const id = selectedRunId;
     const timer = window.setInterval(() => {
-      void researchApi.getEvaluationRun(projectId, id).then((updated) => {
-        setSelectedRun((current) => current?.id === id ? updated : current);
-        setRuns((previous) => previous.map((run) => run.id === id ? updated : run));
-      }).catch(() => { /* Existing status remains visible; explicit execution rechecks access. */ });
+      void researchApi
+        .getEvaluationRun(projectId, id)
+        .then((updated) => {
+          setSelectedRun((current) => (current?.id === id ? updated : current));
+          setRuns((previous) => previous.map((run) => (run.id === id ? updated : run)));
+        })
+        .catch(() => {
+          /* Existing status remains visible; explicit execution rechecks access. */
+        });
     }, 5000);
     return () => window.clearInterval(timer);
   }, [projectId, selectedRunId, selectedRunStatus]);
@@ -155,7 +165,8 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
         modelVersion: formModelVersion.trim(),
         promptVersion: formPromptVersion.trim(),
         taskType: formTaskType,
-        groundTruthDefinition: formTaskType === 'ABNORMALITY_DETECTION' ? 'VERIFIED_LAB_REFERENCE_RANGE' : formGroundTruth.trim(),
+        groundTruthDefinition:
+          formTaskType === 'ABNORMALITY_DETECTION' ? 'VERIFIED_LAB_REFERENCE_RANGE' : formGroundTruth.trim(),
       };
 
       const newRun = await researchApi.createEvaluationRun(projectId, payload);
@@ -345,7 +356,10 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     )}
                     <Button
                       variant="secondary"
-                      onClick={() => { setExecuteError(''); setSelectedRun(run); }}
+                      onClick={() => {
+                        setExecuteError('');
+                        setSelectedRun(run);
+                      }}
                       className="text-xs py-1.5 px-3 h-auto border border-slate-700 hover:border-slate-600"
                     >
                       Inspect Protocol
@@ -368,7 +382,10 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                 <h3 className="text-base font-semibold text-slate-100">AI Evaluation Protocol Builder</h3>
               </div>
               <button
-                onClick={() => { setIsModalOpen(false); setExecuteError(''); }}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setExecuteError('');
+                }}
                 className="text-slate-400 hover:text-slate-200 transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -523,7 +540,8 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                 <div>
                   <h4 className="font-semibold text-slate-200 text-sm">Step 3 — Clinora AI Configuration</h4>
                   <p className="text-slate-400 text-[11px] mt-0.5">
-                    This configuration defines how Clinora AI would be evaluated for the selected task. Automated execution is not enabled until an authorized prediction and reference pipeline is available.
+                    This configuration defines how Clinora AI would be evaluated for the selected task. Automated
+                    execution is not enabled until an authorized prediction and reference pipeline is available.
                   </p>
                 </div>
 
@@ -573,7 +591,11 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                 <div className="space-y-2.5">
                   <div className="p-3.5 rounded-xl border transition-all border-slate-800 bg-slate-950/60 shadow-sm">
                     <div className="flex justify-between items-center mb-1">
-                      <div className="font-semibold text-slate-200 text-xs">{formTaskType === 'ABNORMALITY_DETECTION' ? 'Verified Lab Reference Range' : 'Verified Reference Labels'}</div>
+                      <div className="font-semibold text-slate-200 text-xs">
+                        {formTaskType === 'ABNORMALITY_DETECTION'
+                          ? 'Verified Lab Reference Range'
+                          : 'Verified Reference Labels'}
+                      </div>
                       <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-amber-300">
                         {formTaskType === 'ABNORMALITY_DETECTION' ? 'CHECKED AFTER SAVING' : 'NOT AVAILABLE'}
                       </span>
@@ -610,7 +632,9 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
                     <span className="text-slate-400 font-sans">Task:</span>
-                    <span className="text-purple-300">{options?.taskTypes.find((t) => t.taskType === formTaskType)?.label || formTaskType}</span>
+                    <span className="text-purple-300">
+                      {options?.taskTypes.find((t) => t.taskType === formTaskType)?.label || formTaskType}
+                    </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
                     <span className="text-slate-400 font-sans">AI Engine:</span>
@@ -618,21 +642,15 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
                     <span className="text-slate-400 font-sans">Evaluation Profile:</span>
-                    <span className="text-indigo-300">
-                      {selectedModel?.name || formModelId}
-                    </span>
+                    <span className="text-indigo-300">{selectedModel?.name || formModelId}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
                     <span className="text-slate-400 font-sans">Model Version:</span>
-                    <span className="text-indigo-300">
-                      {formModelVersion}
-                    </span>
+                    <span className="text-indigo-300">{formModelVersion}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
                     <span className="text-slate-400 font-sans">Prompt Version:</span>
-                    <span className="text-indigo-300">
-                      {formPromptVersion}
-                    </span>
+                    <span className="text-indigo-300">{formPromptVersion}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400 font-sans">Reference Source:</span>
@@ -649,13 +667,20 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                 </p>
 
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
-                  <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">Planned Metrics</div>
+                  <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">
+                    Planned Metrics
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {options?.taskTypes.find((t) => t.taskType === formTaskType)?.primaryMetrics.map((m) => (
-                      <span key={m} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
-                        {m}
-                      </span>
-                    ))}
+                    {options?.taskTypes
+                      .find((t) => t.taskType === formTaskType)
+                      ?.primaryMetrics.map((m) => (
+                        <span
+                          key={m}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300"
+                        >
+                          {m}
+                        </span>
+                      ))}
                   </div>
                 </div>
 
@@ -788,14 +813,24 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                       ['Accuracy', selectedRun.metrics.accuracy],
                       ['Precision', selectedRun.metrics.precision],
                       ['Sensitivity / Recall', selectedRun.metrics.recall],
-                      ['Specificity', selectedRun.metrics.confusionMatrix.trueNegatives + selectedRun.metrics.confusionMatrix.falsePositives > 0
-                        ? selectedRun.metrics.confusionMatrix.trueNegatives / (selectedRun.metrics.confusionMatrix.trueNegatives + selectedRun.metrics.confusionMatrix.falsePositives) : 0],
+                      [
+                        'Specificity',
+                        selectedRun.metrics.confusionMatrix.trueNegatives +
+                          selectedRun.metrics.confusionMatrix.falsePositives >
+                        0
+                          ? selectedRun.metrics.confusionMatrix.trueNegatives /
+                            (selectedRun.metrics.confusionMatrix.trueNegatives +
+                              selectedRun.metrics.confusionMatrix.falsePositives)
+                          : 0,
+                      ],
                       ['F1', selectedRun.metrics.f1],
                       ['Balanced Accuracy', selectedRun.metrics.balancedAccuracy],
                     ].map(([label, value]) => (
                       <div key={label} className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
                         <div className="text-[10px] text-slate-400 font-semibold uppercase">{label}</div>
-                        <div className="text-lg font-mono font-bold text-emerald-400 mt-1">{percentage(typeof value === 'number' ? value : undefined)}</div>
+                        <div className="text-lg font-mono font-bold text-emerald-400 mt-1">
+                          {percentage(typeof value === 'number' ? value : undefined)}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -843,8 +878,12 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     ['AI Engine', 'Clinora AI'],
                     ['Prompt Version', evaluationConfig(selectedRun).promptVersion ?? selectedRun.promptVersion],
                     ['Dataset Version', selectedRun.datasetVersionId],
-                    ['Runtime', selectedRun.startedAt && selectedRun.completedAt
-                      ? `${((Date.parse(selectedRun.completedAt) - Date.parse(selectedRun.startedAt)) / 1000).toFixed(2)} s` : 'Unavailable'],
+                    [
+                      'Runtime',
+                      selectedRun.startedAt && selectedRun.completedAt
+                        ? `${((Date.parse(selectedRun.completedAt) - Date.parse(selectedRun.startedAt)) / 1000).toFixed(2)} s`
+                        : 'Unavailable',
+                    ],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="min-w-0">
                       <div className="text-slate-500">{label}</div>
@@ -886,126 +925,151 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                 </div>
               </div>
             ) : evaluationConfig(selectedRun).legacyUnverified ? (
-              <p className="py-6 text-sm text-slate-400">Unverified historical result. Scores are withheld because real MedGemma execution cannot be verified.</p>
+              <p className="py-6 text-sm text-slate-400">
+                Unverified historical result. Scores are withheld because real MedGemma execution cannot be verified.
+              </p>
             ) : selectedRun.failureReason ? (
               <div className="p-4 rounded-xl bg-red-950/40 border border-red-800 text-red-300 text-xs space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4" />
                   <span>Evaluation Run Failed</span>
                 </div>
-                <p className="text-[11px] text-red-200/80 font-mono mt-1">{evaluationError(selectedRun.failureReason)}</p>
+                <p className="text-[11px] text-red-200/80 font-mono mt-1">
+                  {evaluationError(selectedRun.failureReason)}
+                </p>
               </div>
             ) : selectedRun.status === 'CONFIGURED' ? (
-                (() => {
-                  const config = evaluationConfig(selectedRun);
-                  const pRunner = config.predictionRunner === 'READY' ? 'Ready' : 'Unavailable';
-                  const pRunnerColor = config.predictionRunner === 'READY' ? 'text-emerald-400' : 'text-slate-400';
-                  const rResolver = config.referenceResolver === 'READY' ? 'Ready' : 'Unavailable';
-                  const rResolverColor = config.referenceResolver === 'READY' ? 'text-emerald-400' : 'text-slate-400';
-                  const aScoring = config.automatedExecution === 'READY' ? 'Ready' : 'Unavailable';
-                  const aScoringColor = config.automatedExecution === 'READY' ? 'text-emerald-400' : 'text-slate-400';
-                  const isReady = evaluationReady(selectedRun);
+              (() => {
+                const config = evaluationConfig(selectedRun);
+                const pRunner = config.predictionRunner === 'READY' ? 'Ready' : 'Unavailable';
+                const pRunnerColor = config.predictionRunner === 'READY' ? 'text-emerald-400' : 'text-slate-400';
+                const rResolver = config.referenceResolver === 'READY' ? 'Ready' : 'Unavailable';
+                const rResolverColor = config.referenceResolver === 'READY' ? 'text-emerald-400' : 'text-slate-400';
+                const aScoring = config.automatedExecution === 'READY' ? 'Ready' : 'Unavailable';
+                const aScoringColor = config.automatedExecution === 'READY' ? 'text-emerald-400' : 'text-slate-400';
+                const isReady = evaluationReady(selectedRun);
 
-                  return (
-                    <div className="space-y-4">
-                      {executeError && (
-                        <div className="p-3 bg-red-950/40 border border-red-800 rounded-lg flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                          <div className="text-xs text-red-200">{executeError}</div>
+                return (
+                  <div className="space-y-4">
+                    {executeError && (
+                      <div className="p-3 bg-red-950/40 border border-red-800 rounded-lg flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                        <div className="text-xs text-red-200">{executeError}</div>
+                      </div>
+                    )}
+
+                    <div className="py-6 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-900/50">
+                      <BrainCircuit className="w-8 h-8 text-slate-600 mb-2" />
+                      <div className="text-sm font-semibold text-slate-300">Protocol Saved</div>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-sm text-center">
+                        This evaluation protocol has been configured successfully.
+                      </p>
+                    </div>
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 font-mono text-xs">
+                      <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">
+                        Execution Readiness
+                      </div>
+
+                      {config.eligibleObservations !== undefined && config.eligibleObservations !== null && (
+                        <div className="flex justify-between border-b border-slate-900 pb-2">
+                          <span className="text-slate-400 font-sans">Eligible Observations:</span>
+                          <span className="text-slate-300 font-bold">{config.eligibleObservations}</span>
+                        </div>
+                      )}
+                      {config.referenceSource && (
+                        <div className="flex justify-between border-b border-slate-900 pb-2">
+                          <span className="text-slate-400 font-sans">Reference Source:</span>
+                          <span className="text-slate-300">{config.referenceSource}</span>
                         </div>
                       )}
 
-                      <div className="py-6 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-900/50">
-                        <BrainCircuit className="w-8 h-8 text-slate-600 mb-2" />
-                        <div className="text-sm font-semibold text-slate-300">Protocol Saved</div>
-                        <p className="text-[11px] text-slate-500 mt-1 max-w-sm text-center">
-                          This evaluation protocol has been configured successfully.
+                      <div className="flex justify-between border-b border-slate-900 pb-2">
+                        <span className="text-slate-400 font-sans">Prediction Runner:</span>
+                        <span className={pRunnerColor}>{pRunner}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-900 pb-2">
+                        <span className="text-slate-400 font-sans">Reference Resolver:</span>
+                        <span className={rResolverColor}>{rResolver}</span>
+                      </div>
+                      <div className="flex justify-between pb-2">
+                        <span className="text-slate-400 font-sans">Automated Scoring:</span>
+                        <span className={aScoringColor}>{aScoring}</span>
+                      </div>
+                      {!isReady && (
+                        <p className="text-[10px] text-slate-500 font-sans mt-2 pt-2 border-t border-slate-900">
+                          Automated scoring becomes available after an authorized prediction and reference pipeline is
+                          connected.
                         </p>
+                      )}
+                    </div>
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
+                      <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">
+                        Planned Metrics
                       </div>
-                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 font-mono text-xs">
-                        <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">Execution Readiness</div>
-
-                        {config.eligibleObservations !== undefined && config.eligibleObservations !== null && (
-                          <div className="flex justify-between border-b border-slate-900 pb-2">
-                            <span className="text-slate-400 font-sans">Eligible Observations:</span>
-                            <span className="text-slate-300 font-bold">{config.eligibleObservations}</span>
-                          </div>
-                        )}
-                        {config.referenceSource && (
-                          <div className="flex justify-between border-b border-slate-900 pb-2">
-                            <span className="text-slate-400 font-sans">Reference Source:</span>
-                            <span className="text-slate-300">{config.referenceSource}</span>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between border-b border-slate-900 pb-2">
-                          <span className="text-slate-400 font-sans">Prediction Runner:</span>
-                          <span className={pRunnerColor}>{pRunner}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-900 pb-2">
-                          <span className="text-slate-400 font-sans">Reference Resolver:</span>
-                          <span className={rResolverColor}>{rResolver}</span>
-                        </div>
-                        <div className="flex justify-between pb-2">
-                          <span className="text-slate-400 font-sans">Automated Scoring:</span>
-                          <span className={aScoringColor}>{aScoring}</span>
-                        </div>
-                        {!isReady && (
-                          <p className="text-[10px] text-slate-500 font-sans mt-2 pt-2 border-t border-slate-900">
-                            Automated scoring becomes available after an authorized prediction and reference pipeline is connected.
-                          </p>
-                        )}
-                      </div>
-                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
-                        <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">Planned Metrics</div>
-                        <div className="flex flex-wrap gap-2">
-                          {options?.taskTypes.find((t) => t.taskType === selectedRun.taskType)?.primaryMetrics.map((m) => {
-                            if (selectedRun.taskType === 'ABNORMALITY_DETECTION' && (m === 'Exact Match Rate' || m === 'Tolerance Match Rate' || m === 'Mean Absolute Error' || m === 'False Positive Rate' || m === 'False Negative Rate')) {
-                                return null;
+                      <div className="flex flex-wrap gap-2">
+                        {options?.taskTypes
+                          .find((t) => t.taskType === selectedRun.taskType)
+                          ?.primaryMetrics.map((m) => {
+                            if (
+                              selectedRun.taskType === 'ABNORMALITY_DETECTION' &&
+                              (m === 'Exact Match Rate' ||
+                                m === 'Tolerance Match Rate' ||
+                                m === 'Mean Absolute Error' ||
+                                m === 'False Positive Rate' ||
+                                m === 'False Negative Rate')
+                            ) {
+                              return null;
                             }
                             return (
-                              <span key={m} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
+                              <span
+                                key={m}
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300"
+                              >
                                 {m}
                               </span>
                             );
                           })}
-                        </div>
                       </div>
-                      {selectedRun.taskType === 'ABNORMALITY_DETECTION' && (
-                        <div className="pt-2 flex justify-center">
-                          <Button
-                            disabled={!isReady || executingRunId !== null}
-                            onClick={async () => {
-                              setExecutingRunId(selectedRun.id);
-                              try {
-                                setExecuteError('');
-                                const updatedRun = await researchApi.executeEvaluation(projectId, selectedRun.id);
-                                setRuns((prev) => prev.map((r) => (r.id === updatedRun.id ? updatedRun : r)));
-                                setSelectedRun(updatedRun);
-                              } catch (err) {
-                                setExecuteError(evaluationError(err));
-                                const refreshed = await researchApi.getEvaluationRun(projectId, selectedRun.id).catch(() => null);
-                                if (refreshed) setSelectedRun(refreshed);
-                              } finally {
-                                setExecutingRunId(null);
-                              }
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-1.5 px-4 h-auto w-full max-w-sm"
-                          >
-                            <Play className="w-3.5 h-3.5 mr-1.5" />
-                            Run Evaluation
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  );
-                })()
+                    {selectedRun.taskType === 'ABNORMALITY_DETECTION' && (
+                      <div className="pt-2 flex justify-center">
+                        <Button
+                          disabled={!isReady || executingRunId !== null}
+                          onClick={async () => {
+                            setExecutingRunId(selectedRun.id);
+                            try {
+                              setExecuteError('');
+                              const updatedRun = await researchApi.executeEvaluation(projectId, selectedRun.id);
+                              setRuns((prev) => prev.map((r) => (r.id === updatedRun.id ? updatedRun : r)));
+                              setSelectedRun(updatedRun);
+                            } catch (err) {
+                              setExecuteError(evaluationError(err));
+                              const refreshed = await researchApi
+                                .getEvaluationRun(projectId, selectedRun.id)
+                                .catch(() => null);
+                              if (refreshed) setSelectedRun(refreshed);
+                            } finally {
+                              setExecutingRunId(null);
+                            }
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-1.5 px-4 h-auto w-full max-w-sm"
+                        >
+                          <Play className="w-3.5 h-3.5 mr-1.5" />
+                          Run Evaluation
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
             ) : selectedRun.status === 'RUNNING' ? (
               <div className="py-8 text-center text-slate-400 text-xs">
                 <LoaderCircle className="w-5 h-5 animate-spin mx-auto text-indigo-400 mb-2" />
                 <span>Evaluating with Clinora AI...</span>
               </div>
-            ) : <p className="py-6 text-slate-400">{selectedRun.status}</p>}
+            ) : (
+              <p className="py-6 text-slate-400">{selectedRun.status}</p>
+            )}
           </div>
         </div>
       )}

@@ -180,13 +180,16 @@ export function DatasetRequestFormPage() {
     const invalidCondition = conditions.find((c) => {
       if (!c.operator) return true;
       if (c.value === undefined || c.value === null || Number.isNaN(c.value)) return true;
-      if (c.operator === 'BETWEEN' && (c.maxValue === undefined || c.maxValue === null || Number.isNaN(c.maxValue))) return true;
+      if (c.operator === 'BETWEEN' && (c.maxValue === undefined || c.maxValue === null || Number.isNaN(c.maxValue)))
+        return true;
       if (c.operator === 'BETWEEN' && c.value > (c.maxValue as number)) return true;
       return false;
     });
 
     if (invalidCondition) {
-      setError('One or more observation conditions is incomplete or invalid. Enter valid numeric values or remove the condition entirely.');
+      setError(
+        'One or more observation conditions is incomplete or invalid. Enter valid numeric values or remove the condition entirely.',
+      );
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -442,136 +445,156 @@ export function DatasetRequestFormPage() {
               ) : (
                 <div className="space-y-2">
                   {conditions.map((cond, idx) => {
-                    const isMissingValue = cond.value === undefined || cond.value === null || Number.isNaN(cond.value) || cond.value.toString() === '';
-                    const isMissingMaxValue = cond.operator === 'BETWEEN' && (cond.maxValue === undefined || cond.maxValue === null || Number.isNaN(cond.maxValue) || cond.maxValue.toString() === '');
-                    const isInvalidRange = cond.operator === 'BETWEEN' && !isMissingValue && !isMissingMaxValue && (cond.value ?? 0) > (cond.maxValue ?? 0);
+                    const isMissingValue =
+                      cond.value === undefined ||
+                      cond.value === null ||
+                      Number.isNaN(cond.value) ||
+                      cond.value.toString() === '';
+                    const isMissingMaxValue =
+                      cond.operator === 'BETWEEN' &&
+                      (cond.maxValue === undefined ||
+                        cond.maxValue === null ||
+                        Number.isNaN(cond.maxValue) ||
+                        cond.maxValue.toString() === '');
+                    const isInvalidRange =
+                      cond.operator === 'BETWEEN' &&
+                      !isMissingValue &&
+                      !isMissingMaxValue &&
+                      (cond.value ?? 0) > (cond.maxValue ?? 0);
                     const hasError = isMissingValue || isMissingMaxValue || isInvalidRange;
 
                     return (
-                    <div key={idx} className="flex flex-col gap-1">
-                      <div
-                        className={`p-3 rounded-xl border ${hasError ? 'border-rose-500/50 bg-rose-950/10' : 'border-slate-800/80 bg-slate-950/40'} flex flex-wrap items-center gap-3 text-xs`}
-                      >
-                        {/* Test Selector */}
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] text-slate-500">Laboratory Variable</span>
-                          <select
-                            value={cond.variableCode}
-                            onChange={(e) => updateCondition(idx, 'variableCode', e.target.value)}
-                            className="px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
-                          >
-                            <optgroup label="Metabolic &amp; Glucose">
-                              <option value="HBA1C">HbA1c (%)</option>
-                              <option value="FASTING_GLUCOSE">Fasting Glucose (mg/dL)</option>
-                              <option value="RANDOM_GLUCOSE">Random Glucose (mg/dL)</option>
-                            </optgroup>
-                            <optgroup label="Hematology">
-                              <option value="HEMOGLOBIN">Hemoglobin (g/dL)</option>
-                              <option value="WBC">WBC (10^9/L)</option>
-                              <option value="PLATELETS">Platelets (10^9/L)</option>
-                              <option value="RBC">RBC (10^12/L)</option>
-                            </optgroup>
-                            <optgroup label="Renal / Kidney">
-                              <option value="CREATININE">Creatinine (mg/dL)</option>
-                              <option value="EGFR">eGFR (mL/min/1.73m²)</option>
-                              <option value="BUN">BUN (mg/dL)</option>
-                              <option value="URIC_ACID">Uric Acid (mg/dL)</option>
-                            </optgroup>
-                            <optgroup label="Liver &amp; Hepatic">
-                              <option value="ALT">ALT (U/L)</option>
-                              <option value="AST">AST (U/L)</option>
-                              <option value="ALP">ALP (U/L)</option>
-                              <option value="BILIRUBIN_TOTAL">Total Bilirubin (mg/dL)</option>
-                              <option value="ALBUMIN">Albumin (g/dL)</option>
-                            </optgroup>
-                            <optgroup label="Lipids">
-                              <option value="TOTAL_CHOLESTEROL">Total Cholesterol (mg/dL)</option>
-                              <option value="LDL">LDL (mg/dL)</option>
-                              <option value="HDL">HDL (mg/dL)</option>
-                              <option value="TRIGLYCERIDES">Triglycerides (mg/dL)</option>
-                            </optgroup>
-                            <optgroup label="Thyroid">
-                              <option value="TSH">TSH (uIU/mL)</option>
-                              <option value="FREE_T4">Free T4 (ng/dL)</option>
-                            </optgroup>
-                            <optgroup label="Inflammation &amp; Nutrition">
-                              <option value="CRP">CRP (mg/L)</option>
-                              <option value="FERRITIN">Ferritin (ng/mL)</option>
-                              <option value="VITAMIN_D">Vitamin D (ng/mL)</option>
-                              <option value="VITAMIN_B12">Vitamin B12 (pg/mL)</option>
-                            </optgroup>
-                          </select>
-                        </div>
-
-                        {/* Operator */}
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] text-slate-500">Condition</span>
-                          <select
-                            value={cond.operator}
-                            onChange={(e) => updateCondition(idx, 'operator', e.target.value)}
-                            className="px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none font-mono"
-                          >
-                            <option value="GTE">&gt;= (Greater or equal)</option>
-                            <option value="LTE">&lt;= (Less or equal)</option>
-                            <option value="GT">&gt; (Strictly greater)</option>
-                            <option value="LT">&lt; (Strictly less)</option>
-                            <option value="EQ">== (Equal)</option>
-                            <option value="BETWEEN">BETWEEN (Range)</option>
-                          </select>
-                        </div>
-
-                        {/* Value */}
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] text-slate-500">Threshold</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={cond.value ?? ''}
-                            onChange={(e) =>
-                              updateCondition(idx, 'value', e.target.value === '' ? undefined : Number(e.target.value))
-                            }
-                            placeholder="e.g. 6.5"
-                            className="w-24 px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
-                          />
-                        </div>
-
-                        {/* Max Value for BETWEEN */}
-                        {cond.operator === 'BETWEEN' && (
+                      <div key={idx} className="flex flex-col gap-1">
+                        <div
+                          className={`p-3 rounded-xl border ${hasError ? 'border-rose-500/50 bg-rose-950/10' : 'border-slate-800/80 bg-slate-950/40'} flex flex-wrap items-center gap-3 text-xs`}
+                        >
+                          {/* Test Selector */}
                           <div className="space-y-0.5">
-                            <span className="text-[10px] text-slate-500">Upper Bound</span>
+                            <span className="text-[10px] text-slate-500">Laboratory Variable</span>
+                            <select
+                              value={cond.variableCode}
+                              onChange={(e) => updateCondition(idx, 'variableCode', e.target.value)}
+                              className="px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
+                            >
+                              <optgroup label="Metabolic &amp; Glucose">
+                                <option value="HBA1C">HbA1c (%)</option>
+                                <option value="FASTING_GLUCOSE">Fasting Glucose (mg/dL)</option>
+                                <option value="RANDOM_GLUCOSE">Random Glucose (mg/dL)</option>
+                              </optgroup>
+                              <optgroup label="Hematology">
+                                <option value="HEMOGLOBIN">Hemoglobin (g/dL)</option>
+                                <option value="WBC">WBC (10^9/L)</option>
+                                <option value="PLATELETS">Platelets (10^9/L)</option>
+                                <option value="RBC">RBC (10^12/L)</option>
+                              </optgroup>
+                              <optgroup label="Renal / Kidney">
+                                <option value="CREATININE">Creatinine (mg/dL)</option>
+                                <option value="EGFR">eGFR (mL/min/1.73m²)</option>
+                                <option value="BUN">BUN (mg/dL)</option>
+                                <option value="URIC_ACID">Uric Acid (mg/dL)</option>
+                              </optgroup>
+                              <optgroup label="Liver &amp; Hepatic">
+                                <option value="ALT">ALT (U/L)</option>
+                                <option value="AST">AST (U/L)</option>
+                                <option value="ALP">ALP (U/L)</option>
+                                <option value="BILIRUBIN_TOTAL">Total Bilirubin (mg/dL)</option>
+                                <option value="ALBUMIN">Albumin (g/dL)</option>
+                              </optgroup>
+                              <optgroup label="Lipids">
+                                <option value="TOTAL_CHOLESTEROL">Total Cholesterol (mg/dL)</option>
+                                <option value="LDL">LDL (mg/dL)</option>
+                                <option value="HDL">HDL (mg/dL)</option>
+                                <option value="TRIGLYCERIDES">Triglycerides (mg/dL)</option>
+                              </optgroup>
+                              <optgroup label="Thyroid">
+                                <option value="TSH">TSH (uIU/mL)</option>
+                                <option value="FREE_T4">Free T4 (ng/dL)</option>
+                              </optgroup>
+                              <optgroup label="Inflammation &amp; Nutrition">
+                                <option value="CRP">CRP (mg/L)</option>
+                                <option value="FERRITIN">Ferritin (ng/mL)</option>
+                                <option value="VITAMIN_D">Vitamin D (ng/mL)</option>
+                                <option value="VITAMIN_B12">Vitamin B12 (pg/mL)</option>
+                              </optgroup>
+                            </select>
+                          </div>
+
+                          {/* Operator */}
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-slate-500">Condition</span>
+                            <select
+                              value={cond.operator}
+                              onChange={(e) => updateCondition(idx, 'operator', e.target.value)}
+                              className="px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none font-mono"
+                            >
+                              <option value="GTE">&gt;= (Greater or equal)</option>
+                              <option value="LTE">&lt;= (Less or equal)</option>
+                              <option value="GT">&gt; (Strictly greater)</option>
+                              <option value="LT">&lt; (Strictly less)</option>
+                              <option value="EQ">== (Equal)</option>
+                              <option value="BETWEEN">BETWEEN (Range)</option>
+                            </select>
+                          </div>
+
+                          {/* Value */}
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-slate-500">Threshold</span>
                             <input
                               type="number"
                               step="0.01"
-                              value={cond.maxValue ?? ''}
+                              value={cond.value ?? ''}
                               onChange={(e) =>
                                 updateCondition(
                                   idx,
-                                  'maxValue',
+                                  'value',
                                   e.target.value === '' ? undefined : Number(e.target.value),
                                 )
                               }
-                              placeholder="e.g. 10.0"
+                              placeholder="e.g. 6.5"
                               className="w-24 px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
                             />
                           </div>
-                        )}
 
-                        <button
-                          type="button"
-                          onClick={() => removeCondition(idx)}
-                          className="p-1.5 mt-3 text-slate-500 hover:text-rose-400 transition-colors"
-                          title="Remove condition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          {/* Max Value for BETWEEN */}
+                          {cond.operator === 'BETWEEN' && (
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] text-slate-500">Upper Bound</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={cond.maxValue ?? ''}
+                                onChange={(e) =>
+                                  updateCondition(
+                                    idx,
+                                    'maxValue',
+                                    e.target.value === '' ? undefined : Number(e.target.value),
+                                  )
+                                }
+                                placeholder="e.g. 10.0"
+                                className="w-24 px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 focus:border-cyan-500/60 focus:outline-none"
+                              />
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => removeCondition(idx)}
+                            className="p-1.5 mt-3 text-slate-500 hover:text-rose-400 transition-colors"
+                            title="Remove condition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {hasError && (
+                          <span className="text-[11px] text-rose-400 font-medium px-2 py-0.5">
+                            {isInvalidRange
+                              ? 'Minimum value cannot exceed maximum.'
+                              : 'Enter a comparison value or remove this condition.'}
+                          </span>
+                        )}
                       </div>
-                      {hasError && (
-                        <span className="text-[11px] text-rose-400 font-medium px-2 py-0.5">
-                          {isInvalidRange ? 'Minimum value cannot exceed maximum.' : 'Enter a comparison value or remove this condition.'}
-                        </span>
-                      )}
-                    </div>
-                  )})}
+                    );
+                  })}
                 </div>
               )}
             </div>

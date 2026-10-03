@@ -33,7 +33,7 @@ describe('DatasetRequestDetailPage Failure Banners', () => {
         <Routes>
           <Route path="/research/requests/:requestId" element={<DatasetRequestDetailPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
   };
 
@@ -96,7 +96,7 @@ describe('DatasetRequestDetailPage Failure Banners', () => {
       expect(screen.queryByText('Dataset generation blocked')).not.toBeInTheDocument();
     });
   });
-  
+
   it('displays success banner for SUCCEEDED job with missing optional values', async () => {
     (researchApi.getLatestGenerationJob as import('vitest').Mock).mockResolvedValue({
       id: 'job-1',
@@ -109,7 +109,9 @@ describe('DatasetRequestDetailPage Failure Banners', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Dataset generated successfully')).toBeInTheDocument();
-      expect(screen.getByText(/Some approved variables may have had no available observations and were left empty/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Some approved variables may have had no available observations and were left empty/),
+      ).toBeInTheDocument();
     });
   });
 });

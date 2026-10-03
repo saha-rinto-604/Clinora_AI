@@ -486,7 +486,10 @@ function OverviewTab({
 
       {/* De-identification governance */}
       <div className="flex items-center justify-end px-1 mt-4">
-        <div className="text-[10px] text-emerald-400/80 font-mono flex items-center gap-1.5" title="Dataset is fully de-identified per protocol.">
+        <div
+          className="text-[10px] text-emerald-400/80 font-mono flex items-center gap-1.5"
+          title="Dataset is fully de-identified per protocol."
+        >
           <ShieldCheck className="w-3.5 h-3.5" /> De-identified per protocol
         </div>
       </div>

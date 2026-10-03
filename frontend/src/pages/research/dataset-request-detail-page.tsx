@@ -395,7 +395,9 @@ export function DatasetRequestDetailPage() {
 
       {/* Generation Failed Banner */}
       {latestJob && latestJob.status === 'FAILED' ? (
-        latestJob.failureCode === 'MINIMUM_COHORT_NOT_MET' || latestJob.failureCode === 'EMPTY_ELIGIBLE_COHORT' || latestJob.failureCode === 'CONSENT_REQUIREMENT_NOT_MET' ? (
+        latestJob.failureCode === 'MINIMUM_COHORT_NOT_MET' ||
+        latestJob.failureCode === 'EMPTY_ELIGIBLE_COHORT' ||
+        latestJob.failureCode === 'CONSENT_REQUIREMENT_NOT_MET' ? (
           <div className="p-5 rounded-2xl border border-amber-800/80 bg-amber-950/30 text-amber-200 text-xs space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 font-semibold text-amber-300 text-sm">
@@ -417,21 +419,36 @@ export function DatasetRequestDetailPage() {
             {latestJob.failureCode === 'MINIMUM_COHORT_NOT_MET' ? (
               <>
                 <p className="text-slate-300 font-medium text-sm">Privacy threshold not met</p>
-                <p className="text-slate-400 mt-1">This request does not meet Clinora's minimum cohort requirement of 5 subjects. The dataset was not generated to protect patient privacy.</p>
+                <p className="text-slate-400 mt-1">
+                  This request does not meet Clinora's minimum cohort requirement of 5 subjects. The dataset was not
+                  generated to protect patient privacy.
+                </p>
               </>
             ) : latestJob.failureCode === 'EMPTY_ELIGIBLE_COHORT' ? (
               <>
                 <p className="text-slate-300 font-medium text-sm">No eligible records matched this request</p>
-                <p className="text-slate-400 mt-1">No records satisfied all approved eligibility and consent requirements. The dataset was not generated.</p>
+                <p className="text-slate-400 mt-1">
+                  No records satisfied all approved eligibility and consent requirements. The dataset was not generated.
+                </p>
               </>
             ) : (
               <>
                 <p className="text-slate-300 font-medium text-sm">Consent requirements not met</p>
-                <p className="text-slate-400 mt-1">The approved request could not produce a dataset while satisfying Clinora's research consent requirements.</p>
+                <p className="text-slate-400 mt-1">
+                  The approved request could not produce a dataset while satisfying Clinora's research consent
+                  requirements.
+                </p>
               </>
             )}
             <div className="pt-2">
-              <Button onClick={() => window.scrollTo(0, 0)} variant="secondary" size="sm" className="bg-slate-800 text-slate-300 hover:bg-slate-700 h-8">Review request criteria</Button>
+              <Button
+                onClick={() => window.scrollTo(0, 0)}
+                variant="secondary"
+                size="sm"
+                className="bg-slate-800 text-slate-300 hover:bg-slate-700 h-8"
+              >
+                Review request criteria
+              </Button>
             </div>
           </div>
         ) : (
@@ -453,14 +470,17 @@ export function DatasetRequestDetailPage() {
                 </Button>
               ) : null}
             </div>
-            {latestJob.failureCode === 'UNSUPPORTED_REQUESTED_FIELD' || latestJob.failureCode === 'INVALID_APPROVED_FILTER' ? (
+            {latestJob.failureCode === 'UNSUPPORTED_REQUESTED_FIELD' ||
+            latestJob.failureCode === 'INVALID_APPROVED_FILTER' ? (
               <>
                 <p className="text-slate-300 font-medium text-sm">Unsupported dataset field or filter</p>
                 <p className="text-slate-400 mt-1">{latestJob.failureReason}</p>
               </>
             ) : (
               <>
-                <p className="text-slate-400 mt-1">Clinora could not complete this generation job because of a system error. No dataset was released.</p>
+                <p className="text-slate-400 mt-1">
+                  Clinora could not complete this generation job because of a system error. No dataset was released.
+                </p>
                 <div className="pt-2">
                   <span className="text-slate-500 text-[11px]">Contact administrator if this issue persists.</span>
                 </div>
@@ -478,7 +498,8 @@ export function DatasetRequestDetailPage() {
             Dataset generated successfully
           </div>
           <p className="text-slate-300 mt-1">
-            The dataset snapshot is ready for download. Some approved variables may have had no available observations and were left empty to preserve the approved format.
+            The dataset snapshot is ready for download. Some approved variables may have had no available observations
+            and were left empty to preserve the approved format.
           </p>
         </div>
       ) : null}
@@ -725,7 +746,10 @@ export function DatasetRequestDetailPage() {
               ) : null}
               <div className="pt-3 mt-3 border-t border-slate-800/60 flex items-center justify-between">
                 <span className="text-slate-400">Protocol Integrity:</span>
-                <span className="font-mono text-emerald-400 flex items-center gap-1" title="Dataset is fully de-identified per protocol.">
+                <span
+                  className="font-mono text-emerald-400 flex items-center gap-1"
+                  title="Dataset is fully de-identified per protocol."
+                >
                   <ShieldCheck className="w-3.5 h-3.5" /> De-identified
                 </span>
               </div>
