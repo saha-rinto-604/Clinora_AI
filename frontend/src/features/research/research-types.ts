@@ -328,7 +328,7 @@ export interface DatasetStatsSummary {
 
 // ─── Phase R13: AI Model Evaluation ──────────────────────────────────────────
 
-export type EvaluationRunStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export type EvaluationRunStatus = 'CONFIGURED' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 
 export type EvaluationTaskType = 'EXTRACTION' | 'CLASSIFICATION' | 'ABNORMALITY_DETECTION' | 'RISK_SCORING';
 

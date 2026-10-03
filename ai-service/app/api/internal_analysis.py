@@ -21,6 +21,11 @@ from app.services.doctor_query_interpreter_service import (
     DoctorQueryInterpreterService,
     InvalidDoctorQueryInterpretationError,
 )
+from app.schemas.research_evaluation import (
+    AbnormalityEvaluationRequest,
+    AbnormalityEvaluationResponse,
+)
+from app.services.research_evaluation_service import ResearchEvaluationService
 
 LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +58,7 @@ def build_router(
     doctor_support_service: DoctorSupportRoutingService | None = None,
     doctor_support_execution_service: DoctorSupportExecutionService | None = None,
     doctor_query_interpreter_service: DoctorQueryInterpreterService | None = None,
+    research_evaluation_service: ResearchEvaluationService | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/internal/v1", tags=["internal"])
 
@@ -182,5 +188,28 @@ def build_router(
                 raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Clinora reasoning timed out.") from exc
             except ModelUnavailableError as exc:
                 raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Clinora reasoning is unavailable.") from exc
+
+    if research_evaluation_service is not None:
+        @router.post("/research/evaluate-abnormality", response_model=AbnormalityEvaluationResponse)
+        def evaluate_abnormality(
+            request: AbnormalityEvaluationRequest,
+            x_clinora_internal_token: str | None = Header(default=None, alias="X-Clinora-Internal-Token"),
+        ) -> AbnormalityEvaluationResponse:
+            _authorize(x_clinora_internal_token)
+            try:
+                return research_evaluation_service.evaluate_abnormality(request)
+            except ModelCapacityError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Clinical reasoning is temporarily busy. Please try again shortly.",
+                    headers=_capacity_headers(exc),
+                ) from exc
+            except ModelTimeoutError as exc:
+                raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Clinora reasoning timed out.") from exc
+            except ModelUnavailableError as exc:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Clinora reasoning is unavailable.") from exc
+            except ValueError as exc:
+                LOGGER.warning("Evaluation rejected: %s", exc)
+                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid AI response") from exc
 
     return router

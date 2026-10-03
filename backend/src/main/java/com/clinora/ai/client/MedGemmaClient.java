@@ -59,6 +59,19 @@ public class MedGemmaClient {
         return response;
     }
 
+    public AbnormalityEvaluationResponse evaluateAbnormality(AbnormalityEvaluationRequest request) {
+        AbnormalityEvaluationResponse response = client.post()
+            .uri("/internal/v1/research/evaluate-abnormality")
+            .header("X-Clinora-Internal-Token", internalToken)
+            .body(request)
+            .retrieve()
+            .body(AbnormalityEvaluationResponse.class);
+        if (response == null) {
+            throw new IllegalStateException("AI service returned an empty response for abnormality evaluation.");
+        }
+        return response;
+    }
+
     public DoctorSupportRoutingResponse routeDoctorSupport(DoctorSupportRoutingRequest request) {
         long started = System.nanoTime();
         try {
@@ -130,6 +143,20 @@ public class MedGemmaClient {
             throw new IllegalStateException("AI service returned an empty Doctor query interpretation response.");
         }
         return response;
+    }
+
+    public boolean isInferenceRuntimeReady() {
+        try {
+            JsonNode readiness = doctorClient.get()
+                .uri("/ready")
+                .header("X-Clinora-Internal-Token", internalToken)
+                .retrieve()
+                .body(JsonNode.class);
+            // FastAPI /ready probes the configured llama.cpp /health on every request.
+            return readiness != null && "READY".equals(readiness.path("status").asText());
+        } catch (RestClientException e) {
+            return false;
+        }
     }
 
     public DoctorSupportExecutionResponse executeDoctorSupport(DoctorSupportExecutionRequest request) {
@@ -421,4 +448,29 @@ public class MedGemmaClient {
 
     public record DiscussionPoint(String type, String title, String reason) {
     }
+
+    public record AbnormalityEvaluationRequest(List<AbnormalitySample> samples) {
+        public AbnormalityEvaluationRequest {
+            samples = samples == null ? List.of() : List.copyOf(samples);
+        }
+    }
+
+    public record AbnormalitySample(
+        String sampleKey,
+        String test,
+        BigDecimal value,
+        String unit,
+        BigDecimal referenceLow,
+        BigDecimal referenceHigh
+    ) {}
+
+    public record AbnormalityEvaluationResponse(List<AbnormalityPrediction> predictions,
+            String executionProvider, String modelName, String modelRevision, String promptVersion,
+            int generationCallCount, long inferenceDurationMs) {
+        public AbnormalityEvaluationResponse {
+            predictions = predictions == null ? List.of() : List.copyOf(predictions);
+        }
+    }
+
+    public record AbnormalityPrediction(String sampleKey, String label) {}
 }

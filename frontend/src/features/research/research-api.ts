@@ -300,6 +300,14 @@ export const researchApi = {
     return response.data.data;
   },
 
+  /** Execute evaluation on an existing CONFIGURED run. */
+  async executeEvaluation(projectId: string, runId: string): Promise<AIEvaluationRun> {
+    const response = await apiClient.post<ApiEnvelope<AIEvaluationRun>>(
+      `/research/projects/${projectId}/evaluations/${runId}/execute`,
+    );
+    return response.data.data;
+  },
+
   // ─── Phase R14: Collaboration ────────────────────────────────────────────
 
   /** Search verified researchers by name for invitation. Min 2 chars. Returns safe profiles (no email). */

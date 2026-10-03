@@ -17,8 +17,18 @@ public interface DeidentificationService {
             String unit,
             BigDecimal referenceLow,
             BigDecimal referenceHigh,
-            String flag
-    ) {}
+            String flag,
+            String verificationStatus,
+            boolean reviewRequired,
+            String comparator
+    ) {
+        public RawObservationRow(UUID patientUserId, LocalDate dateOfBirth, String gender, LocalDate reportDate,
+                String variableCode, BigDecimal numericValue, String unit, BigDecimal referenceLow,
+                BigDecimal referenceHigh, String flag) {
+            this(patientUserId, dateOfBirth, gender, reportDate, variableCode, numericValue, unit,
+                referenceLow, referenceHigh, flag, null, false, null);
+        }
+    }
 
     DeidentificationResult transform(
             UUID datasetRequestId,

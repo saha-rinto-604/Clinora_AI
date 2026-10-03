@@ -15,6 +15,9 @@ public class AIEvaluationRun {
     @Id
     private UUID id;
 
+    @Version
+    private long revision;
+
     @Column(name = "project_id", nullable = false)
     private UUID projectId;
 
@@ -88,13 +91,13 @@ public class AIEvaluationRun {
         this.groundTruthDefinition = Objects.requireNonNull(groundTruthDefinition, "Ground truth definition required");
         this.configuration = (configuration == null || configuration.isBlank()) ? "{}" : configuration;
         this.createdBy = Objects.requireNonNull(createdBy, "Created by required");
-        this.status = EvaluationRunStatus.QUEUED;
+        this.status = EvaluationRunStatus.CONFIGURED;
         this.createdAt = Instant.now();
     }
 
     public void markRunning() {
-        if (this.status != EvaluationRunStatus.QUEUED) {
-            throw new IllegalStateException("Run can only transition to RUNNING from QUEUED, currently: " + this.status);
+        if (this.status != EvaluationRunStatus.QUEUED && this.status != EvaluationRunStatus.CONFIGURED) {
+            throw new IllegalStateException("Run can only transition to RUNNING from QUEUED or CONFIGURED, currently: " + this.status);
         }
         this.status = EvaluationRunStatus.RUNNING;
         this.startedAt = Instant.now();
@@ -113,7 +116,10 @@ public class AIEvaluationRun {
         this.status = EvaluationRunStatus.FAILED;
         this.completedAt = Instant.now();
         this.failureReason = reason;
+        this.metrics = null;
     }
+
+    public void setConfiguration(String configuration) { this.configuration = configuration; }
 
     public void markCancelled() {
         if (this.status == EvaluationRunStatus.COMPLETED) {

@@ -1,0 +1,1 @@
+ALTER TABLE ai_evaluation_runs ADD COLUMN revision BIGINT NOT NULL DEFAULT 0;

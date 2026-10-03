@@ -14,7 +14,6 @@ import {
   Plus,
   Send,
   ShieldAlert,
-  ShieldCheck,
   Undo2,
   Users,
   FileText,
@@ -264,16 +263,6 @@ export function ResearchProjectDetailPage() {
         </div>
       ) : null}
 
-      {project.status === 'APPROVED' ? (
-        <div className="p-4 rounded-xl border border-emerald-800/80 bg-emerald-950/30 text-emerald-200 text-xs flex items-center gap-2.5">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-          <div>
-            <span className="font-semibold text-emerald-300">Governance Approved:</span>{' '}
-            {project.reviewDecisionReason || 'Project protocol verified and approved by system administrator.'}
-          </div>
-        </div>
-      ) : null}
-
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-800/80 pb-px overflow-x-auto text-xs font-medium">
         <button
@@ -337,10 +326,10 @@ export function ResearchProjectDetailPage() {
         </button>
       </div>
 
-      {/* Main Metadata Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Metadata Content */}
+      <div className="space-y-6">
         {/* Tab Content */}
-        <div className={activeTab === 'notepad' ? 'lg:col-span-3 space-y-6' : 'lg:col-span-2 space-y-6'}>
+        <div className="space-y-6">
           {activeTab === 'overview' && (
             <>
               {/* Objective */}
@@ -466,63 +455,6 @@ export function ResearchProjectDetailPage() {
 
           {activeTab === 'audit' && <ProjectAuditTrailSection projectId={project.id} />}
         </div>
-
-        {/* Right Col: Governance Timeline & Metadata */}
-        {activeTab !== 'notepad' && (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 text-xs space-y-4">
-              <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">
-                Governance Timestamps
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Created:</span>
-                  <span className="font-mono text-slate-200">{new Date(project.createdAt).toLocaleDateString()}</span>
-                </div>
-                {project.submittedAt ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Submitted:</span>
-                    <span className="font-mono text-slate-200">
-                      {new Date(project.submittedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ) : null}
-                {project.reviewedAt ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Reviewed:</span>
-                    <span className="font-mono text-slate-200">
-                      {new Date(project.reviewedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ) : null}
-                {project.approvedAt ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Approved:</span>
-                    <span className="font-mono text-emerald-400">
-                      {new Date(project.approvedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ) : null}
-                {project.archivedAt ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Archived:</span>
-                    <span className="font-mono text-slate-400">
-                      {new Date(project.archivedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5 text-xs space-y-3">
-              <h3 className="font-semibold uppercase tracking-wider text-[11px] text-slate-400">Protocol Integrity</h3>
-              <p className="text-slate-400 leading-relaxed">
-                This study is bound to Clinora's de-identification protocol. No direct patient identifying variables
-                will ever be exposed to the research workspace.
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

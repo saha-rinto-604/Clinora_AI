@@ -723,52 +723,13 @@ export function DatasetRequestDetailPage() {
                   <span className="font-mono text-amber-400">{new Date(request.expiresAt).toLocaleDateString()}</span>
                 </div>
               ) : null}
+              <div className="pt-3 mt-3 border-t border-slate-800/60 flex items-center justify-between">
+                <span className="text-slate-400">Protocol Integrity:</span>
+                <span className="font-mono text-emerald-400 flex items-center gap-1" title="Dataset is fully de-identified per protocol.">
+                  <ShieldCheck className="w-3.5 h-3.5" /> De-identified
+                </span>
+              </div>
             </div>
-          </div>
-
-          {/* Privacy & Governance Policy */}
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-5 text-xs space-y-3">
-            <div className="flex items-center gap-2 text-indigo-300 font-semibold uppercase tracking-wider text-[11px]">
-              <ShieldCheck className="w-4 h-4 text-indigo-400" />
-              <span>De-identification Guarantees</span>
-            </div>
-            <ul className="space-y-2 text-slate-300 text-[11px] leading-relaxed">
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold">&check;</span>
-                <span>
-                  <strong>Direct Identifiers Removed:</strong> Names, phones, emails, national IDs, and exact birthdates
-                  are permanently excluded.
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold">&check;</span>
-                <span>
-                  <strong>Quasi-Identifiers Generalized:</strong> 5-year age bands (top-coded at 85+) and Year-Quarter
-                  observation dates.
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold">&check;</span>
-                <span>
-                  <strong>Project-Scoped HMAC:</strong> Pseudonyms prevent longitudinal cross-project correlation
-                  attacks.
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold">&check;</span>
-                <span>
-                  <strong>Privacy Checks:</strong> Strict minimum cohort size validation (&ge; 5 subjects) before
-                  release.
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold">&check;</span>
-                <span>
-                  <strong>Private Storage:</strong> Stored in private MinIO buckets with short-lived, audited signed
-                  downloads.
-                </span>
-              </li>
-            </ul>
           </div>
         </div>
       </div>

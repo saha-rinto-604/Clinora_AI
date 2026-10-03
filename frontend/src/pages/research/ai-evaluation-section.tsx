@@ -8,11 +8,11 @@ import {
   Play,
   RotateCw,
   Scale,
-  ShieldAlert,
   Sparkles,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { evaluationConfig, evaluationError, evaluationReady, percentage } from '../../features/research/evaluation-presentation';
 import { Button } from '../../components/ui/button';
 import { apiErrorMessage } from '../../features/auth/auth-api';
 import { researchApi } from '../../features/research/research-api';
@@ -34,6 +34,8 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
   const [error, setError] = useState('');
   const [selectedRun, setSelectedRun] = useState<AIEvaluationRun | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [executeError, setExecuteError] = useState('');
+  const [executingRunId, setExecutingRunId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Options from server
@@ -48,7 +50,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
   const [formModelVersion, setFormModelVersion] = useState('v1.2.0');
   const [formPromptVersion, setFormPromptVersion] = useState('lab-extract-v3');
   const [formTaskType, setFormTaskType] = useState<EvaluationTaskType>('EXTRACTION');
-  const [formGroundTruth, setFormGroundTruth] = useState('PHYSICIAN_VERIFIED_OBSERVATIONS');
+  const [formGroundTruth] = useState('NOT_CONFIGURED');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -99,6 +101,20 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
     }
   }, [isApproved, loadRuns, loadOptions]);
 
+  const selectedRunId = selectedRun?.id;
+  const selectedRunStatus = selectedRun?.status;
+  useEffect(() => {
+    if (!selectedRunId || !['CONFIGURED', 'RUNNING'].includes(selectedRunStatus ?? '')) return;
+    const id = selectedRunId;
+    const timer = window.setInterval(() => {
+      void researchApi.getEvaluationRun(projectId, id).then((updated) => {
+        setSelectedRun((current) => current?.id === id ? updated : current);
+        setRuns((previous) => previous.map((run) => run.id === id ? updated : run));
+      }).catch(() => { /* Existing status remains visible; explicit execution rechecks access. */ });
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [projectId, selectedRunId, selectedRunStatus]);
+
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -139,12 +155,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
         modelVersion: formModelVersion.trim(),
         promptVersion: formPromptVersion.trim(),
         taskType: formTaskType,
-        groundTruthDefinition: formGroundTruth.trim(),
-        configuration: {
-          temperature: 0.0,
-          evaluationEngine: 'Clinora_Eval_Engine_v1.2',
-          harness: 'Clinora_Eval_Harness_2026',
-        },
+        groundTruthDefinition: formTaskType === 'ABNORMALITY_DETECTION' ? 'VERIFIED_LAB_REFERENCE_RANGE' : formGroundTruth.trim(),
       };
 
       const newRun = await researchApi.createEvaluationRun(projectId, payload);
@@ -164,16 +175,12 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
     );
   };
 
-  const runsToCompare = runs.filter((r) => selectedRunIdsForCompare.includes(r.id));
+  const runsToCompare = runs.filter((r) => r.metrics && selectedRunIdsForCompare.includes(r.id));
   const selectedDatasetVersion = options?.datasetVersions.find((d) => d.id === formDatasetVersionId);
   const selectedModel = options?.models.find((m) => m.id === formModelId);
 
   return (
     <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-6 space-y-6">
-      <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
-        Evaluation execution is unavailable until an authorized prediction and ground-truth adapter is configured.
-        Requests are recorded as failed with no metrics. Historical results with unverified provenance are withheld.
-      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/60">
         <div>
@@ -212,19 +219,6 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
         </div>
       </div>
 
-      {/* Critical Governance Boundary Alert */}
-      <div className="rounded-xl border border-amber-800/70 bg-amber-950/20 p-4 text-xs text-amber-200/90 space-y-1.5">
-        <div className="flex items-center gap-2 font-semibold text-amber-300">
-          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>Strict Model Governance Boundary (Safety Guardrail)</span>
-        </div>
-        <p className="text-[11px] text-amber-200/80 leading-relaxed pl-6">
-          Research evaluation results are experimental research artifacts and{' '}
-          <strong>cannot automatically promote or replace Clinora&apos;s production clinical AI</strong>. Production
-          clinical deployment requires independent institutional and regulatory clearance.
-        </p>
-      </div>
-
       {/* Runs Table / Empty state */}
       {loading ? (
         <div className="py-12 flex items-center justify-center text-slate-400 text-xs gap-2">
@@ -256,7 +250,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
               className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs py-1.5 px-3 h-auto"
             >
               <Play className="w-3.5 h-3.5 mr-1.5" />
-              Start First Evaluation
+              Build First Protocol
             </Button>
           )}
         </div>
@@ -280,7 +274,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    {run.status === 'COMPLETED' && (
+                    {run.status === 'COMPLETED' && !!run.metrics && (
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -293,7 +287,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-slate-200 font-mono">
-                          {run.modelId} <span className="text-indigo-400 text-xs font-normal">{run.modelVersion}</span>
+                          Clinora AI <span className="text-indigo-400 text-xs font-normal">{run.modelVersion}</span>
                         </span>
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-slate-800 text-slate-300 border border-slate-700">
                           {run.taskType}
@@ -303,13 +297,15 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                            run.status === 'COMPLETED'
+                            run.status === 'COMPLETED' && !!run.metrics
                               ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                               : run.status === 'RUNNING'
                                 ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
                                 : run.status === 'FAILED'
                                   ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                  : run.status === 'CONFIGURED'
+                                    ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}
                         >
                           {run.status}
@@ -332,27 +328,27 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         <div className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-center">
                           <div className="text-[9px] text-slate-400 uppercase font-semibold">Acc</div>
                           <div className="text-xs font-mono font-bold text-emerald-400">
-                            {(run.metrics.accuracy * 100).toFixed(1)}%
+                            {(run.metrics.accuracy * 100).toFixed(2)}%
                           </div>
                         </div>
                         <div className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-center">
                           <div className="text-[9px] text-slate-400 uppercase font-semibold">F1</div>
-                          <div className="text-xs font-mono font-bold text-cyan-400">{run.metrics.f1.toFixed(3)}</div>
+                          <div className="text-xs font-mono font-bold text-cyan-400">{percentage(run.metrics.f1)}</div>
                         </div>
                         <div className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-center">
                           <div className="text-[9px] text-slate-400 uppercase font-semibold">Bal. Acc.</div>
                           <div className="text-xs font-mono font-bold text-purple-400">
-                            {(run.metrics.balancedAccuracy ?? run.metrics.rocAuc ?? 0).toFixed(3)}
+                            {percentage(run.metrics.balancedAccuracy)}
                           </div>
                         </div>
                       </div>
                     )}
                     <Button
                       variant="secondary"
-                      onClick={() => setSelectedRun(run)}
+                      onClick={() => { setExecuteError(''); setSelectedRun(run); }}
                       className="text-xs py-1.5 px-3 h-auto border border-slate-700 hover:border-slate-600"
                     >
-                      Inspect Results
+                      Inspect Protocol
                     </Button>
                   </div>
                 </div>
@@ -369,10 +365,10 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <BrainCircuit className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-semibold text-slate-100">Launch AI Model Evaluation</h3>
+                <h3 className="text-base font-semibold text-slate-100">AI Evaluation Protocol Builder</h3>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => { setIsModalOpen(false); setExecuteError(''); }}
                 className="text-slate-400 hover:text-slate-200 transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -384,8 +380,8 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
               {[
                 { step: 1, label: 'Dataset' },
                 { step: 2, label: 'Task' },
-                { step: 3, label: 'Model' },
-                { step: 4, label: 'Ground Truth' },
+                { step: 3, label: 'AI Configuration' },
+                { step: 4, label: 'Reference' },
                 { step: 5, label: 'Review' },
               ].map((s) => (
                 <div key={s.step} className="flex items-center gap-1.5">
@@ -525,9 +521,9 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
             {currentStep === 3 && (
               <div className="space-y-4 text-xs">
                 <div>
-                  <h4 className="font-semibold text-slate-200 text-sm">Step 3 — Select Clinora AI Model</h4>
+                  <h4 className="font-semibold text-slate-200 text-sm">Step 3 — Clinora AI Configuration</h4>
                   <p className="text-slate-400 text-[11px] mt-0.5">
-                    Only authorized Clinora AI models and validated research configurations are supported.
+                    This configuration defines how Clinora AI would be evaluated for the selected task. Automated execution is not enabled until an authorized prediction and reference pipeline is available.
                   </p>
                 </div>
 
@@ -568,32 +564,24 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
             {currentStep === 4 && (
               <div className="space-y-4 text-xs">
                 <div>
-                  <h4 className="font-semibold text-slate-200 text-sm">Step 4 — Ground Truth Definition</h4>
+                  <h4 className="font-semibold text-slate-200 text-sm">Step 4 — Reference Source</h4>
                   <p className="text-slate-400 text-[11px] mt-0.5">
-                    Ground truth defines what this evaluation considers correct. Raw OCR values must never become ground
-                    truth.
+                    Reference availability is checked against the selected immutable dataset version after saving.
                   </p>
                 </div>
 
                 <div className="space-y-2.5">
-                  {(options?.groundTruthDefinitions || []).map((gt) => {
-                    const isSelected = formGroundTruth === gt.code;
-                    return (
-                      <div
-                        key={gt.code}
-                        onClick={() => setFormGroundTruth(gt.code)}
-                        className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-indigo-500 bg-indigo-950/30 shadow-sm'
-                            : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="font-semibold text-slate-200 text-xs">{gt.label}</div>
-                        <p className="text-[11px] text-slate-400 mt-1">{gt.description}</p>
-                        <div className="mt-1.5 text-[10px] font-mono text-cyan-400/80">{gt.code}</div>
-                      </div>
-                    );
-                  })}
+                  <div className="p-3.5 rounded-xl border transition-all border-slate-800 bg-slate-950/60 shadow-sm">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="font-semibold text-slate-200 text-xs">{formTaskType === 'ABNORMALITY_DETECTION' ? 'Verified Lab Reference Range' : 'Verified Reference Labels'}</div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-amber-300">
+                        {formTaskType === 'ABNORMALITY_DETECTION' ? 'CHECKED AFTER SAVING' : 'NOT AVAILABLE'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-2">
+                      A verified reference source is required before Clinora AI predictions can be compared and scored.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -602,9 +590,9 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
             {currentStep === 5 && (
               <div className="space-y-4 text-xs">
                 <div>
-                  <h4 className="font-semibold text-slate-200 text-sm">Step 5 — Review Benchmark Configuration</h4>
+                  <h4 className="font-semibold text-slate-200 text-sm">Step 5 — Review AI Evaluation Protocol</h4>
                   <p className="text-slate-400 text-[11px] mt-0.5">
-                    Verify experiment parameters before execution. Evaluation runs are immutable upon completion.
+                    Save this protocol to check current reference and inference readiness.
                   </p>
                 </div>
 
@@ -617,24 +605,57 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
-                    <span className="text-slate-400 font-sans">Eligible Records:</span>
-                    <span className="text-cyan-300">{selectedDatasetVersion?.recordCount || 0} samples</span>
+                    <span className="text-slate-400 font-sans">Dataset Records:</span>
+                    <span className="text-cyan-300">{selectedDatasetVersion?.recordCount || 0} records</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
-                    <span className="text-slate-400 font-sans">AI Model:</span>
+                    <span className="text-slate-400 font-sans">Task:</span>
+                    <span className="text-purple-300">{options?.taskTypes.find((t) => t.taskType === formTaskType)?.label || formTaskType}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-2">
+                    <span className="text-slate-400 font-sans">AI Engine:</span>
+                    <span className="text-indigo-300">Clinora AI</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-2">
+                    <span className="text-slate-400 font-sans">Evaluation Profile:</span>
                     <span className="text-indigo-300">
-                      {selectedModel?.name || formModelId} ({formModelVersion})
+                      {selectedModel?.name || formModelId}
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-900 pb-2">
-                    <span className="text-slate-400 font-sans">Task Type:</span>
-                    <span className="text-purple-300">{formTaskType}</span>
+                    <span className="text-slate-400 font-sans">Model Version:</span>
+                    <span className="text-indigo-300">
+                      {formModelVersion}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-2">
+                    <span className="text-slate-400 font-sans">Prompt Version:</span>
+                    <span className="text-indigo-300">
+                      {formPromptVersion}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400 font-sans">Ground Truth:</span>
-                    <span className="text-emerald-300 truncate max-w-[220px]" title={formGroundTruth}>
-                      {formGroundTruth}
+                    <span className="text-slate-400 font-sans">Reference Source:</span>
+                    <span className="text-slate-300 truncate max-w-[220px]">
+                      {formTaskType === 'ABNORMALITY_DETECTION' ? 'Verified Lab Reference Range' : 'Not available'}
                     </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  {formTaskType === 'ABNORMALITY_DETECTION'
+                    ? 'Evaluation mode: All Eligible Observations. Live readiness is checked after saving and again before execution.'
+                    : 'Protocol saving is available. Execution for this task is not available.'}
+                </p>
+
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
+                  <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">Planned Metrics</div>
+                  <div className="flex flex-wrap gap-2">
+                    {options?.taskTypes.find((t) => t.taskType === formTaskType)?.primaryMetrics.map((m) => (
+                      <span key={m} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
+                        {m}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
@@ -698,12 +719,12 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   {submitting ? (
                     <>
                       <LoaderCircle className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      Evaluating...
+                      Saving...
                     </>
                   ) : (
                     <>
-                      <Play className="w-3.5 h-3.5 mr-1.5" />
-                      Start Evaluation
+                      <Check className="w-3.5 h-3.5 mr-1.5" />
+                      Save Evaluation Protocol
                     </>
                   )}
                 </Button>
@@ -723,7 +744,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                 <div className="flex items-center gap-2">
                   <BrainCircuit className="w-5 h-5 text-indigo-400" />
                   <h3 className="text-base font-bold text-slate-100 font-mono">
-                    {selectedRun.modelId} <span className="text-indigo-400">{selectedRun.modelVersion}</span>
+                    Clinora AI <span className="text-indigo-400">{selectedRun.modelVersion}</span>
                   </h3>
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
@@ -731,7 +752,9 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                         : selectedRun.status === 'RUNNING'
                           ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          : selectedRun.status === 'CONFIGURED'
+                            ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
                     }`}
                   >
                     {selectedRun.status}
@@ -749,99 +772,39 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
               </button>
             </div>
 
-            {/* Metrics KPI Scorecards */}
-            {selectedRun.metrics ? (
+            {executingRunId === selectedRun.id ? (
+              <div role="status" className="py-8 text-center text-slate-400 text-sm">
+                <LoaderCircle className="w-5 h-5 animate-spin mx-auto text-indigo-400 mb-2" />
+                Evaluating with Clinora AI...
+              </div>
+            ) : selectedRun.metrics ? (
               <div className="space-y-6">
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                    Diagnostic &amp; Statistical Performance
+                    Evaluation Performance
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Accuracy</div>
-                      <div className="text-lg font-mono font-bold text-emerald-400 mt-1">
-                        {(selectedRun.metrics.accuracy * 100).toFixed(2)}%
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      ['Accuracy', selectedRun.metrics.accuracy],
+                      ['Precision', selectedRun.metrics.precision],
+                      ['Sensitivity / Recall', selectedRun.metrics.recall],
+                      ['Specificity', selectedRun.metrics.confusionMatrix.trueNegatives + selectedRun.metrics.confusionMatrix.falsePositives > 0
+                        ? selectedRun.metrics.confusionMatrix.trueNegatives / (selectedRun.metrics.confusionMatrix.trueNegatives + selectedRun.metrics.confusionMatrix.falsePositives) : 0],
+                      ['F1', selectedRun.metrics.f1],
+                      ['Balanced Accuracy', selectedRun.metrics.balancedAccuracy],
+                    ].map(([label, value]) => (
+                      <div key={label} className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                        <div className="text-[10px] text-slate-400 font-semibold uppercase">{label}</div>
+                        <div className="text-lg font-mono font-bold text-emerald-400 mt-1">{percentage(typeof value === 'number' ? value : undefined)}</div>
                       </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">(TP + TN) / Total</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Precision (PPV)</div>
-                      <div className="text-lg font-mono font-bold text-cyan-400 mt-1">
-                        {(selectedRun.metrics.precision * 100).toFixed(2)}%
-                      </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">TP / (TP + FP)</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Recall (Sensitivity)</div>
-                      <div className="text-lg font-mono font-bold text-indigo-400 mt-1">
-                        {(selectedRun.metrics.recall * 100).toFixed(2)}%
-                      </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">TP / (TP + FN)</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">F1-Score</div>
-                      <div className="text-lg font-mono font-bold text-amber-400 mt-1">
-                        {selectedRun.metrics.f1.toFixed(4)}
-                      </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">Harmonic Mean</div>
-                    </div>
+                    ))}
                   </div>
-
-                  <div className="grid grid-cols-3 gap-3 mt-3">
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Balanced Accuracy</div>
-                      <div className="text-base font-mono font-bold text-purple-400 mt-1">
-                        {(selectedRun.metrics.balancedAccuracy ?? selectedRun.metrics.rocAuc ?? 0).toFixed(4)}
-                      </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">(Sensitivity + Specificity) / 2</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">
-                        False Positive Rate (FPR)
-                      </div>
-                      <div className="text-base font-mono font-bold text-rose-400 mt-1">
-                        {(selectedRun.metrics.falsePositiveRate * 100).toFixed(2)}%
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">
-                        False Negative Rate (FNR)
-                      </div>
-                      <div className="text-base font-mono font-bold text-rose-400 mt-1">
-                        {(selectedRun.metrics.falseNegativeRate * 100).toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Task-Specific Extraction Metrics if present */}
-                  {selectedRun.metrics.exactMatchRate !== undefined && (
-                    <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-800/60">
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Exact Match Rate</div>
-                        <div className="text-base font-mono font-bold text-cyan-400 mt-1">
-                          {(selectedRun.metrics.exactMatchRate * 100).toFixed(1)}%
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Tolerance Match Rate</div>
-                        <div className="text-base font-mono font-bold text-emerald-400 mt-1">
-                          {((selectedRun.metrics.toleranceMatchRate ?? 0) * 100).toFixed(1)}%
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Mean Absolute Error</div>
-                        <div className="text-base font-mono font-bold text-amber-400 mt-1">
-                          {selectedRun.metrics.meanAbsoluteError ?? 0}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* 2x2 Confusion Matrix Visualization */}
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                    2x2 Diagnostic Confusion Matrix
+                    Confusion Matrix
                   </h4>
                   <div className="grid grid-cols-2 gap-3 font-mono text-center">
                     <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-800/40">
@@ -871,32 +834,23 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   </div>
                 </div>
 
-                {/* Provenance Details */}
-                <div className="space-y-2 pt-2 border-t border-slate-800 text-xs">
-                  <h4 className="font-semibold uppercase tracking-wider text-slate-400 text-[11px]">
-                    Experiment Provenance &amp; Audit Metadata
-                  </h4>
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 font-mono text-[11px] space-y-2 text-slate-400">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Evaluation Run ID:</span>
-                      <span className="text-slate-200">{selectedRun.id}</span>
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-800 text-xs">
+                  {[
+                    ['Evaluation Mode', 'All Eligible Observations'],
+                    ['Eligible Observations', evaluationConfig(selectedRun).eligibleObservations],
+                    ['Evaluated Observations', selectedRun.metrics.sampleCount],
+                    ['Reference Source', 'Verified Lab Reference Range'],
+                    ['AI Engine', 'Clinora AI'],
+                    ['Prompt Version', evaluationConfig(selectedRun).promptVersion ?? selectedRun.promptVersion],
+                    ['Dataset Version', selectedRun.datasetVersionId],
+                    ['Runtime', selectedRun.startedAt && selectedRun.completedAt
+                      ? `${((Date.parse(selectedRun.completedAt) - Date.parse(selectedRun.startedAt)) / 1000).toFixed(2)} s` : 'Unavailable'],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="min-w-0">
+                      <div className="text-slate-500">{label}</div>
+                      <div className="text-slate-200 break-words mt-1">{value ?? 'Unavailable'}</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Target Dataset Version:</span>
-                      <span className="text-slate-200">{selectedRun.datasetVersionId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Ground Truth Definition:</span>
-                      <span className="text-slate-200">{selectedRun.groundTruthDefinition}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Execution Timestamps:</span>
-                      <span className="text-slate-200">
-                        {selectedRun.startedAt ? new Date(selectedRun.startedAt).toLocaleTimeString() : 'N/A'} →{' '}
-                        {selectedRun.completedAt ? new Date(selectedRun.completedAt).toLocaleTimeString() : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 {/* Collaboration Citation CTA */}
@@ -904,7 +858,7 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      const summary = `AI Evaluation [${selectedRun.modelId} ${selectedRun.modelVersion}] Acc: ${(selectedRun.metrics!.accuracy * 100).toFixed(1)}%, Bal.Acc: ${(selectedRun.metrics!.balancedAccuracy ?? 0).toFixed(3)}, F1: ${selectedRun.metrics!.f1.toFixed(3)} (Run: ${selectedRun.id})`;
+                      const summary = `AI Evaluation [$Clinora AI ${selectedRun.modelVersion}] Acc: ${percentage(selectedRun.metrics!.accuracy)}, Bal.Acc: ${percentage(selectedRun.metrics!.balancedAccuracy)}, F1: ${percentage(selectedRun.metrics!.f1)} (Run: ${selectedRun.id})`;
                       copyToClipboard(summary, selectedRun.id);
                     }}
                     className="text-xs py-1.5 px-3 h-auto"
@@ -931,20 +885,127 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                   </Button>
                 </div>
               </div>
+            ) : evaluationConfig(selectedRun).legacyUnverified ? (
+              <p className="py-6 text-sm text-slate-400">Unverified historical result. Scores are withheld because real MedGemma execution cannot be verified.</p>
             ) : selectedRun.failureReason ? (
               <div className="p-4 rounded-xl bg-red-950/40 border border-red-800 text-red-300 text-xs space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4" />
                   <span>Evaluation Run Failed</span>
                 </div>
-                <p className="text-[11px] text-red-200/80 font-mono mt-1">{selectedRun.failureReason}</p>
+                <p className="text-[11px] text-red-200/80 font-mono mt-1">{evaluationError(selectedRun.failureReason)}</p>
               </div>
-            ) : (
+            ) : selectedRun.status === 'CONFIGURED' ? (
+                (() => {
+                  const config = evaluationConfig(selectedRun);
+                  const pRunner = config.predictionRunner === 'READY' ? 'Ready' : 'Unavailable';
+                  const pRunnerColor = config.predictionRunner === 'READY' ? 'text-emerald-400' : 'text-slate-400';
+                  const rResolver = config.referenceResolver === 'READY' ? 'Ready' : 'Unavailable';
+                  const rResolverColor = config.referenceResolver === 'READY' ? 'text-emerald-400' : 'text-slate-400';
+                  const aScoring = config.automatedExecution === 'READY' ? 'Ready' : 'Unavailable';
+                  const aScoringColor = config.automatedExecution === 'READY' ? 'text-emerald-400' : 'text-slate-400';
+                  const isReady = evaluationReady(selectedRun);
+
+                  return (
+                    <div className="space-y-4">
+                      {executeError && (
+                        <div className="p-3 bg-red-950/40 border border-red-800 rounded-lg flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                          <div className="text-xs text-red-200">{executeError}</div>
+                        </div>
+                      )}
+
+                      <div className="py-6 flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-900/50">
+                        <BrainCircuit className="w-8 h-8 text-slate-600 mb-2" />
+                        <div className="text-sm font-semibold text-slate-300">Protocol Saved</div>
+                        <p className="text-[11px] text-slate-500 mt-1 max-w-sm text-center">
+                          This evaluation protocol has been configured successfully.
+                        </p>
+                      </div>
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 font-mono text-xs">
+                        <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">Execution Readiness</div>
+
+                        {config.eligibleObservations !== undefined && config.eligibleObservations !== null && (
+                          <div className="flex justify-between border-b border-slate-900 pb-2">
+                            <span className="text-slate-400 font-sans">Eligible Observations:</span>
+                            <span className="text-slate-300 font-bold">{config.eligibleObservations}</span>
+                          </div>
+                        )}
+                        {config.referenceSource && (
+                          <div className="flex justify-between border-b border-slate-900 pb-2">
+                            <span className="text-slate-400 font-sans">Reference Source:</span>
+                            <span className="text-slate-300">{config.referenceSource}</span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between border-b border-slate-900 pb-2">
+                          <span className="text-slate-400 font-sans">Prediction Runner:</span>
+                          <span className={pRunnerColor}>{pRunner}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-900 pb-2">
+                          <span className="text-slate-400 font-sans">Reference Resolver:</span>
+                          <span className={rResolverColor}>{rResolver}</span>
+                        </div>
+                        <div className="flex justify-between pb-2">
+                          <span className="text-slate-400 font-sans">Automated Scoring:</span>
+                          <span className={aScoringColor}>{aScoring}</span>
+                        </div>
+                        {!isReady && (
+                          <p className="text-[10px] text-slate-500 font-sans mt-2 pt-2 border-t border-slate-900">
+                            Automated scoring becomes available after an authorized prediction and reference pipeline is connected.
+                          </p>
+                        )}
+                      </div>
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono text-xs">
+                        <div className="text-sm font-semibold text-slate-200 border-b border-slate-900 pb-2 mb-2 font-sans">Planned Metrics</div>
+                        <div className="flex flex-wrap gap-2">
+                          {options?.taskTypes.find((t) => t.taskType === selectedRun.taskType)?.primaryMetrics.map((m) => {
+                            if (selectedRun.taskType === 'ABNORMALITY_DETECTION' && (m === 'Exact Match Rate' || m === 'Tolerance Match Rate' || m === 'Mean Absolute Error' || m === 'False Positive Rate' || m === 'False Negative Rate')) {
+                                return null;
+                            }
+                            return (
+                              <span key={m} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
+                                {m}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {selectedRun.taskType === 'ABNORMALITY_DETECTION' && (
+                        <div className="pt-2 flex justify-center">
+                          <Button
+                            disabled={!isReady || executingRunId !== null}
+                            onClick={async () => {
+                              setExecutingRunId(selectedRun.id);
+                              try {
+                                setExecuteError('');
+                                const updatedRun = await researchApi.executeEvaluation(projectId, selectedRun.id);
+                                setRuns((prev) => prev.map((r) => (r.id === updatedRun.id ? updatedRun : r)));
+                                setSelectedRun(updatedRun);
+                              } catch (err) {
+                                setExecuteError(evaluationError(err));
+                                const refreshed = await researchApi.getEvaluationRun(projectId, selectedRun.id).catch(() => null);
+                                if (refreshed) setSelectedRun(refreshed);
+                              } finally {
+                                setExecutingRunId(null);
+                              }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-1.5 px-4 h-auto w-full max-w-sm"
+                          >
+                            <Play className="w-3.5 h-3.5 mr-1.5" />
+                            Run Evaluation
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+            ) : selectedRun.status === 'RUNNING' ? (
               <div className="py-8 text-center text-slate-400 text-xs">
                 <LoaderCircle className="w-5 h-5 animate-spin mx-auto text-indigo-400 mb-2" />
-                <span>Evaluation calculation in progress...</span>
+                <span>Evaluating with Clinora AI...</span>
               </div>
-            )}
+            ) : <p className="py-6 text-slate-400">{selectedRun.status}</p>}
           </div>
         </div>
       )}
@@ -997,17 +1058,17 @@ export function AIEvaluationSection({ projectId, isApproved }: AIEvaluationSecti
                         {r.datasetVersionId.substring(0, 8)}...
                       </td>
                       <td className="p-3 text-right font-bold text-emerald-400">
-                        {r.metrics ? (r.metrics.accuracy * 100).toFixed(1) + '%' : '-'}
+                        {r.metrics ? (r.metrics.accuracy * 100).toFixed(2) + '%' : '-'}
                       </td>
                       <td className="p-3 text-right text-cyan-400">
-                        {r.metrics ? (r.metrics.precision * 100).toFixed(1) + '%' : '-'}
+                        {r.metrics ? (r.metrics.precision * 100).toFixed(2) + '%' : '-'}
                       </td>
                       <td className="p-3 text-right text-indigo-400">
-                        {r.metrics ? (r.metrics.recall * 100).toFixed(1) + '%' : '-'}
+                        {r.metrics ? (r.metrics.recall * 100).toFixed(2) + '%' : '-'}
                       </td>
-                      <td className="p-3 text-right text-amber-400">{r.metrics ? r.metrics.f1.toFixed(3) : '-'}</td>
+                      <td className="p-3 text-right text-amber-400">{percentage(r.metrics?.f1)}</td>
                       <td className="p-3 text-right text-purple-400 font-bold">
-                        {r.metrics ? (r.metrics.balancedAccuracy ?? r.metrics.rocAuc ?? 0).toFixed(3) : '-'}
+                        {percentage(r.metrics?.balancedAccuracy)}
                       </td>
                     </tr>
                   ))}

@@ -232,7 +232,7 @@ class MedGemmaRuntime:
     def ensure_loaded(self) -> None:
         """llama.cpp /health reports ok only after its model is loaded."""
         try:
-            response = self._client.get("/health")
+            response = self._client.get("/health", timeout=5.0)
             response.raise_for_status()
             payload = response.json()
             if not isinstance(payload, dict) or payload.get("status") != "ok":

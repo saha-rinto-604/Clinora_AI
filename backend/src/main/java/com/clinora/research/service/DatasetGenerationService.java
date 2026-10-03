@@ -257,15 +257,28 @@ public class DatasetGenerationService {
             String objectKey = "datasets/%s/%s/v%d%s".formatted(project.getId(), dataset.getId(), nextVersion, extension);
             String contentType = "JSON".equalsIgnoreCase(deidResult.format()) ? "application/json" : "text/csv";
 
+            UUID versionId = UUID.randomUUID();
             try {
                 storagePort.put(objectKey, deidResult.serializedPayload(), contentType);
+
+                // Snapshot every verified source observation before WIDE pivot/deduplication.
+                Set<String> labVariables = new HashSet<>();
+                for (String code : reqVarsList) {
+                    catalog.getByCode(code).filter(v -> !"Demographics".equalsIgnoreCase(v.category()))
+                        .ifPresent(v -> labVariables.add(code));
+                }
+                var reference = com.clinora.research.service.evaluation.EvaluationReferenceSnapshot.create(
+                    versionId, deidResult.sha256Checksum(), rows, labVariables);
+                String evalKey = "datasets/%s/%s/v%d-eval.json".formatted(project.getId(), dataset.getId(), nextVersion);
+                storagePort.put(evalKey, objectMapper.writeValueAsBytes(reference), "application/json");
+
             } catch (Exception e) {
                 throw new DatasetGenerationException("EXPORT_FAILED", "Failed to export generated dataset to secure storage.", e);
             }
 
             // Create immutable DatasetVersion
             DatasetVersion version = new DatasetVersion(
-                    UUID.randomUUID(),
+                    versionId,
                     dataset.getId(),
                     nextVersion,
                     "1.0",
@@ -562,7 +575,7 @@ public class DatasetGenerationService {
         }
 
         String sql = """
-            SELECT 
+            SELECT
                 rep.patient_user_id,
                 p.date_of_birth,
                 p.gender,
@@ -573,6 +586,9 @@ public class DatasetGenerationService {
                 obs.effective_unit,
                 obs.reference_low,
                 obs.reference_high,
+                obs.verification_status,
+                obs.review_required,
+                obs.effective_comparator,
                 obs.derived_range_flag
             FROM patient_medical_reports rep
             JOIN users u ON rep.patient_user_id = u.id
@@ -613,7 +629,10 @@ public class DatasetGenerationService {
                 rs.getString("effective_unit"),
                 rs.getBigDecimal("reference_low"),
                 rs.getBigDecimal("reference_high"),
-                rs.getString("derived_range_flag")
+                rs.getString("derived_range_flag"),
+                rs.getString("verification_status"),
+                rs.getBoolean("review_required"),
+                rs.getString("effective_comparator")
         );
     }
 

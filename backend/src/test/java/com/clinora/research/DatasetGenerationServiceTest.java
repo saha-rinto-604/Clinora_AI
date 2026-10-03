@@ -144,9 +144,11 @@ class DatasetGenerationServiceTest {
 
         // Mock database row fetch
         when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
-                .thenReturn(List.of(
-                        new DeidentificationService.RawObservationRow(UUID.randomUUID(), LocalDate.of(1980, 1, 1), "MALE", LocalDate.of(2026, 1, 1), "HBA1C", new BigDecimal("6.5"), "%", null, null, null)
-                ));
+                .thenReturn(java.util.stream.IntStream.range(0, 31).mapToObj(i ->
+                    new DeidentificationService.RawObservationRow(UUID.randomUUID(), LocalDate.of(1980, 1, 1),
+                        "MALE", LocalDate.of(2026, 1, 1), "HBA1C", new BigDecimal("6.5"), "%",
+                        i < 24 ? new BigDecimal("4") : null, i < 24 ? new BigDecimal("6") : null,
+                        "NORMAL", "DOCTOR_VERIFIED", false, null)).toList());
 
         // Mock deidentification service transform
         byte[] payload = "subject_id,age_band\nSUBJ-123,45-49".getBytes(StandardCharsets.UTF_8);
@@ -170,6 +172,21 @@ class DatasetGenerationServiceTest {
         verify(versionRepository).saveAndFlush(versionCaptor.capture());
         DatasetVersion savedVersion = versionCaptor.getValue();
         assertEquals(1, savedVersion.getVersionNumber());
+        ArgumentCaptor<byte[]> referenceBytes = ArgumentCaptor.forClass(byte[].class);
+        verify(storagePort).put(endsWith("-eval.json"), referenceBytes.capture(), eq("application/json"));
+        try {
+            var snapshot = new ObjectMapper().readValue(referenceBytes.getValue(),
+                com.clinora.research.service.evaluation.EvaluationReferenceSnapshot.class);
+            assertEquals(31, snapshot.totalObservations());
+            assertEquals(24, snapshot.observations().size());
+            snapshot.validate(savedVersion.getId(), savedVersion.getChecksum());
+            assertTrue(snapshot.observations().stream().allMatch(o -> o.derivedGroundTruth().equals("ABNORMAL")));
+        } catch (java.io.IOException e) { fail(e); }
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sql.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
+        assertTrue(sql.getValue().contains("obs.verification_status IN ('DOCTOR_VERIFIED', 'PATIENT_CONFIRMED', 'PATIENT_CORRECTED')"));
+        assertTrue(sql.getValue().contains("obs.review_required = false"));
+        assertTrue(sql.getValue().contains("obs.effective_numeric_value IS NOT NULL"));
         assertTrue(savedVersion.isImmutable());
         assertEquals("clinora-deid-v1", savedVersion.getDeidentificationProfileVersion());
 

@@ -16,15 +16,18 @@ import com.clinora.research.service.evaluation.AbnormalityDetectionMetricsCalcul
 import com.clinora.research.service.evaluation.ClassificationMetricsCalculator;
 import com.clinora.research.service.evaluation.ExtractionMetricsCalculator;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.clinora.ai.client.MedGemmaClient;
+import com.clinora.research.storage.ResearchDatasetStoragePort;
+import com.clinora.research.repository.AIEvaluationResultRepository;
+import com.clinora.research.service.evaluation.EvaluationReferenceSnapshot;
+import com.clinora.research.service.evaluation.EvaluationExecutionPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.*;
 
@@ -47,33 +50,6 @@ public class AIEvaluationService {
 
     private static final Logger log = LoggerFactory.getLogger(AIEvaluationService.class);
 
-    private static final List<ModelOption> APPROVED_MODELS = List.of(
-            new ModelOption(
-                    "clinora-ai-clinical",
-                    "Clinora AI Clinical",
-                    "v1.2.0",
-                    "lab-extract-v3",
-                    "Clinora AI",
-                    "High-precision clinical extraction and structured parameter recognition."
-            ),
-            new ModelOption(
-                    "clinora-ai-diagnostic",
-                    "Clinora AI Diagnostic",
-                    "v1.0.0",
-                    "abnormality-v2",
-                    "Clinora AI",
-                    "Binary abnormality screening across standardized diagnostic observations."
-            ),
-            new ModelOption(
-                    "clinora-ai-classifier",
-                    "Clinora AI Classifier",
-                    "v1.1.0",
-                    "class-label-v1",
-                    "Clinora AI",
-                    "Multi-class severity and categorical observation classification."
-            )
-    );
-
     private static final List<TaskTypeOption> SUPPORTED_TASKS = List.of(
             new TaskTypeOption(
                     EvaluationTaskType.EXTRACTION,
@@ -91,7 +67,7 @@ public class AIEvaluationService {
                     EvaluationTaskType.ABNORMALITY_DETECTION,
                     "Abnormality Detection",
                     "Screening for verified normal vs abnormal clinical conditions.",
-                    List.of("Sensitivity (Recall)", "Specificity", "F1-Score", "Balanced Accuracy")
+                    List.of("Accuracy", "Precision", "Sensitivity / Recall", "Specificity", "F1", "Balanced Accuracy")
             )
     );
 
@@ -124,6 +100,10 @@ public class AIEvaluationService {
     private final ExtractionMetricsCalculator extractionCalculator;
     private final AbnormalityDetectionMetricsCalculator abnormalityCalculator;
     private final ObjectMapper objectMapper;
+    private final MedGemmaClient aiClient;
+    private final EvaluationExecutionPersistence executionPersistence;
+    private final ResearchDatasetStoragePort storagePort;
+    private final AIEvaluationResultRepository resultRepository;
 
     public AIEvaluationService(
             AIEvaluationRunRepository evaluationRunRepository,
@@ -137,7 +117,11 @@ public class AIEvaluationService {
             ExtractionMetricsCalculator extractionCalculator,
             AbnormalityDetectionMetricsCalculator abnormalityCalculator,
             ObjectMapper objectMapper,
-            com.clinora.research.service.ResearchAccessGuard accessGuard
+            ResearchAccessGuard accessGuard,
+            MedGemmaClient aiClient,
+            ResearchDatasetStoragePort storagePort,
+            AIEvaluationResultRepository resultRepository,
+            EvaluationExecutionPersistence executionPersistence
     ) {
         this.accessGuard = accessGuard;
         this.evaluationRunRepository = evaluationRunRepository;
@@ -151,6 +135,10 @@ public class AIEvaluationService {
         this.extractionCalculator = extractionCalculator;
         this.abnormalityCalculator = abnormalityCalculator;
         this.objectMapper = objectMapper;
+        this.aiClient = aiClient;
+        this.executionPersistence = executionPersistence;
+        this.storagePort = storagePort;
+        this.resultRepository = resultRepository;
     }
 
     /**
@@ -201,14 +189,23 @@ public class AIEvaluationService {
 
         return new AIEvaluationOptionsResponse(
                 versionOptions,
-                APPROVED_MODELS,
+                List.of(
+                    new ModelOption(
+                        "clinora-ai",
+                        "Clinora AI",
+                        "v1.0.0",
+                        "clinical-v1",
+                        "Clinora AI",
+                        "Clinora's unified AI engine for clinical tasks."
+                    )
+                ),
                 SUPPORTED_TASKS,
                 GROUND_TRUTH_DEFINITIONS
         );
     }
 
     /**
-     * Submits a new AI evaluation run and executes the benchmark pipeline against the authorized dataset version.
+     * Saves a protocol; execution requires a separate explicit request.
      */
     @Transactional
     public AIEvaluationRunResponse createAndExecuteRun(UUID projectId, CreateEvaluationRunRequest request, UUID userId) {
@@ -286,17 +283,14 @@ public class AIEvaluationService {
             );
         }
 
-        // 6. Model normalization & validation (Map legacy medgemma-7b-clinical to clinora-ai-clinical)
-        String rawModelId = request.modelId().trim().toLowerCase(Locale.ROOT);
-        String normalizedModelId = "medgemma-7b-clinical".equals(rawModelId) ? "clinora-ai-clinical" : rawModelId;
-        boolean validModel = APPROVED_MODELS.stream().anyMatch(m -> m.id().equalsIgnoreCase(normalizedModelId));
-        if (!validModel) {
-            throw new ResearchApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "INVALID_MODEL",
-                    "Unsupported research model ID: " + request.modelId()
-            );
-        }
+        // 6. Unified Model
+        String normalizedModelId = "clinora-ai";
+        String promptVersion = switch(request.taskType()) {
+            case EXTRACTION -> "lab-extract-v3";
+            case ABNORMALITY_DETECTION -> "abnormality-all-v1";
+            case CLASSIFICATION -> "class-label-v1";
+            default -> "clinical-v1";
+        };
 
         if (request.groundTruthDefinition() == null || request.groundTruthDefinition().isBlank()) {
             throw new ResearchApiException(
@@ -308,12 +302,14 @@ public class AIEvaluationService {
 
         accessGuard.dataset(version.getDatasetId(), userId);
 
-        // 7. Provenance & configuration serialization
-        Map<String, Object> configMap = new HashMap<>(request.configuration() != null ? request.configuration() : Map.of());
-        configMap.put("executionStatus", "UNAVAILABLE");
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("protocolStatus", "CONFIGURED");
+
+        configMap.put("predictionRunner", "UNAVAILABLE");
+        configMap.put("referenceResolver", "UNAVAILABLE");
+        configMap.put("automatedExecution", "UNAVAILABLE");
         configMap.put("datasetChecksum", version.getChecksum());
         configMap.put("datasetFormat", version.getFormat());
-        configMap.put("evaluationHarness", "NOT_CONFIGURED");
 
         String configJson = "{}";
         try {
@@ -327,10 +323,11 @@ public class AIEvaluationService {
                 project.getId(),
                 version.getId(),
                 normalizedModelId,
-                request.modelVersion().trim(),
-                request.promptVersion().trim(),
+                "v1.0.0",
+                promptVersion,
                 request.taskType(),
-                request.groundTruthDefinition().trim(),
+                request.taskType() == EvaluationTaskType.ABNORMALITY_DETECTION
+                    ? "VERIFIED_LAB_REFERENCE_RANGE" : request.groundTruthDefinition().trim(),
                 configJson,
                 userId
         );
@@ -347,22 +344,6 @@ public class AIEvaluationService {
                 "model=" + normalizedModelId + ";task=" + request.taskType()
         );
 
-        auditService.record(
-                userId,
-                AuthAuditAction.AI_EVALUATION_QUEUED,
-                AuthAuditOutcome.SUCCESS,
-                "api",
-                "workspace",
-                run.getId().toString(),
-                "datasetVersion=" + version.getId()
-        );
-
-        // No approved predictions/ground-truth execution adapter exists yet.
-        run.markFailed("EVALUATION_EXECUTION_UNAVAILABLE: Authorized predictions and ground truth are not configured. No evaluation was executed.");
-        auditService.record(userId, AuthAuditAction.AI_EVALUATION_FAILED, AuthAuditOutcome.FAILURE,
-                "api", "workspace", run.getId().toString(), "execution=UNAVAILABLE;metrics=NONE");
-
-        run = evaluationRunRepository.save(run);
         requireRunAccess(run, userId);
         return toResponse(run);
     }
@@ -417,6 +398,9 @@ public class AIEvaluationService {
             );
         }
 
+        requireRunAccess(run, userId);
+        if (run.getStatus() == EvaluationRunStatus.RUNNING) throw new ResearchApiException(
+            HttpStatus.CONFLICT, "INVALID_STATE", "A running evaluation cannot be cancelled.");
         run.markCancelled();
         run = evaluationRunRepository.save(run);
 
@@ -432,6 +416,122 @@ public class AIEvaluationService {
 
         requireRunAccess(run, userId);
         return toResponse(run);
+    }
+
+    public AIEvaluationRunResponse executeEvaluation(UUID projectId, UUID runId, UUID userId) {
+        authorizationService.requireReadAccess(projectId, userId);
+        ProjectMemberRole role = authorizationService.resolveProjectRole(projectId, userId)
+                .orElseThrow(() -> new ResearchApiException(HttpStatus.FORBIDDEN,
+                        ResearchErrorCode.PROJECT_ACCESS_DENIED, "Not a project member."));
+
+        if (role != ProjectMemberRole.OWNER && role != ProjectMemberRole.CO_RESEARCHER) {
+            throw new ResearchApiException(HttpStatus.FORBIDDEN,
+                    "INSUFFICIENT_ROLE", "Only project Owners and Co-Researchers can execute an evaluation run.");
+        }
+
+        AIEvaluationRun run = evaluationRunRepository.findByIdAndProjectId(runId, projectId)
+                .orElseThrow(() -> new ResearchApiException(HttpStatus.NOT_FOUND, "EVALUATION_RUN_NOT_FOUND", "Evaluation run not found"));
+
+        if (run.getStatus() != EvaluationRunStatus.CONFIGURED) {
+            throw new ResearchApiException(HttpStatus.BAD_REQUEST, "INVALID_STATE", "Run must be in CONFIGURED state to execute.");
+        }
+
+        if (run.getTaskType() != EvaluationTaskType.ABNORMALITY_DETECTION) {
+            throw new ResearchApiException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_TASK_TYPE", "Only ABNORMALITY_DETECTION is supported for execution currently.");
+        }
+
+        DatasetVersion version = requireExecutionAccess(run, userId);
+        EvaluationReferenceSnapshot reference = loadReference(version);
+        run = executionPersistence.start(run, userId);
+        try {
+            if (!aiClient.isInferenceRuntimeReady()) {
+                throw new ResearchApiException(HttpStatus.SERVICE_UNAVAILABLE, "CLINORA_AI_UNAVAILABLE",
+                    "Clinora AI is currently unavailable.");
+            }
+            var samples = reference.observations().stream().map(r -> new MedGemmaClient.AbnormalitySample(
+                r.sampleKey(), r.variableCode(), r.value(), r.unit(), r.referenceLow(), r.referenceHigh())).toList();
+            var response = aiClient.evaluateAbnormality(new MedGemmaClient.AbnormalityEvaluationRequest(samples));
+            Map<String, String> predictions = new HashMap<>();
+            Set<String> expected = new HashSet<>();
+            samples.forEach(s -> expected.add(s.sampleKey()));
+            for (var prediction : response.predictions()) {
+                if (!expected.contains(prediction.sampleKey())
+                        || !("NORMAL".equals(prediction.label()) || "ABNORMAL".equals(prediction.label()))
+                        || predictions.putIfAbsent(prediction.sampleKey(), prediction.label()) != null) {
+                    throw invalidResponse();
+                }
+            }
+            if (predictions.size() != samples.size() || !"LLAMA_CPP_MEDGEMMA".equals(response.executionProvider())
+                    || !"abnormality-all-v1".equals(response.promptVersion()) || response.generationCallCount() < 1
+                    || response.modelName() == null || response.modelName().isBlank()) throw invalidResponse();
+            UUID evaluationId = run.getId();
+            List<AIEvaluationResult> pairs = reference.observations().stream().map(r -> new AIEvaluationResult(
+                UUID.randomUUID(), evaluationId, r.sampleKey(), r.variableCode(), r.derivedGroundTruth(),
+                predictions.get(r.sampleKey()))).toList();
+            Map<String, Object> provenance = new HashMap<>();
+            referenceMetadata(provenance, reference);
+            provenance.put("evidenceVersion", "medgemma-all-v1");
+            provenance.put("executionProvider", response.executionProvider());
+            provenance.put("modelName", response.modelName());
+            provenance.put("modelRevision", response.modelRevision());
+            provenance.put("promptVersion", response.promptVersion());
+            provenance.put("aiRequestCount", response.generationCallCount());
+            provenance.put("inferenceDurationMs", response.inferenceDurationMs());
+            provenance.put("evaluatedObservations", pairs.size());
+            run = executionPersistence.complete(run, pairs, provenance, userId);
+        } catch (Exception failure) {
+            String code = failure instanceof ResearchApiException api ? api.getErrorCode()
+                : failure instanceof org.springframework.web.client.RestClientResponseException http
+                    && http.getStatusCode().value() == 502 ? "INVALID_AI_RESPONSE"
+                : failure instanceof org.springframework.web.client.RestClientException ? "CLINORA_AI_UNAVAILABLE"
+                : "EVALUATION_FAILED";
+            log.warn("Evaluation {} failed: {} ({})", runId, code, failure.getClass().getSimpleName());
+            run = executionPersistence.fail(runId, code, userId);
+        }
+        return toResponse(run);
+    }
+
+    private ResearchApiException invalidResponse() {
+        return new ResearchApiException(HttpStatus.BAD_GATEWAY, "INVALID_AI_RESPONSE", "Clinora AI returned an invalid response.");
+    }
+
+    private DatasetVersion requireExecutionAccess(AIEvaluationRun run, UUID user) {
+        DatasetVersion version = datasetVersionRepository.findById(run.getDatasetVersionId()).orElseThrow(() ->
+            new ResearchApiException(HttpStatus.NOT_FOUND, "DATASET_VERSION_NOT_FOUND", "Dataset version unavailable."));
+        ResearchDataset dataset = datasetRepository.findById(version.getDatasetId()).orElseThrow(() ->
+            new ResearchApiException(HttpStatus.NOT_FOUND, "DATASET_NOT_FOUND", "Dataset unavailable."));
+        if (!dataset.getProjectId().equals(run.getProjectId())) throw new ResearchApiException(
+            HttpStatus.FORBIDDEN, "DATASET_PROJECT_MISMATCH", "Dataset does not belong to this project.");
+        accessGuard.dataset(dataset.getId(), user);
+        if (!"ACTIVE".equals(dataset.getStatus()) || dataset.getRevokedAt() != null
+                || (dataset.getExpiresAt() != null && !dataset.getExpiresAt().isAfter(Instant.now())))
+            throw new ResearchApiException(HttpStatus.FORBIDDEN, "DATASET_ACCESS_DENIED", "Dataset access is unavailable.");
+        if (!accessGrantRepository.findByDatasetIdAndResearcherUserId(dataset.getId(), user)
+                .map(DatasetAccessGrant::isActive).orElse(false)) throw new ResearchApiException(
+            HttpStatus.FORBIDDEN, "DATASET_ACCESS_DENIED", "An active dataset grant is required.");
+        return version;
+    }
+
+    private EvaluationReferenceSnapshot loadReference(DatasetVersion version) {
+        try {
+            String key = version.getStorageObjectKey().replaceFirst("\\.(json|csv)$", "-eval.json");
+            var snapshot = objectMapper.readValue(storagePort.get(key).bytes(), EvaluationReferenceSnapshot.class);
+            snapshot.validate(version.getId(), version.getChecksum());
+            return snapshot;
+        } catch (Exception e) {
+            throw new ResearchApiException(HttpStatus.BAD_REQUEST, "REFERENCE_NOT_FOUND",
+                "Verified reference data is unavailable for this dataset version.");
+        }
+    }
+
+    private void referenceMetadata(Map<String, Object> config, EvaluationReferenceSnapshot snapshot) {
+        config.put("evaluationMode", "All Eligible Observations");
+        config.put("referenceSource", "Verified Lab Reference Range");
+        config.put("totalObservations", snapshot.totalObservations());
+        config.put("eligibleObservations", snapshot.observations().size());
+        config.put("excludedObservations", snapshot.totalObservations() - snapshot.observations().size());
+        config.put("normalGroundTruthCount", snapshot.observations().stream().filter(r -> "NORMAL".equals(r.derivedGroundTruth())).count());
+        config.put("abnormalGroundTruthCount", snapshot.observations().stream().filter(r -> "ABNORMAL".equals(r.derivedGroundTruth())).count());
     }
 
     /**
@@ -457,6 +557,42 @@ public class AIEvaluationService {
 
     private AIEvaluationRunResponse toResponse(AIEvaluationRun run) {
         EvaluationMetrics parsedMetrics = null;
+        if (run.getMetrics() != null) {
+            try {
+                parsedMetrics = objectMapper.readValue(run.getMetrics(), EvaluationMetrics.class);
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
+        Map<String, Object> configMap;
+        try { configMap = objectMapper.readValue(run.getConfiguration(), new TypeReference<>() {}); }
+        catch (Exception ignored) { configMap = new HashMap<>(); }
+        if (run.getStatus() == EvaluationRunStatus.CONFIGURED) {
+            boolean predictionReady = run.getTaskType() == EvaluationTaskType.ABNORMALITY_DETECTION
+                && aiClient.isInferenceRuntimeReady();
+            boolean referenceReady = false;
+            configMap.remove("eligibleObservations");
+            if (run.getTaskType() == EvaluationTaskType.ABNORMALITY_DETECTION) {
+                try {
+                    var version = datasetVersionRepository.findById(run.getDatasetVersionId()).orElseThrow();
+                    referenceMetadata(configMap, loadReference(version));
+                    referenceReady = true;
+                } catch (Exception ignored) { /* Missing/legacy snapshots fail closed. */ }
+            }
+            configMap.put("predictionRunner", predictionReady ? "READY" : "UNAVAILABLE");
+            configMap.put("referenceResolver", referenceReady ? "READY" : "UNAVAILABLE");
+            configMap.put("automatedExecution", predictionReady && referenceReady ? "READY" : "UNAVAILABLE");
+        }
+        if (run.getStatus() != EvaluationRunStatus.COMPLETED) parsedMetrics = null;
+        if (run.getStatus() == EvaluationRunStatus.COMPLETED
+                && !"medgemma-all-v1".equals(configMap.get("evidenceVersion"))) {
+            configMap.put("legacyUnverified", true);
+            parsedMetrics = null; // Preserve retained data and status, withhold unsupported evidence.
+        }
+        String config;
+        try { config = objectMapper.writeValueAsString(configMap); }
+        catch (JsonProcessingException e) { throw new IllegalStateException(e); }
 
         return new AIEvaluationRunResponse(
                 run.getId(),
@@ -467,12 +603,12 @@ public class AIEvaluationService {
                 run.getPromptVersion(),
                 run.getTaskType(),
                 run.getGroundTruthDefinition(),
-                run.getStatus() == EvaluationRunStatus.COMPLETED ? EvaluationRunStatus.FAILED : run.getStatus(),
+                run.getStatus(),
                 run.getStartedAt(),
                 run.getCompletedAt(),
-                run.getConfiguration(),
+                config,
                 parsedMetrics,
-                run.getStatus() == EvaluationRunStatus.COMPLETED ? "Historical result has unverified provenance; metrics withheld." : run.getFailureReason(),
+                run.getFailureReason(),
                 run.getCreatedBy(),
                 run.getCreatedAt()
         );

@@ -32,7 +32,7 @@ public class AIEvaluationController {
             @Valid @RequestBody CreateEvaluationRunRequest request
     ) {
         AIEvaluationRunResponse run = evaluationService.createAndExecuteRun(projectId, request, userId(jwt));
-        return ApiResponse.success("AI model evaluation run initiated successfully.", run);
+        return ApiResponse.success("AI evaluation protocol saved successfully.", run);
     }
 
     @GetMapping("/options")
@@ -71,6 +71,16 @@ public class AIEvaluationController {
     ) {
         AIEvaluationRunResponse run = evaluationService.cancelRun(projectId, runId, userId(jwt));
         return ApiResponse.success("AI evaluation run cancelled successfully.", run);
+    }
+
+    @PostMapping("/{runId}/execute")
+    public ApiResponse<AIEvaluationRunResponse> execute(
+            @PathVariable UUID projectId,
+            @PathVariable UUID runId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        AIEvaluationRunResponse run = evaluationService.executeEvaluation(projectId, runId, userId(jwt));
+        return ApiResponse.success("AI evaluation executed successfully.", run);
     }
 
     private UUID userId(Jwt jwt) {

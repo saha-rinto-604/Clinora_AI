@@ -24,21 +24,21 @@ public class AbnormalityDetectionMetricsCalculator {
         }
 
         double accuracy = round((double) (tp + tn) / total);
-        double sensitivity = (tp + fn > 0) ? round((double) tp / (tp + fn)) : 0.0; // Recall
-        double precision = (tp + fp > 0) ? round((double) tp / (tp + fp)) : 0.0;
+        double sensitivity = (tp + fn > 0) ? (double) tp / (tp + fn) : 0.0; // Recall
+        double precision = (tp + fp > 0) ? (double) tp / (tp + fp) : 0.0;
         double f1 = (precision + sensitivity > 0) ? round((2.0 * precision * sensitivity) / (precision + sensitivity)) : 0.0;
 
         double fpr = (fp + tn > 0) ? round((double) fp / (fp + tn)) : 0.0;
         double fnr = (fn + tp > 0) ? round((double) fn / (fn + tp)) : 0.0;
-        double specificity = 1.0 - fpr;
+        double specificity = (tn + fp > 0) ? (double) tn / (tn + fp) : 0.0;
 
         // Balanced Accuracy = (Sensitivity + Specificity) / 2
         double balancedAccuracy = round((sensitivity + specificity) / 2.0);
 
         return new EvaluationMetrics(
                 accuracy,
-                precision,
-                sensitivity,
+                round(precision),
+                round(sensitivity),
                 f1,
                 balancedAccuracy,
                 new ConfusionMatrix(tp, fp, tn, fn),

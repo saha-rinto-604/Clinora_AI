@@ -485,27 +485,10 @@ function OverviewTab({
       )}
 
       {/* De-identification governance */}
-      <div className="rounded-xl border border-emerald-800/30 bg-emerald-950/20 p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <div className="text-sm font-semibold text-emerald-300">De-identification Guarantees</div>
+      <div className="flex items-center justify-end px-1 mt-4">
+        <div className="text-[10px] text-emerald-400/80 font-mono flex items-center gap-1.5" title="Dataset is fully de-identified per protocol.">
+          <ShieldCheck className="w-3.5 h-3.5" /> De-identified per protocol
         </div>
-        <ul className="space-y-1.5 text-xs text-emerald-200/70">
-          {[
-            'Direct identifiers removed (name, email, phone, address, national ID)',
-            'Exact birth dates generalised to 5-year age bands (Clinora research age generalization / 85+ top-coding)',
-            'Observation dates generalised to Year-Quarter (e.g. 2026-Q1)',
-            'Project-scoped HMAC-SHA256 pseudonyms — unlinkable across projects',
-            'Minimum cohort size protection enforced (≥ 10 distinct subjects required; small-cell suppression active)',
-            'Fail-closed patient consent enforcement (only active consented records included)',
-            'Immutable version with SHA-256 checksum stored in private bucket',
-          ].map((g) => (
-            <li key={g} className="flex items-start gap-2">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
-              {g}
-            </li>
-          ))}
-        </ul>
       </div>
 
       {/* Download */}

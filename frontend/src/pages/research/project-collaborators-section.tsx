@@ -852,14 +852,9 @@ export function ProjectCollaboratorsSection({
       {/* ─── TAB 2: RESEARCH NOTES ─────────────────────────────────────────── */}
       {workspaceTab === 'notes' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          {/* PHI Warning Banner */}
-          <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-800/50 bg-amber-950/20 text-amber-300/90 text-xs">
-            <Shield className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
-            <span>
-              <strong className="text-amber-200">Privacy Safeguard:</strong> Research workspace only — do not enter
-              identifiable patient information, medical record numbers, or protected health information into research
-              notes.
-            </span>
+          <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5 px-1">
+            <Shield className="w-3 h-3" />
+            Research workspace only · Do not include identifiable patient information.
           </div>
 
           {notesError && (
@@ -976,13 +971,8 @@ export function ProjectCollaboratorsSection({
       {/* ─── TAB 3: FILES & DOCUMENTS ──────────────────────────────────────── */}
       {workspaceTab === 'files' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-start gap-2.5 p-3 rounded-xl border border-cyan-800/40 bg-cyan-950/20 text-cyan-300/90 text-xs">
-            <Info className="w-4 h-4 shrink-0 mt-0.5 text-cyan-400" />
-            <span>
-              <strong className="text-cyan-200">Clinical Data Boundary:</strong> Project documents stored here are
-              collaborative research artifacts (protocols, analysis plans, dictionaries). They are strictly segregated
-              from patient medical reports and clinical dataset versions.
-            </span>
+          <div className="text-[10px] text-slate-500 font-medium px-1">
+            Collaborative research artifacts are securely segregated from clinical datasets.
           </div>
 
           {filesError && (

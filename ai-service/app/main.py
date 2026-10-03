@@ -13,6 +13,7 @@ from app.services.report_analysis_service import ReportAnalysisService
 from app.services.doctor_support_routing_service import DoctorSupportRoutingService
 from app.services.doctor_support_execution_service import DoctorSupportExecutionService
 from app.services.doctor_query_interpreter_service import DoctorQueryInterpreterService
+from app.services.research_evaluation_service import ResearchEvaluationService
 from app.knowledge.embeddings import ClinicalHashEmbeddingProvider
 from app.knowledge.retrieval import ClinicalKnowledgeRetriever
 from app.knowledge.store import SqliteClinicalKnowledgeStore
@@ -33,10 +34,11 @@ knowledge_store = SqliteClinicalKnowledgeStore(
 knowledge_retriever = ClinicalKnowledgeRetriever(knowledge_store, knowledge_embedding)
 doctor_support_execution_service = DoctorSupportExecutionService(doctor_runtime, knowledge_retriever)
 doctor_query_interpreter_service = DoctorQueryInterpreterService(doctor_runtime)
+research_evaluation_service = ResearchEvaluationService(runtime)
 
 app = FastAPI(title="Clinora AI Service", version="0.2.0")
 app.include_router(build_router(
-    analysis_service, doctor_support_service, doctor_support_execution_service, doctor_query_interpreter_service
+    analysis_service, doctor_support_service, doctor_support_execution_service, doctor_query_interpreter_service, research_evaluation_service
 ))
 
 
@@ -68,7 +70,7 @@ async def clinical_knowledge_health() -> dict[str, object]:
 
 
 @app.get("/ready")
-async def ready() -> dict[str, object]:
+def ready() -> dict[str, object]:
     try:
         runtime.ensure_loaded()
     except ModelUnavailableError as exc:
