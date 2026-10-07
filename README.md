@@ -1,5 +1,9 @@
 # Clinora AI
 
+![Clinora AI — Healthcare and evidence-grounded AI](docs/branding/hero.svg)
+
+[Architecture](#architecture) · [Local setup](#local-development) · [Testing](#testing) · [Repository scope](docs/portfolio-overview.md)
+
 Clinora AI is a role-aware healthcare platform for managing verified Patient information, medical reports, care coordination, and evidence-backed AI explanations. The application separates deterministic clinical facts from AI-generated language: verified values, ranges, dates, comparison eligibility, and evidence remain Clinora's source of truth.
 
 Clinora is not a diagnostic system, and its AI output does not replace professional medical advice.
@@ -24,7 +28,7 @@ Clinora is not a diagnostic system, and its AI output does not replace professio
 - Patient-authorized report review and comparison within appointment workflows
 - Doctor and Researcher application, email verification, status, interview, activation, and administrator access-review flows
 
-There is no general Researcher data workspace in the current application; the implemented Researcher scope is professional-access onboarding.
+The public repository also contains Researcher pages and backend modules for project governance, dataset requests and access, collaboration, audit, and AI evaluation. See [Repository scope](docs/portfolio-overview.md) for source pointers and the distinction between code presence and validated deployment. The sections below focus on the Patient, Doctor, and professional-access workflows.
 
 ## AI and OCR Responsibilities
 
