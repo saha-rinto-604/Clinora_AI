@@ -16,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,6 +26,8 @@ import java.util.UUID;
 @ConditionalOnProperty(name = "clinora.dev.research.patients.enabled", havingValue = "true")
 public class ResearchPatientDevelopmentSeeder implements ApplicationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResearchPatientDevelopmentSeeder.class);
+    // Stable synthetic history: restarting later must not move fixtures outside approved date windows.
+    private static final LocalDate FIXTURE_REPORT_DATE = LocalDate.of(2026, 8, 1);
 
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwordEncoder;
@@ -127,14 +128,20 @@ public class ResearchPatientDevelopmentSeeder implements ApplicationRunner {
             consentId, userId, Timestamp.from(now), Timestamp.from(now), Timestamp.from(now)
         );
 
-        Timestamp reportDate = Timestamp.from(now.minus(Duration.ofDays(fixture.number() * 2L)));
+        Date reportDate = Date.valueOf(FIXTURE_REPORT_DATE.minusDays(fixture.number() * 2L));
         jdbc.update(
             """
             INSERT INTO patient_medical_reports
                 (id, patient_user_id, subject_type, report_date, report_name, report_type, object_key,
                  original_filename, mime_type, size_bytes, sha256_checksum, created_at, updated_at, version)
             VALUES (?, ?, 'SELF', ?, ?, 'LAB_RESULTS', ?, 'dev_fixture.pdf', 'application/pdf', 10240, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', ?, ?, 0)
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (id) DO UPDATE SET report_date = EXCLUDED.report_date
+            WHERE patient_medical_reports.patient_user_id = EXCLUDED.patient_user_id
+              AND patient_medical_reports.object_key = EXCLUDED.object_key
+              AND patient_medical_reports.original_filename = 'dev_fixture.pdf'
+              AND patient_medical_reports.subject_type = 'SELF'
+              AND patient_medical_reports.archived_at IS NULL
+              AND patient_medical_reports.report_date IS DISTINCT FROM EXCLUDED.report_date
             """,
             reportId, userId, reportDate,
             "Research Lab Report " + fixture.number(),

@@ -134,6 +134,19 @@ public class PatientReportAiAnalysisService {
             );
         }
         lockReport(reportId);
+        Boolean extractionActive = jdbc.queryForObject(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM medical_report_extraction_jobs
+                WHERE report_id = ? AND status IN ('QUEUED', 'PROCESSING')
+            )
+            """,
+            Boolean.class, reportId
+        );
+        if (Boolean.TRUE.equals(extractionActive)) {
+            throw new PatientApiException(HttpStatus.CONFLICT, "REPORT_EXTRACTION_IN_PROGRESS",
+                "AI insight will be available after re-extraction is reviewed.");
+        }
         AnalysisContext context = requireVerifiedContext(patientUserId, reportId, report.reportType());
         if (!force) {
             Optional<JobRow> reusable = reusableJob(patientUserId, reportId, context.fingerprint());

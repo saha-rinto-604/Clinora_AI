@@ -10,8 +10,10 @@ import {
   UsersRound,
   XCircle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../../components/ui/button';
 import {
   bloodGroupLabel,
@@ -20,6 +22,7 @@ import {
   bloodNetworkError,
   distanceLabel,
   durationLabel,
+  protectClosedBloodRequest,
   type BloodGroup,
   type BloodNetworkOverview,
   type BloodRequestDetail,
@@ -28,6 +31,7 @@ import {
   type NearbyBloodNetworkPerson,
 } from '../../features/blood-network/blood-network-api';
 import { BloodNetworkMap } from '../../features/blood-network/blood-network-map';
+import { bloodRequestSchema, type BloodRequestFormValues } from '../../features/blood-network/blood-request-form';
 import type { LatLngPoint } from '../../features/blood-network/google-maps-loader';
 import { cn } from '../../lib/cn';
 
@@ -43,6 +47,7 @@ export function PatientBloodNetworkPage() {
   const [request, setRequest] = useState<BloodRequestDetail | null>(null);
   const [selectedBloodGroup, setSelectedBloodGroup] = useState<BloodGroup | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [route, setRoute] = useState<BloodRoute | null>(null);
   const [routeError, setRouteError] = useState('');
   const [routeLoading, setRouteLoading] = useState(false);
@@ -53,21 +58,28 @@ export function PatientBloodNetworkPage() {
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const syncVersion = useRef(0);
+  const invalidateSync = useCallback(() => {
+    syncVersion.current++;
+  }, []);
 
   const syncFromServer = useCallback(
     async (initial = false) => {
+      const version = ++syncVersion.current;
       if (initial) setLoading(true);
       else setSyncing(true);
       try {
         const data = await bloodNetworkApi.overview(selectedBloodGroup ?? undefined);
+        if (version !== syncVersion.current) return;
         setOverview((current) => retainServerSnapshot(current, data));
         if (!selectedBloodGroup && data.selectedBloodGroup) setSelectedBloodGroup(data.selectedBloodGroup);
 
         if (requestId) {
-          const detail = await bloodNetworkApi.request(requestId);
+          const detail = protectClosedBloodRequest(await bloodNetworkApi.request(requestId));
+          if (version !== syncVersion.current) return;
           setRequest((current) => retainServerSnapshot(current, detail));
-          if (detail.owner) {
-            setSelectedPersonId((currentId) => {
+          if (detail.owner && detail.status === 'ACTIVE') {
+            setSelectedMatchId((currentId) => {
               const current = detail.matches.find((person) => person.userId === currentId);
               if (current?.responseStatus === 'ACCEPTED') return current.userId;
               return (
@@ -78,7 +90,7 @@ export function PatientBloodNetworkPage() {
               );
             });
           } else {
-            setSelectedPersonId(null);
+            setSelectedMatchId(null);
           }
         } else {
           setRequest(null);
@@ -98,6 +110,7 @@ export function PatientBloodNetworkPage() {
         }
         setLastSyncedAt(new Date());
       } catch (requestError) {
+        if (version !== syncVersion.current) return;
         setError(bloodNetworkError(requestError, 'Blood Network could not be loaded from Clinora.'));
       } finally {
         if (initial) setLoading(false);
@@ -109,7 +122,8 @@ export function PatientBloodNetworkPage() {
 
   useEffect(() => {
     void syncFromServer(true);
-  }, [syncFromServer]);
+    return invalidateSync;
+  }, [invalidateSync, syncFromServer]);
 
   useEffect(() => {
     const silentSync = () => {
@@ -127,18 +141,22 @@ export function PatientBloodNetworkPage() {
     };
   }, [syncFromServer]);
 
+  const browsingGroup = selectedBloodGroup ?? overview?.selectedBloodGroup ?? 'O_POSITIVE';
+  const showingRequestGroup = request?.bloodGroup === browsingGroup;
   const people = useMemo(
     () =>
-      request
-        ? request.owner
-          ? request.matches.filter(
-              (person) => person.responseStatus !== 'DECLINED' && person.responseStatus !== 'WITHDRAWN',
-            )
-          : []
-        : (overview?.nearbyPeople ?? []),
-    [overview?.nearbyPeople, request],
+      (overview?.nearbyPeople ?? [])
+        .filter((person) => person.bloodGroup === browsingGroup)
+        .map((person) =>
+          request?.status === 'ACTIVE' && showingRequestGroup
+            ? (request.matches.find((match) => match.userId === person.userId && match.responseStatus === 'ACCEPTED') ??
+              person)
+            : person,
+        ),
+    [overview?.nearbyPeople, browsingGroup, request, showingRequestGroup],
   );
   const selectedPerson = people.find((person) => person.userId === selectedPersonId) ?? null;
+  const selectedMatch = request?.matches.find((person) => person.userId === selectedMatchId) ?? null;
   const currentLatitude = overview?.currentUser.latitude;
   const currentLongitude = overview?.currentUser.longitude;
   const currentLocation = useMemo<LatLngPoint | null>(() => {
@@ -149,10 +167,10 @@ export function PatientBloodNetworkPage() {
   const requestOwner = Boolean(request?.owner);
   const requestStatus = request?.status ?? null;
   const routeMatchedUserId =
-    requestStatus === 'ACTIVE'
+    requestStatus === 'ACTIVE' && showingRequestGroup
       ? requestOwner
-        ? selectedPerson?.responseStatus === 'ACCEPTED'
-          ? selectedPerson.userId
+        ? selectedMatch?.responseStatus === 'ACCEPTED'
+          ? selectedMatch.userId
           : null
         : request?.myResponseStatus === 'ACCEPTED'
           ? (overview?.currentUser.userId ?? null)
@@ -223,7 +241,14 @@ export function PatientBloodNetworkPage() {
     setBusy(`request-${action}`);
     setError('');
     try {
-      await bloodNetworkApi.updateStatus(request.id, action);
+      const updated = await bloodNetworkApi.updateStatus(request.id, action);
+      invalidateSync();
+      setRequest(protectClosedBloodRequest(updated));
+      setSelectedPersonId(null);
+      setSelectedMatchId(null);
+      setRoute(null);
+      setRouteError('');
+      setRouteLoading(false);
       await syncFromServer(false);
     } catch (requestError) {
       setError(bloodNetworkError(requestError, 'The request could not be updated.'));
@@ -233,8 +258,10 @@ export function PatientBloodNetworkPage() {
   };
 
   const closeRequestFocus = () => {
+    invalidateSync();
     setRequest(null);
     setSelectedPersonId(null);
+    setSelectedMatchId(null);
     setRoute(null);
     setRouteError('');
     setSearchParams({});
@@ -283,13 +310,17 @@ export function PatientBloodNetworkPage() {
         <section className="relative min-h-[700px] overflow-hidden rounded-[30px] border border-cyan-300/[0.09] bg-[#06111f] shadow-[0_34px_90px_-54px_rgba(8,145,178,0.8)]">
           <BloodNetworkMap
             apiKey={googleMapsApiKey}
-            currentLocation={request?.owner ? null : currentLocation}
+            currentLocation={showingRequestGroup && request?.owner ? null : currentLocation}
             nearbyPeople={people}
-            request={request}
-            route={route}
-            selectedPersonId={selectedPersonId}
+            request={showingRequestGroup ? request : null}
+            route={showingRequestGroup && request?.status === 'ACTIVE' ? route : null}
+            selectedPersonId={selectedPersonId ?? (showingRequestGroup ? selectedMatchId : null)}
             radiusMeters={overview?.radiusMeters ?? 5000}
-            onSelectPerson={(person) => setSelectedPersonId(person.userId)}
+            viewportKey={overview?.selectedBloodGroup === browsingGroup ? browsingGroup : undefined}
+            onSelectPerson={(person) => {
+              setSelectedPersonId(person.userId);
+              if (showingRequestGroup) setSelectedMatchId(person.userId);
+            }}
           />
           <div className="pointer-events-none absolute left-4 right-4 top-4 z-30 flex flex-wrap items-start justify-between gap-3">
             <div className="pointer-events-auto rounded-2xl border border-white/10 bg-slate-950/88 p-2.5 shadow-2xl backdrop-blur-xl">
@@ -304,6 +335,7 @@ export function PatientBloodNetworkPage() {
                 value={selectedBloodGroup ?? overview?.selectedBloodGroup ?? 'O_POSITIVE'}
                 onChange={(event) => {
                   const value = event.target.value as BloodGroup;
+                  invalidateSync();
                   setSelectedBloodGroup(value);
                   setSelectedPersonId(null);
                 }}
@@ -331,12 +363,16 @@ export function PatientBloodNetworkPage() {
           {request ? (
             <RequestWorkspace
               request={request}
-              selectedPerson={selectedPerson}
+              selectedPerson={showingRequestGroup ? selectedMatch : null}
+              showMatches={showingRequestGroup}
               route={route}
               routeLoading={routeLoading}
               routeError={routeError}
               busy={busy}
-              onSelectPerson={(person) => setSelectedPersonId(person.userId)}
+              onSelectPerson={(person) => {
+                setSelectedMatchId(person.userId);
+                setSelectedPersonId(null);
+              }}
               onRespond={respond}
               onUpdate={updateRequest}
               onClose={closeRequestFocus}
@@ -354,6 +390,21 @@ export function PatientBloodNetworkPage() {
               onSelect={(person) => setSelectedPersonId(person.userId)}
             />
           )}
+          {request && !showingRequestGroup ? (
+            selectedPerson ? (
+              <PersonPreview
+                person={selectedPerson}
+                onClose={() => setSelectedPersonId(null)}
+                onRequest={() => setRequestOpen(true)}
+              />
+            ) : (
+              <DiscoveryPanel
+                people={people}
+                loading={loading}
+                onSelect={(person) => setSelectedPersonId(person.userId)}
+              />
+            )
+          ) : null}
         </aside>
       </div>
 
@@ -361,7 +412,7 @@ export function PatientBloodNetworkPage() {
         className="mt-6"
         tab={requestListTab}
         onTabChange={setRequestListTab}
-        nearby={overview?.nearbyRequests ?? []}
+        nearby={(overview?.nearbyRequests ?? []).filter((item) => item.bloodGroup === browsingGroup)}
         mine={overview?.myRequests ?? []}
         onOpen={(item) => setSearchParams({ request: item.id })}
       />
@@ -372,14 +423,13 @@ export function PatientBloodNetworkPage() {
           busy={busy}
           onClose={() => setRequestOpen(false)}
           onCreated={async (created) => {
-            setRequest(created);
+            setRequest(protectClosedBloodRequest(created));
             setSearchParams({ request: created.id });
             setRequestOpen(false);
-            setSelectedPersonId(created.matches.find((person) => person.responseStatus === 'ACCEPTED')?.userId ?? null);
+            setSelectedMatchId(created.matches.find((person) => person.responseStatus === 'ACCEPTED')?.userId ?? null);
             await syncFromServer(false);
           }}
           setBusy={setBusy}
-          setError={setError}
         />
       ) : null}
     </div>
@@ -535,6 +585,7 @@ function PersonPreview({
 
 function RequestWorkspace({
   request,
+  showMatches,
   selectedPerson,
   route,
   routeLoading,
@@ -546,6 +597,7 @@ function RequestWorkspace({
   onClose,
 }: {
   request: BloodRequestDetail;
+  showMatches: boolean;
   selectedPerson: NearbyBloodNetworkPerson | null;
   route: BloodRoute | null;
   routeLoading: boolean;
@@ -596,7 +648,7 @@ function RequestWorkspace({
             <Stat label="Waiting" value={String(pending.length)} />
           </div>
 
-          {request.matches.length ? (
+          {showMatches && request.status === 'ACTIVE' && request.matches.length ? (
             <div className="mt-5">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Nearby responses</p>
               <div className="mt-2 space-y-2">
@@ -636,7 +688,7 @@ function RequestWorkspace({
             </div>
           ) : null}
 
-          {selectedPerson ? (
+          {request.status === 'ACTIVE' && selectedPerson ? (
             <MatchCoordinationCard
               person={selectedPerson}
               route={route}
@@ -666,8 +718,7 @@ function RequestWorkspace({
             </div>
           ) : (
             <div className="mt-5 rounded-xl border border-white/[0.06] bg-slate-950/30 px-3 py-3 text-xs leading-5 text-slate-400">
-              This request is {request.status.toLowerCase()}. Nearby coordination and route sharing are no longer
-              active.
+              This request is {request.status.toLowerCase()}. Contact details, precise locations, and routes are hidden.
             </div>
           )}
         </>
@@ -772,7 +823,7 @@ function DonorRequestPanel({
   busy: string;
   onRespond: (id: string, action: 'ACCEPT' | 'DECLINE') => Promise<void>;
 }) {
-  const accepted = request.myResponseStatus === 'ACCEPTED';
+  const accepted = request.status === 'ACTIVE' && request.myResponseStatus === 'ACCEPTED';
   return (
     <>
       {request.myDistanceMeters != null ? (
@@ -949,41 +1000,53 @@ function CreateRequestPanel({
   onClose,
   onCreated,
   setBusy,
-  setError,
 }: {
   selectedBloodGroup: BloodGroup;
   busy: string;
   onClose: () => void;
   onCreated: (request: BloodRequestDetail) => Promise<void>;
   setBusy: (value: string) => void;
-  setError: (value: string) => void;
 }) {
-  const [bloodGroup, setBloodGroup] = useState<BloodGroup>(selectedBloodGroup);
-  const [unitsNeeded, setUnitsNeeded] = useState(1);
-  const [hospitalName, setHospitalName] = useState('');
-  const [hospitalAddress, setHospitalAddress] = useState('');
-  const [neededBy, setNeededBy] = useState('');
-  const [note, setNote] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<BloodRequestFormValues>({
+    resolver: zodResolver(bloodRequestSchema),
+    defaultValues: {
+      bloodGroup: selectedBloodGroup,
+      unitsNeeded: '1',
+      hospitalName: '',
+      hospitalAddress: '',
+      neededBy: '',
+      note: '',
+    },
+    reValidateMode: 'onChange',
+  });
+  const fieldProps = (name: keyof BloodRequestFormValues) => ({
+    id: `blood-request-${name}`,
+    required: name !== 'note',
+    'aria-invalid': Boolean(errors[name]),
+    'aria-describedby': errors[name] ? `blood-request-${name}-error` : undefined,
+    className: cn(inputClass, errors[name] && 'border-red-400 focus:border-red-400 focus:ring-red-400/10'),
+  });
 
-  const submit = async () => {
-    if (!hospitalName.trim() || !hospitalAddress.trim()) {
-      setError('Add the hospital or donation-centre name and address before sending the request.');
-      return;
-    }
+  const submit = async (values: BloodRequestFormValues) => {
     setBusy('create-request');
-    setError('');
+    setSubmitError('');
     try {
       const created = await bloodNetworkApi.createRequest({
-        bloodGroup,
-        unitsNeeded,
-        hospitalName: hospitalName.trim(),
-        hospitalAddress: hospitalAddress.trim(),
-        ...(neededBy ? { neededBy: new Date(neededBy).toISOString() } : {}),
-        ...(note.trim() ? { note: note.trim() } : {}),
+        bloodGroup: values.bloodGroup as BloodGroup,
+        unitsNeeded: Number(values.unitsNeeded),
+        hospitalName: values.hospitalName,
+        hospitalAddress: values.hospitalAddress,
+        neededBy: new Date(values.neededBy).toISOString(),
+        ...(values.note ? { note: values.note } : {}),
       });
       await onCreated(created);
     } catch (requestError) {
-      setError(bloodNetworkError(requestError, 'The blood request could not be created.'));
+      setSubmitError(bloodNetworkError(requestError, 'The blood request could not be created.'));
     } finally {
       setBusy('');
     }
@@ -996,7 +1059,11 @@ function CreateRequestPanel({
       aria-modal="true"
       aria-labelledby="blood-request-title"
     >
-      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#0a1422] p-5 shadow-2xl sm:p-6">
+      <form
+        noValidate
+        onSubmit={handleSubmit(submit)}
+        className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-[#0a1422] p-5 shadow-2xl sm:p-6"
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-rose-200">Create request</p>
@@ -1017,13 +1084,17 @@ function CreateRequestPanel({
           </button>
         </div>
 
+        {submitError ? (
+          <p role="alert" className="mt-4 text-sm text-red-400">
+            {submitError}
+          </p>
+        ) : null}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Field label="Blood group">
-            <select
-              value={bloodGroup}
-              onChange={(event) => setBloodGroup(event.target.value as BloodGroup)}
-              className={inputClass}
-            >
+          <Field id="blood-request-bloodGroup" required={true} error={errors.bloodGroup?.message} label="Blood group">
+            <select {...register('bloodGroup')} {...fieldProps('bloodGroup')}>
+              <option value="" disabled>
+                Select blood group
+              </option>
               {bloodGroupOptions.map((group) => (
                 <option key={group.value} value={group.value} className="bg-slate-950">
                   {group.label}
@@ -1031,55 +1102,63 @@ function CreateRequestPanel({
               ))}
             </select>
           </Field>
-          <Field label="Units needed">
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={unitsNeeded}
-              onChange={(event) => setUnitsNeeded(Math.max(1, Math.min(20, Number(event.target.value) || 1)))}
-              className={inputClass}
-            />
+          <Field
+            id="blood-request-unitsNeeded"
+            required={true}
+            error={errors.unitsNeeded?.message}
+            label="Units needed"
+          >
+            <input type="number" min={1} max={20} {...register('unitsNeeded')} {...fieldProps('unitsNeeded')} />
           </Field>
-          <Field label="Hospital / donation centre" className="sm:col-span-2">
+          <Field
+            id="blood-request-hospitalName"
+            required={true}
+            error={errors.hospitalName?.message}
+            label="Hospital / donation centre"
+            className="sm:col-span-2"
+          >
             <input
-              value={hospitalName}
-              onChange={(event) => setHospitalName(event.target.value)}
               maxLength={180}
               placeholder="e.g. Dhaka Medical College Hospital"
-              className={inputClass}
+              {...register('hospitalName')}
+              {...fieldProps('hospitalName')}
             />
           </Field>
-          <Field label="Request location address" className="sm:col-span-2">
+          <Field
+            id="blood-request-hospitalAddress"
+            required={true}
+            error={errors.hospitalAddress?.message}
+            label="Request location address"
+            className="sm:col-span-2"
+          >
             <textarea
-              value={hospitalAddress}
-              onChange={(event) => setHospitalAddress(event.target.value)}
               maxLength={500}
               rows={2}
               placeholder="Hospital or donation-centre address"
-              className={inputClass}
+              {...register('hospitalAddress')}
+              {...fieldProps('hospitalAddress')}
             />
           </Field>
-          <Field label="Needed by">
-            <input
-              type="datetime-local"
-              value={neededBy}
-              onChange={(event) => setNeededBy(event.target.value)}
-              className={inputClass}
-            />
+          <Field id="blood-request-neededBy" required={true} error={errors.neededBy?.message} label="Needed by">
+            <input type="datetime-local" {...register('neededBy')} {...fieldProps('neededBy')} />
           </Field>
           <div className="rounded-xl border border-cyan-300/12 bg-cyan-300/[0.045] px-3 py-3 text-xs leading-5 text-cyan-100">
             <LocateFixed size={14} className="mb-2" aria-hidden="true" />
             Clinora geocodes this address on the backend, then uses that point for the real 5 km matching area.
           </div>
-          <Field label="Context for nearby patients" className="sm:col-span-2">
+          <Field
+            id="blood-request-note"
+            required={false}
+            error={errors.note?.message}
+            label="Context for nearby patients"
+            className="sm:col-span-2"
+          >
             <textarea
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
               maxLength={600}
               rows={3}
               placeholder="Keep this brief. Do not include unnecessary medical details."
-              className={inputClass}
+              {...register('note')}
+              {...fieldProps('note')}
             />
           </Field>
         </div>
@@ -1093,7 +1172,7 @@ function CreateRequestPanel({
           <Button variant="appSecondary" onClick={onClose} disabled={busy === 'create-request'}>
             Cancel
           </Button>
-          <Button variant="appPrimary" onClick={() => void submit()} disabled={busy === 'create-request'}>
+          <Button variant="appPrimary" type="submit" disabled={busy === 'create-request'}>
             {busy === 'create-request' ? (
               'Finding nearby people…'
             ) : (
@@ -1103,17 +1182,43 @@ function CreateRequestPanel({
             )}
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
 
-function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+function Field({
+  id,
+  label,
+  required,
+  error,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <label className={cn('grid gap-1.5 text-xs font-semibold text-slate-300', className)}>
-      <span>{label}</span>
+    <div className={cn('grid gap-1.5 text-xs font-semibold text-slate-300', className)}>
+      <label htmlFor={id}>
+        {label}
+        {required ? (
+          <span aria-hidden="true" className="ml-1 text-red-400">
+            *
+          </span>
+        ) : null}
+      </label>
       {children}
-    </label>
+      {error ? (
+        <p id={`${id}-error`} role="alert" className="text-xs font-normal text-red-400">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

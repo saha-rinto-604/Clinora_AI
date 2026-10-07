@@ -251,6 +251,47 @@ class WeeklyCareIntegrationTest {
             () -> doctorNotifications.markRead(otherDoctor,page.items().getFirst().id()));
     }
 
+    @Test void completedOverdueAppointmentLeavesInboxWhileAnotherForSamePatientRemains() {
+        LocalDate day = LocalDate.now(clock).plusDays(1);
+        save(0,day.getDayOfWeek().getValue(),9,11,"IN_PERSON");
+        var first = bookAt(day,9,"IN_PERSON");
+        var second = bookAt(day,10,"IN_PERSON");
+        Clock afterAppointments = Clock.fixed(day.atTime(11,0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+        var access = new DoctorClinicalAccessService(jdbc,afterAppointments);
+        var inbox = new DoctorCareWorkflowService(jdbc,access,afterAppointments);
+        assertTrue(inbox.inbox(doctor).items().stream().anyMatch(item -> item.type().equals("NEEDS_ACTION") && item.appointmentId().equals(first.id())));
+        var documents = new PrescriptionDocumentService(jdbc,access,mock(PatientReportStoragePort.class),
+            new PatientReportStorageProperties(),mock(PatientReportMalwareScanner.class),new PatientReportSecurityProperties(),audit,afterAppointments);
+        var consultations = new ConsultationService(jdbc,access,notifications,new PatientTimelineService(jdbc,afterAppointments),documents,afterAppointments);
+        var started = tx.execute(s -> consultations.start(doctor,first.id()));
+        var completed = tx.execute(s -> consultations.complete(doctor,started.id(),new ConsultationDraftRequest(
+            started.version(),null,null,null,null,List.of(),List.of(),null)));
+        assertEquals("COMPLETED",completed.status());
+        assertNotNull(completed.completedAt());
+        assertEquals("COMPLETED",jdbc.queryForObject("SELECT status FROM appointments WHERE id=?",String.class,first.id()));
+        assertFalse(inbox.inbox(doctor).items().stream().anyMatch(item -> item.type().equals("NEEDS_ACTION") && first.id().equals(item.appointmentId())));
+        assertTrue(inbox.inbox(doctor).items().stream().anyMatch(item -> item.type().equals("NEEDS_ACTION") && second.id().equals(item.appointmentId())));
+    }
+
+    @Test void developmentReseedingDoesNotReopenCompletedAppointmentOrMoveItsTime() {
+        var passwords = mock(org.springframework.security.crypto.password.PasswordEncoder.class);
+        when(passwords.encode(any())).thenReturn("test-password-hash");
+        var seeder = new DoctorDevelopmentSeeder(jdbc,passwords,
+            mock(com.clinora.access.storage.ApplicationDocumentStoragePort.class),
+            mock(PatientReportStoragePort.class),clock,"test-doctor","test-patient");
+        seeder.run(null);
+        UUID appointmentId = jdbc.queryForObject("SELECT id FROM appointments WHERE idempotency_key LIKE 'phase6-dev-today-rumana-%'",UUID.class);
+        Timestamp scheduled = jdbc.queryForObject("SELECT scheduled_start FROM appointments WHERE id=?",Timestamp.class,appointmentId);
+        jdbc.update("UPDATE appointments SET status='COMPLETED' WHERE id=?",appointmentId);
+        jdbc.update("INSERT INTO doctor_consultations (id,appointment_id,doctor_user_id,patient_user_id,status,started_at,completed_at,created_at,updated_at) SELECT ?,id,doctor_user_id,patient_user_id,'COMPLETED',now(),now(),now(),now() FROM appointments WHERE id=?",UUID.randomUUID(),appointmentId);
+        List<?> doctors = org.springframework.test.util.ReflectionTestUtils.invokeMethod(DoctorDevelopmentSeeder.class,"doctors");
+        List<?> patients = org.springframework.test.util.ReflectionTestUtils.invokeMethod(seeder,"patients");
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(seeder,"seedAppointment",doctors.getFirst(),patients.getFirst(),
+            "today-rumana",clock.instant().plus(Duration.ofDays(7)),"Refreshed fixture",clock.instant());
+        assertEquals("COMPLETED",jdbc.queryForObject("SELECT status FROM appointments WHERE id=?",String.class,appointmentId));
+        assertEquals(scheduled,jdbc.queryForObject("SELECT scheduled_start FROM appointments WHERE id=?",Timestamp.class,appointmentId));
+    }
+
     @Test void emptyConsultationCompletesAndPrunesWhollyEmptyCareRows() {
         LocalDate day = LocalDate.now(clock).plusDays(1); save(0,day.getDayOfWeek().getValue(),9,10,"IN_PERSON");
         var appointment = bookAt(day,9,"IN_PERSON");

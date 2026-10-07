@@ -381,6 +381,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
   }, [reportId, sourceRetry]);
 
   const extractionStatus = extraction?.status;
+  const extractionActive = extractionStatus === 'QUEUED' || extractionStatus === 'PROCESSING';
 
   useEffect(() => {
     if (!extractionStatus || !['QUEUED', 'PROCESSING'].includes(extractionStatus)) return;
@@ -603,8 +604,8 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
 
               {showReviewHelp ? (
                 <div className="clinora-report-review-reference__help-note">
-                  Select a row to locate it on the source. Confirm values that match the report, or edit only
-                  Clinora&apos;s transcription when something was read incorrectly.
+                  Select a row to locate it on the source. Edit only values read incorrectly. Row confirmation is
+                  optional; final confirmation confirms all untouched values as shown.
                 </div>
               ) : null}
 
@@ -686,15 +687,21 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
                   {extraction.reviewStatus === 'VERIFIED' ? 'Report data verified' : 'Confirm the extracted results'}
                 </strong>
                 <small>
-                  {extraction.reviewStatus === 'VERIFIED'
-                    ? 'Ready for Clinora AI insight.'
-                    : (extraction.pendingDifferenceCount ?? unresolved)
-                      ? `Review ${extraction.pendingDifferenceCount ?? unresolved} changed, new, or flagged ${(extraction.pendingDifferenceCount ?? unresolved) === 1 ? 'value' : 'values'} before confirmation.`
-                      : 'All extracted values are ready for your confirmation.'}
+                  {extractionActive
+                    ? 'AI insight will be available after re-extraction is reviewed.'
+                    : extraction.reviewStatus === 'VERIFIED'
+                      ? 'Ready for Clinora AI insight.'
+                      : extraction.pendingDifferenceCount
+                        ? `Review ${extraction.pendingDifferenceCount} changed, new, or missing values before confirmation.`
+                        : 'By confirming, I have reviewed these values against the original report. Values I did not edit will be confirmed as shown.'}
                 </small>
               </span>
             </div>
-            {extraction.reviewStatus === 'VERIFIED' ? (
+            {extraction.reviewStatus === 'VERIFIED' && extractionActive ? (
+              <Button variant="appPrimary" disabled>
+                <Sparkles size={16} aria-hidden="true" /> Open AI insight
+              </Button>
+            ) : extraction.reviewStatus === 'VERIFIED' ? (
               <Link to={`/patient/analyze/${reportId}/insight`} className="clinora-reference-primary-button">
                 <Sparkles size={16} aria-hidden="true" /> Open AI insight <ChevronRight size={15} aria-hidden="true" />
               </Link>
@@ -702,7 +709,7 @@ function AnalysisWorkspace({ reportId }: { reportId: string }) {
               <Button
                 variant="appPrimary"
                 onClick={() => void confirmExtraction()}
-                disabled={Boolean(unresolved) || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}
+                disabled={extractionActive || Boolean(extraction.pendingDifferenceCount) || action === 'confirm'}
               >
                 <FileCheck2 size={16} aria-hidden="true" />{' '}
                 {action === 'confirm' ? 'Confirming…' : 'Confirm extracted results'}

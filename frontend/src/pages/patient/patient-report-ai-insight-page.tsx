@@ -128,7 +128,7 @@ function InsightWorkspace({ reportId }: { reportId: string }) {
     return <InsightLoadError message={error || 'This report insight is unavailable.'} />;
   }
 
-  const verified = extraction.status === 'SUCCEEDED' && extraction.reviewStatus === 'VERIFIED';
+  const verified = !['QUEUED', 'PROCESSING'].includes(extraction.status) && extraction.reviewStatus === 'VERIFIED';
   const status = analysis.status;
   const analysisActive = ['QUEUED', 'PROCESSING'].includes(status);
 

@@ -314,21 +314,6 @@ public class PatientReportExtractionService {
                 "Clinora did not find structured laboratory values to confirm in this report."
             );
         }
-        Integer unresolved = jdbc.queryForObject(
-            """
-            SELECT COUNT(*) FROM medical_report_observations
-            WHERE extraction_result_id = ? AND review_required = TRUE AND verification_status = 'UNREVIEWED'
-            """,
-            Integer.class,
-            result.id()
-        );
-        if (unresolved != null && unresolved > 0) {
-            throw new PatientApiException(
-                HttpStatus.CONFLICT,
-                "REPORT_EXTRACTION_REVIEW_REQUIRED",
-                "Review the flagged extracted values before confirming this report."
-            );
-        }
         Integer pendingDifferences = jdbc.queryForObject(
             "SELECT COUNT(*) FROM medical_report_extraction_differences WHERE extraction_result_id = ? AND resolution_status = 'PENDING'",
             Integer.class,

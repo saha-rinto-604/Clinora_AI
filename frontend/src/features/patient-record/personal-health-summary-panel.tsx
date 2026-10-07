@@ -516,14 +516,12 @@ function EvidenceDisclosure({ ids, evidence }: { ids: string[]; evidence: Map<st
 function AiStatus({ summary }: { summary: PersonalHealthSummary }) {
   const available = summary.aiSummary.status === 'AVAILABLE';
   const insufficient = summary.aiSummary.status === 'INSUFFICIENT_DATA';
+  if (!available && !insufficient) return null;
+
   return (
     <div className="sm:text-right">
-      <StatusPill tone={available ? 'success' : insufficient ? 'neutral' : 'warning'}>
-        {available
-          ? 'AI explanation generated'
-          : insufficient
-            ? 'More verified data needed'
-            : 'AI explanation unavailable'}
+      <StatusPill tone={available ? 'success' : 'neutral'}>
+        {available ? 'AI explanation generated' : 'More verified data needed'}
       </StatusPill>
       {summary.aiSummary.cached ? (
         <p className="mt-2 text-[11px] text-[var(--clinora-text-faint)]">Reused for unchanged verified facts</p>

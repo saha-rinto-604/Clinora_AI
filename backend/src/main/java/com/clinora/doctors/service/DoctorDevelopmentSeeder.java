@@ -554,6 +554,11 @@ public class DoctorDevelopmentSeeder implements ApplicationRunner {
                 cancelled_at = NULL,
                 cancellation_reason = NULL,
                 updated_at = EXCLUDED.updated_at
+            WHERE appointments.status = 'BOOKED'
+              AND NOT EXISTS (
+                  SELECT 1 FROM doctor_consultations c
+                  WHERE c.appointment_id = appointments.id
+              )
             """,
             appointmentId,
             patientId,

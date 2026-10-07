@@ -7,6 +7,7 @@ import {
   createHtmlMapOverlay,
   decodeGooglePolyline,
   loadGoogleMaps,
+  type CircleInstance,
   type HtmlMapOverlay,
   type LatLngPoint,
   type MapInstance,
@@ -20,6 +21,7 @@ type BloodNetworkMapProps = {
   route: BloodRoute | null;
   selectedPersonId: string | null;
   radiusMeters: number;
+  viewportKey?: string;
   onSelectPerson: (person: NearbyBloodNetworkPerson) => void;
   onPickRequestLocation?: (point: LatLngPoint) => void;
 };
@@ -32,6 +34,7 @@ export function BloodNetworkMap({
   route,
   selectedPersonId,
   radiusMeters,
+  viewportKey,
   onSelectPerson,
   onPickRequestLocation,
 }: BloodNetworkMapProps) {
@@ -40,6 +43,7 @@ export function BloodNetworkMap({
   const onSelectPersonRef = useRef(onSelectPerson);
   const onPickRequestLocationRef = useRef(onPickRequestLocation);
   const initialViewportSetRef = useRef(false);
+  const fittedViewportKeyRef = useRef<string | undefined>(undefined);
   const [mapRevision, setMapRevision] = useState(0);
   const [loadError, setLoadError] = useState('');
   onSelectPersonRef.current = onSelectPerson;
@@ -97,7 +101,7 @@ export function BloodNetworkMap({
     if (!maps) return;
 
     const overlays: HtmlMapOverlay[] = [];
-    let circle: { setMap: (map: null) => void } | null = null;
+    let circle: CircleInstance | null = null;
     const routeLines: { setMap: (map: null) => void }[] = [];
     const bounds = new maps.LatLngBounds();
     let boundsPointCount = 0;
@@ -128,7 +132,13 @@ export function BloodNetworkMap({
         fillColor: '#0891b2',
         fillOpacity: 0.075,
         clickable: false,
-      }) as { setMap: (map: null) => void };
+      });
+      // Frame the whole matching area even when there are no matches or markers overlap.
+      const radiusBounds = circle.getBounds();
+      if (radiusBounds) {
+        bounds.union(radiusBounds);
+        boundsPointCount += 1;
+      }
     }
 
     if (requestLocation) {
@@ -194,9 +204,13 @@ export function BloodNetworkMap({
       }
     }
 
-    if (!initialViewportSetRef.current && boundsPointCount > 0) {
+    if (
+      boundsPointCount > 0 &&
+      (!initialViewportSetRef.current || (viewportKey !== undefined && viewportKey !== fittedViewportKeyRef.current))
+    ) {
       map.fitBounds(bounds, 84);
       initialViewportSetRef.current = true;
+      fittedViewportKeyRef.current = viewportKey;
     }
 
     return () => {
@@ -213,6 +227,7 @@ export function BloodNetworkMap({
     radiusMeters,
     requestLocation,
     selectedPersonId,
+    viewportKey,
   ]);
 
   useEffect(() => {

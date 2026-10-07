@@ -30,7 +30,10 @@ type MapConstructor = new (
   },
 ) => MapInstance;
 
-type CircleInstance = { setMap: (map: MapInstance | null) => void };
+export type CircleInstance = {
+  setMap: (map: MapInstance | null) => void;
+  getBounds: () => LatLngBoundsInstance | null;
+};
 type CircleConstructor = new (options: {
   map: MapInstance;
   center: LatLngPoint;
@@ -43,7 +46,10 @@ type CircleConstructor = new (options: {
   clickable?: boolean;
 }) => CircleInstance;
 
-type LatLngBoundsInstance = { extend: (point: LatLngPoint) => void };
+type LatLngBoundsInstance = {
+  extend: (point: LatLngPoint) => void;
+  union: (bounds: LatLngBoundsInstance) => void;
+};
 type LatLngBoundsConstructor = new () => LatLngBoundsInstance;
 
 type LatLngInstance = object;

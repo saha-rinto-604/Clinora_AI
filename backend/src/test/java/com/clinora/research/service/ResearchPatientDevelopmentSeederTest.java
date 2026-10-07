@@ -125,11 +125,53 @@ class ResearchPatientDevelopmentSeederTest {
     void restartIsIdempotent() {
         seeder.run(null);
         seeder.run(null);
+        seeder.run(null);
 
         Integer userCount = jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE email LIKE 'research.patient%@clinora.test'", Integer.class);
         assertThat(userCount).isEqualTo(15);
         Integer observationCount = jdbc.queryForObject("SELECT COUNT(*) FROM medical_report_observations o JOIN medical_report_extraction_results res ON o.extraction_result_id = res.id JOIN patient_medical_reports r ON res.report_id = r.id JOIN users u ON r.patient_user_id = u.id WHERE u.email LIKE 'research.patient%@clinora.test'", Integer.class);
         assertThat(observationCount).isEqualTo(59);
+    }
+
+    @Test
+    void repairsDriftingDatesAndPassesActualGenerationQueryWithoutRelaxingConsent() {
+        seeder.run(null);
+        jdbc.update("UPDATE patient_medical_reports SET report_date='2026-10-01' WHERE original_filename='dev_fixture.pdf'");
+        assertThat(approvedRows()).isEmpty();
+
+        seeder = new ResearchPatientDevelopmentSeeder(jdbc, passwordEncoder,
+            Clock.fixed(Instant.parse("2027-10-05T00:00:00Z"), ZoneId.of("UTC")), "test-password");
+        seeder.run(null);
+        seeder.run(null);
+        var rows = approvedRows();
+        assertThat(rows.stream().map(com.clinora.research.deid.DeidentificationService.RawObservationRow::patientUserId).distinct().count()).isEqualTo(15);
+        var deid = new com.clinora.research.deid.DefaultDeidentificationService(
+            new com.fasterxml.jackson.databind.ObjectMapper(), 5);
+        assertThrows(DatasetGenerationException.class, () -> deid.transform(
+            java.util.UUID.randomUUID(), java.util.UUID.randomUUID(), "CSV",
+            java.util.Collections.nCopies(20, rows.get(0)), java.util.List.of("HEMOGLOBIN")));
+        var result = deid.transform(java.util.UUID.randomUUID(), java.util.UUID.randomUUID(), "CSV", rows,
+            java.util.List.of("AGE_BAND", "SEX", "HEMOGLOBIN", "WBC", "PLATELETS", "RBC"));
+        assertThat(new String(result.serializedPayload(), java.nio.charset.StandardCharsets.UTF_8))
+            .doesNotContain("@clinora.test", "Fixture", "patient_user_id", "report_id");
+
+        jdbc.update("UPDATE patient_research_consents SET consent_status='REVOKED', revoked_at=now() WHERE patient_user_id=(SELECT id FROM users WHERE normalized_email='research.patient01@clinora.test')");
+        seeder.run(null);
+        assertThat(approvedRows().stream().map(com.clinora.research.deid.DeidentificationService.RawObservationRow::patientUserId).distinct().count()).isEqualTo(14);
+    }
+
+    private java.util.List<com.clinora.research.deid.DeidentificationService.RawObservationRow> approvedRows() {
+        var generation = org.mockito.Mockito.mock(DatasetGenerationService.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        org.springframework.test.util.ReflectionTestUtils.setField(generation, "jdbcTemplate",
+            new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc));
+        org.springframework.test.util.ReflectionTestUtils.setField(generation, "catalog", new com.clinora.research.domain.catalog.ResearchDataCatalog());
+        org.springframework.test.util.ReflectionTestUtils.setField(generation, "objectMapper", new com.fasterxml.jackson.databind.ObjectMapper());
+        var request = new com.clinora.research.domain.DatasetRequest(java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+            "Synthetic regression", "Verify fixed development history",
+            "{\"ageMin\":10,\"ageMax\":65,\"sexes\":[\"MALE\",\"FEMALE\"],\"dateFrom\":\"2025-01-01\",\"dateTo\":\"2026-09-01\"}",
+            "[\"AGE_BAND\",\"SEX\",\"HEMOGLOBIN\",\"WBC\",\"PLATELETS\",\"RBC\"]",
+            "{\"observationConditions\":[]}", com.clinora.research.domain.DatasetFormat.CSV, clock.instant());
+        return org.springframework.test.util.ReflectionTestUtils.invokeMethod(generation, "fetchEligibleRows", request);
     }
 
     @Test

@@ -68,6 +68,23 @@ class PatientReportAiAnalysisServiceTest {
         verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class));
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void activeExtractionRejectsNormalAndForcedAnalysisRequests(boolean force) throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport(PATIENT_ID);
+        fixture.latestExtraction("VERIFIED");
+        when(fixture.jdbc.queryForObject(contains("FROM medical_report_extraction_jobs"),
+            eq(Boolean.class), eq(REPORT_ID))).thenReturn(true);
+
+        PatientApiException exception = assertThrows(PatientApiException.class,
+            () -> fixture.service.request(PATIENT_ID, REPORT_ID, force));
+
+        assertEquals("REPORT_EXTRACTION_IN_PROGRESS", exception.getErrorCode());
+        verify(fixture.jdbc).queryForObject(contains("status IN ('QUEUED', 'PROCESSING')"), eq(Boolean.class), eq(REPORT_ID));
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO medical_report_ai_analysis_jobs"), any(Object[].class));
+    }
+
     @Test
     void patientCannotRequestAnalysisForAnotherPatientsReport() {
         Fixture fixture = new Fixture();

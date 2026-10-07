@@ -91,6 +91,22 @@ export type BloodNetworkOverview = {
   myRequests: BloodRequestSummary[];
 };
 
+// Drop coordination data from closed snapshots, including responses already in flight.
+export function protectClosedBloodRequest(request: BloodRequestDetail): BloodRequestDetail {
+  if (request.status === 'ACTIVE') return request;
+  return {
+    ...request,
+    requesterContact: null,
+    matches: request.matches.map((person) => ({
+      ...person,
+      displayName: person.displayName.split(' ')[0] + ' ' + (person.displayName.split(' ')[1]?.[0] ?? '') + '.',
+      phone: null,
+      latitude: Math.round(person.latitude * 1000) / 1000,
+      longitude: Math.round(person.longitude * 1000) / 1000,
+    })),
+  };
+}
+
 export type BloodRoute = {
   requestId: string;
   matchedUserId: string;

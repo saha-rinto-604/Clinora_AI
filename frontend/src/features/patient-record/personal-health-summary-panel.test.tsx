@@ -47,7 +47,7 @@ describe('PersonalHealthSummaryPanel briefing', () => {
     );
   });
 
-  it('separates provider failure from configuration and forces a fresh retry', async () => {
+  it('hides the unavailable badge while keeping the briefing and allowing a fresh retry', async () => {
     const generate = vi
       .spyOn(longitudinalHealthApi, 'generateSummary')
       .mockResolvedValueOnce(summary('PERMISSION_DENIED'))
@@ -55,7 +55,8 @@ describe('PersonalHealthSummaryPanel briefing', () => {
     const user = userEvent.setup();
     renderPanel();
     await user.click(screen.getByRole('button', { name: 'Generate summary' }));
-    expect(await screen.findByText('AI explanation unavailable')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your verified health picture' })).toBeInTheDocument();
+    expect(screen.queryByText('AI explanation unavailable')).not.toBeInTheDocument();
     expect(screen.getByText(/does not currently permit this AI explanation/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Refresh summary' }));
     expect(await screen.findByText('AI explanation generated')).toBeInTheDocument();

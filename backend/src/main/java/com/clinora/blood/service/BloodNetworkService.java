@@ -168,8 +168,9 @@ public class BloodNetworkService {
             throw new PatientApiException(HttpStatus.FORBIDDEN, "BLOOD_REQUEST_ACCESS_DENIED", "This blood request is not available to your account.");
         }
 
-        List<NearbyPersonView> matches = owner ? requestMatches(requestId, request.requesterUserId()) : List.of();
-        ContactView requesterContact = !owner && myMatch != null && myMatch.contactShared()
+        boolean active = "ACTIVE".equals(request.status());
+        List<NearbyPersonView> matches = owner ? requestMatches(requestId, request.requesterUserId(), active) : List.of();
+        ContactView requesterContact = active && !owner && myMatch != null && myMatch.contactShared()
             ? contactForUser(counterpartyUserId(userId, request.requesterUserId(), userId))
             : null;
         return new BloodRequestDetailView(
@@ -492,7 +493,7 @@ public class BloodNetworkService {
             .toList();
     }
 
-    private List<NearbyPersonView> requestMatches(UUID requestId, UUID requesterUserId) {
+    private List<NearbyPersonView> requestMatches(UUID requestId, UUID requesterUserId, boolean active) {
         return jdbc.query(
             """
             SELECT u.id AS user_id, u.first_name, u.last_name, u.email, p.phone, p.blood_group,
@@ -506,7 +507,7 @@ public class BloodNetworkService {
             """,
             (rs, rowNum) -> {
                 String status = rs.getString("status");
-                boolean contactShared = coordinationUnlocked(status, rs.getTimestamp("contact_shared_at"));
+                boolean contactShared = active && coordinationUnlocked(status, rs.getTimestamp("contact_shared_at"));
                 PersonCandidate candidate = new PersonCandidate(
                     rs.getObject("user_id", UUID.class),
                     rs.getString("first_name"),

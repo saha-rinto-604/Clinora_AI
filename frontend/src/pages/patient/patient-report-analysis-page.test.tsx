@@ -165,6 +165,38 @@ function renderWorkspace() {
 }
 
 describe('Phase 9P-R2 Patient report analysis UX', () => {
+  it.each(['QUEUED', 'PROCESSING'] as const)(
+    'blocks AI navigation during %s re-extraction while preserving values',
+    async (status) => {
+      mocks.getExtraction.mockResolvedValue({
+        ...extraction,
+        status,
+        reviewStatus: 'VERIFIED',
+        displayedPreviousResult: true,
+      });
+      renderWorkspace();
+      expect(await screen.findByRole('button', { name: 'Open AI insight' })).toBeDisabled();
+      expect(screen.queryByRole('link', { name: /Open AI insight/ })).not.toBeInTheDocument();
+      expect(screen.getAllByText('MCHC').length).toBeGreaterThan(0);
+      expect(screen.getByText('AI insight will be available after re-extraction is reviewed.')).toBeInTheDocument();
+    },
+  );
+
+  it.each(['SUCCEEDED', 'FAILED'] as const)('allows AI for verified evidence after %s extraction', async (status) => {
+    mocks.getExtraction.mockResolvedValue({ ...extraction, status, reviewStatus: 'VERIFIED' });
+    renderWorkspace();
+    expect(await screen.findByRole('link', { name: /Open AI insight/ })).toHaveAttribute(
+      'href',
+      `/patient/analyze/${report.id}/insight`,
+    );
+  });
+
+  it('keeps AI unavailable until a successful new extraction is verified', async () => {
+    renderWorkspace();
+    await screen.findByRole('button', { name: 'Confirm extracted results' });
+    expect(screen.queryByRole('link', { name: /Open AI insight/ })).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.list.mockImplementation((query: { subjectType?: string }) =>
@@ -249,13 +281,19 @@ describe('Phase 9P-R2 Patient report analysis UX', () => {
     expect(screen.getByRole('button', { name: 'Save correction' })).toBeInTheDocument();
   });
 
-  it('keeps unresolved review requirements visible and blocks confirmation', async () => {
+  it('allows one final confirmation without row actions, including flagged values', async () => {
+    mocks.confirmExtraction.mockResolvedValue({ ...extraction, reviewStatus: 'VERIFIED' });
     renderWorkspace();
 
     expect(await screen.findByText('1 needs review')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Looks correct' })).toBeInTheDocument();
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Confirm extracted results' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Confirm extracted results' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm extracted results' }));
+    expect(mocks.confirmExtraction).toHaveBeenCalledWith(report.id);
+    expect(mocks.confirmObservation).not.toHaveBeenCalled();
+    expect(mocks.correctExtraction).not.toHaveBeenCalled();
+    expect(await screen.findByRole('link', { name: /Open AI insight/ })).toBeInTheDocument();
     await waitFor(() => expect(mocks.getExtraction).toHaveBeenCalledWith(report.id));
   });
 

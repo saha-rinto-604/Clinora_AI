@@ -108,19 +108,33 @@ class PatientReportExtractionServiceTest {
     }
 
     @Test
-    void finalConfirmationIsBlockedWhileAnyFlaggedObservationIsUnresolved() throws Exception {
+    void finalConfirmationIncludesUntouchedFlaggedValuesWithoutChangingCorrectionsOrHistory() throws Exception {
         Fixture fixture = new Fixture();
         fixture.ownedReport();
         fixture.latestSuccessfulExtraction();
         fixture.observationCount(2);
         fixture.unresolvedCount(1);
 
-        PatientApiException exception = assertThrows(
-            PatientApiException.class,
-            () -> fixture.service.confirm(PATIENT_ID, REPORT_ID)
-        );
+        fixture.service.confirm(PATIENT_ID, REPORT_ID);
+        verify(fixture.jdbc).update(contains("WHERE extraction_result_id = ? AND verification_status = 'UNREVIEWED'"),
+            any(Timestamp.class), eq(RESULT_ID));
+        verify(fixture.jdbc).update(contains("review_status = 'VERIFIED'"), any(Object[].class));
+        verify(fixture.jdbc, never()).update(contains("medical_report_observation_corrections"), any(Object[].class));
+        verify(fixture.jdbc, never()).update(contains("effective_numeric_value"), any(Object[].class));
+    }
 
-        assertEquals("REPORT_EXTRACTION_REVIEW_REQUIRED", exception.getErrorCode());
+    @Test
+    void finalConfirmationStillRejectsUnresolvedReExtractionDifferences() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.ownedReport();
+        fixture.latestSuccessfulExtraction();
+        fixture.observationCount(2);
+        when(fixture.jdbc.queryForObject(contains("resolution_status = 'PENDING'"),
+            eq(Integer.class), eq(RESULT_ID))).thenReturn(1);
+        PatientApiException exception = assertThrows(PatientApiException.class,
+            () -> fixture.service.confirm(PATIENT_ID, REPORT_ID));
+        assertEquals("RE_EXTRACTION_REVIEW_REQUIRED", exception.getErrorCode());
+        verify(fixture.jdbc, never()).update(contains("PATIENT_CONFIRMED"), any(Object[].class));
         verify(fixture.jdbc, never()).update(contains("review_status = 'VERIFIED'"), any(Object[].class));
     }
 
